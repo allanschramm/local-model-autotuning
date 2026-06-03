@@ -1,0 +1,31 @@
+# Logs
+*.log
+
+# Local benchmark results
+results.tsv
+grid_results.csv
+coding_results/
+grid_execution.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.nexus_venv/
+
+# Models and large binaries (user provides their own)
+*.gguf
+*.bin
+*.safetensors
+
+# Local env files
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
