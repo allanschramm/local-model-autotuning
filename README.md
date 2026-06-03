@@ -206,6 +206,15 @@ Verificação:
 
 Dica: se demorar muito, reduza os jobs do build. `CMAKE_CUDA_ARCHITECTURES=89` cobre bem placas Ampere/RTX 30xx e 40xx. Ajuste para sua GPU se precisar.
 
+### Forks com TurboQuant
+
+Se quiser experimentar compressão de KV cache via TurboQuant, dois forks públicos mantêm essa implementação em cima do `llama.cpp`:
+
+- [BoFan-tunning/llama.cpp-MTP-TurboQuant](https://github.com/BoFan-tunning/llama.cpp-MTP-TurboQuant) — MTP + TurboQuant com CUDA (branch `merge-mtp-turboquant`). Bom ponto de partida se você quer testar a fusão dos dois.
+- [TheTom/llama-cpp-turboquant](https://github.com/TheTom/llama-cpp-turboquant) — implementação de TurboQuant no `llama.cpp`, com suporte AMD/RDNA via Vulkan além de CUDA (branch `feature/turboquant-kv-cache`).
+
+Ambos são forks públicos; verifique a compatibilidade com seu modelo/GPU antes de adotar.
+
 
 
 ## Modelos GGUF
