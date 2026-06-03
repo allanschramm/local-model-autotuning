@@ -59,9 +59,24 @@ def main():
                 with LlamaServerRunner(intent) as runner:
                     client = LlamaClient(runner.port)
                     
+                    system_prefix = ""
+                    if "GEMMA-4" in MODEL.upper() or "THINKING" in MODEL.upper():
+                        system_prefix = "<|think|>\\n"
+                        
+                    retrieval_entries = prepare_eval_data()
+                    claw_tasks_data = discover_claw_tasks()
+                    padding = build_retrieval_padding(50000)
+                    
                     # 1. Nexus
                     print("  [nexus] Running...")
-                    nexus_res = run_nexus(client, maxtok=mt)
+                    nexus_harness = BenchmarkHarness(client, target_tps=30.0)
+                    nexus_res = nexus_harness.evaluate(
+                        [NexusEvalTask(retrieval_entries)], 
+                        context_padding=padding, 
+                        system_prefix=system_prefix,
+                        temp=0.2,
+                        maxtok=mt
+                    )
                     row.update({
                         "nexus_val_score": nexus_res.val_score,
                         "nexus_pass1": nexus_res.val_pass1,
@@ -72,7 +87,14 @@ def main():
                     
                     # 2. Claw
                     print("  [claw] Running...")
-                    claw_res = run_claw(client, maxtok=mt)
+                    claw_harness = BenchmarkHarness(client, target_tps=30.0)
+                    claw_res = claw_harness.evaluate(
+                        [ClawEvalTask(d) for d in claw_tasks_data], 
+                        context_padding=padding, 
+                        system_prefix=system_prefix,
+                        temp=0.2,
+                        maxtok=mt
+                    )
                     row.update({
                         "claw_val_score": claw_res.val_score,
                         "claw_pass1": claw_res.val_pass1,

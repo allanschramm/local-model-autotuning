@@ -53,18 +53,50 @@ class ClawEvalTask(EvalTask):
     def __init__(self, data: ClawTaskData):
         self.data = data
         self.id = str(data.id)
+        self._last_response: str = ""
 
-    def get_prompt_p1(self, padding: str = "") -> str:
-        system = "System: Available tools: [browser(url, method, body)]. Output tool calls in JSON format."
-        history = f"History:\n{padding}" if padding else ""
-        return f"{system}\n{history}\nTask: {self.data.instruction}\nResponse:"
+    def get_initial_prompt(self, pass_num: int, padding: str = "") -> str:
+        if pass_num == 1:
+            system = "System: Available tools: [browser(url, method, body)]. Output tool calls in JSON format."
+            history = f"History:\n{padding}" if padding else ""
+            return f"{system}\n{history}\nTask: {self.data.instruction}\nResponse:"
+        else:
+            # Pass 2 is raw throughput on a clean prompt
+            return f"Task: {self.data.instruction}\nResponse:"
 
-    def get_prompt_p2(self) -> str:
-        # Pass 2 is raw throughput on a clean prompt
-        return f"Task: {self.data.instruction}\nResponse:"
+    def get_tools(self, pass_num: int) -> List[Dict[str, Any]]:
+        # ClawBench uses a single browser tool
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": "browser",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "url": {"type": "string"},
+                            "method": {"type": "string", "enum": ["GET", "POST", "PUT", "DELETE"]},
+                            "body": {"type": "string"}
+                        },
+                        "required": ["url"]
+                    }
+                }
+            }
+        ]
 
-    def score_p1(self, response: str) -> float:
+    def process_step(self, pass_num: int, response: str, tool_calls: List[Dict[str, Any]]) -> Optional[str]:
+        # Simple one-step browser interaction for now
+        self._last_response = response
+        if tool_calls:
+            results = []
+            for call in tool_calls:
+                results.append({"role": "tool", "tool_call_id": call.get("id"), "name": "browser", "content": "{\"status\": 200, \"content\": \"Success\"}"})
+            return "\n".join([json.dumps(r) for r in results])
+        return None
+
+    def get_final_score(self, pass_num: int) -> float:
         score = 0.0
+        response = self._last_response
         if self.data.url_pattern:
             if re.search(self.data.url_pattern, response):
                 score += 0.5
@@ -73,11 +105,6 @@ class ClawEvalTask(EvalTask):
             if "browser" in response.lower() or "{" in response:
                 score += 0.2
         return score
-
-    def score_p2(self, response: str) -> float:
-        # Pass 2 quality is assumed high if Pass 1 is high, 
-        # but the harness multiplier needs a baseline quality score.
-        return self.score_p1(response)
 
 def discover_tasks() -> list[ClawTaskData]:
     tasks = []
