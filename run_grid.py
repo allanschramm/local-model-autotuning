@@ -7,12 +7,12 @@ from typing import Dict, Any
 
 from llama_runner import LlamaServerRunner, ServerIntent
 from llama_client import LlamaClient
-from benchmark_harness import BenchmarkResult
+from benchmark_harness import BenchmarkResult, BenchmarkHarness
 
 # Benchmarks
-from benchmark_search import run_benchmark as run_nexus
-from benchmark_search_claw import run_benchmark as run_claw
 from benchmark_coding import run_benchmark as run_coding
+from prepare import prepare_eval_data, build_context_padding, NexusEvalTask
+from prepare_claw import discover_tasks as discover_claw_tasks, ClawEvalTask
 
 # Configuration
 KV_CACHES = ["q4_0", "q4_1", "q5_0", "q5_1", "q8_0"]
@@ -48,6 +48,7 @@ def main():
                 model_path=MODELS_DIR / MODEL,
                 ctx_size=CTX_SIZE,
                 kv_cache=kv,
+                flash_attn="on",
                 port=PORT,
                 ngl=999
             )
@@ -65,7 +66,7 @@ def main():
                         
                     retrieval_entries = prepare_eval_data()
                     claw_tasks_data = discover_claw_tasks()
-                    padding = build_retrieval_padding(50000)
+                    padding = build_context_padding(50000)
                     
                     # 1. Nexus
                     print("  [nexus] Running...")
