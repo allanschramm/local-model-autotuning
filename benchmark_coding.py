@@ -81,31 +81,14 @@ def resolve_llama_server() -> Path:
 
 import urllib.request
 
-def wait_for_server(server_proc: subprocess.Popen[str], port: int, timeout: int = 600) -> bool:
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        if server_proc.poll() is not None:
-            return False
-        try:
-            req = urllib.request.Request(f"http://127.0.0.1:{port}/health")
-            with urllib.request.urlopen(req, timeout=1.0) as response:
-                if response.status == 200:
-                    return True
-        except Exception:
-            time.sleep(1.0)
-    return False
-
-def start_server(
+def build_llama_cmd(
     llama_server: Path,
     model_path: Path,
-    port: int,
-    server_env: dict[str, str],
-) -> tuple[subprocess.Popen[str], Any]:
-    cmd = [
+) -> list[str]:
+    return [
         str(llama_server),
         "--model", str(model_path),
         "--host", "127.0.0.1",
-        "--port", str(port),
         "--ctx-size", str(CTX_SIZE),
         "--batch-size", str(BATCH_SIZE),
         "--ubatch-size", str(UBATCH_SIZE),
@@ -117,13 +100,6 @@ def start_server(
         "--flash-attn", FLASH_ATTN,
         "--verbose"
     ]
-
-    server_log_path = ROOT_DIR / "llama_server_coding.log"
-    server_log = open(server_log_path, "w", encoding="utf-8")
-    server_proc = subprocess.Popen(
-        cmd, stdout=server_log, stderr=subprocess.STDOUT, env=server_env, text=True
-    )
-    return server_proc, server_log
 
 def run_evalplus(dataset: str, port: int, output_dir: Path, model_name: str, is_test: bool = False) -> dict:
     """Run EvalPlus codegen and evaluate."""
@@ -230,38 +206,29 @@ def main():
 
         print(f"\nBenchmarking Coding: {model_name}")
         
-        # Start server with enough context for coding
-        print(f"Starting server on port {PORT}...")
-        server_proc, server_log = start_server(llama_server, model_path, PORT, server_env)
+        from llama_runner import LlamaServerRunner
+        
+        cmd = build_llama_cmd(llama_server, model_path)
+        log_file = ROOT_DIR / "llama_server_coding.log"
         
         try:
-            print(f"Waiting for server to be ready (timeout 600s)...")
-            if not wait_for_server(server_proc, PORT):
-                print("FAIL: Server failed to start or health check timed out.")
-                # Print last lines of server log
-                server_log.seek(0)
-                print("Last server log lines:")
-                print(server_log.read())
-                continue
-
-            print("Server is ready. Starting EvalPlus...")
-            # Run HumanEval and MBPP
-            he_scores = run_evalplus("humaneval", PORT, output_base, model_name, is_test=is_test)
-            mbpp_scores = run_evalplus("mbpp", PORT, output_base, model_name, is_test=is_test)
-            
-            results.append({
-                "model": model_name,
-                "he_base": he_scores.get("pass1_base", 0),
-                "he_plus": he_scores.get("pass1_plus", 0),
-                "mbpp_base": mbpp_scores.get("pass1_base", 0),
-                "mbpp_plus": mbpp_scores.get("pass1_plus", 0)
-            })
-            
-        finally:
-            if server_proc.poll() is None:
-                server_proc.terminate()
-                server_proc.wait()
-            server_log.close()
+            with LlamaServerRunner(cmd, server_env, PORT, timeout=600, log_path=log_file) as runner:
+                print(f"Server is ready on port {runner.port}. Starting EvalPlus...")
+                
+                # Run HumanEval and MBPP
+                he_scores = run_evalplus("humaneval", runner.port, output_base, model_name, is_test=is_test)
+                mbpp_scores = run_evalplus("mbpp", runner.port, output_base, model_name, is_test=is_test)
+                
+                results.append({
+                    "model": model_name,
+                    "he_base": he_scores.get("pass1_base", 0),
+                    "he_plus": he_scores.get("pass1_plus", 0),
+                    "mbpp_base": mbpp_scores.get("pass1_base", 0),
+                    "mbpp_plus": mbpp_scores.get("pass1_plus", 0)
+                })
+        except RuntimeError as e:
+            print(f"FAIL: {e}")
+            continue
 
     print("\n" + "="*80)
     print("CODING BENCHMARK RESULTS")

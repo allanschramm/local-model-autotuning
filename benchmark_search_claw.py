@@ -101,81 +101,23 @@ def resolve_llama_server() -> Path:
     )
 
 
-import urllib.request
-
-def wait_for_server(server_proc: subprocess.Popen[str], port: int, timeout: int = 90) -> bool:
-    # ⚡ Bolt Optimization: Use urllib instead of spawning curl process.
-    # Saves significant overhead (~0.1s to ~0.2s per iteration).
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        if server_proc.poll() is not None:
-            return False
-        try:
-            req = urllib.request.Request(f"http://127.0.0.1:{port}/health")
-            with urllib.request.urlopen(req, timeout=0.5) as response:
-                if response.status == 200:
-                    return True
-        except Exception:
-            time.sleep(0.1)
-    return False
-
-
-def candidate_ports(preferred: int) -> list[int]:
-    return list(dict.fromkeys((preferred, preferred + 1, preferred + 2, 18080, 28080)))
-
-
-def start_vram_sampler(stop_event: threading.Event, peak: dict[str, float]) -> threading.Thread:
-    def sampler() -> None:
-        while not stop_event.is_set():
-            try:
-                res = subprocess.check_output(
-                    [
-                        "nvidia-smi",
-                        "--query-gpu=memory.used",
-                        "--format=csv,noheader,nounits",
-                        "-i",
-                        "0",
-                    ],
-                    text=True,
-                )
-                current = float(res.strip() or 0.0)
-                if current > peak["value"]:
-                    peak["value"] = current
-            except FileNotFoundError:
-                print("Error: nvidia-smi not found. VRAM sampling stopped.")
-                break
-            except (subprocess.CalledProcessError, ValueError) as e:
-                print(f"Warning: VRAM sampling error: {e}")
-            stop_event.wait(0.2)
-
-    thread = threading.Thread(target=sampler, daemon=True)
-    thread.start()
-    return thread
-
-
-def read_server_log(path: str) -> str:
-    return Path(path).read_text(encoding="utf-8", errors="replace")
-
-
-def start_server(
-    llama_server: Path,
+def build_llama_cmd(
+    llama_server,
     port: int,
-    server_env: dict[str, str],
     ctx_size: int | None = None,
     flash_attn: str | None = None,
     kv_cache: str | None = None,
-) -> tuple[subprocess.Popen[str], tempfile._TemporaryFileWrapper[str], list[str]]:
+) -> list[str]:
     _ctx = ctx_size if ctx_size is not None else CTX_SIZE
     _fa = flash_attn if flash_attn is not None else FLASH_ATTN
     _kv = kv_cache if kv_cache is not None else KV_CACHE_TYPE
+    
     cmd = [
         str(llama_server),
         "--model",
         str(MODEL_FILE),
         "--host",
         "127.0.0.1",
-        "--port",
-        str(port),
         "--ctx-size",
         str(_ctx),
         "--batch-size",
@@ -196,22 +138,27 @@ def start_server(
         _fa,
     ]
 
-    server_log = tempfile.NamedTemporaryFile(
-        mode="w+",
-        encoding="utf-8",
-        prefix="autoresearch-llama-server-",
-        suffix=".log",
-        delete=True,
-    )
-    server_proc = subprocess.Popen(
-        cmd,
-        stdout=server_log,
-        stderr=subprocess.STDOUT,
-        env=server_env,
-        text=True,
-    )
-    return server_proc, server_log, cmd
+    # MTP Optimization: Detect MTP models and enable built-in speculative decoding.
+    if "MTP" in str(MODEL_FILE).upper():
+        print(f"  [MTP] Multi-Token Prediction detected for {MODEL_FILE.name}. Enabling draft-mtp.")
+        cmd += [
+            "--spec-type", "draft-mtp",
+            "--spec-draft-n-max", "1",
+            "--spec-draft-type-k", _kv,
+            "--spec-draft-type-v", _kv,
+        ]
 
+    # VITRIOL Optimization: Hardware Necromancy for large MoE models.
+    moe_indicators = ["MOE", "A3B", "A4B", "A1B", "A2B", "8X3B", "8X4B", "10B", "11B", "12B", "13B", "14B", "15B", "16B", "17B", "18B", "19B", "20B", "21B", "22B", "23B", "24B", "25B", "26B", "35B"]
+    model_name_up = str(MODEL_FILE).upper()
+    is_moe = any(ind in model_name_up for ind in moe_indicators)
+    is_small_dense = any(f"-{x}B" in model_name_up for x in ["2", "4", "7", "8", "9"]) and not ("MOE" in model_name_up or "A1B" in model_name_up)
+
+    if is_moe and not is_small_dense:
+        print(f"  [VITRIOL] MoE Expert Streaming enabled for {MODEL_FILE.name}. Offloading experts to CPU.")
+        cmd += ["--override-tensor", ".*exps.*=CPU"]
+
+    return cmd
 
 def main(model_name: str = MODEL_NAME, ctx_size: int | None = None, flash_attn: str | None = None, kv_cache: str | None = None) -> int:
     global MODEL_FILE
@@ -227,105 +174,64 @@ def main(model_name: str = MODEL_NAME, ctx_size: int | None = None, flash_attn: 
     server_env["LD_LIBRARY_PATH"] = f"{llama_lib_dir}:{existing}" if existing else llama_lib_dir
 
     t_start = time.time()
-    server_proc: subprocess.Popen[str] | None = None
-    server_log: tempfile._TemporaryFileWrapper[str] | None = None
-    port = PORT
-    peak_vram = {"value": 0.0}
-    stop_event = threading.Event()
-    sampler = start_vram_sampler(stop_event, peak_vram)
-
+    
+    cmd = build_llama_cmd(llama_server, PORT, ctx_size=ctx_size, flash_attn=flash_attn, kv_cache=kv_cache)
+    
+    from llama_runner import LlamaServerRunner
+    
     try:
-        startup_tail: list[str] = []
-        for candidate_port in candidate_ports(PORT):
-            server_proc, server_log, cmd = start_server(llama_server, candidate_port, server_env, ctx_size=ctx_size, flash_attn=flash_attn, kv_cache=kv_cache)
-            port = candidate_port
-            print(f"Starting server: {' '.join(cmd)}")
-            if wait_for_server(server_proc, port):
-                break
+        with LlamaServerRunner(cmd, server_env, PORT) as runner:
+            port = runner.port
+            peak_vram = {"value": runner.peak_vram_mb}
+            print("Server started. Running evaluation...")
 
-            server_log.flush()
-            startup_tail = read_server_log(server_log.name).splitlines()[-20:]
-            bind_failed = any("couldn't bind http server socket" in line.lower() for line in startup_tail)
+            # System Prefix Logic (Thinking Mode)
+            system_prefix = ""
+            if "GEMMA-4" in model_name.upper() or "THINKING" in model_name.upper():
+                print(f"  [Thinking] Enabling Thinking Mode prefix (< | t h i n k | >) for {model_name}.")
+                system_prefix = "<|think|>\n"
 
-            if server_proc.poll() is None:
-                server_proc.terminate()
-                try:
-                    server_proc.wait(timeout=10)
-                except subprocess.TimeoutExpired:
-                    server_proc.kill()
-                    server_proc.wait(timeout=5)
-            server_log.close()
-            server_proc = None
-            server_log = None
-
-            if not bind_failed:
-                print("FAIL: Server crashed or failed to start.")
-                if startup_tail:
-                    print("SERVER LOG:")
-                    for line in startup_tail:
-                        print(line)
-                return 1
-        else:
-            print("FAIL: Server could not bind any candidate port.")
-            if startup_tail:
-                print("SERVER LOG:")
-                for line in startup_tail:
-                    print(line)
-            return 1
-
-        assert server_log is not None
-        server_log.flush()
-        log_content = read_server_log(server_log.name)
-        server_output = log_content.lower()
-        if "no usable gpu found" in server_output or "gpu-layers option will be ignored" in server_output:
-            print("FAIL: Server started without GPU support. GPU-only mode required.")
-            return 1
-
-        print("Server started. Running dual evaluation (Nexus Retrieval + ClawBench Agency)...")
+            # Pass 1: Retrieval Score (from original prepare.py)
+            val_retrieval, p1_ret, p2_ret, tps_ret, time_ret = evaluate_retrieval(
+                model_name=model_name,
+                port=port,
+                temp=TEMP,
+                top_p=TOP_P,
+                top_k=TOP_K,
+                min_p=MIN_P,
+                presence_penalty=PRES_PENALTY,
+                frequency_penalty=FREQ_PENALTY,
+                repeat_penalty=REP_PENALTY,
+                maxtok=MAXTOK,
+                target_tps=TARGET_TPS,
+                context_target_tokens=50000,
+                system_prefix=system_prefix,
+            )
+            
+            # Pass 2: Agency Score (from prepare_claw.py)
+            val_agency, p1_age, p2_age, tps_age, time_age = evaluate_agency(
+                model_name=model_name,
+                port=port,
+                temp=TEMP,
+                target_tps=TARGET_TPS,
+                context_target_tokens=0,
+                system_prefix=system_prefix,
+            )
+            
+            tokens_per_sec = round((tps_ret + tps_age) / 2, 2)
+            if tokens_per_sec < 30.0:
+                print(f"  [penalty] Throughput ({tokens_per_sec:.2f}) below 30 TPS floor. Score nulled.")
+                val_score = 0.0
+            else:
+                val_score = round(0.4 * val_retrieval + 0.6 * val_agency, 6)
+            
+            eval_seconds = time_ret + time_age
+            peak_vram["value"] = runner.peak_vram_mb
+            
+    except RuntimeError as e:
+        print(f"FAIL: {e}")
+        return 1
         
-        # Pass 1: Retrieval Score (from original prepare.py)
-        # Note: target_tokens=50000 matches user stress requirement
-        val_retrieval, p1_ret, p2_ret, tps_ret, time_ret = evaluate_retrieval(
-            model_name=model_name,
-            port=port,
-            temp=TEMP,
-            top_p=TOP_P,
-            top_k=TOP_K,
-            min_p=MIN_P,
-            presence_penalty=PRES_PENALTY,
-            frequency_penalty=FREQ_PENALTY,
-            repeat_penalty=REP_PENALTY,
-            maxtok=MAXTOK,
-            target_tps=TARGET_TPS,
-            context_target_tokens=50000,
-        )
-        
-        # Pass 2: Agency Score (from prepare_claw.py)
-        val_agency, p1_age, p2_age, tps_age, time_age = evaluate_agency(
-            model_name=model_name,
-            port=port,
-            temp=TEMP,
-            target_tps=TARGET_TPS,
-            context_target_tokens=50000,
-        )
-        
-        # Composite Nexus-Claw Score (Equal weights for Memory and Agency)
-        val_score = round(0.5 * val_retrieval + 0.5 * val_agency, 6)
-        tokens_per_sec = round((tps_ret + tps_age) / 2, 2)
-        eval_seconds = time_ret + time_age
-    finally:
-        stop_event.set()
-        sampler.join(timeout=1)
-        if server_proc is not None and server_proc.poll() is None:
-            server_proc.terminate()
-            try:
-                server_proc.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                server_proc.kill()
-                server_proc.wait(timeout=5)
-        if server_log is not None:
-            server_log.close()
-
     total_seconds = time.time() - t_start
 
     print("---")
