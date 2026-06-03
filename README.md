@@ -147,13 +147,6 @@ O benchmark possui piso de throughput (30 TPS). Passar de `q4_0` para `q8_0` pod
 - `run_grid.py` — executa uma grade de `kv_cache` x `max_tokens` para comparação.
 - `data/memory_fixture.json` — fixture determinística para reprodução.
 
-## Regras do repositório público
-
-- Não foram expostos e-mails, chaves ou dados sensíveis.
-- Não foram adicionadas dependências externas por rede em tempo de execução.
-- A engine de benchmark original foi mantida; apenas paths e docs foram adaptados.
-- Artefatos locais (logs, CSVs, `.gguf`, wheels/venv) continuam ignorados.
-
 ## FAQ rápido
 
 - `FAIL: llama-server not found`: verifique `AUTORESEARCH_LLAMA_CPP_ROOT`.
