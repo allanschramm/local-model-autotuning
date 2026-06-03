@@ -146,41 +146,31 @@ def build_context_padding(target_tokens: int = 50_000) -> str:
         current_chars += len(block)
     return "".join(blocks)
 
-def evaluate_claw_workflow(
-    *,
-    model_name: str,
-    port: int = 8080,
+def run_benchmark(
+    client: LlamaClient,
+    max_tokens: int = 512,
+    system_prefix: str = "",
+    context_tokens: int = 50000,
     temp: float = 0.2,
     target_tps: float = 30.0,
-    context_target_tokens: int = 50_000,
-    system_prefix: str = "",
     **kwargs
-) -> tuple[float, float, float, float, float]:
+) -> BenchmarkResult:
+    """Unified entry point for Claw benchmark."""
     tasks_data = discover_tasks()
     if not tasks_data:
-        print("Error: No ClawBench tasks found.")
-        return 0.0, 0.0, 0.0, 0.0, 0.0
+        raise RuntimeError("No ClawBench tasks found.")
 
     tasks = [ClawEvalTask(d) for d in tasks_data]
-    padding = build_context_padding(context_target_tokens)
+    padding = build_context_padding(context_tokens)
     
-    client = LlamaClient(port)
     harness = BenchmarkHarness(client, target_tps=target_tps)
-    
-    result = harness.evaluate(
+    return harness.evaluate(
         tasks,
         context_padding=padding,
         system_prefix=system_prefix,
         temp=temp,
+        maxtok=max_tokens,
         **kwargs
-    )
-    
-    return (
-        result.val_score, 
-        result.val_pass1, 
-        result.val_pass2, 
-        result.avg_tps, 
-        result.total_seconds
     )
 
 if __name__ == "__main__":

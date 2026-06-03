@@ -7,12 +7,12 @@ from typing import Dict, Any
 
 from llama_runner import LlamaServerRunner, ServerIntent
 from llama_client import LlamaClient
-from benchmark_harness import BenchmarkResult, BenchmarkHarness
+from benchmark_harness import BenchmarkResult
 
 # Benchmarks
 from benchmark_coding import run_benchmark as run_coding
-from prepare import prepare_eval_data, build_context_padding, NexusEvalTask
-from prepare_claw import discover_tasks as discover_claw_tasks, ClawEvalTask
+from prepare import run_benchmark as run_nexus
+from prepare_claw import run_benchmark as run_claw
 
 # Configuration
 KV_CACHES = ["q4_0", "q4_1", "q5_0", "q5_1", "q8_0"]
@@ -64,20 +64,9 @@ def main():
                     if "GEMMA-4" in MODEL.upper() or "THINKING" in MODEL.upper():
                         system_prefix = "<|think|>\\n"
                         
-                    retrieval_entries = prepare_eval_data()
-                    claw_tasks_data = discover_claw_tasks()
-                    padding = build_context_padding(50000)
-                    
                     # 1. Nexus
                     print("  [nexus] Running...")
-                    nexus_harness = BenchmarkHarness(client, target_tps=30.0)
-                    nexus_res = nexus_harness.evaluate(
-                        [NexusEvalTask(retrieval_entries)], 
-                        context_padding=padding, 
-                        system_prefix=system_prefix,
-                        temp=0.2,
-                        maxtok=mt
-                    )
+                    nexus_res = run_nexus(client, max_tokens=mt, system_prefix=system_prefix)
                     row.update({
                         "nexus_val_score": nexus_res.val_score,
                         "nexus_pass1": nexus_res.val_pass1,
@@ -88,14 +77,7 @@ def main():
                     
                     # 2. Claw
                     print("  [claw] Running...")
-                    claw_harness = BenchmarkHarness(client, target_tps=30.0)
-                    claw_res = claw_harness.evaluate(
-                        [ClawEvalTask(d) for d in claw_tasks_data], 
-                        context_padding=padding, 
-                        system_prefix=system_prefix,
-                        temp=0.2,
-                        maxtok=mt
-                    )
+                    claw_res = run_claw(client, max_tokens=mt, system_prefix=system_prefix)
                     row.update({
                         "claw_val_score": claw_res.val_score,
                         "claw_pass1": claw_res.val_pass1,

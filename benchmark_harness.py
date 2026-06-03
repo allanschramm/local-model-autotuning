@@ -86,7 +86,21 @@ class BenchmarkHarness:
         # --- PASS 2: Throughput (Clean measures) ---
         for task in tasks:
             t0 = time.time()
-            score_p2_raw, tokens = self._run_task_loop(task, pass_num=2, padding="", system_prefix=system_prefix, max_steps=kwargs.get("p2_max_steps", 6), maxtok=kwargs.get("p2_maxtok", 128), **kwargs)
+            
+            # Use p2_maxtok/p2_max_steps if provided, otherwise defaults. 
+            # We copy kwargs to avoid modifying the caller's dict or Pass 1 state.
+            p2_kwargs = kwargs.copy()
+            p2_kwargs["maxtok"] = p2_kwargs.pop("p2_maxtok", 128)
+            p2_max_steps = p2_kwargs.pop("p2_max_steps", 6)
+            
+            score_p2_raw, tokens = self._run_task_loop(
+                task, 
+                pass_num=2, 
+                padding="", 
+                system_prefix=system_prefix, 
+                max_steps=p2_max_steps, 
+                **p2_kwargs
+            )
             dur = time.time() - t0
             
             p2_total_tokens += tokens
