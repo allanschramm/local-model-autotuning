@@ -65,41 +65,7 @@ if __name__ == "__main__":
 
 ROOT_DIR = Path(__file__).resolve().parent
 MODELS_DIR = Path(os.environ.get("AUTORESEARCH_MODELS_DIR", ROOT_DIR / "models"))
-LLAMA_CPP_ROOT = Path(
-    os.environ.get("AUTORESEARCH_LLAMA_CPP_ROOT", ROOT_DIR / "llama.cpp")
-)
-LLAMA_SERVER_CANDIDATES = (
-    LLAMA_CPP_ROOT / "build-cuda" / "bin" / "llama-server",
-    LLAMA_CPP_ROOT / "build" / "bin" / "llama-server",
-)
-
-def resolve_llama_server() -> Path:
-    for candidate in LLAMA_SERVER_CANDIDATES:
-        if candidate.exists():
-            return candidate
-    raise FileNotFoundError("llama-server not found.")
-
 import urllib.request
-
-def build_llama_cmd(
-    llama_server: Path,
-    model_path: Path,
-) -> list[str]:
-    return [
-        str(llama_server),
-        "--model", str(model_path),
-        "--host", "127.0.0.1",
-        "--ctx-size", str(CTX_SIZE),
-        "--batch-size", str(BATCH_SIZE),
-        "--ubatch-size", str(UBATCH_SIZE),
-        "--threads", str(THREADS),
-        "--parallel", "1",
-        "--n-gpu-layers", str(NGL),
-        "--cache-type-k", KV_CACHE_TYPE,
-        "--cache-type-v", KV_CACHE_TYPE,
-        "--flash-attn", FLASH_ATTN,
-        "--verbose"
-    ]
 
 def run_evalplus(dataset: str, port: int, output_dir: Path, model_name: str, is_test: bool = False) -> dict:
     """Run EvalPlus codegen and evaluate."""
@@ -180,63 +146,73 @@ def run_evalplus(dataset: str, port: int, output_dir: Path, model_name: str, is_
     
     return scores
 
+from llama_client import LlamaClient
+from benchmark_harness import BenchmarkResult
+
+def run_benchmark(client: LlamaClient, **kwargs) -> BenchmarkResult:
+    """Unified entry point for in-process orchestration (Coding focus)."""
+    is_test = kwargs.get("is_test", False)
+    output_base = ROOT_DIR / "coding_results"
+    output_base.mkdir(parents=True, exist_ok=True)
+    model_name = kwargs.get("model_name", "local-model")
+
+    # Run HumanEval and MBPP
+    he_scores = run_evalplus("humaneval", client.port, output_base, model_name, is_test=is_test)
+    mbpp_scores = run_evalplus("mbpp", client.port, output_base, model_name, is_test=is_test)
+    
+    # Map to BenchmarkResult
+    # val_pass1 = HumanEval+, val_pass2 = MBPP+
+    he_val = he_scores.get("pass1_plus", he_scores.get("pass1_base", 0))
+    mbpp_val = mbpp_scores.get("pass1_plus", mbpp_scores.get("pass1_base", 0))
+    
+    avg_score = (he_val + mbpp_val) / 2
+    
+    return BenchmarkResult(
+        val_score=round(avg_score, 4),
+        val_pass1=he_val,
+        val_pass2=mbpp_val,
+        avg_tps=0.0, # EvalPlus doesn't easily provide raw TPS here
+        total_seconds=0.0
+    )
+
 def main():
     print("Starting Coding Benchmark script...")
     is_test = "--test" in sys.argv
+    
+    from llama_runner import LlamaServerRunner, ServerIntent
+    
+    model_name = MODELS_TO_BENCHMARK[0]
+    model_path = MODELS_DIR / model_name
+    
+    intent = ServerIntent(
+        model_path=model_path,
+        ctx_size=CTX_SIZE,
+        kv_cache=KV_CACHE_TYPE,
+        flash_attn=FLASH_ATTN,
+        port=PORT,
+        batch_size=BATCH_SIZE,
+        ubatch_size=UBATCH_SIZE,
+        threads=THREADS,
+        ngl=NGL
+    )
+
     try:
-        llama_server = resolve_llama_server()
-        print(f"Using llama-server: {llama_server}")
-    except Exception as e:
-        print(f"FATAL: {e}")
-        return
-
-    server_env = os.environ.copy()
-    
-    results = []
-    
-    output_base = ROOT_DIR / "coding_results"
-    output_base.mkdir(parents=True, exist_ok=True)
-
-    print(f"Checking models in: {MODELS_DIR}")
-    for model_name in MODELS_TO_BENCHMARK:
-        model_path = MODELS_DIR / model_name
-        if not model_path.exists():
-            print(f"SKIP: {model_name} not found at {model_path}.")
-            continue
-
-        print(f"\nBenchmarking Coding: {model_name}")
-        
-        from llama_runner import LlamaServerRunner
-        
-        cmd = build_llama_cmd(llama_server, model_path)
-        log_file = ROOT_DIR / "llama_server_coding.log"
-        
-        try:
-            with LlamaServerRunner(cmd, server_env, PORT, timeout=600, log_path=log_file) as runner:
-                print(f"Server is ready on port {runner.port}. Starting EvalPlus...")
-                
-                # Run HumanEval and MBPP
-                he_scores = run_evalplus("humaneval", runner.port, output_base, model_name, is_test=is_test)
-                mbpp_scores = run_evalplus("mbpp", runner.port, output_base, model_name, is_test=is_test)
-                
-                results.append({
-                    "model": model_name,
-                    "he_base": he_scores.get("pass1_base", 0),
-                    "he_plus": he_scores.get("pass1_plus", 0),
-                    "mbpp_base": mbpp_scores.get("pass1_base", 0),
-                    "mbpp_plus": mbpp_scores.get("pass1_plus", 0)
-                })
-        except RuntimeError as e:
-            print(f"FAIL: {e}")
-            continue
-
-    print("\n" + "="*80)
-    print("CODING BENCHMARK RESULTS")
-    print("="*80)
-    print(f"{'Model':<30} {'HE (Base)':>10} {'HE (Plus)':>10} {'MBPP (B)':>10} {'MBPP (P)':>10}")
-    for r in results:
-        print(f"{r['model']:<30} {r['he_base']:>10.1%} {r['he_plus']:>10.1%} {r['mbpp_base']:>10.1%} {r['mbpp_plus']:>10.1%}")
-    print("="*80)
+        with LlamaServerRunner(intent) as runner:
+            print(f"Server is ready on port {runner.port}. Starting EvalPlus...")
+            client = LlamaClient(runner.port)
+            
+            result = run_benchmark(client, is_test=is_test, model_name=model_name)
+            
+            print("\\n" + "="*80)
+            print("CODING BENCHMARK RESULTS")
+            print("="*80)
+            print(f"Model: {model_name}")
+            print(f"val_score: {result.val_score:.4f}")
+            print(f"HE (pass1): {result.val_pass1:.4f}")
+            print(f"MBPP (pass2): {result.val_pass2:.4f}")
+            print("="*80)
+    except RuntimeError as e:
+        print(f"FAIL: {e}")
 
 if __name__ == "__main__":
     main()

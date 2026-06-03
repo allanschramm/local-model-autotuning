@@ -2,6 +2,8 @@
 Llama Server Runner
 
 Encapsulates the lifecycle of a llama.cpp server process, including:
+- ServerIntent parsing & command building
+- Hardware locality optimization (MTP, VITRIOL/MoE)
 - Port discovery & binding
 - Health checking
 - VRAM usage sampling
@@ -14,8 +16,41 @@ import tempfile
 import threading
 import time
 import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+ROOT_DIR = Path(__file__).resolve().parent
+LLAMA_CPP_ROOT = Path(os.environ.get("AUTORESEARCH_LLAMA_CPP_ROOT", ROOT_DIR / "llama.cpp"))
+LLAMA_SERVER_CANDIDATES = (
+    LLAMA_CPP_ROOT / "build-cuda" / "bin" / "llama-server",
+    LLAMA_CPP_ROOT / "build" / "bin" / "llama-server",
+)
+
+
+@dataclass(frozen=True)
+class ServerIntent:
+    """A pure data object describing high-level benchmark intent."""
+    model_path: Path
+    ctx_size: int
+    kv_cache: str
+    flash_attn: str
+    port: int = 18080
+    batch_size: int = 512
+    ubatch_size: int = 128
+    threads: int = 8
+    parallel: int = 1
+    ngl: int = 999
+
+
+def resolve_llama_server() -> Path:
+    for candidate in LLAMA_SERVER_CANDIDATES:
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(
+        "llama-server not found. Expected one of: "
+        + ", ".join(str(path) for path in LLAMA_SERVER_CANDIDATES)
+    )
 
 
 def candidate_ports(preferred: int) -> list[int]:
@@ -23,10 +58,8 @@ def candidate_ports(preferred: int) -> list[int]:
 
 
 class LlamaServerRunner:
-    def __init__(self, cmd_base: list[str], server_env: dict[str, str], preferred_port: int, timeout: int = 300, log_path: Path | None = None):
-        self.cmd_base = cmd_base
-        self.server_env = server_env
-        self.preferred_port = preferred_port
+    def __init__(self, intent: ServerIntent, timeout: int = 300, log_path: Path | None = None):
+        self.intent = intent
         self.timeout = timeout
         self.log_path = log_path
         
@@ -37,25 +70,59 @@ class LlamaServerRunner:
         self._server_log: Any = None
         self._stop_event = threading.Event()
         self._vram_thread: threading.Thread | None = None
+        
+        self.llama_server = resolve_llama_server()
+
+    def _build_cmd(self, target_port: int) -> list[str]:
+        cmd = [
+            str(self.llama_server),
+            "--model", str(self.intent.model_path),
+            "--host", "127.0.0.1",
+            "--port", str(target_port),
+            "--ctx-size", str(self.intent.ctx_size),
+            "--batch-size", str(self.intent.batch_size),
+            "--ubatch-size", str(self.intent.ubatch_size),
+            "--threads", str(self.intent.threads),
+            "--parallel", str(self.intent.parallel),
+            "--n-gpu-layers", str(self.intent.ngl),
+            "--cache-type-k", self.intent.kv_cache,
+            "--cache-type-v", self.intent.kv_cache,
+            "--flash-attn", self.intent.flash_attn,
+        ]
+
+        # MTP Optimization: Detect MTP models and enable built-in speculative decoding.
+        if "MTP" in self.intent.model_path.name.upper():
+            print(f"  [MTP] Multi-Token Prediction detected for {self.intent.model_path.name}. Enabling draft-mtp.")
+            cmd += [
+                "--spec-type", "draft-mtp",
+                "--spec-draft-n-max", "1",
+                "--spec-draft-type-k", self.intent.kv_cache,
+                "--spec-draft-type-v", self.intent.kv_cache,
+            ]
+
+        # VITRIOL Optimization: Hardware Necromancy for large MoE models.
+        moe_indicators = ["MOE", "A3B", "A4B", "A1B", "A2B", "8X3B", "8X4B", "10B", "11B", "12B", "13B", "14B", "15B", "16B", "17B", "18B", "19B", "20B", "21B", "22B", "23B", "24B", "25B", "26B", "35B"]
+        model_name_up = self.intent.model_path.name.upper()
+        is_moe = any(ind in model_name_up for ind in moe_indicators)
+        is_small_dense = any(f"-{x}B" in model_name_up for x in ["2", "4", "7", "8", "9"]) and not ("MOE" in model_name_up or "A1B" in model_name_up)
+
+        if is_moe and not is_small_dense:
+            print(f"  [VITRIOL] MoE Expert Streaming enabled for {self.intent.model_path.name}. Offloading experts to CPU.")
+            cmd += ["--override-tensor", ".*exps.*=CPU"]
+
+        return cmd
 
     def __enter__(self):
         self._start_vram_sampler()
         
+        server_env = os.environ.copy()
+        llama_lib_dir = str(self.llama_server.parent)
+        existing = server_env.get("LD_LIBRARY_PATH", "")
+        server_env["LD_LIBRARY_PATH"] = f"{llama_lib_dir}:{existing}" if existing else llama_lib_dir
+        
         startup_tail: list[str] = []
-        for port in candidate_ports(self.preferred_port):
-            # Exclude existing --port arguments if accidentally passed
-            filtered_cmd = []
-            skip_next = False
-            for arg in self.cmd_base:
-                if skip_next:
-                    skip_next = False
-                    continue
-                if arg == "--port":
-                    skip_next = True
-                    continue
-                filtered_cmd.append(arg)
-                
-            cmd = filtered_cmd + ["--port", str(port)]
+        for port in candidate_ports(self.intent.port):
+            cmd = self._build_cmd(port)
             print(f"Starting server: {' '.join(cmd)}")
             
             if self.log_path:
@@ -73,7 +140,7 @@ class LlamaServerRunner:
                 cmd,
                 stdout=self._server_log,
                 stderr=subprocess.STDOUT,
-                env=self.server_env,
+                env=server_env,
                 text=True,
             )
             
