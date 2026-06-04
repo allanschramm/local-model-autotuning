@@ -19,7 +19,7 @@ from prepare_claw import run_benchmark as run_claw
 KV_CACHES = ["q4_0", "q4_1"]
 MAX_TOKENS_LIST = [1024]
 MODEL = "g4-opt-it-Q4_K_M.gguf"
-CTX_SIZE = 55000
+CTX_SIZE = 16384
 PORT = 18080
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -51,23 +51,28 @@ def main():
                 kv_cache=kv,
                 flash_attn="on",
                 port=PORT,
-                ngl=99,
+                ngl=35,
                 batch_size=512,
                 threads=12
             )
+            
+            # Use a log file for the server to debug
+            server_log = BASE_DIR / "llama_server.log"
+            if server_log.exists(): server_log.unlink()
             
             row = {"kv_cache": kv, "max_tokens": mt, "status": "OK"}
             
             try:
                 # Orchestrator manages the server lifecycle once per config
-                with LlamaServerRunner(intent) as runner:
+                with LlamaServerRunner(intent, log_path=server_log) as runner:
                     client = LlamaClient(runner.port)
                     
                     system_prefix = "<|think|>\n"
+                    context_tokens = 8192
                         
                     # 1. Nexus
                     print("  [nexus] Running...")
-                    nexus_res = run_nexus(client, max_tokens=mt, system_prefix=system_prefix)
+                    nexus_res = run_nexus(client, max_tokens=mt, system_prefix=system_prefix, context_tokens=context_tokens)
                     row.update({
                         "nexus_val_score": nexus_res.val_score,
                         "nexus_pass1": nexus_res.val_pass1,
@@ -78,7 +83,7 @@ def main():
                     
                     # 2. Claw
                     print("  [claw] Running...")
-                    claw_res = run_claw(client, max_tokens=mt, system_prefix=system_prefix)
+                    claw_res = run_claw(client, max_tokens=mt, system_prefix=system_prefix, context_tokens=context_tokens)
                     row.update({
                         "claw_val_score": claw_res.val_score,
                         "claw_pass1": claw_res.val_pass1,
