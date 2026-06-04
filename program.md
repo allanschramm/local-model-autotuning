@@ -1,127 +1,94 @@
 # autoresearch
 
-This is a Karpathy-style autoresearch loop adapted to the local Nexus runtime.
+This is a Karpathy-style autoresearch loop adapted to the local Nexus runtime, focusing on triple-pass evaluation (Retrieval, Agency, and Coding).
 
 The contract is strict:
 
 - `program.md` is fixed (unless explicitly requested by user).
-- `prepare.py` and `prepare_claw.py` are fixed.
-- `benchmark_search.py` is the only file you are allowed to hack during the search.
+- `prepare.py`, `prepare_claw.py`, and `benchmark_harness.py` are fixed.
+- `benchmark_coding.py` and `run_grid.py` are the primary mutable tuning surfaces.
 
-The goal is to push **Qwen 3.5 2B/4B/9B (including MTP/Coder)** and **Gemma 4B** as far as possible on a single RTX 4060 8GB using a fixed dual-pass evaluation harness (Retrieval + Agency).
+The goal is to push **Qwen 3.5 2B/4B/9B** and **Gemma 4B** as far as possible on a single RTX 4060 8GB using a 128k context window and optimized KV cache configurations.
 
 ## Setup
 
 To start a fresh run:
 
-1. **Agree on a run tag**: use a fresh branch tag such as `mar15`.
+1. **Agree on a run tag**: use a fresh branch tag such as `apr24`.
 2. **Create the branch**: `git checkout -b autoresearch/<tag>` from `main`.
 3. **Read the in-scope files**:
    - `program.md` — the rules for the experiment
-   - `prepare.py` — Nexus Retrieval harness
-   - `prepare_claw.py` — ClawBench Agency harness
-   - `benchmark_search.py` — the only mutable tuning surface
+   - `prepare.py` — Nexus Retrieval harness (Context Stress)
+   - `prepare_claw.py` — ClawBench Agency harness (Tool-Use)
+   - `benchmark_coding.py` — Coding harness (EvalPlus) and tuning surface
+   - `run_grid.py` — Grid search orchestration script
 4. **Verify local assets exist**:
-   - GGUF models in `llm/gguf/`
-   - `llama.cpp/build/bin/llama-server` or `llama.cpp/build-cuda/bin/llama-server`
-5. **Initialize results.tsv** with only the header row:
-   - `commit	val_score	memory_gb	status	description`
+   - GGUF models in `models/`
+   - `llama-server` (accessible via `llama_runner.py`)
+5. **Initialize grid_results.csv**:
+   - Ensure the header matches the current `run_grid.py` output.
 
 Once the setup is clean, begin the loop.
 
-## Evaluation model
+## Evaluation Suite
 
-Each run starts a local `llama-server`, executes the dual evaluation harness, and reports a composite primary metric:
+The runner executes a triple-pass evaluation harness and reports metrics for each domain:
 
-- **`val_score`**: higher is better — composite of Agency (60%) and Retrieval (40%).
+### Pass 1: Nexus Retrieval (`prepare.py`)
+Tests context stress with ~50 000 tokens of synthetic history. The model must navigate the needle-in-a-haystack to find the override token, verify it, and unlock the control plane.
+- **Metric**: `nexus_val_score` (Accuracy weighted by TPS).
 
-### Pass 1: Nexus Retrieval (weight 0.40)
-~50 000 tokens of synthetic Nexus history are injected before the task prompt to test context stress. The model must find the override token in memory, verify it, and unlock the control plane.
+### Pass 2: ClawBench Agency (`prepare_claw.py`)
+Tests tool-use (JSON browser calls) and instruction-following using selected dev-tech and office tasks.
+- **Metric**: `claw_val_score` (Tool accuracy weighted by TPS).
 
-### Pass 2: ClawBench Agency (weight 0.60)
-Runs 11 ClawBench tasks with 0 context noise. Tests pure tool-use (JSON formatting) and instruction-following logic.
+### Pass 3: Coding Performance (`benchmark_coding.py`)
+Uses EvalPlus to evaluate HumanEval+ and MBPP+.
+- **Metric**: `val_score` (Average of HE+ and MBPP+ pass@1).
 
-### Throughput Hard Floor (30 TPS)
-The combined average `tokens_per_sec` MUST be >= 30.0 TPS. If the throughput drops below this floor, the configuration is aggressively penalized (`val_score = 0.0`) and discarded.
+### Throughput & TPS Weighting
+The `BenchmarkHarness` applies a speed factor to Nexus and Claw scores:
+`speed_factor = 0.5 + 0.5 * min(1.0, current_tps / 30.0)`
+Configurations falling significantly below **30 TPS** are aggressively penalized.
 
-### Secondary metrics
-- `val_retrieval` — Retrieval score in isolation
-- `val_agency` — Agency score in isolation
-- `tokens_per_sec` — throughput from both passes combined
-- `total_seconds` — total wall-clock time
-- `peak_vram_mb` — maximum VRAM usage
-
-The harness is fixed and deterministic:
-- direct local runtime only
-- no LiteLLM
-- no MCP server dependency
-- fixed context requirement of 128k (131072 tokens)
+### Constraints
+- **Hardware target:** RTX 4060 8GB.
+- **Context Size:** 128k (131072) is mandatory.
+- **VRAM Safety:** Keep `peak_vram_mb` below ~7900 MB.
+- **No CPU Offload:** `--n-gpu-layers 999` is mandatory.
 
 ## What you CAN do
-- Modify `benchmark_search.py`
-- Change model selection
-- Change runtime configuration: KV cache type, batch sizes, threads, parallelism, and similar server parameters
-- Change generation knobs inside `benchmark_search.py` (TEMP, TOP_P, MIN_P, etc.)
+- Modify `benchmark_coding.py` constants (MODELS, CTX_SIZE, BATCH_SIZE, etc.).
+- Modify `run_grid.py` search space (KV_CACHES, MAX_TOKENS_LIST).
+- Change model selection and GGUF quantization levels.
+- Change generation knobs (TEMP, TOP_P, MIN_P).
 
 ## What you CANNOT do
-- Modify `prepare.py` or `prepare_claw.py`
-- Modify `program.md` (once baseline is set)
-- Add new dependencies
-- Change the fixed evaluation fixture or scoring logic
-- Use CPU offload as a hidden fallback (Keep `--n-gpu-layers 999`)
-
-## Constraints
-- **Hardware target:** RTX 4060 8GB
-- **Context Size:** 128k (131072) is mandatory.
-- If `peak_vram_mb` approaches or exceeds ~7900 MB, assume the config is unsafe.
-- Simpler configs win ties.
+- Modify the fixed evaluation logic in `prepare.py`, `prepare_claw.py`, or `benchmark_harness.py`.
+- Add new dependencies.
+- Change the context requirement of 128k.
 
 ## Output format
-Each successful run must print a summary block like:
+Each run (especially via `run_grid.py`) logs to `grid_results.csv`. Successful individual benchmarks should print:
 
 ```text
 ---
-val_score:        0.374961
-val_retrieval:    0.624950
-val_agency:       0.208302
-tokens_per_sec:   138.77
-total_seconds:    263.3
-peak_vram_mb:     7762.0
-ctx_size:         131072
+val_score:        0.XXXX
+nexus_tps:        XX.XX
+claw_tps:         XX.XX
+peak_vram_mb:     XXXX.X
+model:            model_name.gguf
 kv_cache:         q4_0
-model:            Qwopus3.5-9B-Coder-MTP-Q4_K_M.gguf
-eval_seconds:     255.425
 ```
-
-Quick extraction:
-```bash
-grep '^val_score:\|^val_retrieval:\|^val_agency:\|^tokens_per_sec:\|^peak_vram_mb:' run.log
-```
-
-## Logging results
-Log every experiment to `results.tsv` as tab-separated data:
-
-```text
-commit	val_score	memory_gb	status	description
-```
-Do not commit `results.tsv`.
 
 ## The experiment loop
-1. Inspect the current branch and commit.
-2. Edit `benchmark_search.py` with one experimental idea.
-3. Commit.
-4. Run: `python benchmark_search.py > run.log 2>&1`
-5. Read results: `grep '^val_score:\|^peak_vram_mb:' run.log`
-6. If the run crashed, inspect `tail -n 50 run.log` and fix launch bugs if needed.
-7. Append the outcome to `results.tsv`.
-8. Keep the commit only if `val_score` improved. Otherwise, reset to the previous best commit.
-
-## Timeout and failure handling
-- A normal high-accuracy run should finish in 5 to 15 minutes.
-- If a run exceeds 20 minutes, kill it and treat it as a failure.
-- Launch bugs are acceptable to fix inside `benchmark_search.py`.
-- Harness changes are not allowed.
+1. Inspect the current branch and configuration.
+2. Edit `benchmark_coding.py` or `run_grid.py` with a new hypothesis (e.g., "Q4_1 KV cache improves accuracy without breaking VRAM").
+3. Commit the change.
+4. Run: `python run_grid.py` or `python benchmark_coding.py`
+5. Analyze `grid_results.csv` or the console output.
+6. If results improved or provided new insights, keep the commit. Otherwise, revert or iterate.
 
 ## Autonomy rule
 Once the loop has started, continue autonomously until manually interrupted.
-Do not pause to ask if you should keep going.
+Do not pause to ask for permission to continue the search.

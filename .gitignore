@@ -10,8 +10,13 @@ grid_execution.log
 # Python
 __pycache__/
 *.pyc
+venv/
 .venv/
 .nexus_venv/
+
+# Local tools & config
+.antigravitycli/
+.mcp.json
 
 # Models and large binaries (user provides their own)
 *.gguf
