@@ -8,7 +8,7 @@ The contract is strict:
 - `prepare.py`, `prepare_claw.py`, and `benchmark_harness.py` are fixed.
 - `benchmark_coding.py` and `run_grid.py` are the primary mutable tuning surfaces.
 
-The goal is to push **Qwen 3.5 2B/4B/9B** and **Gemma 4B** as far as possible on a single RTX 4060 8GB using a 128k context window and optimized KV cache configurations.
+The goal is to push any model as far as possible on any hardware using optimized KV cache configurations and runtime parameters.
 
 ## Setup
 
@@ -35,11 +35,11 @@ Once the setup is clean, begin the loop.
 The runner executes a triple-pass evaluation harness and reports metrics for each domain:
 
 ### Pass 1: Nexus Retrieval (`prepare.py`)
-Tests context stress with ~50 000 tokens of synthetic history. The model must navigate the needle-in-a-haystack to find the override token, verify it, and unlock the control plane.
+Tests context stress with synthetic history. The model must navigate the needle-in-a-haystack to find the override token, verify it, and unlock the control plane.
 - **Metric**: `nexus_val_score` (Accuracy weighted by TPS).
 
 ### Pass 2: ClawBench Agency (`prepare_claw.py`)
-Tests tool-use (JSON browser calls) and instruction-following using selected dev-tech and office tasks.
+Tests tool-use (JSON browser calls) and instruction-following using selected tasks.
 - **Metric**: `claw_val_score` (Tool accuracy weighted by TPS).
 
 ### Pass 3: Coding Performance (`benchmark_coding.py`)
@@ -48,25 +48,24 @@ Uses EvalPlus to evaluate HumanEval+ and MBPP+.
 
 ### Throughput & TPS Weighting
 The `BenchmarkHarness` applies a speed factor to Nexus and Claw scores:
-`speed_factor = 0.5 + 0.5 * min(1.0, current_tps / 30.0)`
-Configurations falling significantly below **30 TPS** are aggressively penalized.
+`speed_factor = 0.5 + 0.5 * min(1.0, current_tps / target_tps)`
+Configurations falling significantly below the **target TPS** (default 30.0) are aggressively penalized.
 
 ### Constraints
-- **Hardware target:** RTX 4060 8GB.
-- **Context Size:** 128k (131072) is mandatory.
-- **VRAM Safety:** Keep `peak_vram_mb` below ~7900 MB.
-- **No CPU Offload:** `--n-gpu-layers 999` is mandatory.
+- **Hardware target:** Agnostic (optimize for your local GPU/VRAM).
+- **Context Size:** Flexible, defined by the specific experiment.
+- **VRAM Safety:** Monitor peak VRAM to ensure stability.
+- **No CPU Offload:** Prefer keeping all layers on GPU (`--n-gpu-layers 999`) for accurate performance measurement.
 
 ## What you CAN do
 - Modify `benchmark_coding.py` constants (MODELS, CTX_SIZE, BATCH_SIZE, etc.).
 - Modify `run_grid.py` search space (KV_CACHES, MAX_TOKENS_LIST).
-- Change model selection and GGUF quantization levels.
+- Change model selection and quantization levels.
 - Change generation knobs (TEMP, TOP_P, MIN_P).
 
 ## What you CANNOT do
 - Modify the fixed evaluation logic in `prepare.py`, `prepare_claw.py`, or `benchmark_harness.py`.
 - Add new dependencies.
-- Change the context requirement of 128k.
 
 ## Output format
 Each run (especially via `run_grid.py`) logs to `grid_results.csv`. Successful individual benchmarks should print:
