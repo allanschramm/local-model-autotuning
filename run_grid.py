@@ -51,7 +51,7 @@ def main():
                 kv_cache=kv,
                 flash_attn="on",
                 port=PORT,
-                ngl=35,
+                ngl=99,
                 batch_size=512,
                 threads=12
             )
