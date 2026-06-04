@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-import csv
 import os
+os.environ["AUTORESEARCH_LLAMA_CPP_ROOT"] = "/home/shark/workspace/Nexus-System/llama.cpp"
+import csv
 import time
 from pathlib import Path
 from typing import Dict, Any
@@ -15,10 +16,10 @@ from prepare import run_benchmark as run_nexus
 from prepare_claw import run_benchmark as run_claw
 
 # Configuration
-KV_CACHES = ["q4_0", "q4_1", "q5_0", "q5_1", "q8_0"]
-MAX_TOKENS_LIST = [512, 1024]
-MODEL = "gemma-4-E4B-it-Q4_K_M.gguf"
-CTX_SIZE = 131072
+KV_CACHES = ["q4_0", "q4_1"]
+MAX_TOKENS_LIST = [1024]
+MODEL = "g4-opt-it-Q4_K_M.gguf"
+CTX_SIZE = 55000
 PORT = 18080
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -50,7 +51,9 @@ def main():
                 kv_cache=kv,
                 flash_attn="on",
                 port=PORT,
-                ngl=999
+                ngl=99,
+                batch_size=512,
+                threads=12
             )
             
             row = {"kv_cache": kv, "max_tokens": mt, "status": "OK"}
@@ -60,9 +63,7 @@ def main():
                 with LlamaServerRunner(intent) as runner:
                     client = LlamaClient(runner.port)
                     
-                    system_prefix = ""
-                    if "GEMMA-4" in MODEL.upper() or "THINKING" in MODEL.upper():
-                        system_prefix = "<|think|>\\n"
+                    system_prefix = "<|think|>\n"
                         
                     # 1. Nexus
                     print("  [nexus] Running...")

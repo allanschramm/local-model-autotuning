@@ -18,21 +18,21 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 MODELS_TO_BENCHMARK = [
-    "gemma-4-E4B-it-Q4_K_M.gguf",
+    "g4-opt-it-Q4_K_M.gguf",
 ]
 
-CTX_SIZE = 131072
+CTX_SIZE = 55000
 KV_CACHE_TYPE = "q4_0"
-BATCH_SIZE = 1024
-UBATCH_SIZE = 256
-THREADS = 8
+BATCH_SIZE = 512
+UBATCH_SIZE = 128
+THREADS = 12
 PARALLEL = 1
-NGL = 999
+NGL = 99
 FLASH_ATTN = "on"
 
 TEMP = 0.0 # Greedy for coding
 MAXTOK = 1024
-PORT = 18081 # Different port to avoid conflicts
+PORT = 18080
 # Throughput target or other globals...
 
 import argparse

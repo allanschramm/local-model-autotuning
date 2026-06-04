@@ -5,7 +5,7 @@ from typing import Any, Dict
 
 class LlamaClient:
     """Deep module for llama-server communication."""
-    def __init__(self, port: int, timeout: int = 180):
+    def __init__(self, port: int, timeout: int = 600):
         self.port = port
         self.timeout = timeout
         self.base_url = f"http://127.0.0.1:{port}"
@@ -28,6 +28,19 @@ class LlamaClient:
         
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as res:
-                return json.loads(res.read().decode())
+                raw_res = json.loads(res.read().decode())
+                # Map to OAI format for BenchmarkHarness compatibility
+                return {
+                    "content": raw_res.get("content", ""),
+                    "usage": {
+                        "total_tokens": raw_res.get("tokens_predicted", 0)
+                    },
+                    "choices": [{
+                        "message": {
+                            "content": raw_res.get("content", ""),
+                            "tool_calls": [] # Handled by regex usually or specific logic
+                        }
+                    }]
+                }
         except Exception as e:
             raise RuntimeError(f"LlamaClient request failed: {e}")
