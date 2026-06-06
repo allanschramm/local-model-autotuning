@@ -106,7 +106,9 @@ class TestLlamaRunner(unittest.TestCase):
 
     @patch("llama_runner.resolve_llama_server")
     @patch("subprocess.check_output")
-    def test_vram_sampler(self, mock_output, mock_resolve):
+    @patch("ctypes.CDLL")
+    def test_vram_sampler(self, mock_cdll, mock_output, mock_resolve):
+        mock_cdll.side_effect = Exception("Mock NVML load failure")
         mock_resolve.return_value = Path("/bin/llama-server")
         mock_output.return_value = "1000\n"
         runner = LlamaServerRunner(self.intent)
@@ -122,6 +124,78 @@ class TestLlamaRunner(unittest.TestCase):
         runner._stop_event.set()
         runner._vram_thread.join()
         self.assertGreaterEqual(runner.peak_vram_mb, 1000)
+
+    @patch("llama_runner.resolve_llama_server")
+    def test_build_cmd_advanced_tuning(self, mock_resolve):
+        mock_resolve.return_value = Path("/bin/llama-server")
+        intent = ServerIntent(
+            model_path=Path("models/test-model.gguf"),
+            ctx_size=2048,
+            kv_cache="q4_0",
+            flash_attn="on",
+            kv_cache_k="f16",
+            kv_cache_v="q4_0",
+            threads_batch=16,
+            spec_draft_n_max=2
+        )
+        runner = LlamaServerRunner(intent)
+        cmd = runner._build_cmd(18080)
+        
+        # Verify Key/Value KV cache parameters
+        self.assertIn("--cache-type-k", cmd)
+        self.assertEqual(cmd[cmd.index("--cache-type-k") + 1], "f16")
+        self.assertIn("--cache-type-v", cmd)
+        self.assertEqual(cmd[cmd.index("--cache-type-v") + 1], "q4_0")
+        
+        # Verify Threads Batch parameters
+        self.assertIn("--threads-batch", cmd)
+        self.assertEqual(cmd[cmd.index("--threads-batch") + 1], "16")
+
+    @patch("llama_runner.resolve_llama_server")
+    def test_build_cmd_mtp_advanced_tuning(self, mock_resolve):
+        mock_resolve.return_value = Path("/bin/llama-server")
+        intent = ServerIntent(
+            model_path=Path("models/Gemma-MTP.gguf"),
+            ctx_size=2048,
+            kv_cache="q4_0",
+            flash_attn="on",
+            kv_cache_k="q8_0",
+            kv_cache_v="q4_0",
+            spec_draft_n_max=3
+        )
+        runner = LlamaServerRunner(intent)
+        cmd = runner._build_cmd(18080)
+        
+        # Verify MTP advanced spec settings
+        self.assertIn("--spec-draft-n-max", cmd)
+        self.assertEqual(cmd[cmd.index("--spec-draft-n-max") + 1], "3")
+        self.assertIn("--spec-draft-type-k", cmd)
+        self.assertEqual(cmd[cmd.index("--spec-draft-type-k") + 1], "q8_0")
+        self.assertIn("--spec-draft-type-v", cmd)
+        self.assertEqual(cmd[cmd.index("--spec-draft-type-v") + 1], "q4_0")
+
+    @patch("llama_runner.resolve_llama_server")
+    def test_build_cmd_extra_flags(self, mock_resolve):
+        mock_resolve.return_value = Path("/bin/llama-server")
+        intent = ServerIntent(
+            model_path=Path("models/test-model.gguf"),
+            ctx_size=2048,
+            kv_cache="q4_0",
+            flash_attn="on",
+            no_mmap=True,
+            jinja=True,
+            reasoning_budget=1024,
+            reasoning_budget_message="Thinking budget reached. Proceed to final answer now."
+        )
+        runner = LlamaServerRunner(intent)
+        cmd = runner._build_cmd(18080)
+        
+        self.assertIn("--no-mmap", cmd)
+        self.assertIn("--jinja", cmd)
+        self.assertIn("--reasoning-budget", cmd)
+        self.assertEqual(cmd[cmd.index("--reasoning-budget") + 1], "1024")
+        self.assertIn("--reasoning-budget-message", cmd)
+        self.assertEqual(cmd[cmd.index("--reasoning-budget-message") + 1], "Thinking budget reached. Proceed to final answer now.")
 
 if __name__ == "__main__":
     unittest.main()

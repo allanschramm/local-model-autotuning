@@ -41,6 +41,60 @@ class ServerIntent:
     threads: int = 8
     parallel: int = 1
     ngl: int = 999
+    kv_cache_k: str | None = None
+    kv_cache_v: str | None = None
+    threads_batch: int | None = None
+    spec_draft_n_max: int = 1
+    prompt_cache_file: Path | None = None
+    prompt_cache_all: bool = False
+    prompt_cache_ro: bool = False
+    no_mmap: bool = False
+    jinja: bool = False
+    reasoning_budget: int | None = None
+    reasoning_budget_message: str | None = None
+    reasoning: str | None = None
+    cont_batching: bool = False
+    host: str = "127.0.0.1"
+    spec_type: str | None = None
+
+
+def estimate_vram_mb(model_path: Path, ctx_size: int, kv_cache_k: str | None, kv_cache_v: str | None, base_kv_cache: str) -> float:
+    try:
+        model_size_mb = model_path.stat().st_size / (1024 * 1024)
+    except Exception:
+        model_size_mb = 4000.0
+    
+    k_type = kv_cache_k if kv_cache_k is not None else base_kv_cache
+    v_type = kv_cache_v if kv_cache_v is not None else base_kv_cache
+    
+    def get_quant_factor(q_type: str) -> float:
+        q = q_type.lower()
+        if "f16" in q or "f32" in q:
+            return 1.0
+        if "q8" in q:
+            return 0.55
+        if "q5" in q:
+            return 0.38
+        if "q4" in q:
+            return 0.28
+        if "turbo4" in q:
+            return 0.18
+        if "turbo3" in q:
+            return 0.22
+        if "turbo2" in q:
+            return 0.15
+        return 0.3
+        
+    kf = get_quant_factor(k_type)
+    vf = get_quant_factor(v_type)
+    
+    # Calibrated KV cache size per token at f16 is ~80 KB
+    kv_base_mb = ctx_size * 80.0 / 1024.0
+    kv_est_mb = (kv_base_mb / 2.0) * kf + (kv_base_mb / 2.0) * vf
+    
+    # 300MB baseline system/CUDA overhead
+    return model_size_mb + kv_est_mb + 300.0
+
 
 
 def resolve_llama_server() -> Path:
@@ -74,10 +128,13 @@ class LlamaServerRunner:
         self.llama_server = resolve_llama_server()
 
     def _build_cmd(self, target_port: int) -> list[str]:
+        cache_type_k = self.intent.kv_cache_k if self.intent.kv_cache_k is not None else self.intent.kv_cache
+        cache_type_v = self.intent.kv_cache_v if self.intent.kv_cache_v is not None else self.intent.kv_cache
+
         cmd = [
             str(self.llama_server),
             "--model", str(self.intent.model_path),
-            "--host", "127.0.0.1",
+            "--host", str(self.intent.host),
             "--port", str(target_port),
             "--ctx-size", str(self.intent.ctx_size),
             "--batch-size", str(self.intent.batch_size),
@@ -85,19 +142,54 @@ class LlamaServerRunner:
             "--threads", str(self.intent.threads),
             "--parallel", str(self.intent.parallel),
             "--n-gpu-layers", str(self.intent.ngl),
-            "--cache-type-k", self.intent.kv_cache,
-            "--cache-type-v", self.intent.kv_cache,
+            "--cache-type-k", cache_type_k,
+            "--cache-type-v", cache_type_v,
             "--flash-attn", self.intent.flash_attn,
         ]
 
-        # MTP Optimization: Detect MTP models and enable built-in speculative decoding.
-        if "MTP" in self.intent.model_path.name.upper():
-            print(f"  [MTP] Multi-Token Prediction detected for {self.intent.model_path.name}. Enabling draft-mtp.")
+        if self.intent.threads_batch is not None:
+            cmd += ["--threads-batch", str(self.intent.threads_batch)]
+
+        if self.intent.prompt_cache_file is not None:
+            cmd += ["--prompt-cache", str(self.intent.prompt_cache_file)]
+            if self.intent.prompt_cache_all:
+                cmd += ["--prompt-cache-all"]
+            if self.intent.prompt_cache_ro:
+                cmd += ["--prompt-cache-ro"]
+
+        if self.intent.no_mmap:
+            cmd += ["--no-mmap"]
+        if self.intent.jinja:
+            cmd += ["--jinja"]
+        if self.intent.reasoning_budget is not None:
+            cmd += ["--reasoning-budget", str(self.intent.reasoning_budget)]
+        if self.intent.reasoning_budget_message is not None:
+            cmd += ["--reasoning-budget-message", self.intent.reasoning_budget_message]
+        if self.intent.reasoning is not None:
+            cmd += ["--reasoning", str(self.intent.reasoning)]
+        if self.intent.cont_batching:
+            cmd += ["--cont-batching"]
+
+        # MTP/Speculative Optimization: Detect MTP models and enable speculative decoding.
+        spec_type_val = self.intent.spec_type
+        if spec_type_val is None and "MTP" in self.intent.model_path.name.upper() and self.intent.spec_draft_n_max > 0:
+            try:
+                # Query help to see if draft-mtp is supported
+                help_out = subprocess.check_output([str(self.llama_server), "--help"], stderr=subprocess.STDOUT, text=True)
+                if "draft-mtp" in help_out:
+                    spec_type_val = "draft-mtp"
+                else:
+                    spec_type_val = "mtp"
+            except Exception:
+                spec_type_val = "draft-mtp"  # Fallback to draft-mtp as default
+            print(f"  [MTP] Multi-Token Prediction detected for {self.intent.model_path.name}. Auto-selected spec-type: {spec_type_val}")
+
+        if spec_type_val is not None and spec_type_val.lower() != "none" and self.intent.spec_draft_n_max > 0:
             cmd += [
-                "--spec-type", "draft-mtp",
-                "--spec-draft-n-max", "1",
-                "--spec-draft-type-k", self.intent.kv_cache,
-                "--spec-draft-type-v", self.intent.kv_cache,
+                "--spec-type", spec_type_val,
+                "--spec-draft-n-max", str(self.intent.spec_draft_n_max),
+                "--spec-draft-type-k", cache_type_k,
+                "--spec-draft-type-v", cache_type_v,
             ]
 
         # VITRIOL Optimization: Hardware Necromancy for large MoE models.
@@ -189,8 +281,42 @@ class LlamaServerRunner:
         return False
 
     def _start_vram_sampler(self) -> None:
+        import ctypes
+        
+        # Load NVML library using ctypes
+        nvml = None
+        device = None
+        class nvmlMemory_t(ctypes.Structure):
+            _fields_ = [
+                ("total", ctypes.c_uint64),
+                ("free", ctypes.c_uint64),
+                ("used", ctypes.c_uint64),
+            ]
+
+        try:
+            nvml = ctypes.CDLL("libnvidia-ml.so.1")
+            nvml.nvmlInit_v2()
+            device = ctypes.c_void_p()
+            nvml.nvmlDeviceGetHandleByIndex_v2(0, ctypes.byref(device))
+            print("  [VRAM] NVML initialized successfully. High-frequency 20ms sampling enabled.")
+        except Exception:
+            nvml = None
+            print("  [VRAM] NVML initialization failed. Falling back to subprocess nvidia-smi (200ms).")
+
         def sampler() -> None:
+            nonlocal nvml
             while not self._stop_event.is_set():
+                if nvml is not None and device is not None:
+                    try:
+                        mem_info = nvmlMemory_t()
+                        nvml.nvmlDeviceGetMemoryInfo(device, ctypes.byref(mem_info))
+                        current = float(mem_info.used) / (1024.0 * 1024.0)
+                        if current > self.peak_vram_mb:
+                            self.peak_vram_mb = current
+                        self._stop_event.wait(0.02)
+                        continue
+                    except Exception:
+                        nvml = None
                 try:
                     res = subprocess.check_output(
                         [
@@ -208,7 +334,7 @@ class LlamaServerRunner:
                 except FileNotFoundError:
                     print("Error: nvidia-smi not found. VRAM sampling stopped.")
                     break
-                except (subprocess.CalledProcessError, ValueError) as e:
+                except (subprocess.CalledProcessError, ValueError):
                     pass
                 self._stop_event.wait(0.2)
 
