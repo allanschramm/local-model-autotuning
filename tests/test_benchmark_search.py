@@ -1,0 +1,26 @@
+import unittest
+from unittest.mock import patch, MagicMock
+import benchmark_search
+
+class TestBenchmarkSearch(unittest.TestCase):
+
+    def test_parse_args_defaults(self):
+        with patch("sys.argv", ["benchmark_search.py"]):
+            args = benchmark_search.parse_args()
+            self.assertEqual(args.model, "g4-opt-it-Q4_K_M.gguf")
+            self.assertEqual(args.ctx_size, 16384)
+            self.assertEqual(args.kv, "q4_0")
+            self.assertEqual(args.threads, 12)
+            self.assertFalse(args.include_coding)
+
+    @patch("run.handle_single_run")
+    def test_main_execution(self, mock_handle):
+        with patch("sys.argv", ["benchmark_search.py"]):
+            benchmark_search.args = benchmark_search.parse_args()
+            # Simulate direct execution behavior of __main__ block
+            import run
+            run.handle_single_run(benchmark_search.args)
+            mock_handle.assert_called_once_with(benchmark_search.args)
+
+if __name__ == "__main__":
+    unittest.main()
