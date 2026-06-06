@@ -6,6 +6,7 @@ results.tsv
 grid_results.csv
 coding_results/
 grid_execution.log
+.autoloop_visited.json
 
 # Python
 __pycache__/
