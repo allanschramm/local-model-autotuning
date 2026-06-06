@@ -13,22 +13,22 @@ from pathlib import Path
 import sys
 from typing import Any
 
-# ---------------------------------------------------------------------------
-# Search surface
-# ---------------------------------------------------------------------------
+# Import search surface defaults from benchmark_search.py (single source of truth)
+import benchmark_search
 
-MODELS_TO_BENCHMARK = [
-    "g4-opt-it-Q4_K_M.gguf",
-]
-
-CTX_SIZE = 55000
-KV_CACHE_TYPE = "q4_0"
-BATCH_SIZE = 512
-UBATCH_SIZE = 128
-THREADS = 12
+MODELS_TO_BENCHMARK = [benchmark_search.MODEL]
+CTX_SIZE = benchmark_search.CTX_SIZE
+KV_CACHE_TYPE = benchmark_search.KV_CACHE
+KV_CACHE_K = benchmark_search.KV_CACHE_K
+KV_CACHE_V = benchmark_search.KV_CACHE_V
+BATCH_SIZE = benchmark_search.BATCH_SIZE
+UBATCH_SIZE = benchmark_search.UBATCH_SIZE
+THREADS = benchmark_search.THREADS
+THREADS_BATCH = benchmark_search.THREADS_BATCH
 PARALLEL = 1
 NGL = 99
-FLASH_ATTN = "on"
+FLASH_ATTN = benchmark_search.FLASH_ATTN
+SPEC_DRAFT_N_MAX = benchmark_search.SPEC_DRAFT_N_MAX
 
 TEMP = 0.0 # Greedy for coding
 MAXTOK = 1024
@@ -38,38 +38,67 @@ PORT = 18080
 import argparse
 
 def parse_args():
-    global CTX_SIZE, KV_CACHE_TYPE, MAXTOK, MODELS_TO_BENCHMARK, ID_RANGE
+    global CTX_SIZE, KV_CACHE_TYPE, MAXTOK, MODELS_TO_BENCHMARK
+    global KV_CACHE_K, KV_CACHE_V, BATCH_SIZE, UBATCH_SIZE, THREADS, THREADS_BATCH, PARALLEL, NGL, FLASH_ATTN, SPEC_DRAFT_N_MAX
     parser = argparse.ArgumentParser()
     parser.add_argument("--ctx-size", type=int, default=CTX_SIZE)
     parser.add_argument("--kv-cache", type=str, default=KV_CACHE_TYPE)
+    parser.add_argument("--kv-cache-k", type=str, default=None)
+    parser.add_argument("--kv-cache-v", type=str, default=None)
     parser.add_argument("--max-tokens", type=int, default=MAXTOK)
     parser.add_argument("--model", type=str)
-    parser.add_argument("--id_range", type=str, default=None)
-    args = parser.parse_args()
+    parser.add_argument("--include-coding", action="store_true", default=INCLUDE_CODING, dest="include_coding")
+    parser.add_argument("--coding-task-limit", type=int, default=CODING_TASK_LIMIT)
+    parser.add_argument("--port", type=int, default=PORT)
+    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE)
+    parser.add_argument("--ubatch-size", type=int, default=UBATCH_SIZE)
+    parser.add_argument("--threads", type=int, default=THREADS)
+    parser.add_argument("--threads-batch", type=int, default=None)
+    parser.add_argument("--parallel", type=int, default=PARALLEL)
+    parser.add_argument("--ngl", type=int, default=NGL)
+    parser.add_argument("--flash-attn", type=str, choices=["on", "off"], default=FLASH_ATTN)
+    parser.add_argument("--spec-draft-n-max", type=int, default=SPEC_DRAFT_N_MAX)
+    
+    args, unknown = parser.parse_known_args()
     
     CTX_SIZE = args.ctx_size
     KV_CACHE_TYPE = args.kv_cache
+    KV_CACHE_K = args.kv_cache_k
+    KV_CACHE_V = args.kv_cache_v
     MAXTOK = args.max_tokens
-    ID_RANGE = args.id_range
+    CODING_TASK_LIMIT = args.coding_task_limit
+    INCLUDE_CODING = args.include_coding
+    PORT = args.port
+    BATCH_SIZE = args.batch_size
+    UBATCH_SIZE = args.ubatch_size
+    THREADS = args.threads
+    THREADS_BATCH = args.threads_batch
+    PARALLEL = args.parallel
+    NGL = args.ngl
+    FLASH_ATTN = args.flash_attn
+    SPEC_DRAFT_N_MAX = args.spec_draft_n_max
     if args.model:
         MODELS_TO_BENCHMARK = [args.model]
 
-ID_RANGE = None
-if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        parse_args()
+# Benchmarks to run
+INCLUDE_CODING = getattr(benchmark_search, "INCLUDE_CODING", True)
+CODING_TASK_LIMIT = getattr(benchmark_search, "CODING_TASK_LIMIT", 30)
 
 # ---------------------------------------------------------------------------
-# Execution plumbing
+# Plumbing & CLI Overrides
 # ---------------------------------------------------------------------------
 
 ROOT_DIR = Path(__file__).resolve().parent
 MODELS_DIR = Path(os.environ.get("AUTORESEARCH_MODELS_DIR", ROOT_DIR / "models"))
 import urllib.request
 
-def run_evalplus(dataset: str, port: int, output_dir: Path, model_name: str, is_test: bool = False) -> dict:
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        parse_args()
+
+def run_evalplus(dataset: str, port: int, output_dir: Path, model_name: str, task_limit: int = 30) -> dict:
     """Run EvalPlus codegen and evaluate."""
-    print(f"  [EvalPlus] Running {dataset}...")
+    print(f"  [EvalPlus] Running {dataset} (limit: {task_limit if task_limit > 0 else 'full'})...")
     
     # We use a subfolder for each model to avoid overwriting
     model_safe_name = model_name.replace("/", "_").replace(".gguf", "")
@@ -91,13 +120,9 @@ def run_evalplus(dataset: str, port: int, output_dir: Path, model_name: str, is_
         "--resume", "False"
     ]
     
-    # Use global ID_RANGE if provided
-    if ID_RANGE:
-        codegen_cmd += ["--id_range", ID_RANGE]
-    elif is_test:
-        # Run only some tasks for quick validation
-        # Use a larger range as mbpp doesn't start at 0
-        codegen_cmd += ["--id_range", "[0, 20]"]
+    # Use global ID_RANGE if provided via CLI argument --id_range (legacy)
+    if task_limit > 0:
+        codegen_cmd += ["--id_range", f"[0, {task_limit}]"]
     
     print(f"    Executing: {' '.join(codegen_cmd)}")
     subprocess.run(codegen_cmd, check=True, env=env)
@@ -121,7 +146,7 @@ def run_evalplus(dataset: str, port: int, output_dir: Path, model_name: str, is_
         "--samples", str(samples_file)
     ]
     
-    if is_test:
+    if task_limit > 0 and task_limit <= 30:
         eval_cmd += ["--i_just_wanna_run"]
     
     result = subprocess.run(eval_cmd, capture_output=True, text=True)
@@ -152,14 +177,14 @@ from benchmark_harness import BenchmarkResult
 
 def run_benchmark(client: LlamaClient, **kwargs) -> BenchmarkResult:
     """Unified entry point for in-process orchestration (Coding focus)."""
-    is_test = kwargs.get("is_test", False)
+    task_limit = kwargs.get("task_limit", 30)
     output_base = ROOT_DIR / "coding_results"
     output_base.mkdir(parents=True, exist_ok=True)
     model_name = kwargs.get("model_name", "local-model")
 
     # Run HumanEval and MBPP
-    he_scores = run_evalplus("humaneval", client.port, output_base, model_name, is_test=is_test)
-    mbpp_scores = run_evalplus("mbpp", client.port, output_base, model_name, is_test=is_test)
+    he_scores = run_evalplus("humaneval", client.port, output_base, model_name, task_limit=task_limit)
+    mbpp_scores = run_evalplus("mbpp", client.port, output_base, model_name, task_limit=task_limit)
     
     # Map to BenchmarkResult
     # val_pass1 = HumanEval+, val_pass2 = MBPP+
@@ -178,7 +203,7 @@ def run_benchmark(client: LlamaClient, **kwargs) -> BenchmarkResult:
 
 def main():
     print("Starting Coding Benchmark script...")
-    is_test = "--test" in sys.argv
+    task_limit = 30 if "--test" in sys.argv else CODING_TASK_LIMIT
     
     from llama_runner import LlamaServerRunner, ServerIntent
     
@@ -194,7 +219,12 @@ def main():
         batch_size=BATCH_SIZE,
         ubatch_size=UBATCH_SIZE,
         threads=THREADS,
-        ngl=NGL
+        ngl=NGL,
+        parallel=PARALLEL,
+        kv_cache_k=KV_CACHE_K,
+        kv_cache_v=KV_CACHE_V,
+        threads_batch=THREADS_BATCH,
+        spec_draft_n_max=SPEC_DRAFT_N_MAX
     )
 
     try:
@@ -202,7 +232,7 @@ def main():
             print(f"Server is ready on port {runner.port}. Starting EvalPlus...")
             client = LlamaClient(runner.port)
             
-            result = run_benchmark(client, is_test=is_test, model_name=model_name)
+            result = run_benchmark(client, model_name=model_name, task_limit=task_limit)
             
             print("\\n" + "="*80)
             print("CODING BENCHMARK RESULTS")
