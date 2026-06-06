@@ -21,7 +21,11 @@ class TestLlamaClient(unittest.TestCase):
 
         response = self.client.complete("Say hello")
 
-        self.assertEqual(response, {"content": "Hello world"})
+        self.assertEqual(response, {
+            "content": "Hello world",
+            "usage": {"total_tokens": 0},
+            "choices": [{"message": {"content": "Hello world", "tool_calls": []}}]
+        })
         mock_urlopen.assert_called_once()
         
         # Verify payload

@@ -20,6 +20,11 @@ class LlamaClient:
             "stop": kwargs.get("stop", ["</s>", "Instruction:", "User:", "Task:"])
         }
         
+        # Forward additional generation parameters
+        for key in ["top_p", "min_p", "top_k", "repeat_penalty", "presence_penalty", "frequency_penalty"]:
+            if key in kwargs and kwargs[key] is not None:
+                payload[key] = kwargs[key]
+        
         req = urllib.request.Request(
             url, 
             data=json.dumps(payload).encode(),

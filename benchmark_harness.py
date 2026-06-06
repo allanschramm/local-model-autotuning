@@ -26,7 +26,7 @@ class EvalTask(Protocol):
 
 class BenchmarkHarness:
     """Deep module for Dual-Pass evaluation orchestration with agentic support."""
-    def __init__(self, client: LlamaClient, target_tps: float = 30.0, p1_weight: float = 0.55):
+    def __init__(self, client: LlamaClient, target_tps: float = 20.0, p1_weight: float = 0.55):
         self.client = client
         self.target_tps = target_tps
         self.p1_weight = p1_weight
