@@ -95,8 +95,9 @@ def run_evalplus(dataset: str, port: int, output_dir: Path, model_name: str, is_
     if ID_RANGE:
         codegen_cmd += ["--id_range", ID_RANGE]
     elif is_test:
-        # Run only 2 tasks for quick validation
-        codegen_cmd += ["--id_range", "[0, 2]"]
+        # Run only some tasks for quick validation
+        # Use a larger range as mbpp doesn't start at 0
+        codegen_cmd += ["--id_range", "[0, 20]"]
     
     print(f"    Executing: {' '.join(codegen_cmd)}")
     subprocess.run(codegen_cmd, check=True, env=env)
