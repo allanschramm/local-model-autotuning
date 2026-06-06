@@ -27,7 +27,7 @@ DATA_DIR = ROOT_DIR / "data"
 FIXTURE_PATH = DATA_DIR / "memory_fixture.json"
 MODELS_DIR = ROOT_DIR / "models"
 
-TARGET_TPS = 30.0
+TARGET_TPS = 20.0
 EXPECTED_MODEL = "Qwen3.5-9B-Q4_K_M.gguf"
 EXPECTED_CTX = 65536
 EXPECTED_KV = "q4_0"

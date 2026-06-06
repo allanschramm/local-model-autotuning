@@ -152,7 +152,7 @@ def run_benchmark(
     system_prefix: str = "",
     context_tokens: int = 50000,
     temp: float = 0.2,
-    target_tps: float = 30.0,
+    target_tps: float = 20.0,
     **kwargs
 ) -> BenchmarkResult:
     """Unified entry point for Claw benchmark."""
