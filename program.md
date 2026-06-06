@@ -25,8 +25,8 @@ To start a fresh run:
 4. **Verify local assets exist**:
    - GGUF models in `models/`
    - `llama-server` (accessible via `llama_runner.py`)
-5. **Initialize grid_results.csv**:
-   - Ensure the header matches the current `run_grid.py` output.
+5. **Initialize results.tsv**:
+   - Ensure the header matches the unified benchmark runner output.
 
 Once the setup is clean, begin the loop.
 
@@ -49,13 +49,13 @@ Uses EvalPlus to evaluate HumanEval+ and MBPP+.
 ### Throughput & TPS Weighting
 The `BenchmarkHarness` applies a speed factor to Nexus and Claw scores:
 `speed_factor = 0.5 + 0.5 * min(1.0, current_tps / target_tps)`
-Configurations falling significantly below the **target TPS** (default 30.0) are aggressively penalized.
+Configurations falling significantly below the **target TPS** (default 20.0) are aggressively penalized.
 
 ### Constraints
 - **Hardware target:** Agnostic (optimize for your local GPU/VRAM).
 - **Context Size:** Flexible, defined by the specific experiment.
 - **VRAM Safety:** Monitor peak VRAM to ensure stability.
-- **No CPU Offload:** Prefer keeping all layers on GPU (`--n-gpu-layers 999`) for accurate performance measurement.
+- **CPU Offload:** Partial offload is acceptable if throughput stays above 20 TPS. Prefer full GPU (`--n-gpu-layers 999`) but trade speed for score when needed.
 
 ## What you CAN do
 - Modify `benchmark_coding.py` constants (MODELS, CTX_SIZE, BATCH_SIZE, etc.).
@@ -68,7 +68,7 @@ Configurations falling significantly below the **target TPS** (default 30.0) are
 - Add new dependencies.
 
 ## Output format
-Each run (especially via `run_grid.py`) logs to `grid_results.csv`. Successful individual benchmarks should print:
+Each run logs to the canonical results file `results.tsv`. Successful individual benchmarks should print:
 
 ```text
 ---
@@ -81,12 +81,21 @@ kv_cache:         q4_0
 ```
 
 ## The experiment loop
-1. Inspect the current branch and configuration.
-2. Edit `benchmark_coding.py` or `run_grid.py` with a new hypothesis (e.g., "Q4_1 KV cache improves accuracy without breaking VRAM").
-3. Commit the change.
-4. Run: `python run_grid.py` or `python benchmark_coding.py`
-5. Analyze `grid_results.csv` or the console output.
-6. If results improved or provided new insights, keep the commit. Otherwise, revert or iterate.
+
+### Autonomous mode (preferred)
+Run `python autoloop.py` to start the autonomous hill-climbing loop:
+1. Reads current baseline from `config.py`.
+2. Runs ALL benchmarks (Nexus + Claw + optionally Coding).
+3. Generates single-parameter perturbations (neighbors).
+4. Evaluates each neighbor. If improved → writes new baseline to `config.py`.
+5. If no improvement found → resets exploration and tries again.
+6. Loops forever until `Ctrl+C` (SIGINT). State persists in `config.py` + `results.tsv`.
+
+### Manual mode
+1. Edit `config.py` with a hypothesis.
+2. Run: `python benchmark_search.py --desc "your hypothesis"`
+3. Analyze `results.tsv` or console output.
+4. If improved, keep. Otherwise revert `config.py`.
 
 ## Autonomy rule
 Once the loop has started, continue autonomously until manually interrupted.
