@@ -2,194 +2,112 @@
 
 Auto-tuning de modelos locais via `llama.cpp`, baseado em [karpathy/autoresearch](https://github.com/karpathy/autoresearch).
 
+Sistema autônomo (hill-climbing) que otimiza flags de runtime de LLMs locais avaliando configurações repetidamente e mantendo as melhorias.
+
 Dois modos de uso:
-- **Manual**: você edita `benchmark_search.py` e roda benchmarks diretamente.
-- **Agente**: um agente externo (LLM com acesso a arquivos + terminal) lê `PROGRAM.md`, edita `benchmark_search.py` e itera automaticamente até achar a melhor configuração.
-
-
+- **Loop Interno**: O script `autoloop.py` realiza uma busca automática (Search) pelas melhores configurações editando `autoresearch/core/config.py`.
+- **Agente Externo**: Um agente externo (LLM com acesso ao repo) lê as diretrizes e regras (`GOLDEN-RULES.md`, `CONTEXT.md` e `AGENTS.md`), edita `autoresearch/core/config.py` e itera iterativamente até achar a melhor configuração.
 
 ## O que este projeto faz
 
 - Loop de avaliação reprodutível, sem surpresas.
 - Tuning de **runtime** do `llama-server`: KV cache, flash-attention, batch, ubatch, threads, MTP/TurboQuant e parâmetros de geração. **Não re-quantiza o GGUF** — muda apenas como o modelo é servido.
-- Dois harnesses de avaliação: fixture determinística interna (`benchmark_search.py`) e benchmark público ClawEval (`benchmark_search_claw.py`).
-
-
+- **Avaliação Unificada**: Cada rodada (Trial) executa todos os benchmarks ativos simultaneamente (Nexus para Retrieval, Claw para Agency, e opcionalmente Coding).
 
 ## Estrutura
 
 ```
 autoresearch-public/
-├── benchmark_search.py         # Tuning: fixture interna (data/memory_fixture.json)
-├── autoloop.py                 # Loop autônomo
+├── benchmark_search.py         # Unified AutoResearch Benchmark Runner (CLI)
+├── autoloop.py                 # Loop autônomo automatizado (SearchStrategy)
 ├── autoresearch/               # Core package
 │   ├── core/                   # LLM configs and runner
-│   │   └── autoresearch/core/config.py           # Configuration tuning surface
-│   ├── benchmarks/             # Harnesses de avaliação
-│   │   ├── autoresearch/benchmarks/benchmark_coding.py
-│   │   ├── autoresearch/benchmarks/prepare.py          # Fixture interna
-│   │   └── autoresearch/benchmarks/prepare_claw.py     # ClawEval
+│   │   └── config.py           # ÚNICA superfície de edição do tuning (Baseline/Neighbor)
+│   ├── benchmarks/             # Lógica de avaliação (Nexus, Claw, Coding)
 │   └── runners/                # Running and tuning logic
 ├── scripts/                    # Utilitários
-├── data/memory_fixture.json    # Fixture determinística
-├── program.md                  # PROMPT DO AGENTE
-└── models/                     # Coloque seus .gguf aqui
+├── GOLDEN-RULES.md             # Regras estritas do projeto (Performance, Restrições)
+├── CONTEXT.md                  # Terminologia e definições do domínio
+├── AGENTS.md                   # Diretrizes para agentes LLM
+└── models/                     # Coloque seus arquivos .gguf aqui
 ```
 
-**`program.md`** não é documentação genérica. É o prompt/contrato que o agente externo segue cegamente. Ele só tem acesso a:
-- Este arquivo (`program.md`)
-- `benchmark_search.py` (única superfície editável)
-- Output dos comandos que executa
+## Arquitetura e Terminologia
 
-Se você está usando o modo agente, leia `program.md` antes de tudo.
+O sistema segue rigidamente as diretrizes definidas em `CONTEXT.md` e `GOLDEN-RULES.md`. A terminologia principal abrange:
 
+- **Search**: O processo geral de otimização contínua.
+- **Round**: Uma iteração individual do Search.
+- **Trial**: Execução atômica completa de todos os benchmarks contra uma única configuração.
+- **Baseline**: A configuração atual que obteve a melhor pontuação. Mantida em `autoresearch/core/config.py`.
+- **Neighbor**: Uma configuração gerada a partir do Baseline, modificando apenas um parâmetro (ex: alterar threads de 8 para 12).
 
+### Fluxo de Avaliação Unificada
 
-## Arquitetura
+Em vez de testar domínios de forma isolada, cada Round requer que se execute todos os benchmarks habilitados:
 
-O sistema é um loop de agente autônomo baseado em [karpathy/autoresearch](https://github.com/karpathy/autoresearch). O agente externo (LLM com acesso a arquivos + terminal) itera sobre configurações de runtime do `llama-server` até maximizar uma métrica composta.
+1. **Nexus (Retrieval)**: Testa context-stress com histórico sintético. Exige que o modelo recupere tokens de override em memória.
+2. **Claw (Agency)**: Testa tool-use (chamadas via JSON) e instruction-following em tarefas simuladas de browser.
+3. **Coding (Opcional)**: Avalia a capacidade de geração de código Python com EvalPlus (HumanEval+ e MBPP+).
 
-### Papel do agente externo
+### Métrica Primária (Val Score)
 
-O agente NÃO é um script dentro deste repo. É um LLM externo (Claude Code, Codex, etc) que:
+O `Val Score` é a métrica escalar única que orienta decisões de keep/discard.
+- Se Coding estiver habilitado: `80% Coding + 10% Nexus + 10% Claw`
+- Sem Coding: `60% Claw + 40% Nexus`
 
-1. Lê `program.md` — único prompt/contrato do experimento
-2. Tem acesso apenas a:
-   - Leitura de arquivos do repo
-   - Execução de comandos (`python benchmark_search.py`, `git`, etc)
-3. Edita **apenas** `benchmark_search.py`
-4. Itera: edita → commita → roda benchmark → compara métricas → decide se mantém ou reverte
+**Throughput e Penalidades (TPS)**: 
+- Existe um rendimento mínimo definido pelo **TPS Floor** (ex: 20 TPS). Uma avaliação abaixo dessa linha terá seu `Val Score` forçado a zero, independentemente de sua acurácia.
+- Um **Speed Factor** aplica uma penalidade escalonada para o rendimento que fica entre o piso e o TPS esperado.
 
-### Fluxo de avaliação (dual-pass)
+### Superfície de edição (Contrato de Tuning)
 
-Cada execução de `benchmark_search.py` roda duas avaliações fixas:
-
-**Pass 1 — Retrieval (peso 0.40)**
-- Usa `autoresearch/benchmarks/prepare.py` + fixture `data/memory_fixture.json`
-- ~50k tokens de contexto sintético injetados como ruído
-- Mede capacidade de encontrar token de override em memória
-
-**Pass 2 — Agency (peso 0.60)**
-- Usa `autoresearch/benchmarks/prepare_claw.py` + benchmark público ClawEval (https://github.com/claw-eval/claw-eval)
-- 11 tarefas de tool-use (formatação JSON) e instruction-following
-- Sem ruído de contexto
-
-### Métrica primária
-
-```
-val_score = (val_agency × 0.6) + (val_retrieval × 0.4)
-```
-
-Penalidade: se `tokens_per_second` médio < 30 TPS, `val_score = 0.0` (descartado).
-
-### Métricas secundárias
-
-| Métrica | O que mede |
-|---|---|
-| `val_retrieval` | Score isolado do Pass 1 |
-| `val_agency` | Score isolado do Pass 2 |
-| `tokens_per_sec` | Throughput combinado |
-| `total_seconds` | Tempo wall-clock |
-| `peak_vram_mb` | VRAM de pico |
-| `ctx_size` | Tamanho do contexto |
-| `kv_cache` | Tipo de KV cache quantizado |
-
-### Superfície de edição (contrato)
-
-| Arquivo | Papel | Editável? |
+| Arquivo | Papel | Agente ou Loop Pode Editar? |
 |---|---|---|
-| `program.md` | Contrato do agente | **Não** (fixo após baseline) |
-| `autoresearch/benchmarks/prepare.py` | Harness Retrieval | **Não** |
-| `autoresearch/benchmarks/prepare_claw.py` | Harness Agency | **Não** |
-| `benchmark_search.py` | Tuning de runtime | **Sim** (único arquivo editável) |
-| `data/memory_fixture.json` | Dados de teste | **Não** |
-| `run_grid.py` | Grade de busca auxiliar | Opcional (pode ser usado para exploração inicial) |
+| `autoresearch/core/config.py` | Configurações de runtime do LLM | **Sim** (Apenas constantes) |
+| `benchmark_search.py` | CLI para acionar testes | **Não** |
+| `autoresearch/benchmarks/*` | Lógica interna de avaliação | **Não** |
+| `results.tsv` | Arquivo canônico com as métricas do Trial | **Apenas append automático** |
 
-### Restrições hard
+> **Nota:** Todos os logs de performance ficam concentrados apenas no `results.tsv`. Nenhuma outra saída local ou log alternativo é permitido.
 
-- Hardware alvo: **RTX 4060 8GB**
-- Contexto: **128k tokens** obrigatório (`ctx_size = 131072`)
-- VRAM safety: se `peak_vram_mb >= 7900`, config é considerada insegura
-- `--n-gpu-layers 999` deve ser mantido (sem CPU offload oculto)
-- Não é permitido alterar fixture, scoring logic ou adicionar dependências
+### Hardware Failsafes
 
-### Output esperado
-
-Cada run bem-sucedido imprime:
-
-```
----
-val_score:        0.374961
-val_retrieval:    0.624950
-val_agency:       0.208302
-tokens_per_sec:   138.77
-total_seconds:    263.3
-peak_vram_mb:     7762.0
-ctx_size:         131072
-kv_cache:         q4_0
-model:            Qwen3.5-9B-Coder-MTP-Q4_K_M.gguf
-eval_seconds:     255.425
-```
-
-### Logging e versionamento
-
-- results.tsv: arquivo local (`.gitignore`) com colunas `commit\tval_score\tmemory_gb\tstatus\tdescription`
-- O agente commita apenas se `val_score` melhorou; caso contrário, reverte para o melhor commit anterior
-- Branch recomendado: `git checkout -b autoresearch/<tag>` a partir de `main`
-
-
+- **VRAM Safety**: Se a estimativa de uso (`peak_vram_mb`) exceder as especificações do hardware alvo (ex: GPU de 8GB), a configuração deve ser pulada ou rodar via CPU offload para prevenir instabilidade/OOMs.
+- **Flash Attention**: A flag `-fa` (Flash Attention) nunca deve ser desligada (`off`), devendo permanecer `on` sempre que possível.
 
 ## Pré-requisitos
 
-Hardware:
-- GPU NVIDIA com pelo menos 8 GB de VRAM (validado em RTX 4060 8GB).
+- **Hardware**: GPU NVIDIA com ao menos 8 GB de VRAM (validado em modelo RTX 4060 8GB).
+- **Sistema Operacional**: Linux ou WSL2 com drivers CUDA instalados.
+- **Dependências de Build**: `git`, `build-essential`, `cmake >= 3.14`, `python3.11+`.
+- **Servidor LLM**: O `llama-server` oriundo do repositório `llama.cpp` buildado explicitamente com suporte a CUDA.
 
-Sistema:
-- Linux ou WSL2 com CUDA.
+## Setup Rápido
 
-Dependências:
-- `git`
-- `build-essential`
-- `cmake >= 3.14`
-- `python3.11+`
-- `llama-server` buildado com CUDA
-
-
-
-## Setup rápido
-
-1. Clone este repo.
-2. Instale dependências Python:
+1. Clone o projeto para o seu ambiente.
+2. Instale os requerimentos do Python:
    ```bash
    pip install -r requirements.txt
    ```
-   Se não houver `requirements.txt`, gere com:
-   ```bash
-   pip freeze > requirements.txt
-   ```
-3. Crie a pasta de modelos se não existir:
+3. Crie o diretório para os modelos LLM, caso não exista:
    ```bash
    mkdir -p models
    ```
-4. Coloque o(s) modelo(s) `.gguf` em `models/`.
-5. Aponte as variáveis de ambiente:
+4. Baixe ou copie seus modelos `.gguf` para `models/`.
+5. Identifique e configure as variáveis de ambiente necessárias para o projeto:
    ```bash
    export AUTORESEARCH_MODELS_DIR="$PWD/models"
-   export AUTORESEARCH_LLAMA_CPP_ROOT="$HOME/llama.cpp"  # ajuste para seu path
+   export AUTORESEARCH_LLAMA_CPP_ROOT="$HOME/llama.cpp" # Ajuste para o local em que você compilou o llama.cpp
    ```
-6. Rode um teste rápido:
+6. Realize o primeiro Trial para confirmar se tudo está funcionando:
    ```bash
-   python benchmark_search.py \
-     --model gemma-4-E4B-it-Q4_K_M.gguf
+   python benchmark_search.py --model Qwen3.5-9B-Coder-MTP-Q4_K_M.gguf
    ```
 
-**Se der erro `FAIL: llama-server not found`**: confira se `AUTORESEARCH_LLAMA_CPP_ROOT` aponta para um checkout do `llama.cpp` com `build-cuda/bin/llama-server`.
+## Build do `llama.cpp` com suporte a CUDA
 
-
-
-## Build do `llama.cpp` com CUDA
-
-Fluxo confiável, derivado da máquina de referência:
+Fluxo seguro usando o repositório base:
 
 ```bash
 git clone https://github.com/ggerganov/llama.cpp.git
@@ -204,128 +122,27 @@ cmake -B build-cuda \
 cmake --build build-cuda --config Release -j
 ```
 
-Verificação:
-```bash
-./build-cuda/bin/llama-server --help | head
-```
+Para TurboQuant e MTP, recomenda-se explorar repositórios paralelos e forks mantidos de perto com essas propriedades ativadas (ex. `BoFan-tunning/llama.cpp-MTP-TurboQuant` ou `TheTom/llama-cpp-turboquant`).
 
-Dica: se demorar muito, reduza os jobs do build. `CMAKE_CUDA_ARCHITECTURES=89` cobre bem placas Ampere/RTX 30xx e 40xx. Ajuste para sua GPU se precisar.
+## Como Trabalhar com os Modelos GGUF
 
-### Forks com TurboQuant
+Coloque quaisquer arquivos modelo com a extensão `.gguf` na raiz do `/models/`.  
+**Aviso Crítico:** O Search processa e faz o tuning de parâmetros *runtime* via servidor (KV cache, context limits e paralelos). O arquivo modelado original (`.gguf`) **NÃO sofre alterações**. Nenhuma re-quantização real é aplicada sobre os arquivos `.gguf`.
 
-Se quiser experimentar compressão de KV cache via TurboQuant, dois forks públicos mantêm essa implementação em cima do `llama.cpp`:
+## Expectativas em Tempo de Execução
 
-- [BoFan-tunning/llama.cpp-MTP-TurboQuant](https://github.com/BoFan-tunning/llama.cpp-MTP-TurboQuant) — MTP + TurboQuant com CUDA (branch `merge-mtp-turboquant`). Bom ponto de partida se você quer testar a fusão dos dois.
-- [TheTom/llama-cpp-turboquant](https://github.com/TheTom/llama-cpp-turboquant) — implementação de TurboQuant no `llama.cpp`, com suporte AMD/RDNA via Vulkan além de CUDA (branch `feature/turboquant-kv-cache`).
-
-Ambos são forks públicos; verifique a compatibilidade com seu modelo/GPU antes de adotar.
-
-
-
-## Modelos GGUF
-
-Coloque arquivos `.gguf` em `models/`:
-
-```
-models/Qwen3.5-4B-Q4_K_M.gguf
-models/gemma-4-E4B-it-Q4_K_M.gguf
-```
-
-Fontes comuns:
-- Hugging Face (formato GGUF)
-- conversores do próprio `llama.cpp`
-
-**Importante**: o tuning NÃO modifica o `.gguf`. Você está ajustando parâmetros de runtime do `llama-server` (KV cache, batch, threads, etc), não re-quantizando o modelo.
-
-
-
-## Variáveis de ambiente
-
-| Variável | O que faz |
-|---|---|
-| `AUTORESEARCH_MODELS_DIR` | Pasta com `.gguf`. Default: `$PWD/models`. |
-| `AUTORESEARCH_LLAMA_CPP_ROOT` | Checkout do `llama.cpp` com `build-cuda/bin/llama-server`. |
-
-Ambas são opcionais se você passar `--model` com path absoluto.
-
-
-
-## Parâmetros padrão
-
-Editáveis em `benchmark_search.py` (CLI sobrescreve):
-
+Se a sua primeira execução finalizar normalmente, um novo registro em `results.tsv` surgirá. No terminal o comportamento esperado assemelha-se a:
 ```text
-CTX_SIZE = 131072
-KV_CACHE_TYPE = q4_0
-BATCH_SIZE = 512
-UBATCH_SIZE = 128
-THREADS = 8
-PARALLEL = 1
-NGL = 999
-FLASH_ATTN = on
+val_score:        0.870000
+memory_gb:        7.1
+status:           keep
 ```
 
-Exemplo rápido via CLI (funciona sem editar o arquivo):
-```bash
-python benchmark_search.py \
-  --model Qwen3.5-9B-Q4_K_M.gguf \
-  --ctx-size 65536 \
-  --kv-cache q4_0 \
-  --max-tokens 512
-```
+## Como o Agente ou Usuário Manual Atuam
 
-
-
-## MTP, KV cache e throughput
-
-### MTP
-Quando o modelo tem `MTP` no nome, o script já ativa `draft-mtp` automaticamente.
-
-### KV cache quantizado
-Use valores como `q4_0`, `q4_1`, `q5_0`, `q5_1`, `q8_0`. KV mais compacto ajuda a caber em 8GB; KV maior aumenta qualidade a troco de VRAM.
-
-### Throughput
-O benchmark tem piso de 30 TPS. Se ficar abaixo disso, o `val_score` vai para zero.
-
-
-
-## O que esperar na primeira execução
-
-Saída esperada (exemplo):
-```
-val_score: 0.87
-peak_vram_mb: 7120
-tokens_per_second: 34.2
-```
-
-- `val_score`: 0-1, quanto mais alto melhor.
-- `peak_vram_mb`: VRAM usada no pico.
-- `tokens_per_second`: throughput. Piso em 30, abaixo disso val_score=0.
-
-Resultados são salvos automaticamente pelo agente ou podem ser capturados do stdout.
-
-
-
-## Loop do agente (modo autônomo)
-
-Se você está usando um agente externo (ex: Claude Code, Codex):
-
-1. Leia `program.md` — é a única fonte de verdade do que o agente deve fazer.
-2. O agente edita **apenas** `benchmark_search.py`.
-3. Uma mudança por vez.
-4. Roda o benchmark, compara `val_score` e `peak_vram_mb`.
-5. Commit apenas se melhorou.
-
-Uso manual: ignore `program.md`, edite `benchmark_search.py` diretamente e rode os comandos você mesmo.
-
-
-
-## Erros comuns
-
-| Erro | Causa | Solução |
-|---|---|---|
-| `FAIL: llama-server not found` | `AUTORESEARCH_LLAMA_CPP_ROOT` errado | Confira o path do `llama.cpp` |
-| `FAIL: Model ... not found` | `.gguf` não está em `models/` | Use `--model` ou mova o arquivo |
-| OOM | Contexto muito grande para a VRAM | Reduza `--ctx-size`, use KV mais compacto (`q4_0`) ou modelo menor |
-| `ModuleNotFoundError` | Dependências Python não instaladas | Rode `pip install -r requirements.txt` |
-| `FileNotFoundError: models/` | Pasta não existe | Rode `mkdir -p models` antes |
+Caso não se utilize o utilitário autônomo `autoloop.py`, siga este passo-a-passo:
+1. Leia a fundo `GOLDEN-RULES.md`, `CONTEXT.md` e as diretrizes em `AGENTS.md`.
+2. As mudanças hipotéticas (Neighbors) residem apenas em `autoresearch/core/config.py`.
+3. Inicie os benchmarks com o executor unificado `python benchmark_search.py`.
+4. Analise as linhas inseridas no final do `results.tsv`.
+5. Se houver avanço no `Val Score` — ou ocorrência de ganho no Pareto Tie-Breaker (+5% de TPS ou -5% em VRAM em empate) —, transforme o Neighbor na sua nova configuração Baseline.
