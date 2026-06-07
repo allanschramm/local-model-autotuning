@@ -22,6 +22,7 @@ from typing import Any
 
 from autoresearch.core.llama_runner import estimate_vram_mb
 from autoresearch.runners.run import run_evaluation, get_git_commit, write_row, RESULTS_FILE, MODELS_DIR
+from autoresearch.core.search import SearchStrategy
 
 BASE_DIR = Path(__file__).resolve().parent
 VISITED_FILE = BASE_DIR / ".autoloop_visited.json"
@@ -152,45 +153,6 @@ def config_to_args(cfg: dict[str, Any]) -> object:
     return a
 
 
-def get_neighbors(cfg: dict[str, Any]) -> list[dict[str, Any]]:
-    """Generate single-parameter perturbations of current config."""
-    neighbors = []
-    for param, candidates in SEARCH_SPACE.items():
-        current = cfg.get(param)
-        try:
-            idx = candidates.index(current)
-        except ValueError:
-            # Current value not in search space; try all candidates
-            for val in candidates:
-                if val != current:
-                    n = cfg.copy()
-                    n[param] = val
-                    n["_changed"] = param
-                    n["_old"] = current
-                    n["_new"] = val
-                    neighbors.append(n)
-            continue
-
-        # Adjacent neighbors in the ordered list
-        if idx > 0:
-            n = cfg.copy()
-            n[param] = candidates[idx - 1]
-            n["_changed"] = param
-            n["_old"] = current
-            n["_new"] = candidates[idx - 1]
-            neighbors.append(n)
-        if idx < len(candidates) - 1:
-            n = cfg.copy()
-            n[param] = candidates[idx + 1]
-            n["_changed"] = param
-            n["_old"] = current
-            n["_new"] = candidates[idx + 1]
-            neighbors.append(n)
-
-    random.shuffle(neighbors)
-    return neighbors
-
-
 def preflight_vram_ok(cfg: dict[str, Any], vram_limit: float | None) -> bool:
     """Estimate VRAM for a config and return True if it fits budget."""
     if vram_limit is None:
@@ -208,20 +170,6 @@ def preflight_vram_ok(cfg: dict[str, Any], vram_limit: float | None) -> bool:
     est = estimate_vram_mb(MODELS_DIR / model, ctx, kv_k, kv_v)
     return est <= vram_limit
 
-
-def random_restart(visited: set[str], current_cfg: dict[str, Any]) -> dict[str, Any] | None:
-    """Generate a random valid configuration not in visited to escape local maxima."""
-    for _ in range(100):
-        new_cfg = current_cfg.copy()
-        for param, values in SEARCH_SPACE.items():
-            new_cfg[param] = random.choice(values)
-        
-        n_key = str(sorted((k, v) for k, v in new_cfg.items() if k in SEARCH_SPACE))
-        if n_key not in visited:
-            return new_cfg
-    return None
-
-
 def evaluate(cfg: dict[str, Any]) -> dict[str, Any]:
     """Run full benchmark suite with given config."""
     args = config_to_args(cfg)
@@ -233,17 +181,6 @@ def evaluate(cfg: dict[str, Any]) -> dict[str, Any]:
         spec_draft_n_max=args.spec_draft_n_max, spec_type=args.spec_type,
         coding_task_limit=args.coding_task_limit
     )
-
-
-def format_config_summary(cfg: dict[str, Any]) -> str:
-    """One-line summary of tunable params for logging."""
-    parts = []
-    for p in SEARCH_SPACE:
-        v = cfg.get(p)
-        if v is not None:
-            parts.append(f"{p}={v}")
-    return " ".join(parts)
-
 
 def load_visited() -> set[str]:
     """Load previously visited configs from disk."""
@@ -285,6 +222,8 @@ def main():
     visited = load_visited()
     print(f"[AUTOLOOP] Loaded {len(visited)} previously visited configs.")
 
+    search_strategy = SearchStrategy(SEARCH_SPACE, use_pareto_tiebreaker=True)
+
     while not _stop_requested:
         round_num += 1
         if max_rounds > 0 and round_num > max_rounds:
@@ -297,10 +236,10 @@ def main():
 
         # ── Step 1: Load current baseline from config.py ─────────────
         baseline_cfg = load_config()
-        baseline_key = str(sorted((k, v) for k, v in baseline_cfg.items() if k in SEARCH_SPACE))
+        baseline_key = search_strategy.get_config_key(baseline_cfg)
         visited.add(baseline_key)
 
-        print(f"[BASELINE] {format_config_summary(baseline_cfg)}")
+        print(f"[BASELINE] {search_strategy.format_config_summary(baseline_cfg)}")
 
         # ── Step 2: Evaluate baseline ────────────────────────────────
         print("\n[EVAL] Running baseline benchmarks...")
@@ -313,7 +252,7 @@ def main():
         write_row(
             RESULTS_FILE, commit, baseline_score, baseline_vram,
             "keep",
-            f"AutoLoop R{round_num} baseline: {format_config_summary(baseline_cfg)} "
+            f"AutoLoop R{round_num} baseline: {search_strategy.format_config_summary(baseline_cfg)} "
             f"TPS={baseline_tps:.1f}"
         )
 
@@ -323,14 +262,14 @@ def main():
             break
 
         # ── Step 3: Generate and evaluate neighbors ──────────────────
-        neighbors = get_neighbors(baseline_cfg)
+        neighbors = search_strategy.get_neighbors(baseline_cfg)
         improved = False
 
         for neighbor in neighbors:
             if _stop_requested:
                 break
 
-            n_key = str(sorted((k, v) for k, v in neighbor.items() if k in SEARCH_SPACE))
+            n_key = search_strategy.get_config_key(neighbor)
             if n_key in visited:
                 continue
             visited.add(n_key)
@@ -354,25 +293,17 @@ def main():
             delta = score - baseline_score
             
             # Pareto tie-breaker logic
-            is_improvement = False
-            reason = ""
-            if score > baseline_score + 0.0001:
-                is_improvement = True
-                reason = f"Score improved (Δ={delta:+.6f})"
-            elif abs(score - baseline_score) <= 0.0001:
-                if tps > baseline_tps * 1.05:
-                    is_improvement = True
-                    reason = f"Score tied, TPS improved (+{tps - baseline_tps:.1f})"
-                elif tps >= baseline_tps * 0.95 and vram < baseline_vram * 0.95:
-                    is_improvement = True
-                    reason = f"Score/TPS tied, VRAM improved (-{baseline_vram - vram:.1f}GB)"
+            is_improvement, reason = search_strategy.is_improvement(
+                baseline_score, baseline_tps, baseline_vram,
+                score, tps, vram
+            )
 
             status = "keep" if is_improvement else "discard"
 
             write_row(
                 RESULTS_FILE, commit, score, vram, status,
                 f"AutoLoop R{round_num} {changed}={new_val}: "
-                f"{format_config_summary(neighbor)} TPS={tps:.1f} Δ={delta:+.6f}"
+                f"{search_strategy.format_config_summary(neighbor)} TPS={tps:.1f} Δ={delta:+.6f}"
             )
 
             if is_improvement:
@@ -389,7 +320,7 @@ def main():
         if not improved and not _stop_requested:
             print(f"\n[AUTOLOOP] Local maxima reached in round {round_num}.")
             print("[AUTOLOOP] Attempting Random Restart...")
-            new_baseline = random_restart(visited, baseline_cfg)
+            new_baseline = search_strategy.random_restart(visited, baseline_cfg)
             if new_baseline:
                 print("[AUTOLOOP] Found unvisited random configuration. Restarting search.")
                 write_config(new_baseline)
@@ -403,7 +334,7 @@ def main():
     print("  AUTOLOOP STOPPED")
     print(f"{'=' * 60}")
     print(f"  Rounds completed: {round_num}")
-    print(f"  Final config: {format_config_summary(final_cfg)}")
+    print(f"  Final config: {search_strategy.format_config_summary(final_cfg)}")
     print(f"  Results logged to: {RESULTS_FILE}")
     print(f"{'=' * 60}")
 

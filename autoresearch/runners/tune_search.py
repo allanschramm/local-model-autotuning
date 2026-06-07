@@ -17,6 +17,7 @@ from typing import Dict, Any
 
 from autoresearch.core.llama_runner import ServerIntent, estimate_vram_mb
 from autoresearch.runners.run import run_evaluation, get_git_commit, write_row, RESULTS_FILE
+from autoresearch.core.search import SearchStrategy
 
 # Search Space definition
 PARAMETER_SEARCH_SPACE = {
@@ -28,31 +29,6 @@ PARAMETER_SEARCH_SPACE = {
     "ubatch_size": [64, 128, 256, 512],
     "spec_draft_n_max": [0, 1, 2, 3, 4]
 }
-
-def get_neighbors(current_config: Dict[str, Any]) -> list[Dict[str, Any]]:
-    neighbors = []
-    for param, values in PARAMETER_SEARCH_SPACE.items():
-        current_value = current_config[param]
-        try:
-            idx = values.index(current_value)
-        except ValueError:
-            idx = -1
-        
-        # Add neighbor with next value
-        if idx < len(values) - 1:
-            neighbor = current_config.copy()
-            neighbor[param] = values[idx + 1]
-            neighbors.append(neighbor)
-            
-        # Add neighbor with previous value
-        if idx > 0:
-            neighbor = current_config.copy()
-            neighbor[param] = values[idx - 1]
-            neighbors.append(neighbor)
-            
-    # Shuffle to avoid parameter bias
-    random.shuffle(neighbors)
-    return neighbors
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Heuristic Auto-Tuner")
@@ -135,18 +111,19 @@ def main():
         f"Tuner Baseline: model={args.model} score={current_score:.6f} vram={current_vram/1024.0:.1f}GB"
     )
 
-    visited_configs = {str(sorted(current_config.items()))}
+    search_strategy = SearchStrategy(PARAMETER_SEARCH_SPACE, use_pareto_tiebreaker=False)
+    visited_configs = {search_strategy.get_config_key(current_config)}
     step = 0
     improved_runs = 0
 
     while step < args.max_steps:
         step += 1
         print(f"\n=== TUNING STEP {step}/{args.max_steps} ===")
-        neighbors = get_neighbors(current_config)
+        neighbors = search_strategy.get_neighbors(current_config)
         
         found_improvement = False
         for neighbor in neighbors:
-            config_str = str(sorted(neighbor.items()))
+            config_str = search_strategy.get_config_key(neighbor)
             if config_str in visited_configs:
                 continue
             visited_configs.add(config_str)
@@ -183,7 +160,11 @@ def main():
             )
             
             # Check if strictly improved
-            if score > current_score and vram < args.vram_limit_mb:
+            is_improvement, _ = search_strategy.is_improvement(
+                current_score, current_tps, current_vram,
+                score, tps, vram
+            )
+            if is_improvement and vram < args.vram_limit_mb:
                 print(f">>> IMPROVEMENT DETECTED! Score +{score - current_score:.6f}")
                 current_score = score
                 current_config = neighbor

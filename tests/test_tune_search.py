@@ -17,7 +17,9 @@ class TestTuneSearch(unittest.TestCase):
             "spec_draft_n_max": 1
         }
         
-        neighbors = tune_search.get_neighbors(config)
+        from autoresearch.core.search import SearchStrategy
+        search_strategy = SearchStrategy(tune_search.PARAMETER_SEARCH_SPACE, use_pareto_tiebreaker=False)
+        neighbors = search_strategy.get_neighbors(config)
         self.assertGreater(len(neighbors), 0)
         
         # Verify each neighbor only differs by one parameter

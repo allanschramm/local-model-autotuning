@@ -30,6 +30,10 @@ _Avoid_: secondary objective, performance score
 The mechanism used to escape a Local Maxima. Generates a random configuration far from the current Baseline that isn't in the visited memory, sets it as the new Baseline, and resumes the Search.
 _Avoid_: random jump, memory wipe
 
+**SearchStrategy**:
+A deep module encapsulating the rules of hill-climbing optimization. It unifies Neighbor generation, Pareto Tie-Breaker logic, and Random Restarts across different search spaces.
+_Avoid_: heuristic loop, search script
+
 ### Configuration
 
 **Baseline**:
