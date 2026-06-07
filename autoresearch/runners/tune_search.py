@@ -15,8 +15,8 @@ import random
 from pathlib import Path
 from typing import Dict, Any
 
-from llama_runner import ServerIntent, estimate_vram_mb
-from run import run_evaluation, get_git_commit, write_row, RESULTS_FILE
+from autoresearch.core.llama_runner import ServerIntent, estimate_vram_mb
+from autoresearch.runners.run import run_evaluation, get_git_commit, write_row, RESULTS_FILE
 
 # Search Space definition
 PARAMETER_SEARCH_SPACE = {

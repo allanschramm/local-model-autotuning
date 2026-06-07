@@ -33,7 +33,7 @@ _Avoid_: random jump, memory wipe
 ### Configuration
 
 **Baseline**:
-The current best-known configuration. Persisted in `config.py`. A Trial must strictly beat the Baseline score to replace it.
+The current best-known configuration. Persisted in `autoresearch/core/config.py`. A Trial must strictly beat the Baseline score to replace it.
 _Avoid_: default, current config
 
 **Neighbor**:

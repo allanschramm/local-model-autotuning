@@ -21,6 +21,6 @@
 
 ## 3. Loop Agent Constraints
 
-*   **Single Changeable Surface**: The looping agent must only modify constants in [config.py](file:///home/shark/workspace/autoresearch-public/config.py).
+*   **Single Changeable Surface**: The looping agent must only modify constants in [autoresearch/core/config.py](file:///home/shark/workspace/autoresearch-public/config.py).
 *   **Unified Evaluation**: Every round must execute all active benchmarks (Nexus Retrieval + Claw Agency + optionally Coding) rather than testing a single domain.
 *   **Canonical Results File**: All runs must log results exclusively to the single canonical tab-separated file `results.tsv`. No other results CSV, TSV, or log files should be committed or left in the workspace.

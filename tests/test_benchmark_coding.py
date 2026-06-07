@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock, mock_open
-import benchmark_coding
+from autoresearch.benchmarks import benchmark_coding
 from pathlib import Path
 import sys
 
@@ -43,7 +43,7 @@ class TestBenchmarkCoding(unittest.TestCase):
         self.assertEqual(scores.get("pass1_base"), 0.80)
         self.assertEqual(mock_run.call_count, 2)
 
-    @patch("benchmark_coding.run_evalplus")
+    @patch("autoresearch.benchmarks.benchmark_coding.run_evalplus")
     @patch("pathlib.Path.mkdir")
     def test_run_benchmark(self, _mock_mkdir, mock_run_evalplus):
         # Mock returns for HE and MBPP
@@ -52,7 +52,7 @@ class TestBenchmarkCoding(unittest.TestCase):
             {"pass1_plus": 0.4}  # MBPP
         ]
         
-        from llama_client import LlamaClient
+        from autoresearch.core.llama_client import LlamaClient
         client = MagicMock(spec=LlamaClient)
         client.port = 1234
         

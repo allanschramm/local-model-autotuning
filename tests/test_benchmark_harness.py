@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
-from benchmark_harness import BenchmarkHarness, EvalTask, BenchmarkResult
-from llama_client import LlamaClient
+from autoresearch.benchmarks.benchmark_harness import BenchmarkHarness, EvalTask, BenchmarkResult
+from autoresearch.core.llama_client import LlamaClient
 
 class DummyTask(EvalTask):
     def __init__(self, id="test-task"):

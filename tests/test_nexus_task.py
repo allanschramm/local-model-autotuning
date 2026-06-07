@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 import json
-from prepare import NexusEvalTask, MemoryEntry
+from autoresearch.benchmarks.prepare import NexusEvalTask, MemoryEntry
 
 class TestNexusEvalTask(unittest.TestCase):
 
@@ -11,10 +11,10 @@ class TestNexusEvalTask(unittest.TestCase):
             MemoryEntry("2", "nexus", "runtime", "Recommended config: TestModel 9B")
         ]
         self.patchers = [
-            patch("prepare.NEXUS_TOKEN", "SECRET_123"),
-            patch("prepare.EXPECTED_MODEL", "TestModel 9B"),
-            patch("prepare.EXPECTED_CTX", 2048),
-            patch("prepare.EXPECTED_KV", "q8_0")
+            patch("autoresearch.benchmarks.prepare.NEXUS_TOKEN", "SECRET_123"),
+            patch("autoresearch.benchmarks.prepare.EXPECTED_MODEL", "TestModel 9B"),
+            patch("autoresearch.benchmarks.prepare.EXPECTED_CTX", 2048),
+            patch("autoresearch.benchmarks.prepare.EXPECTED_KV", "q8_0")
         ]
         for p in self.patchers:
             p.start()

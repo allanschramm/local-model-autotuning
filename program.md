@@ -5,8 +5,8 @@ This is a Karpathy-style autoresearch loop adapted to the local Nexus runtime, f
 The contract is strict:
 
 - `program.md` is fixed (unless explicitly requested by user).
-- `prepare.py`, `prepare_claw.py`, and `benchmark_harness.py` are fixed.
-- `benchmark_coding.py` and `run_grid.py` are the primary mutable tuning surfaces.
+- `autoresearch/benchmarks/prepare.py`, `autoresearch/benchmarks/prepare_claw.py`, and `autoresearch/benchmarks/benchmark_harness.py` are fixed.
+- `autoresearch/benchmarks/benchmark_coding.py` and `run_grid.py` are the primary mutable tuning surfaces.
 
 The goal is to push any model as far as possible on any hardware using optimized KV cache configurations and runtime parameters.
 
@@ -18,13 +18,13 @@ To start a fresh run:
 2. **Create the branch**: `git checkout -b autoresearch/<tag>` from `main`.
 3. **Read the in-scope files**:
    - `program.md` — the rules for the experiment
-   - `prepare.py` — Nexus Retrieval harness (Context Stress)
-   - `prepare_claw.py` — ClawBench Agency harness (Tool-Use)
-   - `benchmark_coding.py` — Coding harness (EvalPlus) and tuning surface
+   - `autoresearch/benchmarks/prepare.py` — Nexus Retrieval harness (Context Stress)
+   - `autoresearch/benchmarks/prepare_claw.py` — ClawBench Agency harness (Tool-Use)
+   - `autoresearch/benchmarks/benchmark_coding.py` — Coding harness (EvalPlus) and tuning surface
    - `run_grid.py` — Grid search orchestration script
 4. **Verify local assets exist**:
    - GGUF models in `models/`
-   - `llama-server` (accessible via `llama_runner.py`)
+   - `llama-server` (accessible via `autoresearch/core/llama_runner.py`)
 5. **Initialize results.tsv**:
    - Ensure the header matches the unified benchmark runner output.
 
@@ -34,15 +34,15 @@ Once the setup is clean, begin the loop.
 
 The runner executes a triple-pass evaluation harness and reports metrics for each domain:
 
-### Pass 1: Nexus Retrieval (`prepare.py`)
+### Pass 1: Nexus Retrieval (`autoresearch/benchmarks/prepare.py`)
 Tests context stress with synthetic history. The model must navigate the needle-in-a-haystack to find the override token, verify it, and unlock the control plane.
 - **Metric**: `nexus_val_score` (Accuracy weighted by TPS).
 
-### Pass 2: ClawBench Agency (`prepare_claw.py`)
+### Pass 2: ClawBench Agency (`autoresearch/benchmarks/prepare_claw.py`)
 Tests tool-use (JSON browser calls) and instruction-following using selected tasks.
 - **Metric**: `claw_val_score` (Tool accuracy weighted by TPS).
 
-### Pass 3: Coding Performance (`benchmark_coding.py`)
+### Pass 3: Coding Performance (`autoresearch/benchmarks/benchmark_coding.py`)
 Uses EvalPlus to evaluate HumanEval+ and MBPP+.
 - **Metric**: `val_score` (Average of HE+ and MBPP+ pass@1).
 
@@ -58,13 +58,13 @@ Configurations falling significantly below the **target TPS** (default 20.0) are
 - **CPU Offload:** Partial offload is acceptable if throughput stays above 20 TPS. Prefer full GPU (`--n-gpu-layers 999`) but trade speed for score when needed.
 
 ## What you CAN do
-- Modify `benchmark_coding.py` constants (MODELS, CTX_SIZE, BATCH_SIZE, etc.).
+- Modify `autoresearch/benchmarks/benchmark_coding.py` constants (MODELS, CTX_SIZE, BATCH_SIZE, etc.).
 - Modify `run_grid.py` search space (KV_CACHES, MAX_TOKENS_LIST).
 - Change model selection and quantization levels.
 - Change generation knobs (TEMP, TOP_P, MIN_P).
 
 ## What you CANNOT do
-- Modify the fixed evaluation logic in `prepare.py`, `prepare_claw.py`, or `benchmark_harness.py`.
+- Modify the fixed evaluation logic in `autoresearch/benchmarks/prepare.py`, `autoresearch/benchmarks/prepare_claw.py`, or `autoresearch/benchmarks/benchmark_harness.py`.
 - Add new dependencies.
 
 ## Output format
@@ -84,18 +84,18 @@ kv_cache:         q4_0
 
 ### Autonomous mode (preferred)
 Run `python autoloop.py` to start the autonomous hill-climbing loop:
-1. Reads current baseline from `config.py`.
+1. Reads current baseline from `autoresearch/core/config.py`.
 2. Runs ALL benchmarks (Nexus + Claw + optionally Coding).
 3. Generates single-parameter perturbations (neighbors).
-4. Evaluates each neighbor. If improved → writes new baseline to `config.py`.
+4. Evaluates each neighbor. If improved → writes new baseline to `autoresearch/core/config.py`.
 5. If no improvement found → resets exploration and tries again.
-6. Loops forever until `Ctrl+C` (SIGINT). State persists in `config.py` + `results.tsv`.
+6. Loops forever until `Ctrl+C` (SIGINT). State persists in `autoresearch/core/config.py` + `results.tsv`.
 
 ### Manual mode
-1. Edit `config.py` with a hypothesis.
+1. Edit `autoresearch/core/config.py` with a hypothesis.
 2. Run: `python benchmark_search.py --desc "your hypothesis"`
 3. Analyze `results.tsv` or console output.
-4. If improved, keep. Otherwise revert `config.py`.
+4. If improved, keep. Otherwise revert `autoresearch/core/config.py`.
 
 ## Autonomy rule
 Once the loop has started, continue autonomously until manually interrupted.

@@ -12,15 +12,15 @@ import itertools
 from pathlib import Path
 from typing import Dict, Any
 
-from llama_runner import LlamaServerRunner, ServerIntent
-from llama_client import LlamaClient
-from benchmark_harness import BenchmarkResult
-import config
+from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent
+from autoresearch.core.llama_client import LlamaClient
+from autoresearch.benchmarks.benchmark_harness import BenchmarkResult
+from autoresearch.core import config
 
 # Benchmarks
-from prepare import run_benchmark as run_nexus
-from prepare_claw import run_benchmark as run_claw
-from benchmark_coding import run_benchmark as run_coding
+from autoresearch.benchmarks.prepare import run_benchmark as run_nexus
+from autoresearch.benchmarks.prepare_claw import run_benchmark as run_claw
+from autoresearch.benchmarks.benchmark_coding import run_benchmark as run_coding
 
 BASE_DIR = Path(__file__).resolve().parent
 RESULTS_FILE = BASE_DIR / "results.tsv"

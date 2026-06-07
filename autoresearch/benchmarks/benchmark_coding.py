@@ -15,7 +15,7 @@ from typing import Any
 
 # Import search surface defaults from benchmark_search.py (single source of truth)
 import benchmark_search
-import config
+from autoresearch.core import config
 
 MODELS_TO_BENCHMARK = [benchmark_search.MODEL]
 INCLUDE_CODING = config.INCLUDE_CODING
@@ -177,8 +177,8 @@ def run_evalplus(dataset: str, port: int, output_dir: Path, model_name: str, tas
     
     return scores
 
-from llama_client import LlamaClient
-from benchmark_harness import BenchmarkResult
+from autoresearch.core.llama_client import LlamaClient
+from autoresearch.benchmarks.benchmark_harness import BenchmarkResult
 
 def run_benchmark(client: LlamaClient, **kwargs) -> BenchmarkResult:
     """Unified entry point for in-process orchestration (Coding focus)."""
@@ -210,7 +210,7 @@ def main():
     print("Starting Coding Benchmark script...")
     task_limit = 30 if "--test" in sys.argv else CODING_TASK_LIMIT
     
-    from llama_runner import LlamaServerRunner, ServerIntent
+    from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent
     
     model_name = MODELS_TO_BENCHMARK[0]
     model_path = MODELS_DIR / model_name

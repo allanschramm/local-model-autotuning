@@ -4,7 +4,7 @@ from pathlib import Path
 import json
 import tempfile
 import shutil
-from prepare_claw import ClawTaskData, ClawEvalTask, discover_tasks
+from autoresearch.benchmarks.prepare_claw import ClawTaskData, ClawEvalTask, discover_tasks
 
 class TestClawTask(unittest.TestCase):
 
@@ -51,7 +51,7 @@ class TestClawTask(unittest.TestCase):
                 "eval_schema": {"url_pattern": "test.com", "method": "GET"}
             }))
             
-            with patch("prepare_claw.V1_CASES", v1_dir):
+            with patch("autoresearch.benchmarks.prepare_claw.V1_CASES", v1_dir):
                 tasks = discover_tasks()
                 self.assertEqual(len(tasks), 1)
                 self.assertEqual(tasks[0].id, 1)

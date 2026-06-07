@@ -13,8 +13,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, List
 
-from llama_client import LlamaClient
-from benchmark_harness import BenchmarkHarness, EvalTask, BenchmarkResult
+from autoresearch.core.llama_client import LlamaClient
+from autoresearch.benchmarks.benchmark_harness import BenchmarkHarness, EvalTask, BenchmarkResult
 
 # Paths
 ROOT_DIR = Path(__file__).resolve().parent

@@ -15,8 +15,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, List, Optional, Dict
 
-from llama_client import LlamaClient
-from benchmark_harness import BenchmarkHarness, EvalTask, BenchmarkResult
+from autoresearch.core.llama_client import LlamaClient
+from autoresearch.benchmarks.benchmark_harness import BenchmarkHarness, EvalTask, BenchmarkResult
 
 # ---------------------------------------------------------------------------
 # Constants and Defaults

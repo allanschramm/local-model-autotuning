@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch, MagicMock
 import benchmark_search
-import config
+from autoresearch.core import config
 
 class TestBenchmarkSearch(unittest.TestCase):
 
@@ -14,12 +14,12 @@ class TestBenchmarkSearch(unittest.TestCase):
             self.assertEqual(args.threads, 12)
             self.assertEqual(args.include_coding, config.INCLUDE_CODING)
 
-    @patch("run.handle_single_run")
+    @patch("autoresearch.runners.run.handle_single_run")
     def test_main_execution(self, mock_handle):
         with patch("sys.argv", ["benchmark_search.py"]):
             benchmark_search.args = benchmark_search.parse_args()
             # Simulate direct execution behavior of __main__ block
-            import run
+            from autoresearch.runners import run
             run.handle_single_run(benchmark_search.args)
             mock_handle.assert_called_once_with(benchmark_search.args)
 

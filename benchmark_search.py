@@ -11,7 +11,7 @@ from pathlib import Path
 os.environ.setdefault("AUTORESEARCH_LLAMA_CPP_ROOT", "/home/shark/workspace/Nexus-System/llama.cpp")
 
 # Import search surface defaults from config.py (single source of truth)
-import config
+from autoresearch.core import config
 
 MODEL = config.MODEL
 CTX_SIZE = config.CTX_SIZE
@@ -93,6 +93,6 @@ if __name__ == "__main__":
     args = parse_args()
     
     # Import the execution logic from run.py
-    import run
+    from autoresearch.runners import run
     
     run.handle_single_run(args)

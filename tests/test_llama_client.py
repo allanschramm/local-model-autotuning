@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from llama_client import LlamaClient
+from autoresearch.core.llama_client import LlamaClient
 import json
 
 class TestLlamaClient(unittest.TestCase):

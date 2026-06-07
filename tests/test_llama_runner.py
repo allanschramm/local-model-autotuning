@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 from pathlib import Path
 import os
 import subprocess
-from llama_runner import LlamaServerRunner, ServerIntent, resolve_llama_server
+from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent, resolve_llama_server
 
 class TestLlamaRunner(unittest.TestCase):
 
@@ -21,7 +21,7 @@ class TestLlamaRunner(unittest.TestCase):
         mock_cuda.exists.return_value = True
         mock_cuda.__str__.return_value = "/fake/cuda"
         
-        with patch("llama_runner.LLAMA_SERVER_CANDIDATES", (mock_cuda,)):
+        with patch("autoresearch.core.llama_runner.LLAMA_SERVER_CANDIDATES", (mock_cuda,)):
             path = resolve_llama_server()
             self.assertEqual(str(path), "/fake/cuda")
 
@@ -29,11 +29,11 @@ class TestLlamaRunner(unittest.TestCase):
         mock_fail = MagicMock(spec=Path)
         mock_fail.exists.return_value = False
         
-        with patch("llama_runner.LLAMA_SERVER_CANDIDATES", (mock_fail,)):
+        with patch("autoresearch.core.llama_runner.LLAMA_SERVER_CANDIDATES", (mock_fail,)):
             with self.assertRaises(FileNotFoundError):
                 resolve_llama_server()
 
-    @patch("llama_runner.resolve_llama_server")
+    @patch("autoresearch.core.llama_runner.resolve_llama_server")
     def test_build_cmd_basic(self, mock_resolve):
         mock_resolve.return_value = Path("/bin/llama-server")
         runner = LlamaServerRunner(self.intent)
@@ -42,7 +42,7 @@ class TestLlamaRunner(unittest.TestCase):
         self.assertIn("--port", cmd)
         self.assertIn("18080", cmd)
 
-    @patch("llama_runner.resolve_llama_server")
+    @patch("autoresearch.core.llama_runner.resolve_llama_server")
     def test_build_cmd_mtp(self, mock_resolve):
         mock_resolve.return_value = Path("/bin/llama-server")
         intent = ServerIntent(
@@ -56,7 +56,7 @@ class TestLlamaRunner(unittest.TestCase):
         self.assertIn("--spec-type", cmd)
         self.assertIn("draft-mtp", cmd)
 
-    @patch("llama_runner.resolve_llama_server")
+    @patch("autoresearch.core.llama_runner.resolve_llama_server")
     def test_build_cmd_vitriol_moe(self, mock_resolve):
         mock_resolve.return_value = Path("/bin/llama-server")
         intent = ServerIntent(
@@ -70,7 +70,7 @@ class TestLlamaRunner(unittest.TestCase):
         self.assertIn("--override-tensor", cmd)
         self.assertIn(".*exps.*=CPU", cmd)
 
-    @patch("llama_runner.resolve_llama_server")
+    @patch("autoresearch.core.llama_runner.resolve_llama_server")
     @patch("urllib.request.urlopen")
     @patch("time.time")
     def test_wait_for_server_success(self, mock_time, mock_urlopen, mock_resolve):
@@ -87,7 +87,7 @@ class TestLlamaRunner(unittest.TestCase):
         
         self.assertTrue(runner._wait_for_server(18080))
 
-    @patch("llama_runner.resolve_llama_server")
+    @patch("autoresearch.core.llama_runner.resolve_llama_server")
     @patch("urllib.request.urlopen")
     @patch("time.time")
     @patch("time.sleep")
@@ -103,7 +103,7 @@ class TestLlamaRunner(unittest.TestCase):
         
         self.assertFalse(runner._wait_for_server(18080))
 
-    @patch("llama_runner.resolve_llama_server")
+    @patch("autoresearch.core.llama_runner.resolve_llama_server")
     @patch("subprocess.check_output")
     @patch("ctypes.CDLL")
     def test_vram_sampler(self, mock_cdll, mock_output, mock_resolve):
@@ -124,7 +124,7 @@ class TestLlamaRunner(unittest.TestCase):
         runner._vram_thread.join()
         self.assertGreaterEqual(runner.peak_vram_mb, 1000)
 
-    @patch("llama_runner.resolve_llama_server")
+    @patch("autoresearch.core.llama_runner.resolve_llama_server")
     def test_build_cmd_advanced_tuning(self, mock_resolve):
         mock_resolve.return_value = Path("/bin/llama-server")
         intent = ServerIntent(
@@ -150,7 +150,7 @@ class TestLlamaRunner(unittest.TestCase):
         self.assertIn("--threads-batch", cmd)
         self.assertEqual(cmd[cmd.index("--threads-batch") + 1], "16")
 
-    @patch("llama_runner.resolve_llama_server")
+    @patch("autoresearch.core.llama_runner.resolve_llama_server")
     def test_build_cmd_mtp_advanced_tuning(self, mock_resolve):
         mock_resolve.return_value = Path("/bin/llama-server")
         intent = ServerIntent(
@@ -173,7 +173,7 @@ class TestLlamaRunner(unittest.TestCase):
         self.assertIn("--spec-draft-type-v", cmd)
         self.assertEqual(cmd[cmd.index("--spec-draft-type-v") + 1], "q4_0")
 
-    @patch("llama_runner.resolve_llama_server")
+    @patch("autoresearch.core.llama_runner.resolve_llama_server")
     def test_build_cmd_extra_flags(self, mock_resolve):
         mock_resolve.return_value = Path("/bin/llama-server")
         intent = ServerIntent(

@@ -21,13 +21,18 @@ Dois modos de uso:
 ```
 autoresearch-public/
 ├── benchmark_search.py         # Tuning: fixture interna (data/memory_fixture.json)
-├── benchmark_search_claw.py    # Tuning: benchmark público ClawEval (https://github.com/claw-eval/claw-eval)
-├── benchmark_coding.py         # Avaliação de código via EvalPlus
-├── prepare.py                  # Preparação fixa para fixture interna
-├── prepare_claw.py             # Preparação fixa para ClawEval
-├── run_grid.py                 # Grade de busca: kv_cache × max_tokens
-├── data/memory_fixture.json    # Fixture determinística para avaliação
-├── program.md                  # PROMPT DO AGENTE — coração do sistema
+├── autoloop.py                 # Loop autônomo
+├── autoresearch/               # Core package
+│   ├── core/                   # LLM configs and runner
+│   │   └── autoresearch/core/config.py           # Configuration tuning surface
+│   ├── benchmarks/             # Harnesses de avaliação
+│   │   ├── autoresearch/benchmarks/benchmark_coding.py
+│   │   ├── autoresearch/benchmarks/prepare.py          # Fixture interna
+│   │   └── autoresearch/benchmarks/prepare_claw.py     # ClawEval
+│   └── runners/                # Running and tuning logic
+├── scripts/                    # Utilitários
+├── data/memory_fixture.json    # Fixture determinística
+├── program.md                  # PROMPT DO AGENTE
 └── models/                     # Coloque seus .gguf aqui
 ```
 
@@ -60,12 +65,12 @@ O agente NÃO é um script dentro deste repo. É um LLM externo (Claude Code, Co
 Cada execução de `benchmark_search.py` roda duas avaliações fixas:
 
 **Pass 1 — Retrieval (peso 0.40)**
-- Usa `prepare.py` + fixture `data/memory_fixture.json`
+- Usa `autoresearch/benchmarks/prepare.py` + fixture `data/memory_fixture.json`
 - ~50k tokens de contexto sintético injetados como ruído
 - Mede capacidade de encontrar token de override em memória
 
 **Pass 2 — Agency (peso 0.60)**
-- Usa `prepare_claw.py` + benchmark público ClawEval (https://github.com/claw-eval/claw-eval)
+- Usa `autoresearch/benchmarks/prepare_claw.py` + benchmark público ClawEval (https://github.com/claw-eval/claw-eval)
 - 11 tarefas de tool-use (formatação JSON) e instruction-following
 - Sem ruído de contexto
 
@@ -94,8 +99,8 @@ Penalidade: se `tokens_per_second` médio < 30 TPS, `val_score = 0.0` (descartad
 | Arquivo | Papel | Editável? |
 |---|---|---|
 | `program.md` | Contrato do agente | **Não** (fixo após baseline) |
-| `prepare.py` | Harness Retrieval | **Não** |
-| `prepare_claw.py` | Harness Agency | **Não** |
+| `autoresearch/benchmarks/prepare.py` | Harness Retrieval | **Não** |
+| `autoresearch/benchmarks/prepare_claw.py` | Harness Agency | **Não** |
 | `benchmark_search.py` | Tuning de runtime | **Sim** (único arquivo editável) |
 | `data/memory_fixture.json` | Dados de teste | **Não** |
 | `run_grid.py` | Grade de busca auxiliar | Opcional (pode ser usado para exploração inicial) |

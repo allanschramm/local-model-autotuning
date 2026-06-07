@@ -20,8 +20,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-from llama_runner import estimate_vram_mb
-from run import run_evaluation, get_git_commit, write_row, RESULTS_FILE, MODELS_DIR
+from autoresearch.core.llama_runner import estimate_vram_mb
+from autoresearch.runners.run import run_evaluation, get_git_commit, write_row, RESULTS_FILE, MODELS_DIR
 
 BASE_DIR = Path(__file__).resolve().parent
 VISITED_FILE = BASE_DIR / ".autoloop_visited.json"
@@ -64,7 +64,7 @@ signal.signal(signal.SIGTERM, _signal_handler)
 
 def load_config() -> dict[str, Any]:
     """Hot-reload config.py and return current values as dict."""
-    import config
+    from autoresearch.core import config
     importlib.reload(config)
     result = {}
     for param in list(SEARCH_SPACE.keys()) + PASSTHROUGH_PARAMS:

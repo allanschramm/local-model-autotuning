@@ -3,7 +3,7 @@ import time
 import json
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Protocol, Tuple, Optional
-from llama_client import LlamaClient
+from autoresearch.core.llama_client import LlamaClient
 
 @dataclass
 class BenchmarkResult:

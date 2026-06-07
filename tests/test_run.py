@@ -1,17 +1,17 @@
 import unittest
 from unittest.mock import patch, MagicMock, mock_open
-import run
+from autoresearch.runners import run
 from pathlib import Path
 import csv
 
 class TestRun(unittest.TestCase):
 
-    @patch("run.LlamaServerRunner")
-    @patch("run.run_nexus")
-    @patch("run.run_claw")
-    @patch("run.run_coding")
-    @patch("run.get_git_commit")
-    @patch("run.open", new_callable=mock_open)
+    @patch("autoresearch.runners.run.LlamaServerRunner")
+    @patch("autoresearch.runners.run.run_nexus")
+    @patch("autoresearch.runners.run.run_claw")
+    @patch("autoresearch.runners.run.run_coding")
+    @patch("autoresearch.runners.run.get_git_commit")
+    @patch("autoresearch.runners.run.open", new_callable=mock_open)
     def test_single_run_improved(self, mock_file, mock_commit, _mock_coding, mock_claw, mock_nexus, mock_runner):
         # Setup mocks
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
@@ -22,7 +22,7 @@ class TestRun(unittest.TestCase):
         mock_claw.return_value = MagicMock(val_score=0.7, avg_tps=30.0)
         
         # Mock get_previous_best to return 0.5 (so we improve)
-        with patch("run.get_previous_best", return_value=0.5):
+        with patch("autoresearch.runners.run.get_previous_best", return_value=0.5):
             args = MagicMock()
             args.desc = "Tweak test prompt"
             args.model = "g4-opt-it-Q4_K_M.gguf"
@@ -43,11 +43,11 @@ class TestRun(unittest.TestCase):
         # File should have been opened for appending
         mock_file.assert_called_with(run.RESULTS_FILE, "a", newline="")
 
-    @patch("run.LlamaServerRunner")
-    @patch("run.run_nexus")
-    @patch("run.run_claw")
-    @patch("run.get_git_commit")
-    @patch("run.open", new_callable=mock_open)
+    @patch("autoresearch.runners.run.LlamaServerRunner")
+    @patch("autoresearch.runners.run.run_nexus")
+    @patch("autoresearch.runners.run.run_claw")
+    @patch("autoresearch.runners.run.get_git_commit")
+    @patch("autoresearch.runners.run.open", new_callable=mock_open)
     def test_grid_run(self, mock_file, mock_commit, mock_claw, mock_nexus, mock_runner):
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
         mock_commit.return_value = "abcdefg"
@@ -70,11 +70,11 @@ class TestRun(unittest.TestCase):
         
         mock_file.assert_called_with(run.RESULTS_FILE, "a", newline="")
 
-    @patch("run.LlamaServerRunner")
-    @patch("run.run_nexus")
-    @patch("run.run_claw")
-    @patch("run.get_git_commit")
-    @patch("run.open", new_callable=mock_open)
+    @patch("autoresearch.runners.run.LlamaServerRunner")
+    @patch("autoresearch.runners.run.run_nexus")
+    @patch("autoresearch.runners.run.run_claw")
+    @patch("autoresearch.runners.run.get_git_commit")
+    @patch("autoresearch.runners.run.open", new_callable=mock_open)
     def test_multidimensional_grid_run(self, mock_file, mock_commit, mock_claw, mock_nexus, mock_runner):
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
         mock_commit.return_value = "abcdefg"
@@ -100,7 +100,7 @@ class TestRun(unittest.TestCase):
         args.grid_ubatch_sizes = "128"
         args.grid_spec_draft_n_max = "1,2"
         
-        with patch("run.run_evaluation") as mock_eval:
+        with patch("autoresearch.runners.run.run_evaluation") as mock_eval:
             mock_eval.return_value = {
                 "status": "OK",
                 "nexus_val": 0.8, "nexus_tps": 40.0,

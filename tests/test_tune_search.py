@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch, MagicMock
 import sys
-import tune_search
+from autoresearch.runners import tune_search
 from pathlib import Path
 
 class TestTuneSearch(unittest.TestCase):
@@ -25,10 +25,10 @@ class TestTuneSearch(unittest.TestCase):
             diffs = sum(1 for k in config if config[k] != neighbor[k])
             self.assertEqual(diffs, 1)
 
-    @patch("tune_search.run_evaluation")
-    @patch("tune_search.estimate_vram_mb")
-    @patch("tune_search.get_git_commit")
-    @patch("tune_search.write_row")
+    @patch("autoresearch.runners.tune_search.run_evaluation")
+    @patch("autoresearch.runners.tune_search.estimate_vram_mb")
+    @patch("autoresearch.runners.tune_search.get_git_commit")
+    @patch("autoresearch.runners.tune_search.write_row")
     def test_tuner_main(self, _mock_write, mock_commit, mock_estimate, mock_eval):
         mock_commit.return_value = "git123"
         mock_estimate.return_value = 5000.0  # Safe VRAM
@@ -51,7 +51,7 @@ class TestTuneSearch(unittest.TestCase):
         args.vram_limit_mb = 7900.0
         args.include_coding = False
         
-        with patch("tune_search.parse_args", return_value=args):
+        with patch("autoresearch.runners.tune_search.parse_args", return_value=args):
             tune_search.main()
             
         # Verify run_evaluation was called for baseline and neighbors
