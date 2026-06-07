@@ -256,7 +256,7 @@ class LlamaServerRunner:
             print("\n".join(startup_tail))
         raise RuntimeError("Failed to start llama-server on any candidate port.")
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
         self._cleanup_all()
 
     def read_log(self) -> str:

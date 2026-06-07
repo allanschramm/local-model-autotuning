@@ -3,7 +3,6 @@ from unittest.mock import patch, MagicMock
 from pathlib import Path
 import os
 import subprocess
-import llama_runner
 from llama_runner import LlamaServerRunner, ServerIntent, resolve_llama_server
 
 class TestLlamaRunner(unittest.TestCase):
@@ -92,7 +91,7 @@ class TestLlamaRunner(unittest.TestCase):
     @patch("urllib.request.urlopen")
     @patch("time.time")
     @patch("time.sleep")
-    def test_wait_for_server_timeout(self, mock_sleep, mock_time, mock_urlopen, mock_resolve):
+    def test_wait_for_server_timeout(self, _mock_sleep, mock_time, mock_urlopen, mock_resolve):
         mock_resolve.return_value = Path("/bin/llama-server")
         # 0, 1, 2, ... 301
         mock_time.side_effect = range(310)

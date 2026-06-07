@@ -29,7 +29,7 @@ class TestTuneSearch(unittest.TestCase):
     @patch("tune_search.estimate_vram_mb")
     @patch("tune_search.get_git_commit")
     @patch("tune_search.write_row")
-    def test_tuner_main(self, mock_write, mock_commit, mock_estimate, mock_eval):
+    def test_tuner_main(self, _mock_write, mock_commit, mock_estimate, mock_eval):
         mock_commit.return_value = "git123"
         mock_estimate.return_value = 5000.0  # Safe VRAM
         

@@ -3,7 +3,6 @@ from unittest.mock import patch, MagicMock, mock_open
 import run
 from pathlib import Path
 import csv
-import io
 
 class TestRun(unittest.TestCase):
 
@@ -13,7 +12,7 @@ class TestRun(unittest.TestCase):
     @patch("run.run_coding")
     @patch("run.get_git_commit")
     @patch("run.open", new_callable=mock_open)
-    def test_single_run_improved(self, mock_file, mock_commit, mock_coding, mock_claw, mock_nexus, mock_runner):
+    def test_single_run_improved(self, mock_file, mock_commit, _mock_coding, mock_claw, mock_nexus, mock_runner):
         # Setup mocks
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
         mock_commit.return_value = "abcdefg"

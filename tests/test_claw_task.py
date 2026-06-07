@@ -4,7 +4,6 @@ from pathlib import Path
 import json
 import tempfile
 import shutil
-import prepare_claw
 from prepare_claw import ClawTaskData, ClawEvalTask, discover_tasks
 
 class TestClawTask(unittest.TestCase):

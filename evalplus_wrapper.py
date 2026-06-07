@@ -24,7 +24,6 @@ if __name__ == "__main__":
     # Remove this script from argv
     sys.argv.pop(0)
     # Run evalplus.codegen main
-    from fire import Fire
     from evalplus.codegen import codegen
     import evalplus.codegen
     

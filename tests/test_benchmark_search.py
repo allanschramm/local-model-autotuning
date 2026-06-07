@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import patch, MagicMock
 import benchmark_search
+import config
 
 class TestBenchmarkSearch(unittest.TestCase):
 
@@ -11,7 +12,7 @@ class TestBenchmarkSearch(unittest.TestCase):
             self.assertEqual(args.ctx_size, 16384)
             self.assertEqual(args.kv, "q4_0")
             self.assertEqual(args.threads, 12)
-            self.assertFalse(args.include_coding)
+            self.assertEqual(args.include_coding, config.INCLUDE_CODING)
 
     @patch("run.handle_single_run")
     def test_main_execution(self, mock_handle):

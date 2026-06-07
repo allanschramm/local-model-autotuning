@@ -24,7 +24,7 @@ class TestBenchmarkCoding(unittest.TestCase):
     @patch("subprocess.run")
     @patch("pathlib.Path.glob")
     @patch("pathlib.Path.mkdir")
-    def test_run_evalplus_success(self, mock_mkdir, mock_glob, mock_run):
+    def test_run_evalplus_success(self, _mock_mkdir, mock_glob, mock_run):
         # Mocking Step 1 (codegen) and Step 2 (eval)
         mock_run.side_effect = [
             MagicMock(returncode=0), # Codegen
@@ -45,7 +45,7 @@ class TestBenchmarkCoding(unittest.TestCase):
 
     @patch("benchmark_coding.run_evalplus")
     @patch("pathlib.Path.mkdir")
-    def test_run_benchmark(self, mock_mkdir, mock_run_evalplus):
+    def test_run_benchmark(self, _mock_mkdir, mock_run_evalplus):
         # Mock returns for HE and MBPP
         mock_run_evalplus.side_effect = [
             {"pass1_plus": 0.6}, # HumanEval

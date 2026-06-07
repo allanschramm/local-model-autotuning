@@ -53,7 +53,7 @@ PASSTHROUGH_PARAMS = [
 # ── Graceful shutdown ────────────────────────────────────────────────────
 _stop_requested = False
 
-def _signal_handler(sig, frame):
+def _signal_handler(_sig, _frame):
     global _stop_requested
     _stop_requested = True
     print("\n[AUTOLOOP] Graceful stop requested. Finishing current evaluation...")

@@ -15,8 +15,12 @@ from typing import Any
 
 # Import search surface defaults from benchmark_search.py (single source of truth)
 import benchmark_search
+import config
 
 MODELS_TO_BENCHMARK = [benchmark_search.MODEL]
+INCLUDE_CODING = config.INCLUDE_CODING
+CODING_TASK_LIMIT = config.CODING_TASK_LIMIT
+
 CTX_SIZE = benchmark_search.CTX_SIZE
 KV_CACHE_TYPE = benchmark_search.KV_CACHE
 KV_CACHE_K = benchmark_search.KV_CACHE_K
@@ -38,8 +42,9 @@ PORT = 18080
 import argparse
 
 def parse_args():
-    global CTX_SIZE, KV_CACHE_TYPE, MAXTOK, MODELS_TO_BENCHMARK
+    global CTX_SIZE, KV_CACHE_TYPE, MAXTOK, MODELS_TO_BENCHMARK, PORT
     global KV_CACHE_K, KV_CACHE_V, BATCH_SIZE, UBATCH_SIZE, THREADS, THREADS_BATCH, PARALLEL, NGL, FLASH_ATTN, SPEC_DRAFT_N_MAX
+    global INCLUDE_CODING, CODING_TASK_LIMIT
     parser = argparse.ArgumentParser()
     parser.add_argument("--ctx-size", type=int, default=CTX_SIZE)
     parser.add_argument("--kv-cache", type=str, default=KV_CACHE_TYPE)
