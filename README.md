@@ -6,7 +6,9 @@ Sistema autônomo (hill-climbing) que otimiza flags de runtime de LLMs locais av
 
 Dois modos de uso:
 - **Loop Interno**: O script `autoloop.py` realiza uma busca automática (Search) pelas melhores configurações editando `autoresearch/core/config.py`.
-- **Agente Externo**: Um agente externo (LLM com acesso ao repo) lê as diretrizes e regras (`GOLDEN-RULES.md`, `CONTEXT.md` e `AGENTS.md`), edita `autoresearch/core/config.py` e itera iterativamente até achar a melhor configuração.
+- **Agente Externo**: Um agente externo (LLM com acesso ao repo) lê APENAS `program.md` (o entrypoint absoluto), edita `autoresearch/core/config.py` e itera até achar a melhor configuração.
+
+> **Aviso Importante:** Leia todo o readme para entender o processo. Altere o `program.md` manualmente para não causar um loop desnecessário; se solicitar para algum modelo externo alterar o `program.md`, ele pode vir a executar o loop de pesquisa sem que você queira.
 
 ## O que este projeto faz
 
@@ -34,7 +36,7 @@ autoresearch-public/
 
 ## Arquitetura e Terminologia
 
-O sistema segue rigidamente as diretrizes definidas em `CONTEXT.md` e `GOLDEN-RULES.md`. A terminologia principal abrange:
+O sistema segue rigidamente as diretrizes definidas em `CONTEXT.md` e `program.md`. A terminologia principal abrange:
 
 - **Search**: O processo geral de otimização contínua.
 - **Round**: Uma iteração individual do Search.
@@ -141,7 +143,7 @@ status:           keep
 ## Como o Agente ou Usuário Manual Atuam
 
 Caso não se utilize o utilitário autônomo `autoloop.py`, siga este passo-a-passo:
-1. Leia a fundo `GOLDEN-RULES.md`, `CONTEXT.md` e as diretrizes em `AGENTS.md`.
+1. Leia a fundo `program.md`.
 2. As mudanças hipotéticas (Neighbors) residem apenas em `autoresearch/core/config.py`.
 3. Inicie os benchmarks com o executor unificado `python benchmark_search.py`.
 4. Analise as linhas inseridas no final do `results.tsv`.

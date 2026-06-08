@@ -1,3 +1,5 @@
+<!-- Scope: codebase development. Research loop agents → read program.md -->
+
 # Golden Rules & Learnings for Auto-Tuning
 
 ## 1. Performance-Impacting Flags

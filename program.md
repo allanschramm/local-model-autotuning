@@ -17,9 +17,7 @@ To start a fresh Search:
 1. **Agree on a run tag**: use a fresh branch tag such as `apr24`.
 2. **Create the branch**: `git checkout -b autoresearch/<tag>` from `main`.
 3. **Read the in-scope files**:
-   - `program.md` — the rules for the Search
-   - `GOLDEN-RULES.md` — strict constraints and performance tips
-   - `CONTEXT.md` — exact terminology
+   - `program.md` — the rules for the Search (this file)
    - `autoresearch/core/config.py` — tuning surface for the Baseline and Neighbors
 4. **Verify local assets exist**:
    - GGUF models in `models/`
@@ -88,3 +86,15 @@ Run `python autoloop.py` to start the SearchStrategy loop:
 ## Autonomy rule
 Once the Search has started, continue autonomously until manually interrupted.
 Do not pause to ask for permission to continue the Search.
+
+## Terminology (Strict)
+Use these exact terms in your reasoning and commit messages:
+- **Search**: The overall optimization process.
+- **Round**: One iteration of the Search.
+- **Trial**: One complete execution of all benchmarks against a single configuration.
+- **Baseline**: The current best-known configuration in `config.py`.
+- **Neighbor**: A configuration derived from the Baseline by changing exactly one parameter.
+- **Val Score**: The scalar metric used for keep/discard decisions.
+- **Pareto Tie-Breaker**: Keep a Neighbor if it matches Baseline score but improves TPS by >5% or reduces VRAM by >5%.
+- **Local Maxima**: When all valid Neighbors fail to improve the score.
+- **Random Restart**: Generating a random configuration far from Baseline to escape Local Maxima.
