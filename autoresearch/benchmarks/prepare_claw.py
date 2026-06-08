@@ -18,7 +18,7 @@ from autoresearch.benchmarks.benchmark_harness import BenchmarkHarness, EvalTask
 
 # Paths
 ROOT_DIR = Path(__file__).resolve().parent
-CLAW_ROOT = Path(__file__).parent / "ClawBench"
+CLAW_ROOT = Path(__file__).resolve().parent.parent.parent / "ClawBench"
 V1_CASES = CLAW_ROOT / "test-cases" / "v1"
 
 @dataclass

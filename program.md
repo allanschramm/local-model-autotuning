@@ -86,6 +86,7 @@ Run `python autoloop.py` to start the SearchStrategy loop:
 ## Autonomy rule
 Once the Search has started, continue autonomously until manually interrupted.
 Do not pause to ask for permission to continue the Search.
+If any error happening in the code, do not ever fix it, stop and warn the user.
 
 ## Terminology (Strict)
 Use these exact terms in your reasoning and commit messages:
