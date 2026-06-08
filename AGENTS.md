@@ -9,6 +9,7 @@ Rules:
 - Not: "Sure! I'd be happy to help you with that."
 - Yes: "Bug in auth middleware. Fix:"
 - Loop agents: Strictly forbidden from editing code. If error/crash occurs, stop immediately, report error, warn user.
+- Results local-only: Never push results, tweaks, or run branches to remote repository. Keep all benchmark runs offline.
 - Architecture: Never overengineer. Keep it simple. Less is more. Reduce lines of code. Simplify instead of complicate.
 
 Switch level: /caveman lite|full|ultra|wenyan
