@@ -86,7 +86,7 @@ Run `python autoloop.py` to start the SearchStrategy loop:
 ## Autonomy rule
 Once the Search has started, continue autonomously until manually interrupted.
 Do not pause to ask for permission to continue the Search.
-If any error happening in the code, do not ever fix it, stop and warn the user.
+The looping agent is strictly forbidden from editing codebase source code (e.g., `run.py`, benchmarks, tests) under any circumstances. If any error, bug, or exception occurs in the code, the agent MUST NOT attempt to fix or edit the code. It MUST immediately stop execution, report the error, and warn the user.
 
 ## Terminology (Strict)
 Use these exact terms in your reasoning and commit messages:

@@ -23,8 +23,8 @@ from autoresearch.benchmarks.prepare_claw import run_benchmark as run_claw
 from autoresearch.benchmarks.benchmark_coding import run_benchmark as run_coding
 
 BASE_DIR = Path(__file__).resolve().parent
-RESULTS_FILE = BASE_DIR / "results.tsv"
-MODELS_DIR = BASE_DIR / "models"
+RESULTS_FILE = BASE_DIR.parent.parent / "results.tsv"
+MODELS_DIR = BASE_DIR.parent.parent / "models"
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Unified AutoResearch Benchmark Runner")
@@ -125,7 +125,8 @@ def run_evaluation(args, model_filename: str, kv_cache: str, max_tokens: int, in
                    threads: int | None = None, threads_batch: int | None = None,
                    batch_size: int | None = None, ubatch_size: int | None = None,
                    spec_draft_n_max: int | None = None, spec_type: str | None = None,
-                   coding_task_limit: int | None = None) -> Dict[str, Any]:
+                   coding_task_limit: int | None = None,
+                   trial_budget: float | None = None) -> Dict[str, Any]:
     k_val = kv_k if kv_k is not None else (args.kv_k if isinstance(getattr(args, "kv_k", None), str) else kv_cache)
     v_val = kv_v if kv_v is not None else (args.kv_v if isinstance(getattr(args, "kv_v", None), str) else kv_cache)
     t_val = threads if threads is not None else (args.threads if isinstance(getattr(args, "threads", None), int) else 12)
@@ -201,6 +202,9 @@ def run_evaluation(args, model_filename: str, kv_cache: str, max_tokens: int, in
     }
     gen_kwargs = {k: v for k, v in gen_kwargs.items() if v is not None}
     
+    trial_start = time.time()
+    timeout_at = trial_start + trial_budget if trial_budget else None
+
     try:
         with LlamaServerRunner(intent, log_path=server_log) as runner:
             client = LlamaClient(runner.port)
@@ -208,14 +212,14 @@ def run_evaluation(args, model_filename: str, kv_cache: str, max_tokens: int, in
             
             # 1. Nexus (Retrieval)
             print("  [nexus] Running...")
-            nexus_res = run_nexus(client, max_tokens=max_tokens, system_prefix=system_prefix, context_tokens=args.context_tokens, **gen_kwargs)
+            nexus_res = run_nexus(client, max_tokens=max_tokens, system_prefix=system_prefix, context_tokens=args.context_tokens, timeout_at=timeout_at, **gen_kwargs)
             res["nexus_val"] = nexus_res.val_score
             res["nexus_tps"] = nexus_res.avg_tps
             res["nexus_vram"] = runner.peak_vram_mb
             
             # 2. Claw (Agency)
             print("  [claw] Running...")
-            claw_res = run_claw(client, max_tokens=max_tokens, system_prefix=system_prefix, context_tokens=args.context_tokens, **gen_kwargs)
+            claw_res = run_claw(client, max_tokens=max_tokens, system_prefix=system_prefix, context_tokens=args.context_tokens, timeout_at=timeout_at, **gen_kwargs)
             res["claw_val"] = claw_res.val_score
             res["claw_tps"] = claw_res.avg_tps
             res["claw_vram"] = runner.peak_vram_mb
@@ -223,7 +227,7 @@ def run_evaluation(args, model_filename: str, kv_cache: str, max_tokens: int, in
             # 3. Coding (optional)
             if include_coding:
                 print(f"  [coding] Running (limit={task_limit_val})...")
-                coding_res = run_coding(client, is_test=False, model_name=model_filename, task_limit=task_limit_val)
+                coding_res = run_coding(client, is_test=False, model_name=model_filename, task_limit=task_limit_val, timeout_at=timeout_at)
                 res["coding_val"] = coding_res.val_score
                 res["coding_vram"] = runner.peak_vram_mb
             

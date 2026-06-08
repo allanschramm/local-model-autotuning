@@ -33,12 +33,15 @@ class BenchmarkHarness:
         self.p2_weight = 1.0 - p1_weight
 
     def _run_task_loop(self, task: EvalTask, pass_num: int, padding: str = "", max_steps: int = 8, **kwargs) -> Tuple[float, int]:
+        timeout_at = kwargs.get("timeout_at")
         prompt = task.get_initial_prompt(pass_num, padding)
         tools = task.get_tools(pass_num)
         step = 0
         total_tokens = 0
         
         while step < max_steps:
+            if timeout_at and time.time() > timeout_at:
+                raise TimeoutError("Trial time budget exceeded")
             step += 1
             try:
                 # kwargs can override maxtok/temp/etc
@@ -58,6 +61,8 @@ class BenchmarkHarness:
                 # Continue loop
                 prompt += f"{content}\n{tool_result}\n"
             except Exception as e:
+                if isinstance(e, TimeoutError):
+                    raise
                 print(f"    - Pass {pass_num} Step {step} FAIL: {e}")
                 break
         
@@ -71,6 +76,7 @@ class BenchmarkHarness:
         **kwargs
     ) -> BenchmarkResult:
         t_start = time.time()
+        timeout_at = kwargs.get("timeout_at")
         p1_scores = []
         p2_scores = []
         p2_total_tokens = 0
@@ -80,11 +86,15 @@ class BenchmarkHarness:
 
         # --- PASS 1: Accuracy (Context Stress) ---
         for task in tasks:
+            if timeout_at and time.time() > timeout_at:
+                raise TimeoutError("Trial time budget exceeded")
             score_p1, _ = self._run_task_loop(task, pass_num=1, padding=context_padding, system_prefix=system_prefix, **kwargs)
             p1_scores.append(score_p1)
 
         # --- PASS 2: Throughput (Clean measures) ---
         for task in tasks:
+            if timeout_at and time.time() > timeout_at:
+                raise TimeoutError("Trial time budget exceeded")
             t0 = time.time()
             
             # Use p2_maxtok/p2_max_steps if provided, otherwise defaults. 

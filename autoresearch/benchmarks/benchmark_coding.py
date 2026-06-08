@@ -101,7 +101,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         parse_args()
 
-def run_evalplus(dataset: str, port: int, output_dir: Path, model_name: str, task_limit: int = 30) -> dict:
+def run_evalplus(dataset: str, port: int, output_dir: Path, model_name: str, task_limit: int = 30, timeout_at: float | None = None) -> dict:
     """Run EvalPlus codegen and evaluate."""
     print(f"  [EvalPlus] Running {dataset} (limit: {task_limit if task_limit > 0 else 'full'})...")
     
@@ -130,7 +130,14 @@ def run_evalplus(dataset: str, port: int, output_dir: Path, model_name: str, tas
         codegen_cmd += ["--id_range", f"[0, {task_limit}]"]
     
     print(f"    Executing: {' '.join(codegen_cmd)}")
-    subprocess.run(codegen_cmd, check=True, env=env)
+    
+    remaining = None
+    if timeout_at is not None:
+        remaining = max(1.0, timeout_at - time.time())
+        if remaining <= 1.0:
+            raise TimeoutError("Trial time budget exceeded")
+            
+    subprocess.run(codegen_cmd, check=True, env=env, timeout=remaining)
     
     # Step 2: Evaluate
     # Find the specific jsonl for this dataset
@@ -154,7 +161,12 @@ def run_evalplus(dataset: str, port: int, output_dir: Path, model_name: str, tas
     if task_limit > 0 and task_limit <= 30:
         eval_cmd += ["--i_just_wanna_run"]
     
-    result = subprocess.run(eval_cmd, capture_output=True, text=True)
+    if timeout_at is not None:
+        remaining = max(1.0, timeout_at - time.time())
+        if remaining <= 1.0:
+            raise TimeoutError("Trial time budget exceeded")
+            
+    result = subprocess.run(eval_cmd, capture_output=True, text=True, timeout=remaining)
     print(result.stdout)
     if result.stderr:
         print(result.stderr)
@@ -183,13 +195,14 @@ from autoresearch.benchmarks.benchmark_harness import BenchmarkResult
 def run_benchmark(client: LlamaClient, **kwargs) -> BenchmarkResult:
     """Unified entry point for in-process orchestration (Coding focus)."""
     task_limit = kwargs.get("task_limit", 30)
+    timeout_at = kwargs.get("timeout_at", None)
     output_base = ROOT_DIR / "coding_results"
     output_base.mkdir(parents=True, exist_ok=True)
     model_name = kwargs.get("model_name", "local-model")
 
     # Run HumanEval and MBPP
-    he_scores = run_evalplus("humaneval", client.port, output_base, model_name, task_limit=task_limit)
-    mbpp_scores = run_evalplus("mbpp", client.port, output_base, model_name, task_limit=task_limit)
+    he_scores = run_evalplus("humaneval", client.port, output_base, model_name, task_limit=task_limit, timeout_at=timeout_at)
+    mbpp_scores = run_evalplus("mbpp", client.port, output_base, model_name, task_limit=task_limit, timeout_at=timeout_at)
     
     # Map to BenchmarkResult
     # val_pass1 = HumanEval+, val_pass2 = MBPP+
