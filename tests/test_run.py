@@ -20,6 +20,7 @@ class TestRun(unittest.TestCase):
         # Mock scores
         mock_nexus.return_value = MagicMock(val_score=0.8, avg_tps=40.0)
         mock_claw.return_value = MagicMock(val_score=0.7, avg_tps=30.0)
+        _mock_coding.return_value = MagicMock(val_score=0.75)
         
         # Mock get_previous_best to return 0.5 (so we improve)
         with patch("autoresearch.runners.run.get_previous_best", return_value=0.5):
@@ -46,13 +47,15 @@ class TestRun(unittest.TestCase):
     @patch("autoresearch.runners.run.LlamaServerRunner")
     @patch("autoresearch.runners.run.run_nexus")
     @patch("autoresearch.runners.run.run_claw")
+    @patch("autoresearch.runners.run.run_coding")
     @patch("autoresearch.runners.run.get_git_commit")
     @patch("autoresearch.runners.run.open", new_callable=mock_open)
-    def test_grid_run(self, mock_file, mock_commit, mock_claw, mock_nexus, mock_runner):
+    def test_grid_run(self, mock_file, mock_commit, mock_coding, mock_claw, mock_nexus, mock_runner):
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
         mock_commit.return_value = "abcdefg"
         mock_nexus.return_value = MagicMock(val_score=0.8, avg_tps=40.0)
         mock_claw.return_value = MagicMock(val_score=0.7, avg_tps=30.0)
+        mock_coding.return_value = MagicMock(val_score=0.75)
         
         args = MagicMock()
         args.model = "g4-opt-it-Q4_K_M.gguf"

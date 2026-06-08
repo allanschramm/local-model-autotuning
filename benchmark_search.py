@@ -79,7 +79,9 @@ def parse_args():
     parser.add_argument("--presence-penalty", type=float, default=PRESENCE_PENALTY)
     parser.add_argument("--frequency-penalty", type=float, default=FREQUENCY_PENALTY)
     
-    parser.add_argument("--include-coding", action="store_true", default=INCLUDE_CODING, dest="include_coding")
+    parser.add_argument("--include-coding", action="store_true", default=True, dest="include_coding")
+    parser.add_argument("--include-nexus", action="store_true", default=getattr(config, "INCLUDE_NEXUS", False), dest="include_nexus")
+    parser.add_argument("--include-claw", action="store_true", default=getattr(config, "INCLUDE_CLAW", False), dest="include_claw")
     parser.add_argument("--port", type=int, default=18080)
     parser.add_argument("--host", type=str, default="127.0.0.1")
     parser.add_argument("--max-tokens", type=int, default=1024)

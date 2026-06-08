@@ -47,7 +47,9 @@ def parse_args():
     parser.add_argument("--spec-type", type=str, default=config.SPEC_TYPE, help="Speculative decoding type (e.g. draft-mtp, mtp)")
     parser.add_argument("--spec-draft-n-max", type=int, default=config.SPEC_DRAFT_N_MAX, help="Speculative draft max tokens count for MTP")
     parser.add_argument("--context-tokens", type=int, default=8192, help="Context tokens padding length")
-    parser.add_argument("--include-coding", action="store_true", default=config.INCLUDE_CODING, help="Include Coding benchmark (Humaneval+ & MBPP+)")
+    parser.add_argument("--include-coding", action="store_true", default=True, help="Include Coding benchmark (Humaneval+ & MBPP+), always enabled")
+    parser.add_argument("--include-nexus", action="store_true", default=getattr(config, "INCLUDE_NEXUS", False), help="Include Nexus benchmark")
+    parser.add_argument("--include-claw", action="store_true", default=getattr(config, "INCLUDE_CLAW", False), help="Include Claw benchmark")
     parser.add_argument("--coding-task-limit", type=int, default=getattr(config, "CODING_TASK_LIMIT", 30), help="Tasks per dataset (0=full dataset)")
     parser.add_argument("--no-mmap", action="store_true", default=config.NO_MMAP, help="Disable mmap")
     parser.add_argument("--jinja", action="store_true", default=config.JINJA, help="Enable Jinja chat template engine")
@@ -120,13 +122,15 @@ def write_row(results_file: Path, commit: str, val_score: float, memory_gb: floa
             "description": description
         })
 
-def run_evaluation(args, model_filename: str, kv_cache: str, max_tokens: int, include_coding: bool,
+def run_evaluation(args, model_filename: str, kv_cache: str, max_tokens: int, include_coding: bool = True,
                    kv_k: str | None = None, kv_v: str | None = None,
                    threads: int | None = None, threads_batch: int | None = None,
                    batch_size: int | None = None, ubatch_size: int | None = None,
                    spec_draft_n_max: int | None = None, spec_type: str | None = None,
                    coding_task_limit: int | None = None,
-                   trial_budget: float | None = None) -> Dict[str, Any]:
+                   trial_budget: float | None = None,
+                   include_nexus: bool = False,
+                   include_claw: bool = False) -> Dict[str, Any]:
     k_val = kv_k if kv_k is not None else (args.kv_k if isinstance(getattr(args, "kv_k", None), str) else kv_cache)
     v_val = kv_v if kv_v is not None else (args.kv_v if isinstance(getattr(args, "kv_v", None), str) else kv_cache)
     t_val = threads if threads is not None else (args.threads if isinstance(getattr(args, "threads", None), int) else 12)
@@ -150,6 +154,9 @@ def run_evaluation(args, model_filename: str, kv_cache: str, max_tokens: int, in
     msg_val = args.reasoning_budget_message if isinstance(getattr(args, "reasoning_budget_message", None), str) else None
     reasoning_val = args.reasoning if isinstance(getattr(args, "reasoning", None), str) else None
     cont_batch_val = args.cont_batching if isinstance(getattr(args, "cont_batching", None), bool) else False
+
+    include_nexus_val = include_nexus or getattr(args, "include_nexus", False)
+    include_claw_val = include_claw or getattr(args, "include_claw", False)
 
     intent = ServerIntent(
         model_path=MODELS_DIR / model_filename,
@@ -211,38 +218,58 @@ def run_evaluation(args, model_filename: str, kv_cache: str, max_tokens: int, in
             system_prefix = "<|think|>\n"
             
             # 1. Nexus (Retrieval)
-            print("  [nexus] Running...")
-            nexus_res = run_nexus(client, max_tokens=max_tokens, system_prefix=system_prefix, context_tokens=args.context_tokens, timeout_at=timeout_at, **gen_kwargs)
-            res["nexus_val"] = nexus_res.val_score
-            res["nexus_tps"] = nexus_res.avg_tps
-            res["nexus_vram"] = runner.peak_vram_mb
+            if include_nexus_val:
+                print("  [nexus] Running...")
+                nexus_res = run_nexus(client, max_tokens=max_tokens, system_prefix=system_prefix, context_tokens=args.context_tokens, timeout_at=timeout_at, **gen_kwargs)
+                res["nexus_val"] = nexus_res.val_score
+                res["nexus_tps"] = nexus_res.avg_tps
+                res["nexus_vram"] = runner.peak_vram_mb
             
             # 2. Claw (Agency)
-            print("  [claw] Running...")
-            claw_res = run_claw(client, max_tokens=max_tokens, system_prefix=system_prefix, context_tokens=args.context_tokens, timeout_at=timeout_at, **gen_kwargs)
-            res["claw_val"] = claw_res.val_score
-            res["claw_tps"] = claw_res.avg_tps
-            res["claw_vram"] = runner.peak_vram_mb
+            if include_claw_val:
+                print("  [claw] Running...")
+                claw_res = run_claw(client, max_tokens=max_tokens, system_prefix=system_prefix, context_tokens=args.context_tokens, timeout_at=timeout_at, **gen_kwargs)
+                res["claw_val"] = claw_res.val_score
+                res["claw_tps"] = claw_res.avg_tps
+                res["claw_vram"] = runner.peak_vram_mb
             
-            # 3. Coding (optional)
-            if include_coding:
-                print(f"  [coding] Running (limit={task_limit_val})...")
-                coding_res = run_coding(client, is_test=False, model_name=model_filename, task_limit=task_limit_val, timeout_at=timeout_at)
-                res["coding_val"] = coding_res.val_score
-                res["coding_vram"] = runner.peak_vram_mb
+            # 3. Coding (Always Enabled)
+            print(f"  [coding] Running (limit={task_limit_val})...")
+            coding_res = run_coding(client, is_test=False, model_name=model_filename, task_limit=task_limit_val, timeout_at=timeout_at)
+            res["coding_val"] = coding_res.val_score
+            res["coding_vram"] = runner.peak_vram_mb
             
             # Compute combined metrics
-            avg_tps = (nexus_res.avg_tps + claw_res.avg_tps) / 2.0
-            res["avg_tps"] = avg_tps
+            tps_list = []
+            if include_nexus_val:
+                tps_list.append(res["nexus_tps"])
+            if include_claw_val:
+                tps_list.append(res["claw_tps"])
+                
+            if tps_list:
+                avg_tps = sum(tps_list) / len(tps_list)
+                res["avg_tps"] = avg_tps
+                if avg_tps < 20.0:
+                    print(f"  [WARNING] Combined TPS {avg_tps:.2f} is below 20.0! Score set to 0.0.")
+                    res["val_score"] = 0.0
+                    return res
+            else:
+                res["avg_tps"] = 0.0
+                
             res["peak_vram_gb"] = max(runner.peak_vram_mb, 0.0) / 1024.0
             
-            if avg_tps < 20.0:
-                print(f"  [WARNING] Combined TPS {avg_tps:.2f} is below 20.0! Score set to 0.0.")
-                res["val_score"] = 0.0
-            elif include_coding:
-                res["val_score"] = (res["coding_val"] * 0.8) + (res["nexus_val"] * 0.1) + (res["claw_val"] * 0.1)
-            else:
-                res["val_score"] = (res["claw_val"] * 0.6) + (res["nexus_val"] * 0.4)
+            # Normalize weights: Coding = 80, Nexus = 10 (if enabled), Claw = 10 (if enabled)
+            total_weight = 80.0
+            weighted_score = res["coding_val"] * 80.0
+            
+            if include_nexus_val:
+                total_weight += 10.0
+                weighted_score += res["nexus_val"] * 10.0
+            if include_claw_val:
+                total_weight += 10.0
+                weighted_score += res["claw_val"] * 10.0
+                
+            res["val_score"] = round(weighted_score / total_weight, 6)
                 
     except Exception as e:
         print(f"  [FAIL] Evaluation failed: {e}")
@@ -263,8 +290,14 @@ def handle_single_run(args):
     prev_best = get_previous_best(RESULTS_FILE)
     print(f"Previous best 'keep' score: {prev_best:.6f}")
     
+    include_nexus_val = getattr(args, "include_nexus", False)
+    include_claw_val = getattr(args, "include_claw", False)
+
     # Run evaluation
-    res = run_evaluation(args, args.model, args.kv, args.max_tokens, args.include_coding)
+    res = run_evaluation(
+        args, args.model, args.kv, args.max_tokens, args.include_coding,
+        include_nexus=include_nexus_val, include_claw=include_claw_val
+    )
     
     if res["status"] != "OK":
         print(f"Evaluation failed: {res['status']}")
@@ -276,9 +309,11 @@ def handle_single_run(args):
     status = "keep" if improved else "discard"
     
     # Format details in description
-    details = f"{args.model} kv={args.kv} ctx={args.ctx_size} TPS={res['avg_tps']:.1f} VRAM={res['peak_vram_gb']:.1f}GB retrieval={res['nexus_val']:.4f} agency={res['claw_val']:.4f}"
-    if args.include_coding:
-        details += f" coding={res['coding_val']:.4f}"
+    details = f"{args.model} kv={args.kv} ctx={args.ctx_size} TPS={res['avg_tps']:.1f} VRAM={res['peak_vram_gb']:.1f}GB coding={res['coding_val']:.4f}"
+    if include_nexus_val:
+        details += f" retrieval={res['nexus_val']:.4f}"
+    if include_claw_val:
+        details += f" agency={res['claw_val']:.4f}"
     details += f" | {args.desc}"
     
     # Log to results.tsv
@@ -291,12 +326,14 @@ def handle_single_run(args):
     print(f"KV Cache:       {args.kv}")
     print(f"Context Size:   {args.ctx_size}")
     print("-"*40)
-    print(f"Nexus (Retrieval): {res['nexus_val']:.4f} (TPS: {res['nexus_tps']:.1f})")
-    print(f"Claw (Agency):    {res['claw_val']:.4f} (TPS: {res['claw_tps']:.1f})")
-    if args.include_coding:
-        print(f"Coding Score:     {res['coding_val']:.4f}")
+    print(f"Coding Score:     {res['coding_val']:.4f}")
+    if include_nexus_val:
+        print(f"Nexus (Retrieval): {res['nexus_val']:.4f} (TPS: {res['nexus_tps']:.1f})")
+    if include_claw_val:
+        print(f"Claw (Agency):    {res['claw_val']:.4f} (TPS: {res['claw_tps']:.1f})")
     print("-"*40)
-    print(f"Combined TPS:     {res['avg_tps']:.1f} (Threshold: >= 20.0)")
+    if include_nexus_val or include_claw_val:
+        print(f"Combined TPS:     {res['avg_tps']:.1f} (Threshold: >= 20.0)")
     print(f"Peak VRAM:        {res['peak_vram_gb']:.1f} GB")
     print(f"Current Score:    {val_score:.6f}")
     print(f"Previous Best:    {prev_best:.6f}")

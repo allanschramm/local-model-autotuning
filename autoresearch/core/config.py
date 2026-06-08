@@ -31,4 +31,6 @@ FREQUENCY_PENALTY = None
 
 # Benchmarks to run
 INCLUDE_CODING = True
+INCLUDE_NEXUS = False
+INCLUDE_CLAW = False
 CODING_TASK_LIMIT = 30  # Tasks per dataset (HumanEval/MBPP). 0 = full dataset.

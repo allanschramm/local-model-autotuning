@@ -49,6 +49,7 @@ PASSTHROUGH_PARAMS = [
     "REASONING", "SPEC_TYPE", "TOP_P", "MIN_P", "TOP_K",
     "REPEAT_PENALTY", "PRESENCE_PENALTY", "FREQUENCY_PENALTY",
     "INCLUDE_CODING", "CODING_TASK_LIMIT",
+    "INCLUDE_NEXUS", "INCLUDE_CLAW",
 ]
 
 # ── Graceful shutdown ────────────────────────────────────────────────────
@@ -103,13 +104,16 @@ def write_config(cfg: dict[str, Any]) -> None:
 
     lines.append("")
     lines.append("# Benchmarks to run")
-    lines.append(f"INCLUDE_CODING = {repr(cfg.get('INCLUDE_CODING', True))}")
+    lines.append(f"INCLUDE_CODING = True")
+    lines.append(f"INCLUDE_NEXUS = {repr(cfg.get('INCLUDE_NEXUS', False))}")
+    lines.append(f"INCLUDE_CLAW = {repr(cfg.get('INCLUDE_CLAW', False))}")
     limit = cfg.get("CODING_TASK_LIMIT", 30)
     lines.append(f"CODING_TASK_LIMIT = {limit}  # Tasks per dataset (HumanEval/MBPP). 0 = full dataset.")
     lines.append("")
 
-    config_path = BASE_DIR / "config.py"
-    config_path.write_text("\n".join(lines), encoding="utf-8")
+    # Write config to both root and package path to ensure consistency
+    for path in [BASE_DIR / "config.py", BASE_DIR / "autoresearch" / "core" / "config.py"]:
+        path.write_text("\n".join(lines), encoding="utf-8")
 
 
 def config_to_args(cfg: dict[str, Any]) -> object:
@@ -142,7 +146,9 @@ def config_to_args(cfg: dict[str, Any]) -> object:
     a.repeat_penalty = cfg.get("REPEAT_PENALTY")
     a.presence_penalty = cfg.get("PRESENCE_PENALTY")
     a.frequency_penalty = cfg.get("FREQUENCY_PENALTY")
-    a.include_coding = cfg.get("INCLUDE_CODING", True)
+    a.include_coding = True
+    a.include_nexus = cfg.get("INCLUDE_NEXUS", False)
+    a.include_claw = cfg.get("INCLUDE_CLAW", False)
     a.coding_task_limit = cfg.get("CODING_TASK_LIMIT", 30)
     a.port = 18080
     a.host = "127.0.0.1"
