@@ -412,12 +412,24 @@ def main():
             if not improved and not _stop_requested:
                 print(f"\n[AUTOLOOP] Local maxima reached in round {round_num}.")
                 print("[AUTOLOOP] Attempting Random Restart...")
-                new_baseline = search_strategy.random_restart(visited, baseline_cfg)
+                new_baseline = None
+                for restart_attempt in range(50):
+                    candidate = search_strategy.random_restart(visited, baseline_cfg)
+                    if not candidate:
+                        break
+                    # Pre-flight VRAM check
+                    if preflight_vram_ok(candidate, vram_limit):
+                        new_baseline = candidate
+                        break
+                    else:
+                        # Mark as visited so we don't try it again
+                        visited.add(search_strategy.get_config_key(candidate))
+                
                 if new_baseline:
-                    print("[AUTOLOOP] Found unvisited random configuration. Restarting search.")
+                    print("[AUTOLOOP] Found unvisited VRAM-safe random configuration. Restarting search.")
                     write_config(new_baseline)
                 else:
-                    print("[AUTOLOOP] Exhausted random search space. Stopping.")
+                    print("[AUTOLOOP] Exhausted random search space or cannot find VRAM-safe config. Stopping.")
                     break
 
     # ── Shutdown summary ─────────────────────────────────────────────

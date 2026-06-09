@@ -137,7 +137,10 @@ def run_evalplus(dataset: str, port: int, output_dir: Path, model_name: str, tas
         if remaining <= 1.0:
             raise TimeoutError("Trial time budget exceeded")
             
-    subprocess.run(codegen_cmd, check=True, env=env, timeout=remaining)
+    try:
+        subprocess.run(codegen_cmd, check=True, env=env, timeout=remaining)
+    except subprocess.TimeoutExpired as e:
+        raise TimeoutError("Trial time budget exceeded") from e
     
     # Step 2: Evaluate
     # Find the specific jsonl for this dataset
@@ -166,7 +169,10 @@ def run_evalplus(dataset: str, port: int, output_dir: Path, model_name: str, tas
         if remaining <= 1.0:
             raise TimeoutError("Trial time budget exceeded")
             
-    result = subprocess.run(eval_cmd, capture_output=True, text=True, timeout=remaining)
+    try:
+        result = subprocess.run(eval_cmd, capture_output=True, text=True, timeout=remaining)
+    except subprocess.TimeoutExpired as e:
+        raise TimeoutError("Trial time budget exceeded") from e
     print(result.stdout)
     if result.stderr:
         print(result.stderr)

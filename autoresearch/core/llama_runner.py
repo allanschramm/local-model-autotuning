@@ -58,7 +58,7 @@ class ServerIntent:
     spec_type: str | None = None
 
 
-def estimate_vram_mb(model_path: Path, ctx_size: int, kv_cache_k: str | None, kv_cache_v: str | None, base_kv_cache: str) -> float:
+def estimate_vram_mb(model_path: Path, ctx_size: int, kv_cache_k: str | None = None, kv_cache_v: str | None = None, base_kv_cache: str = "q4_0") -> float:
     try:
         model_size_mb = model_path.stat().st_size / (1024 * 1024)
     except Exception:

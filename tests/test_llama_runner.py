@@ -196,5 +196,19 @@ class TestLlamaRunner(unittest.TestCase):
         self.assertIn("--reasoning-budget-message", cmd)
         self.assertEqual(cmd[cmd.index("--reasoning-budget-message") + 1], "Thinking budget reached. Proceed to final answer now.")
 
+    def test_estimate_vram_mb(self):
+        from autoresearch.core.llama_runner import estimate_vram_mb
+        # Test with 4 arguments (backward-compatibility check)
+        v1 = estimate_vram_mb(Path("models/non-existent.gguf"), 2048, "q4_0", "q4_0")
+        self.assertGreater(v1, 4000)
+        
+        # Test with 5 arguments
+        v2 = estimate_vram_mb(Path("models/non-existent.gguf"), 2048, "q4_0", "q4_0", "q4_0")
+        self.assertEqual(v1, v2)
+        
+        # Test default/none cache parameters
+        v3 = estimate_vram_mb(Path("models/non-existent.gguf"), 2048)
+        self.assertEqual(v1, v3)
+
 if __name__ == "__main__":
     unittest.main()
