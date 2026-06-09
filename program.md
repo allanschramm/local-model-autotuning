@@ -87,6 +87,7 @@ Run `python autoloop.py` to start the SearchStrategy loop:
 Once the Search has started, continue autonomously until manually interrupted.
 Do not pause to ask for permission to continue the Search.
 The looping agent is strictly forbidden from editing codebase source code (e.g., `run.py`, benchmarks, tests) under any circumstances. If any error, bug, or exception occurs in the code, the agent MUST NOT attempt to fix or edit the code. It MUST immediately stop execution, report the error, and warn the user.
+Additionally, the looping agent must only save results and tweak commits locally. It is strictly forbidden from pushing any commits, branches, or results (e.g., benchmark scores, config tweaks) to the remote repository. All benchmark runs and results branches must remain completely offline and local-only.
 
 ## Terminology (Strict)
 Use these exact terms in your reasoning and commit messages:

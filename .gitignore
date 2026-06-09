@@ -5,6 +5,8 @@
 results.tsv
 grid_results.csv
 coding_results/
+autoresearch/benchmarks/data/
+/config.py
 grid_execution.log
 .autoloop_visited.json
 
