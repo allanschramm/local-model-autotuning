@@ -124,15 +124,15 @@ Decomposed tasks from codebase audit. Each task is atomic, testable, and indepen
 
 ## Phase 5: Cleanup
 
-### 5.1 Delete dead scripts
+### 5.1 Delete dead scripts (Done)
 - **Files**: `scripts/robust_run.py` (references non-existent `run_grid.py`), `scripts/test_imports.py` (debug artifact)
 - **Fix**: Delete both
 
-### 5.2 Normalize line endings
+### 5.2 Normalize line endings (Done)
 - **What**: Mixed `\r\n` (run.py, llama_runner.py) and `\n` (search.py, prepare.py)
 - **Fix**: Normalize to `\n`. Add `.gitattributes: *.py text eol=lf`
 
-### 5.3 Add `coding_results/` cleanup
+### 5.3 Add `coding_results/` cleanup (Done)
 - **What**: EvalPlus generates files indefinitely in `coding_results/`
 - **Fix**: Add cleanup on startup or gitignore pattern (partially there)
 
