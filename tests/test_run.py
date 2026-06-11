@@ -137,7 +137,7 @@ class TestRun(unittest.TestCase):
         
         # Call with include_coding = False, include_nexus = True, include_claw = True
         res = run.run_evaluation(
-            args, "g4-opt-it-Q4_K_M.gguf", "q4_0", 1024,
+            args, model="g4-opt-it-Q4_K_M.gguf", kv="q4_0", max_tokens=1024,
             include_coding=False, include_nexus=True, include_claw=True
         )
         

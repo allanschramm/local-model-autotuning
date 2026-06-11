@@ -116,49 +116,6 @@ def write_config(cfg: dict[str, Any]) -> None:
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def config_to_args(cfg: dict[str, Any]) -> object:
-    """Build a namespace object compatible with run_evaluation()."""
-    class Args:
-        pass
-    a = Args()
-    a.model = cfg.get("MODEL", "g4-opt-it-Q4_K_M.gguf")
-    a.ctx_size = cfg.get("CTX_SIZE", 16384)
-    a.kv = cfg.get("KV_CACHE", "q4_0")
-    a.kv_k = cfg.get("KV_CACHE_K")
-    a.kv_v = cfg.get("KV_CACHE_V")
-    a.batch_size = cfg.get("BATCH_SIZE", 512)
-    a.ubatch_size = cfg.get("UBATCH_SIZE", 128)
-    a.threads = cfg.get("THREADS", 12)
-    a.threads_batch = cfg.get("THREADS_BATCH")
-    a.flash_attn = cfg.get("FLASH_ATTN", "on")
-    a.spec_type = cfg.get("SPEC_TYPE")
-    a.spec_draft_n_max = cfg.get("SPEC_DRAFT_N_MAX", 1)
-    a.no_mmap = cfg.get("NO_MMAP", False)
-    a.jinja = cfg.get("JINJA", False)
-    a.reasoning_budget = cfg.get("REASONING_BUDGET")
-    a.reasoning_budget_message = cfg.get("REASONING_BUDGET_MESSAGE")
-    a.reasoning = cfg.get("REASONING")
-    a.cont_batching = cfg.get("CONT_BATCHING", False)
-    a.temp = cfg.get("TEMP", 0.2)
-    a.top_p = cfg.get("TOP_P")
-    a.min_p = cfg.get("MIN_P")
-    a.top_k = cfg.get("TOP_K")
-    a.repeat_penalty = cfg.get("REPEAT_PENALTY")
-    a.presence_penalty = cfg.get("PRESENCE_PENALTY")
-    a.frequency_penalty = cfg.get("FREQUENCY_PENALTY")
-    a.include_coding = cfg.get("INCLUDE_CODING", True)
-    a.include_nexus = cfg.get("INCLUDE_NEXUS", False)
-    a.include_claw = cfg.get("INCLUDE_CLAW", False)
-    a.coding_task_limit = cfg.get("CODING_TASK_LIMIT", 30)
-    a.port = 18080
-    a.host = "127.0.0.1"
-    a.ngl = 99
-    a.parallel = 1
-    a.max_tokens = 1024
-    a.context_tokens = 8192
-    return a
-
-
 def preflight_vram_ok(cfg: dict[str, Any], vram_limit: float | None) -> bool:
     """Estimate VRAM for a config and return True if it fits budget."""
     if vram_limit is None:
@@ -178,16 +135,16 @@ def preflight_vram_ok(cfg: dict[str, Any], vram_limit: float | None) -> bool:
 
 def evaluate(cfg: dict[str, Any], trial_budget: float | None = None) -> dict[str, Any]:
     """Run full benchmark suite with given config."""
-    args = config_to_args(cfg)
-    return run_evaluation(
-        args, args.model, args.kv, args.max_tokens, args.include_coding,
-        kv_k=args.kv_k, kv_v=args.kv_v,
-        threads=args.threads, threads_batch=args.threads_batch,
-        batch_size=args.batch_size, ubatch_size=args.ubatch_size,
-        spec_draft_n_max=args.spec_draft_n_max, spec_type=args.spec_type,
-        coding_task_limit=args.coding_task_limit,
-        trial_budget=trial_budget
-    )
+    defaults = {
+        "port": 18080,
+        "host": "127.0.0.1",
+        "parallel": 1,
+        "ngl": 99,
+        "max_tokens": 1024,
+        "context_tokens": 8192,
+    }
+    merged = {**defaults, **cfg}
+    return run_evaluation(merged, trial_budget=trial_budget)
 
 def load_visited() -> set[str]:
     """Load previously visited configs from disk."""

@@ -268,6 +268,7 @@ class LlamaServerRunner:
 
     def _wait_for_server(self, port: int) -> bool:
         deadline = time.time() + self.timeout
+        delay = 0.05
         while time.time() < deadline:
             if self._server_proc.poll() is not None:
                 return False
@@ -277,7 +278,8 @@ class LlamaServerRunner:
                     if response.status == 200:
                         return True
             except Exception:
-                time.sleep(0.1)
+                time.sleep(delay)
+                delay = min(delay * 2, 0.4)
         return False
 
     def _start_vram_sampler(self) -> None:

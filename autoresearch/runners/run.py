@@ -123,41 +123,60 @@ def write_row(results_file: Path, commit: str, val_score: float, memory_gb: floa
             "description": description
         })
 
-def run_evaluation(args, model_filename: str, kv_cache: str, max_tokens: int, include_coding: bool = True,
-                   kv_k: str | None = None, kv_v: str | None = None,
-                   threads: int | None = None, threads_batch: int | None = None,
-                   batch_size: int | None = None, ubatch_size: int | None = None,
-                   spec_draft_n_max: int | None = None, spec_type: str | None = None,
-                   coding_task_limit: int | None = None,
-                   trial_budget: float | None = None,
-                   include_nexus: bool = False,
-                   include_claw: bool = False) -> Dict[str, Any]:
-    k_val = kv_k if kv_k is not None else (args.kv_k if isinstance(getattr(args, "kv_k", None), str) else kv_cache)
-    v_val = kv_v if kv_v is not None else (args.kv_v if isinstance(getattr(args, "kv_v", None), str) else kv_cache)
-    t_val = threads if threads is not None else (args.threads if isinstance(getattr(args, "threads", None), int) else 12)
-    tb_val = threads_batch if threads_batch is not None else (args.threads_batch if isinstance(getattr(args, "threads_batch", None), int) else None)
-    b_val = batch_size if batch_size is not None else (args.batch_size if isinstance(getattr(args, "batch_size", None), int) else 512)
-    ub_val = ubatch_size if ubatch_size is not None else (args.ubatch_size if isinstance(getattr(args, "ubatch_size", None), int) else 128)
-    spec_val = spec_draft_n_max if spec_draft_n_max is not None else (args.spec_draft_n_max if isinstance(getattr(args, "spec_draft_n_max", None), int) else 1)
-    spec_type_val = spec_type if spec_type is not None else (args.spec_type if isinstance(getattr(args, "spec_type", None), str) else None)
-    task_limit_val = coding_task_limit if coding_task_limit is not None else (args.coding_task_limit if isinstance(getattr(args, "coding_task_limit", None), int) else 30)
-    
-    flash_attn_val = args.flash_attn if isinstance(getattr(args, "flash_attn", None), str) else "on"
-    parallel_val = args.parallel if isinstance(getattr(args, "parallel", None), int) else 1
-    ctx_size_val = args.ctx_size if isinstance(getattr(args, "ctx_size", None), int) else 16384
-    port_val = args.port if isinstance(getattr(args, "port", None), int) else 18080
-    ngl_val = args.ngl if isinstance(getattr(args, "ngl", None), int) else 99
-    host_val = args.host if isinstance(getattr(args, "host", None), str) else "127.0.0.1"
+def run_evaluation(cfg: dict | Any, **overrides) -> Dict[str, Any]:
+    def get_val(name: str, default: Any = None) -> Any:
+        if name in overrides and overrides[name] is not None:
+            return overrides[name]
+        if isinstance(cfg, dict):
+            if name in cfg and cfg[name] is not None:
+                return cfg[name]
+            name_lower = name.lower()
+            if name_lower in cfg and cfg[name_lower] is not None:
+                return cfg[name_lower]
+            name_upper = name.upper()
+            if name_upper in cfg and cfg[name_upper] is not None:
+                return cfg[name_upper]
+        else:
+            val = getattr(cfg, name, None)
+            if val is not None:
+                return val
+            val = getattr(cfg, name.lower(), None)
+            if val is not None:
+                return val
+            val = getattr(cfg, name.upper(), None)
+            if val is not None:
+                return val
+        return default
 
-    no_mmap_val = args.no_mmap if isinstance(getattr(args, "no_mmap", None), bool) else False
-    jinja_val = args.jinja if isinstance(getattr(args, "jinja", None), bool) else False
-    budget_val = args.reasoning_budget if isinstance(getattr(args, "reasoning_budget", None), int) else None
-    msg_val = args.reasoning_budget_message if isinstance(getattr(args, "reasoning_budget_message", None), str) else None
-    reasoning_val = args.reasoning if isinstance(getattr(args, "reasoning", None), str) else None
-    cont_batch_val = args.cont_batching if isinstance(getattr(args, "cont_batching", None), bool) else False
-
-    include_nexus_val = include_nexus or getattr(args, "include_nexus", False)
-    include_claw_val = include_claw or getattr(args, "include_claw", False)
+    model_filename = get_val("model", "g4-opt-it-Q4_K_M.gguf")
+    kv_cache = get_val("kv", "q4_0")
+    k_val = get_val("kv_k") or kv_cache
+    v_val = get_val("kv_v") or kv_cache
+    max_tokens = get_val("max_tokens", 1024)
+    include_coding = get_val("include_coding", True)
+    t_val = get_val("threads", 12)
+    tb_val = get_val("threads_batch")
+    b_val = get_val("batch_size", 512)
+    ub_val = get_val("ubatch_size", 128)
+    spec_val = get_val("spec_draft_n_max", 1)
+    spec_type_val = get_val("spec_type")
+    task_limit_val = get_val("coding_task_limit", 30)
+    flash_attn_val = get_val("flash_attn", "on")
+    parallel_val = get_val("parallel", 1)
+    ctx_size_val = get_val("ctx_size", 16384)
+    port_val = get_val("port", 18080)
+    ngl_val = get_val("ngl", 99)
+    host_val = get_val("host", "127.0.0.1")
+    no_mmap_val = get_val("no_mmap", False)
+    jinja_val = get_val("jinja", False)
+    budget_val = get_val("reasoning_budget")
+    msg_val = get_val("reasoning_budget_message")
+    reasoning_val = get_val("reasoning")
+    cont_batch_val = get_val("cont_batching", False)
+    include_nexus_val = get_val("include_nexus", False)
+    include_claw_val = get_val("include_claw", False)
+    context_tokens_val = get_val("context_tokens", 8192)
+    trial_budget = get_val("trial_budget")
 
     intent = ServerIntent(
         model_path=MODELS_DIR / model_filename,
@@ -200,13 +219,13 @@ def run_evaluation(args, model_filename: str, kv_cache: str, max_tokens: int, in
     }
     
     gen_kwargs = {
-        "temp": args.temp if isinstance(getattr(args, "temp", None), float) else 0.2,
-        "top_p": args.top_p if isinstance(getattr(args, "top_p", None), float) else None,
-        "min_p": args.min_p if isinstance(getattr(args, "min_p", None), float) else None,
-        "top_k": args.top_k if isinstance(getattr(args, "top_k", None), int) else None,
-        "repeat_penalty": args.repeat_penalty if isinstance(getattr(args, "repeat_penalty", None), float) else None,
-        "presence_penalty": args.presence_penalty if isinstance(getattr(args, "presence_penalty", None), float) else None,
-        "frequency_penalty": args.frequency_penalty if isinstance(getattr(args, "frequency_penalty", None), float) else None,
+        "temp": get_val("temp", 0.2),
+        "top_p": get_val("top_p"),
+        "min_p": get_val("min_p"),
+        "top_k": get_val("top_k"),
+        "repeat_penalty": get_val("repeat_penalty"),
+        "presence_penalty": get_val("presence_penalty"),
+        "frequency_penalty": get_val("frequency_penalty"),
     }
     gen_kwargs = {k: v for k, v in gen_kwargs.items() if v is not None}
     
@@ -221,7 +240,7 @@ def run_evaluation(args, model_filename: str, kv_cache: str, max_tokens: int, in
             # 1. Nexus (Retrieval)
             if include_nexus_val:
                 print("  [nexus] Running...")
-                nexus_res = run_nexus(client, max_tokens=max_tokens, system_prefix=system_prefix, context_tokens=args.context_tokens, timeout_at=timeout_at, **gen_kwargs)
+                nexus_res = run_nexus(client, max_tokens=max_tokens, system_prefix=system_prefix, context_tokens=context_tokens_val, timeout_at=timeout_at, **gen_kwargs)
                 res["nexus_val"] = nexus_res.val_score
                 res["nexus_tps"] = nexus_res.avg_tps
                 res["nexus_vram"] = runner.peak_vram_mb
@@ -229,7 +248,7 @@ def run_evaluation(args, model_filename: str, kv_cache: str, max_tokens: int, in
             # 2. Claw (Agency)
             if include_claw_val:
                 print("  [claw] Running...")
-                claw_res = run_claw(client, max_tokens=max_tokens, system_prefix=system_prefix, context_tokens=args.context_tokens, timeout_at=timeout_at, **gen_kwargs)
+                claw_res = run_claw(client, max_tokens=max_tokens, system_prefix=system_prefix, context_tokens=context_tokens_val, timeout_at=timeout_at, **gen_kwargs)
                 res["claw_val"] = claw_res.val_score
                 res["claw_tps"] = claw_res.avg_tps
                 res["claw_vram"] = runner.peak_vram_mb
@@ -300,8 +319,7 @@ def handle_single_run(args):
 
     # Run evaluation
     res = run_evaluation(
-        args, args.model, args.kv, args.max_tokens, args.include_coding,
-        include_nexus=include_nexus_val, include_claw=include_claw_val
+        args, include_nexus=include_nexus_val, include_claw=include_claw_val
     )
     
     if res["status"] != "OK":
@@ -400,7 +418,7 @@ def handle_grid_run(args):
         print(f"{'='*80}")
         
         res = run_evaluation(
-            args, args.model, kv, mt, args.include_coding,
+            args, kv=kv, max_tokens=mt,
             kv_k=kv_k, kv_v=kv_v, threads=threads, threads_batch=threads_batch,
             batch_size=batch_size, ubatch_size=ubatch_size, spec_draft_n_max=spec_draft
         )
