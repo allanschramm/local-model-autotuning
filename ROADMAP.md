@@ -80,7 +80,7 @@ Decomposed tasks from codebase audit. Each task is atomic, testable, and indepen
 - **Impact**: -20 lines, single source for padding logic
 - **Constraint**: program.md says benchmarks/* is fixed — check if extraction counts as "modifying" or just moving
 
-### 3.4 Fix `benchmark_coding.py` import spaghetti
+### 3.4 Fix `benchmark_coding.py` import spaghetti (Done)
 - **File**: `autoresearch/benchmarks/benchmark_coding.py:17-35, 89-90`
 - **What**: Imports `benchmark_search` at module level, sets globals, then resets some at line 89. `parse_args()` mutates globals.
 - **Fix**: Import from `config` directly. Remove global mutation. Pass config via args.

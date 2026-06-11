@@ -7,19 +7,11 @@ import sys
 class TestBenchmarkCoding(unittest.TestCase):
 
     def test_parse_args(self):
-        # Save original state
-        orig_ctx = benchmark_coding.CTX_SIZE
-        orig_model = benchmark_coding.MODELS_TO_BENCHMARK
-        
         test_args = ["prog", "--ctx-size", "2048", "--model", "test-model.gguf"]
         with patch.object(sys, 'argv', test_args):
-            benchmark_coding.parse_args()
-            self.assertEqual(benchmark_coding.CTX_SIZE, 2048)
-            self.assertEqual(benchmark_coding.MODELS_TO_BENCHMARK, ["test-model.gguf"])
-        
-        # Restore
-        benchmark_coding.CTX_SIZE = orig_ctx
-        benchmark_coding.MODELS_TO_BENCHMARK = orig_model
+            args = benchmark_coding.parse_args()
+            self.assertEqual(args.ctx_size, 2048)
+            self.assertEqual(args.model, "test-model.gguf")
 
     @patch("subprocess.run")
     @patch("pathlib.Path.glob")
