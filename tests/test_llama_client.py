@@ -69,6 +69,24 @@ class TestLlamaClient(unittest.TestCase):
         self.assertEqual(payload["tools"], tools)
 
     @patch("urllib.request.urlopen")
+    def test_complete_custom_params(self, mock_urlopen):
+        mock_res = MagicMock()
+        mock_res.read.return_value = json.dumps({
+            "choices": [{"message": {"content": "Custom", "tool_calls": []}}],
+            "usage": {"total_tokens": 10}
+        }).encode()
+        mock_res.__enter__.return_value = mock_res
+        mock_urlopen.return_value = mock_res
+
+        self.client.complete("Say hello", max_tokens=100, temperature=0.5)
+
+        args, _ = mock_urlopen.call_args
+        req = args[0]
+        payload = json.loads(req.data.decode())
+        self.assertEqual(payload["max_tokens"], 100)
+        self.assertEqual(payload["temperature"], 0.5)
+
+    @patch("urllib.request.urlopen")
     def test_complete_error(self, mock_urlopen):
         mock_urlopen.side_effect = Exception("Connection refused")
 

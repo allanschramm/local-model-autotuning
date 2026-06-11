@@ -46,7 +46,7 @@ class BenchmarkHarness:
                 raise TimeoutError("Trial time budget exceeded")
             step += 1
             try:
-                # kwargs can override maxtok/temp/etc
+                # kwargs can override max_tokens/temperature/etc
                 res = self.client.complete(prompt, tools=tools, **kwargs)
                 content = res.get("content", "")
                 usage = res.get("usage", {})
@@ -99,10 +99,10 @@ class BenchmarkHarness:
                 raise TimeoutError("Trial time budget exceeded")
             t0 = time.time()
             
-            # Use p2_maxtok/p2_max_steps if provided, otherwise defaults. 
+            # Use p2_max_tokens/p2_max_steps if provided, otherwise defaults. 
             # We copy kwargs to avoid modifying the caller's dict or Pass 1 state.
             p2_kwargs = kwargs.copy()
-            p2_kwargs["maxtok"] = p2_kwargs.pop("p2_maxtok", 128)
+            p2_kwargs["max_tokens"] = p2_kwargs.pop("p2_max_tokens", 128)
             p2_max_steps = p2_kwargs.pop("p2_max_steps", 6)
             
             score_p2_raw, tokens = self._run_task_loop(
