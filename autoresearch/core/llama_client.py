@@ -11,15 +11,20 @@ class LlamaClient:
         self.base_url = f"http://127.0.0.1:{port}"
 
     def complete(self, prompt: str, **kwargs) -> Dict[str, Any]:
-        url = f"{self.base_url}/completion"
+        url = f"{self.base_url}/v1/chat/completions"
         payload = {
-            "prompt": prompt,
-            "n_predict": kwargs.get("maxtok", 512),
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": kwargs.get("maxtok", 512),
             "temperature": kwargs.get("temp", 0.1),
             "stream": False,
             "stop": kwargs.get("stop", ["</s>", "Instruction:", "User:", "Task:"])
         }
         
+        # Forward tools if present
+        tools = kwargs.get("tools")
+        if tools:
+            payload["tools"] = tools
+            
         # Forward additional generation parameters
         for key in ["top_p", "min_p", "top_k", "repeat_penalty", "presence_penalty", "frequency_penalty"]:
             if key in kwargs and kwargs[key] is not None:
@@ -34,16 +39,23 @@ class LlamaClient:
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as res:
                 raw_res = json.loads(res.read().decode())
-                # Map to OAI format for BenchmarkHarness compatibility
+                choices = raw_res.get("choices", [])
+                choice = choices[0] if (choices and isinstance(choices[0], dict)) else {}
+                message = choice.get("message", {})
+                content = message.get("content") or ""
+                tool_calls = message.get("tool_calls") or []
+                usage = raw_res.get("usage", {})
+                total_tokens = usage.get("total_tokens", 0)
+                
                 return {
-                    "content": raw_res.get("content", ""),
+                    "content": content,
                     "usage": {
-                        "total_tokens": raw_res.get("tokens_predicted", 0)
+                        "total_tokens": total_tokens
                     },
                     "choices": [{
                         "message": {
-                            "content": raw_res.get("content", ""),
-                            "tool_calls": [] # Handled by regex usually or specific logic
+                            "content": content,
+                            "tool_calls": tool_calls
                         }
                     }]
                 }
