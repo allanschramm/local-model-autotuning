@@ -6,14 +6,14 @@ Decomposed tasks from codebase audit. Each task is atomic, testable, and indepen
 
 ## Phase 1: Critical — Tool Calling Pipeline
 
-### 1.1 Fix `system_prefix` dead code
+### 1.1 Fix `system_prefix` dead code (Done)
 - **File**: `autoresearch/benchmarks/benchmark_harness.py:37`
 - **What**: `_run_task_loop` receives `system_prefix` via kwargs but never prepends it to prompt
 - **Fix**: Add `prompt = kwargs.pop("system_prefix", "") + prompt` before line 37
 - **Impact**: Thinking models (`<|think|>`) get their trigger token. Affects Nexus + Claw.
 - **Test**: Verify `system_prefix` appears in prompt sent to `client.complete()`
 
-### 1.2 Rewrite `LlamaClient` to use `/v1/chat/completions`
+### 1.2 Rewrite `LlamaClient` to use `/v1/chat/completions` (Done)
 - **File**: `autoresearch/core/llama_client.py`
 - **What**: Currently uses raw `/completion` endpoint which returns no structured `tool_calls`
 - **Fix**: Switch to OpenAI-compatible `/v1/chat/completions` with `messages` format
@@ -27,7 +27,7 @@ Decomposed tasks from codebase audit. Each task is atomic, testable, and indepen
 - **Test**: `test_llama_client.py` — mock `/v1/chat/completions` response with tool_calls
 - **Note**: evalplus already uses `/v1` successfully, proving endpoint works
 
-### 1.3 Remove temp double-passing in benchmarks
+### 1.3 Remove temp double-passing in benchmarks (Done)
 - **Files**: `autoresearch/benchmarks/prepare.py:261`, `autoresearch/benchmarks/prepare_claw.py:171`
 - **What**: `harness.evaluate(..., temp=temp, **kwargs)` — `temp` in both explicit and kwargs
 - **Fix**: Pop `temp` from kwargs before passing, or pass only via kwargs
@@ -37,19 +37,19 @@ Decomposed tasks from codebase audit. Each task is atomic, testable, and indepen
 
 ## Phase 2: Critical — Config & Search Space
 
-### 2.1 Remove invalid Flash Attn search values
+### 2.1 Remove invalid Flash Attn search values (Done)
 - **File**: `autoloop.py:41`
 - **What**: `"FLASH_ATTN": ["on", "off", "auto"]` — GOLDEN-RULES.md says must be `"on"`
 - **Fix**: `"FLASH_ATTN": ["on"]` (single value, effectively removed from search)
 - **Impact**: Stops search from exploring forbidden configs
 
-### 2.2 Fix dual `config.py` write
+### 2.2 Fix dual `config.py` write (Done)
 - **File**: `autoloop.py:115`
 - **What**: Writes to both root `config.py` (gitignored) and `autoresearch/core/config.py`
 - **Fix**: Write only to `autoresearch/core/config.py`
 - **Impact**: Eliminates config desync risk
 
-### 2.3 Add `--no-coding` flag
+### 2.3 Add `--no-coding` flag (Done)
 - **File**: `autoresearch/runners/run.py:50`
 - **What**: `action="store_true", default=True` — always on, no way to disable
 - **Fix**: Use `BooleanOptionalAction` or add `--no-coding` as `store_false`
@@ -108,7 +108,7 @@ Decomposed tasks from codebase audit. Each task is atomic, testable, and indepen
 - **Fix**: Return `(config, metadata)` namedtuple or dataclass instead
 - **Impact**: Eliminates fragile `.pop("_changed")` calls in autoloop.py:370-372
 
-### 4.4 Coding benchmark TPS = 0
+### 4.4 Coding benchmark TPS = 0 (Done)
 - **File**: `autoresearch/benchmarks/benchmark_coding.py:224`
 - **What**: `avg_tps=0.0` always — no throughput measurement for coding
 - **Fix**: Parse evalplus stdout for timing info, or add token counting wrapper
