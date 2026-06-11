@@ -114,5 +114,42 @@ class TestRun(unittest.TestCase):
             # Combinations: 2 (kvs_k) * 1 (kvs_v) * 2 (max_tokens) * 2 (threads) * 2 (threads_batch) * 1 (batch) * 1 (ubatch) * 2 (spec_draft) = 32
             self.assertEqual(mock_eval.call_count, 32)
 
+    @patch("autoresearch.runners.run.LlamaServerRunner")
+    @patch("autoresearch.runners.run.run_nexus")
+    @patch("autoresearch.runners.run.run_claw")
+    @patch("autoresearch.runners.run.run_coding")
+    def test_run_evaluation_without_coding(self, mock_coding, mock_claw, mock_nexus, mock_runner):
+        # Setup mocks
+        mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
+        mock_nexus.return_value = MagicMock(val_score=0.8, avg_tps=40.0)
+        mock_claw.return_value = MagicMock(val_score=0.6, avg_tps=30.0)
+        
+        args = MagicMock()
+        args.kv_k = "q4_0"
+        args.kv_v = "q4_0"
+        args.threads = 12
+        args.threads_batch = None
+        args.batch_size = 512
+        args.ubatch_size = 128
+        args.spec_draft_n_max = 1
+        args.spec_type = None
+        args.coding_task_limit = 30
+        
+        # Call with include_coding = False, include_nexus = True, include_claw = True
+        res = run.run_evaluation(
+            args, "g4-opt-it-Q4_K_M.gguf", "q4_0", 1024,
+            include_coding=False, include_nexus=True, include_claw=True
+        )
+        
+        # Verify coding was NOT called
+        mock_coding.assert_not_called()
+        # Verify nexus and claw WERE called
+        mock_nexus.assert_called_once()
+        mock_claw.assert_called_once()
+        
+        # Check weighted score computation
+        self.assertEqual(res["val_score"], 0.70)
+        self.assertEqual(res["coding_val"], 0.0)
+
 if __name__ == "__main__":
     unittest.main()

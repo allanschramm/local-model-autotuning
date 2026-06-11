@@ -38,7 +38,7 @@ SEARCH_SPACE = {
     "SPEC_DRAFT_N_MAX":  [0, 1, 2, 3, 4],
     "CTX_SIZE":          [8192, 16384, 32768, 65536],
     "CONT_BATCHING":     [False, True],
-    "FLASH_ATTN":        ["on", "off", "auto"],
+    "FLASH_ATTN":        ["on"],
     "NO_MMAP":           [False, True],
     "TEMP":              [0.0, 0.1, 0.2, 0.4, 0.6],
 }
@@ -104,16 +104,16 @@ def write_config(cfg: dict[str, Any]) -> None:
 
     lines.append("")
     lines.append("# Benchmarks to run")
-    lines.append(f"INCLUDE_CODING = True")
+    lines.append(f"INCLUDE_CODING = {repr(cfg.get('INCLUDE_CODING', True))}")
     lines.append(f"INCLUDE_NEXUS = {repr(cfg.get('INCLUDE_NEXUS', False))}")
     lines.append(f"INCLUDE_CLAW = {repr(cfg.get('INCLUDE_CLAW', False))}")
     limit = cfg.get("CODING_TASK_LIMIT", 30)
     lines.append(f"CODING_TASK_LIMIT = {limit}  # Tasks per dataset (HumanEval/MBPP). 0 = full dataset.")
     lines.append("")
 
-    # Write config to both root and package path to ensure consistency
-    for path in [BASE_DIR / "config.py", BASE_DIR / "autoresearch" / "core" / "config.py"]:
-        path.write_text("\n".join(lines), encoding="utf-8")
+    # Write config to package path
+    path = BASE_DIR / "autoresearch" / "core" / "config.py"
+    path.write_text("\n".join(lines), encoding="utf-8")
 
 
 def config_to_args(cfg: dict[str, Any]) -> object:
@@ -146,7 +146,7 @@ def config_to_args(cfg: dict[str, Any]) -> object:
     a.repeat_penalty = cfg.get("REPEAT_PENALTY")
     a.presence_penalty = cfg.get("PRESENCE_PENALTY")
     a.frequency_penalty = cfg.get("FREQUENCY_PENALTY")
-    a.include_coding = True
+    a.include_coding = cfg.get("INCLUDE_CODING", True)
     a.include_nexus = cfg.get("INCLUDE_NEXUS", False)
     a.include_claw = cfg.get("INCLUDE_CLAW", False)
     a.coding_task_limit = cfg.get("CODING_TASK_LIMIT", 30)

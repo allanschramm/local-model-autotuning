@@ -254,6 +254,8 @@ def run_benchmark(
     padding = build_context_padding(context_tokens)
     
     harness = BenchmarkHarness(client, target_tps=target_tps)
+    kwargs.pop("temp", None)
+    kwargs.pop("maxtok", None)
     return harness.evaluate(
         [task],
         context_padding=padding,

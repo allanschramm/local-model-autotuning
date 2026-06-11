@@ -47,7 +47,8 @@ def parse_args():
     parser.add_argument("--spec-type", type=str, default=config.SPEC_TYPE, help="Speculative decoding type (e.g. draft-mtp, mtp)")
     parser.add_argument("--spec-draft-n-max", type=int, default=config.SPEC_DRAFT_N_MAX, help="Speculative draft max tokens count for MTP")
     parser.add_argument("--context-tokens", type=int, default=8192, help="Context tokens padding length")
-    parser.add_argument("--include-coding", action="store_true", default=True, help="Include Coding benchmark (Humaneval+ & MBPP+), always enabled")
+    parser.add_argument("--include-coding", action="store_true", default=True, help="Include Coding benchmark (Humaneval+ & MBPP+)")
+    parser.add_argument("--no-coding", dest="include_coding", action="store_false", help="Disable Coding benchmark")
     parser.add_argument("--include-nexus", action="store_true", default=getattr(config, "INCLUDE_NEXUS", False), help="Include Nexus benchmark")
     parser.add_argument("--include-claw", action="store_true", default=getattr(config, "INCLUDE_CLAW", False), help="Include Claw benchmark")
     parser.add_argument("--coding-task-limit", type=int, default=getattr(config, "CODING_TASK_LIMIT", 30), help="Tasks per dataset (0=full dataset)")
@@ -233,11 +234,12 @@ def run_evaluation(args, model_filename: str, kv_cache: str, max_tokens: int, in
                 res["claw_tps"] = claw_res.avg_tps
                 res["claw_vram"] = runner.peak_vram_mb
             
-            # 3. Coding (Always Enabled)
-            print(f"  [coding] Running (limit={task_limit_val})...")
-            coding_res = run_coding(client, is_test=False, model_name=model_filename, task_limit=task_limit_val, timeout_at=timeout_at)
-            res["coding_val"] = coding_res.val_score
-            res["coding_vram"] = runner.peak_vram_mb
+            # 3. Coding (If Enabled)
+            if include_coding:
+                print(f"  [coding] Running (limit={task_limit_val})...")
+                coding_res = run_coding(client, is_test=False, model_name=model_filename, task_limit=task_limit_val, timeout_at=timeout_at)
+                res["coding_val"] = coding_res.val_score
+                res["coding_vram"] = runner.peak_vram_mb
             
             # Compute combined metrics
             tps_list = []
@@ -258,10 +260,13 @@ def run_evaluation(args, model_filename: str, kv_cache: str, max_tokens: int, in
                 
             res["peak_vram_gb"] = max(runner.peak_vram_mb, 0.0) / 1024.0
             
-            # Normalize weights: Coding = 80, Nexus = 10 (if enabled), Claw = 10 (if enabled)
-            total_weight = 80.0
-            weighted_score = res["coding_val"] * 80.0
+            # Normalize weights: Coding = 80 (if enabled), Nexus = 10 (if enabled), Claw = 10 (if enabled)
+            total_weight = 0.0
+            weighted_score = 0.0
             
+            if include_coding and "coding_val" in res:
+                total_weight += 80.0
+                weighted_score += res["coding_val"] * 80.0
             if include_nexus_val:
                 total_weight += 10.0
                 weighted_score += res["nexus_val"] * 10.0
@@ -269,7 +274,7 @@ def run_evaluation(args, model_filename: str, kv_cache: str, max_tokens: int, in
                 total_weight += 10.0
                 weighted_score += res["claw_val"] * 10.0
                 
-            res["val_score"] = round(weighted_score / total_weight, 6)
+            res["val_score"] = round(weighted_score / total_weight, 6) if total_weight > 0.0 else 0.0
                 
     except Exception as e:
         print(f"  [FAIL] Evaluation failed: {e}")
