@@ -318,23 +318,23 @@ def main():
                 if _stop_requested:
                     break
 
-                n_key = search_strategy.get_config_key(neighbor)
+                n_key = search_strategy.get_config_key(neighbor.config)
                 if n_key in visited:
                     continue
                 visited.add(n_key)
                 save_visited(visited)
 
-                changed = neighbor.pop("_changed", "?")
-                old_val = neighbor.pop("_old", "?")
-                new_val = neighbor.pop("_new", "?")
+                changed = neighbor.changed
+                old_val = neighbor.old
+                new_val = neighbor.new
 
                 # Pre-flight VRAM check
-                if not preflight_vram_ok(neighbor, vram_limit):
+                if not preflight_vram_ok(neighbor.config, vram_limit):
                     print(f"  [SKIP] {changed}: {old_val} → {new_val} (VRAM over budget)")
                     continue
 
                 print(f"\n  [EVAL] Trying {changed}: {old_val} → {new_val}")
-                res = evaluate(neighbor, trial_budget=trial_budget_sec)
+                res = evaluate(neighbor.config, trial_budget=trial_budget_sec)
                 score = res.get("val_score", 0.0)
                 tps = res.get("avg_tps", 0.0)
                 vram = res.get("peak_vram_gb", 0.0)
@@ -352,14 +352,14 @@ def main():
                 write_row(
                     RESULTS_FILE, commit, score, vram, status,
                     f"AutoLoop R{round_num} {changed}={new_val}: "
-                    f"{search_strategy.format_config_summary(neighbor)} TPS={tps:.1f} Δ={delta:+.6f}"
+                    f"{search_strategy.format_config_summary(neighbor.config)} TPS={tps:.1f} Δ={delta:+.6f}"
                 )
 
                 if is_improvement:
                     print(f"  >>> IMPROVEMENT! {changed}: {old_val} → {new_val} "
                           f"({reason})")
                     # Persist new baseline to config.py
-                    write_config(neighbor)
+                    write_config(neighbor.config)
                     improved = True
                     break
                 else:

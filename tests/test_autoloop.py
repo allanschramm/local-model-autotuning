@@ -28,9 +28,7 @@ class TestAutoLoop(unittest.TestCase):
         
         # Verify each neighbor only differs by one parameter
         for neighbor in neighbors:
-            # Pop metadata added by search_strategy
-            neighbor_clean = {k: v for k, v in neighbor.items() if k not in ("_changed", "_old", "_new")}
-            diffs = sum(1 for k in config if config[k] != neighbor_clean[k])
+            diffs = sum(1 for k in config if config[k] != neighbor.config[k])
             self.assertEqual(diffs, 1)
 
     @patch("autoloop.estimate_vram_mb")

@@ -1,7 +1,15 @@
 import random
+from dataclasses import dataclass
 from typing import Dict, Any, List, Set, Tuple
 
 Config = Dict[str, Any]
+
+@dataclass
+class Neighbor:
+    config: Config
+    changed: str
+    old: Any
+    new: Any
 
 class SearchStrategy:
     """
@@ -17,7 +25,7 @@ class SearchStrategy:
         """Deterministically serialize the search-space parameters of a config."""
         return str(sorted((k, v) for k, v in cfg.items() if k in self.search_space))
 
-    def get_neighbors(self, current_cfg: Config) -> List[Config]:
+    def get_neighbors(self, current_cfg: Config) -> List[Neighbor]:
         """Generate single-parameter perturbations of current config."""
         neighbors = []
         for param, candidates in self.search_space.items():
@@ -30,27 +38,39 @@ class SearchStrategy:
                     if val != current:
                         n = current_cfg.copy()
                         n[param] = val
-                        n["_changed"] = param
-                        n["_old"] = current
-                        n["_new"] = val
-                        neighbors.append(n)
+                        neighbors.append(
+                            Neighbor(
+                                config=n,
+                                changed=param,
+                                old=current,
+                                new=val
+                            )
+                        )
                 continue
 
             # Adjacent neighbors in the ordered list
             if idx > 0:
                 n = current_cfg.copy()
                 n[param] = candidates[idx - 1]
-                n["_changed"] = param
-                n["_old"] = current
-                n["_new"] = candidates[idx - 1]
-                neighbors.append(n)
+                neighbors.append(
+                    Neighbor(
+                        config=n,
+                        changed=param,
+                        old=current,
+                        new=candidates[idx - 1]
+                    )
+                )
             if idx < len(candidates) - 1:
                 n = current_cfg.copy()
                 n[param] = candidates[idx + 1]
-                n["_changed"] = param
-                n["_old"] = current
-                n["_new"] = candidates[idx + 1]
-                neighbors.append(n)
+                neighbors.append(
+                    Neighbor(
+                        config=n,
+                        changed=param,
+                        old=current,
+                        new=candidates[idx + 1]
+                    )
+                )
 
         random.shuffle(neighbors)
         return neighbors
