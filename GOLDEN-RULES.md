@@ -18,8 +18,11 @@
 
 *   **Pre-flight Estimation**: Check `estimate_vram_mb` before starting `llama-server`. Skip any configuration predicted to exceed hardware limit (e.g., 7.9 GB on a 8GB GPU) to prevent system hangs or hard OOMs. Partial CPU offload is preferred over skipping entirely.
 *   **TPS Floor**: Hard floor is 20 TPS. Below this, `val_score` is zeroed. Between 20-40 TPS, a soft penalty curve applies via `speed_factor`.
+*   **Shared Memory Mitigation**: Driver fallback to shared system memory drops processing speeds. The 20 TPS floor serves as the primary guardrail to automatically discard configurations relying on shared RAM.
+*   **Loop Resilience**: All model server startup failures, bad configurations, or exceptions are caught at the Trial level. They log a `FAIL` status to `results.tsv` and proceed to the next candidate configuration instead of crashing the search loop.
 *   **NVML Failsafe**: If NVML query fails mid-run, set `nvml = None` in the exception block immediately to avoid repetitive CDLL calling overhead.
 *   **Testing CDLL**: When writing unit tests for VRAM sampling, always mock `ctypes.CDLL` to raise an exception. This forces fallback to the mocked `nvidia-smi` parser and avoids testing against host GPU status.
+
 
 ## 3. Loop Agent Constraints
 

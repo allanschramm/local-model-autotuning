@@ -138,6 +138,41 @@ Decomposed tasks from codebase audit. Each task is atomic, testable, and indepen
 
 ---
 
+
+## Phase 6: Codebase Dryness & Test Robustness (Done)
+
+### 6.1 Eliminate argparse redundancy (Done)
+- **File**: `benchmark_search.py`
+- **What**: Duplicate argument parser mimicking run.py's parser.
+- **Fix**: Import argument parser directly from `run.py`.
+- **Impact**: Single source of truth for CLI arguments.
+
+### 6.2 Standardize config validation & overrides (Done)
+- **File**: `autoresearch/runners/run.py`
+- **What**: Fragile config/override validation logic.
+- **Fix**: Standardized parameter parsing, overrides resolution, and type resolution.
+- **Impact**: Reduced server launch crash risks.
+
+### 6.3 Standardize LlamaClient custom params (Done)
+- **File**: `autoresearch/core/llama_client.py`
+- **What**: Forwarding temperature and max token overrides.
+- **Fix**: Standardized parameter resolution and payload building.
+- **Impact**: Consistent request payloads.
+
+### 6.4 Robust VRAM sampler synchronization (Done)
+- **File**: `tests/test_llama_runner.py`
+- **What**: Timing/polling-based synchronization in VRAM tests.
+- **Fix**: Replaced timing loops with `threading.Event` synchronization.
+- **Impact**: Flake-free VRAM sampler unit tests.
+
+### 6.5 Add missing unit test suites (Done)
+- **Files**: `tests/test_adversarial_challenger.py`, `tests/test_config_parsing.py`, `tests/test_search_strategy.py`
+- **What**: Lacking unit test coverage for edge configs and search spaces.
+- **Fix**: Added comprehensive unit tests.
+- **Impact**: Pytest coverage increased to 101 tests.
+
+---
+
 ## Execution Order
 
 ```
@@ -146,6 +181,7 @@ Phase 2 (config correctness):   2.1 → 2.2 → 2.3
 Phase 3 (code reduction):       3.1 → 3.2 → 3.4 → 3.3
 Phase 4 (robustness):           4.1 → 4.2 → 4.3 → 4.4 → 4.5
 Phase 5 (cleanup):              5.1 → 5.2 → 5.3
+Phase 6 (dryness/robustness):   6.1 → 6.2 → 6.3 → 6.4 → 6.5
 ```
 
 ## Impact Summary
@@ -157,4 +193,6 @@ Phase 5 (cleanup):              5.1 → 5.2 → 5.3
 | 3     | ~250       | 0          | 0 |
 | 4     | ~10        | 0          | 3 |
 | 5     | ~70        | 0          | 1 |
-| **Total** | **~345** | **6** | **5** |
+| 6     | ~150       | 5          | 1 |
+| **Total** | **~505** | **11** | **7** |
+

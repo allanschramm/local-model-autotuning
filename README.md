@@ -6,9 +6,13 @@ Sistema autônomo (hill-climbing) que otimiza flags de runtime de LLMs locais av
 
 Dois modos de uso:
 - **Loop Interno**: O script `autoloop.py` realiza uma busca automática (Search) pelas melhores configurações editando `autoresearch/core/config.py`.
-- **Agente Externo**: Um agente externo (LLM com acesso ao repo) lê APENAS `program.md` (o entrypoint absoluto), edita `autoresearch/core/config.py` e itera até achar a melhor configuração.
+- **Agente Externo**: Um agente externo (LLM autônomo com acesso ao repositório) lê `program.md` (seu entrypoint absoluto) para obter as regras e objetivos, e a partir disso executa as rodadas de testes modificando unicamente a superfície de tuning em `autoresearch/core/config.py`.
 
-> **Aviso Importante:** Leia todo o readme para entender o processo. Altere o `program.md` manualmente para não causar um loop desnecessário; se solicitar para algum modelo externo alterar o `program.md`, ele pode vir a executar o loop de pesquisa sem que você queira.
+> **Fluxo de Trabalho Usuário-Agente Importante:**
+> 1. **O Usuário Humano** edita manualmente as diretrizes de escopo, tags de branch e configurações iniciais exclusivamente em `program.md`.
+> 2. **O Agente Autônomo** lê as instruções de `program.md` e inicia o loop de benchmarks, atualizando `autoresearch/core/config.py` a cada melhoria.
+> 3. **O Agente NUNCA deve editar `program.md`.** Este arquivo é o canal exclusivo de controle do usuário humano.
+
 
 ## O que este projeto faz
 
@@ -77,13 +81,19 @@ O `Val Score` é a métrica escalar única que orienta decisões de keep/discard
 
 - **VRAM Safety**: Se a estimativa de uso (`peak_vram_mb`) exceder as especificações do hardware alvo (ex: GPU de 8GB), a configuração deve ser pulada ou rodar via CPU offload para prevenir instabilidade/OOMs.
 - **Flash Attention**: A flag `-fa` (Flash Attention) nunca deve ser desligada (`off`), devendo permanecer `on` sempre que possível.
+- **Shared Memory & CPU Offload**: Offloads parciais para CPU ou uso de memória RAM compartilhada pelo driver de vídeo são suportados, mas penalizados. Se a taxa de processamento cair abaixo do **TPS Floor** (20 TPS), a pontuação (`Val Score`) é zerada.
+- **Resiliência do Loop**: Falhas de inicialização do servidor, parâmetros inválidos ou quedas do runner são tratadas no nível do Trial, gravando `FAIL` no `results.tsv` sem interromper o loop de busca.
+
 
 ## Pré-requisitos
 
 - **Hardware**: GPU NVIDIA com ao menos 8 GB de VRAM (validado em modelo RTX 4060 8GB).
 - **Sistema Operacional**: Linux ou WSL2 com drivers CUDA instalados.
-- **Dependências de Build**: `git`, `build-essential`, `cmake >= 3.14`, `python3.11+`.
+- **Python**: Python 3.11+ (necessário para orchestrator, benchmark e autoloop).
+- **HuggingFace CLI**: `huggingface-cli` (instalado via `pip install huggingface_hub[cli]`) para download e gerenciamento dos modelos.
+- **Dependências de Build**: `git`, `build-essential`, `cmake >= 3.14`.
 - **Servidor LLM**: O `llama-server` oriundo do repositório `llama.cpp` buildado explicitamente com suporte a CUDA.
+
 
 ## Setup Rápido
 
@@ -109,22 +119,53 @@ O `Val Score` é a métrica escalar única que orienta decisões de keep/discard
 
 ## Build do `llama.cpp` com suporte a CUDA
 
-Fluxo seguro usando o repositório base:
+Para que o loop funcione, você precisa compilar o `llama.cpp`. Certifique-se de ter o CUDA Toolkit instalado (`nvcc --version` deve funcionar).
+
+### Passo a Passo de Compilação
+Recomendamos clonar o `llama.cpp` **diretamente dentro da pasta raiz deste repositório** para que a detecção do binário seja 100% automática, sem precisar configurar variáveis de ambiente:
 
 ```bash
+# Clone dentro da pasta raiz do projeto
 git clone https://github.com/ggerganov/llama.cpp.git
 cd llama.cpp
 
+# Configure o build.
+# Use native para que o cmake detecte automaticamente a arquitetura da sua GPU
 cmake -B build-cuda \
   -DCMAKE_BUILD_TYPE=Release \
   -DGGML_CUDA=ON \
   -DLLAMA_BUILD_SERVER=ON \
-  -DCMAKE_CUDA_ARCHITECTURES=89
+  -DCMAKE_CUDA_ARCHITECTURES=native
+
+# Compile
+cmake --build build-cuda --config Release -j
+```
+
+> **Dica de Instalação Alternativa**: Se você preferir clonar o `llama.cpp` em outra pasta do sistema, exporte o caminho absoluto dele no seu terminal:
+> `export AUTORESEARCH_LLAMA_CPP_ROOT="/caminho/para/llama.cpp"`
+
+### Compilando forks (TurboQuant / MTP)
+Para testar os modos avançados de KV cache (como `turbo2`, `turbo3`, `turbo4` e SPEC MTP), você precisará clonar forks específicos que possuem essas implementações de cache:
+- **TurboQuant Fork**: `https://github.com/TheTom/llama-cpp-turboquant`
+- **MTP & TurboQuant Fork**: `https://github.com/BoFan-tunning/llama.cpp-MTP-TurboQuant`
+
+Os comandos de compilação com CMake são idênticos:
+```bash
+# Clone o fork com nome 'llama.cpp' na pasta raiz do projeto
+git clone https://github.com/TheTom/llama-cpp-turboquant.git llama.cpp
+cd llama.cpp
+
+# Configure e compile normalmente
+cmake -B build-cuda \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DGGML_CUDA=ON \
+  -DLLAMA_BUILD_SERVER=ON \
+  -DCMAKE_CUDA_ARCHITECTURES=native
 
 cmake --build build-cuda --config Release -j
 ```
 
-Para TurboQuant e MTP, recomenda-se explorar repositórios paralelos e forks mantidos de perto com essas propriedades ativadas (ex. `BoFan-tunning/llama.cpp-MTP-TurboQuant` ou `TheTom/llama-cpp-turboquant`).
+
 
 ## Como Trabalhar com os Modelos GGUF
 

@@ -1,1 +1,2 @@
 evalplus
+huggingface_hub[cli]

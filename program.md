@@ -100,3 +100,24 @@ Use these exact terms in your reasoning and commit messages:
 - **Pareto Tie-Breaker**: Keep a Neighbor if it matches Baseline score but improves TPS by >5% or reduces VRAM by >5%.
 - **Local Maxima**: When all valid Neighbors fail to improve the score.
 - **Random Restart**: Generating a random configuration far from Baseline to escape Local Maxima.
+
+## Model Acquisition & Troubleshooting
+
+### Supported Formats & Models
+- **GGUF format only**: `llama.cpp` strictly requires GGUF models (ends with `.gguf`).
+- **Supported Architectures**: Llama (Llama-3/3.1/3.2), Qwen (Qwen-3.5/3.6/3.7), Gemma (Gemma-2/4), Mistral/Mixtral, and derivatives.
+- **Recommended Models**: `Qwen3.5-9B-Coder-MTP-Q4_K_M.gguf`, `gemma-4-e2b-it-Q4_K_M.gguf`, or similar.
+
+### How to Get Models
+You can download models from HuggingFace. Place them in the `models/` directory.
+- **Via HuggingFace CLI**:
+  ```bash
+  huggingface-cli download Qwen/Qwen2.5-Coder-7B-Instruct-GGUF qwen2.5-coder-7b-instruct-q4_k_m.gguf --local-dir models --local-dir-use-symlinks False
+  ```
+- **Via Agent**: Ask your coding assistant to download a specific GGUF model into the `models/` directory for you.
+
+### Troubleshooting (Wrong Model / Format)
+- **Non-GGUF file**: If you download a PyTorch/safetensors weight file (e.g., `.bin`, `.safetensors`), `llama-server` will fail to parse it, log a `FAIL` status in `results.tsv`, and skip the configuration without breaking the loop.
+- **Unsupported architecture**: If the GGUF uses a brand new, unsupported neural architecture, `llama-server` will exit during startup, which is caught safely as a trial failure.
+- **Corrupt GGUF**: If the model file is corrupt/truncated, the server will fail to load it, log `FAIL` to `results.tsv`, and gracefully continue.
+
