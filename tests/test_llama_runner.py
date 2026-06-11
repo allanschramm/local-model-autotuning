@@ -216,7 +216,18 @@ class TestLlamaRunner(unittest.TestCase):
         self.assertEqual(cmd[cmd.index("--reasoning-budget-message") + 1], "Thinking budget reached. Proceed to final answer now.")
 
     def test_estimate_vram_mb(self):
-        from autoresearch.core.llama_runner import estimate_vram_mb
+        from autoresearch.core.llama_runner import (
+            estimate_vram_mb,
+            VRAM_KB_PER_TOKEN_F16,
+            VRAM_OVERHEAD_MB,
+            VRAM_DEFAULT_QUANT_FACTOR,
+            VRAM_QUANT_FACTORS
+        )
+        self.assertEqual(VRAM_KB_PER_TOKEN_F16, 80.0)
+        self.assertEqual(VRAM_OVERHEAD_MB, 300.0)
+        self.assertEqual(VRAM_DEFAULT_QUANT_FACTOR, 0.3)
+        self.assertEqual(VRAM_QUANT_FACTORS["q4"], 0.28)
+
         # Test with 4 arguments (backward-compatibility check)
         v1 = estimate_vram_mb(Path("models/non-existent.gguf"), 2048, "q4_0", "q4_0")
         self.assertGreater(v1, 4000)

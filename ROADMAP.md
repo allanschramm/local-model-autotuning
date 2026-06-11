@@ -96,7 +96,7 @@ Decomposed tasks from codebase audit. Each task is atomic, testable, and indepen
 - **Fix**: Exponential backoff: 50ms → 100ms → 200ms → 400ms
 - **Impact**: More resilient to slow GPU init
 
-### 4.2 Document VRAM estimation constants
+### 4.2 Document VRAM estimation constants (Done)
 - **File**: `autoresearch/core/llama_runner.py:70-96`
 - **What**: Magic numbers: 80KB/token f16, 300MB overhead, quant factors
 - **Fix**: Extract to named constants with docstring explaining calibration

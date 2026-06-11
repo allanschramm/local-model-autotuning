@@ -57,6 +57,28 @@ class ServerIntent:
     host: str = "127.0.0.1"
     spec_type: str | None = None
 
+# VRAM Estimation Constants (calibrated for f16 KV cache and typical systems)
+VRAM_KB_PER_TOKEN_F16 = 80.0
+"""Calibrated memory consumption per context token at f16 precision (in kilobytes)."""
+
+VRAM_OVERHEAD_MB = 300.0
+"""Typical baseline VRAM overhead for CUDA runtime and system operations (in megabytes)."""
+
+VRAM_DEFAULT_QUANT_FACTOR = 0.3
+"""Fallback quantization multiplier for unknown/default KV cache types."""
+
+VRAM_QUANT_FACTORS = {
+    "f16": 1.0,
+    "f32": 1.0,
+    "q8": 0.55,
+    "q5": 0.38,
+    "q4": 0.28,
+    "turbo4": 0.18,
+    "turbo3": 0.22,
+    "turbo2": 0.15,
+}
+"""KV cache quantization type memory usage scaling factors relative to f16."""
+
 
 def estimate_vram_mb(model_path: Path, ctx_size: int, kv_cache_k: str | None = None, kv_cache_v: str | None = None, base_kv_cache: str = "q4_0") -> float:
     try:
@@ -69,31 +91,20 @@ def estimate_vram_mb(model_path: Path, ctx_size: int, kv_cache_k: str | None = N
     
     def get_quant_factor(q_type: str) -> float:
         q = q_type.lower()
-        if "f16" in q or "f32" in q:
-            return 1.0
-        if "q8" in q:
-            return 0.55
-        if "q5" in q:
-            return 0.38
-        if "q4" in q:
-            return 0.28
-        if "turbo4" in q:
-            return 0.18
-        if "turbo3" in q:
-            return 0.22
-        if "turbo2" in q:
-            return 0.15
-        return 0.3
+        for key, factor in VRAM_QUANT_FACTORS.items():
+            if key in q:
+                return factor
+        return VRAM_DEFAULT_QUANT_FACTOR
         
     kf = get_quant_factor(k_type)
     vf = get_quant_factor(v_type)
     
     # Calibrated KV cache size per token at f16 is ~80 KB
-    kv_base_mb = ctx_size * 80.0 / 1024.0
+    kv_base_mb = ctx_size * VRAM_KB_PER_TOKEN_F16 / 1024.0
     kv_est_mb = (kv_base_mb / 2.0) * kf + (kv_base_mb / 2.0) * vf
     
-    # 300MB baseline system/CUDA overhead
-    return model_size_mb + kv_est_mb + 300.0
+    # Baseline system/CUDA overhead
+    return model_size_mb + kv_est_mb + VRAM_OVERHEAD_MB
 
 
 
