@@ -20,11 +20,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+_LLAMA_SERVER_HELP_CACHE = None
+
 ROOT_DIR = Path(__file__).resolve().parent
-LLAMA_CPP_ROOT = Path(os.environ.get("AUTORESEARCH_LLAMA_CPP_ROOT", ROOT_DIR / "llama.cpp"))
+LLAMA_CPP_ROOT = Path(os.environ.get("AUTORESEARCH_LLAMA_CPP_ROOT", "/home/shark/workspace/Nexus-System/llama.cpp"))
 LLAMA_SERVER_CANDIDATES = (
     LLAMA_CPP_ROOT / "build-cuda" / "bin" / "llama-server",
     LLAMA_CPP_ROOT / "build" / "bin" / "llama-server",
+    ROOT_DIR / "llama.cpp" / "build-cuda" / "bin" / "llama-server",
+    ROOT_DIR / "llama.cpp" / "build" / "bin" / "llama-server",
 )
 
 
@@ -45,9 +49,6 @@ class ServerIntent:
     kv_cache_v: str | None = None
     threads_batch: int | None = None
     spec_draft_n_max: int = 1
-    prompt_cache_file: Path | None = None
-    prompt_cache_all: bool = False
-    prompt_cache_ro: bool = False
     no_mmap: bool = False
     jinja: bool = False
     reasoning_budget: int | None = None
@@ -74,8 +75,8 @@ VRAM_QUANT_FACTORS = {
     "q5": 0.38,
     "q4": 0.28,
     "turbo4": 0.18,
-    "turbo3": 0.22,
-    "turbo2": 0.15,
+    "turbo3": 0.14,
+    "turbo2": 0.10,
 }
 """KV cache quantization type memory usage scaling factors relative to f16."""
 
@@ -86,10 +87,18 @@ def estimate_vram_mb(model_path: Path, ctx_size: int, kv_cache_k: str | None = N
     except Exception:
         model_size_mb = 4000.0
     
-    k_type = kv_cache_k if kv_cache_k is not None else base_kv_cache
-    v_type = kv_cache_v if kv_cache_v is not None else base_kv_cache
+    try:
+        c_size = int(ctx_size)
+    except Exception:
+        c_size = 16384
     
-    def get_quant_factor(q_type: str) -> float:
+    base_kv = base_kv_cache if base_kv_cache is not None else "q4_0"
+    k_type = kv_cache_k if kv_cache_k is not None else base_kv
+    v_type = kv_cache_v if kv_cache_v is not None else base_kv
+    
+    def get_quant_factor(q_type: Any) -> float:
+        if q_type is None or not isinstance(q_type, str):
+            return VRAM_DEFAULT_QUANT_FACTOR
         q = q_type.lower()
         for key, factor in VRAM_QUANT_FACTORS.items():
             if key in q:
@@ -100,7 +109,7 @@ def estimate_vram_mb(model_path: Path, ctx_size: int, kv_cache_k: str | None = N
     vf = get_quant_factor(v_type)
     
     # Calibrated KV cache size per token at f16 is ~80 KB
-    kv_base_mb = ctx_size * VRAM_KB_PER_TOKEN_F16 / 1024.0
+    kv_base_mb = c_size * VRAM_KB_PER_TOKEN_F16 / 1024.0
     kv_est_mb = (kv_base_mb / 2.0) * kf + (kv_base_mb / 2.0) * vf
     
     # Baseline system/CUDA overhead
@@ -161,13 +170,6 @@ class LlamaServerRunner:
         if self.intent.threads_batch is not None:
             cmd += ["--threads-batch", str(self.intent.threads_batch)]
 
-        if self.intent.prompt_cache_file is not None:
-            cmd += ["--prompt-cache", str(self.intent.prompt_cache_file)]
-            if self.intent.prompt_cache_all:
-                cmd += ["--prompt-cache-all"]
-            if self.intent.prompt_cache_ro:
-                cmd += ["--prompt-cache-ro"]
-
         if self.intent.no_mmap:
             cmd += ["--no-mmap"]
         if self.intent.jinja:
@@ -184,15 +186,17 @@ class LlamaServerRunner:
         # MTP/Speculative Optimization: Detect MTP models and enable speculative decoding.
         spec_type_val = self.intent.spec_type
         if spec_type_val is None and "MTP" in self.intent.model_path.name.upper() and self.intent.spec_draft_n_max > 0:
-            try:
-                # Query help to see if draft-mtp is supported
-                help_out = subprocess.check_output([str(self.llama_server), "--help"], stderr=subprocess.STDOUT, text=True)
-                if "draft-mtp" in help_out:
-                    spec_type_val = "draft-mtp"
-                else:
-                    spec_type_val = "mtp"
-            except Exception:
-                spec_type_val = "draft-mtp"  # Fallback to draft-mtp as default
+            global _LLAMA_SERVER_HELP_CACHE
+            if _LLAMA_SERVER_HELP_CACHE is None:
+                try:
+                    # Query help to see if draft-mtp is supported
+                    _LLAMA_SERVER_HELP_CACHE = subprocess.check_output([str(self.llama_server), "--help"], stderr=subprocess.STDOUT, text=True)
+                except Exception:
+                    _LLAMA_SERVER_HELP_CACHE = "draft-mtp"
+            if "draft-mtp" in _LLAMA_SERVER_HELP_CACHE:
+                spec_type_val = "draft-mtp"
+            else:
+                spec_type_val = "mtp"
             print(f"  [MTP] Multi-Token Prediction detected for {self.intent.model_path.name}. Auto-selected spec-type: {spec_type_val}")
 
         if spec_type_val is not None and spec_type_val.lower() != "none" and self.intent.spec_draft_n_max > 0:

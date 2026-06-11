@@ -126,18 +126,22 @@ class TestLlamaRunner(unittest.TestCase):
     @patch("subprocess.check_output")
     @patch("ctypes.CDLL")
     def test_vram_sampler(self, mock_cdll, mock_output, mock_resolve):
+        import threading
+        called_event = threading.Event()
+        
+        def check_output_side_effect(*args, **kwargs):
+            called_event.set()
+            return "1000\n"
+
         mock_cdll.side_effect = Exception("Mock NVML load failure")
         mock_resolve.return_value = Path("/bin/llama-server")
-        mock_output.return_value = "1000\n"
+        mock_output.side_effect = check_output_side_effect
+        
         runner = LlamaServerRunner(self.intent)
         runner._start_vram_sampler()
         
-        # Poll for peak_vram_mb to be set
-        import time
-        for _ in range(20):
-            if runner.peak_vram_mb >= 1000:
-                break
-            time.sleep(0.1)
+        # Robust event synchronization: wait until check_output gets called
+        called_event.wait(5.0)
             
         runner._stop_event.set()
         runner._vram_thread.join()

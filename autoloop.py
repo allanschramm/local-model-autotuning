@@ -9,8 +9,6 @@ Stop with Ctrl+C (SIGINT). State persists in config.py and results.tsv.
 """
 
 import os
-os.environ.setdefault("AUTORESEARCH_LLAMA_CPP_ROOT", "/home/shark/workspace/Nexus-System/llama.cpp")
-
 import sys
 import json
 import signal
