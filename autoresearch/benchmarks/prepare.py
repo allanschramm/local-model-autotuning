@@ -37,7 +37,7 @@ TARGET_MODELS = {
     "qwen3.5-4b": "Qwen3.5-4B-Q4_K_M.gguf",
 }
 
-NEXUS_TOKEN = os.getenv("NEXUS_UNLOCK_TOKEN", "")
+NEXUS_TOKEN = os.getenv("NEXUS_TOKEN") or os.getenv("NEXUS_UNLOCK_TOKEN") or ""
 _DEFAULT_MEMORY_QUERY = "override token central control plane"
 
 _FAKE_TOKENS = ["TOKEN_5521", "TOKEN_NX_9", "NEXUS_ROOT_3", "KEY_ALPHA_7"]
