@@ -187,8 +187,12 @@ def run_benchmark(client: LlamaClient, **kwargs) -> BenchmarkResult:
     timeout_at = kwargs.get("timeout_at", None)
     max_tokens = kwargs.get("max_tokens", 1024)
     output_base = ROOT_DIR / "coding_results"
+    if output_base.exists():
+        import shutil
+        shutil.rmtree(output_base, ignore_errors=True)
     output_base.mkdir(parents=True, exist_ok=True)
     model_name = kwargs.get("model_name", "local-model")
+
 
     # Run HumanEval and MBPP
     he_scores = run_evalplus("humaneval", client.port, output_base, model_name, task_limit=task_limit, timeout_at=timeout_at, max_tokens=max_tokens)
