@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, List, Optional, Dict
 
 from autoresearch.core.llama_client import LlamaClient
-from autoresearch.benchmarks.benchmark_harness import BenchmarkHarness, EvalTask, BenchmarkResult
+from autoresearch.benchmarks.benchmark_harness import BenchmarkHarness, EvalTask, BenchmarkResult, build_context_padding
 
 # ---------------------------------------------------------------------------
 # Constants and Defaults
@@ -40,16 +40,6 @@ TARGET_MODELS = {
 NEXUS_TOKEN = os.getenv("NEXUS_UNLOCK_TOKEN", "")
 _DEFAULT_MEMORY_QUERY = "override token central control plane"
 
-_OPS = ["scanning", "sync", "validating", "dispatching", "pruning", "archiving"]
-_STATUSES = ["ok", "warning", "pending", "critical", "recovering", "retrying"]
-_TASK_TEMPLATES = [
-    "Synchronized local telemetry with master node",
-    "Dispatched control packet to edge clusters",
-    "Scanned system memory for orphaned fragments",
-    "Re-validated session handshake for worker-42",
-    "Pruned stale operational logs from Q1-2026",
-    "Archived encrypted operational snapshot to cold storage",
-]
 _FAKE_TOKENS = ["TOKEN_5521", "TOKEN_NX_9", "NEXUS_ROOT_3", "KEY_ALPHA_7"]
 
 @dataclass(frozen=True)
@@ -227,18 +217,6 @@ class NexusEvalTask(EvalTask):
             efficiency = max(0.0, 1.0 - (self.p2_steps - 2) / 4)
             return round(tool_seq * 0.40 + param_acc * 0.40 + efficiency * 0.20, 4)
 
-def build_context_padding(target_tokens: int = 50_000) -> str:
-    rng = random.Random(42)
-    target_chars = int(target_tokens * 3.5)
-    blocks = []
-    current_chars = 0
-    while current_chars < target_chars:
-        op, status, task = rng.choice(_OPS), rng.choice(_STATUSES), rng.choice(_TASK_TEMPLATES)
-        block = f"NEXUS-OPS | operation={op} | status={status} | context: {task}\n"
-        blocks.append(block)
-        current_chars += len(block)
-    return "".join(blocks)
-
 def run_benchmark(
     client: LlamaClient,
     max_tokens: int = 512,
@@ -251,7 +229,7 @@ def run_benchmark(
     """Unified entry point for Nexus benchmark."""
     entries = prepare_eval_data()
     task = NexusEvalTask(entries)
-    padding = build_context_padding(context_tokens)
+    padding = build_context_padding(context_tokens, is_claw=False)
     
     harness = BenchmarkHarness(client, target_tps=target_tps)
     kwargs.pop("temp", None)

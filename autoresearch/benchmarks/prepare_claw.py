@@ -12,9 +12,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, List
-
 from autoresearch.core.llama_client import LlamaClient
-from autoresearch.benchmarks.benchmark_harness import BenchmarkHarness, EvalTask, BenchmarkResult
+from autoresearch.benchmarks.benchmark_harness import BenchmarkHarness, EvalTask, BenchmarkResult, build_context_padding
 
 # Paths
 ROOT_DIR = Path(__file__).resolve().parent
@@ -121,31 +120,6 @@ def discover_tasks() -> list[ClawTaskData]:
                 tasks.append(t)
     return sorted(tasks, key=lambda x: x.id)
 
-def build_context_padding(target_tokens: int = 50_000) -> str:
-    """Generate deterministic synthetic history (~50k tokens)."""
-    ops = ["browser_view", "scroll", "click", "type", "back", "wait"]
-    statuses = ["success", "success", "success", "partial", "cached", "skipped"]
-    templates = [
-        "Viewed product page for research.",
-        "Scrolled down to find checkout button.",
-        "Clicked on the shopping cart icon.",
-        "Typed address into the delivery field.",
-        "Waiting for page to load assets.",
-        "Navigated back to search results.",
-    ]
-    rng = random.Random(42)
-    target_chars = int(target_tokens * 3.5)
-    blocks: list[str] = []
-    current_chars = 0
-    while current_chars < target_chars:
-        op = rng.choice(ops)
-        status = rng.choice(statuses)
-        task = rng.choice(templates)
-        block = f"[Nexus-Log] op={op} | status={status} | activity={task}\n"
-        blocks.append(block)
-        current_chars += len(block)
-    return "".join(blocks)
-
 def run_benchmark(
     client: LlamaClient,
     max_tokens: int = 512,
@@ -161,7 +135,7 @@ def run_benchmark(
         raise RuntimeError("No ClawBench tasks found.")
 
     tasks = [ClawEvalTask(d) for d in tasks_data]
-    padding = build_context_padding(context_tokens)
+    padding = build_context_padding(context_tokens, is_claw=True)
     
     harness = BenchmarkHarness(client, target_tps=target_tps)
     kwargs.pop("temp", None)

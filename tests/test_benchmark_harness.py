@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch
-from autoresearch.benchmarks.benchmark_harness import BenchmarkHarness, EvalTask, BenchmarkResult
+from autoresearch.benchmarks.benchmark_harness import BenchmarkHarness, EvalTask, BenchmarkResult, build_context_padding
 from autoresearch.core.llama_client import LlamaClient
 
 class DummyTask(EvalTask):
@@ -95,6 +95,13 @@ class TestBenchmarkHarness(unittest.TestCase):
         result = self.harness.evaluate([task])
         self.assertEqual(result.val_score, 0.8)
         self.assertEqual(result.avg_tps, 5.0)
+
+    def test_build_context_padding(self):
+        padding_nexus = build_context_padding(target_tokens=100, is_claw=False)
+        self.assertIn("NEXUS-OPS", padding_nexus)
+        
+        padding_claw = build_context_padding(target_tokens=100, is_claw=True)
+        self.assertIn("Nexus-Log", padding_claw)
 
 if __name__ == "__main__":
     unittest.main()

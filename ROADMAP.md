@@ -73,7 +73,7 @@ Decomposed tasks from codebase audit. Each task is atomic, testable, and indepen
 - **Impact**: -80 lines, eliminates fragile isinstance chain
 - **Test**: Update `test_run.py` mocks to pass dicts instead of MagicMock args
 
-### 3.3 Extract shared `build_context_padding`
+### 3.3 Extract shared `build_context_padding` (Done)
 - **Files**: `autoresearch/benchmarks/prepare.py:230-240`, `autoresearch/benchmarks/prepare_claw.py:124-147`
 - **What**: Nearly identical padding generators in two files
 - **Fix**: Move to `autoresearch/benchmarks/benchmark_harness.py` or new `common.py`

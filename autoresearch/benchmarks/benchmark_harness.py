@@ -1,6 +1,7 @@
 from __future__ import annotations
 import time
 import json
+import random
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Protocol, Tuple, Optional
 from autoresearch.core.llama_client import LlamaClient
@@ -135,3 +136,43 @@ class BenchmarkHarness:
             avg_tps=avg_tps,
             total_seconds=total_seconds
         )
+
+
+def build_context_padding(target_tokens: int = 50_000, is_claw: bool = False) -> str:
+    if is_claw:
+        ops = ["browser_view", "scroll", "click", "type", "back", "wait"]
+        statuses = ["success", "success", "success", "partial", "cached", "skipped"]
+        templates = [
+            "Viewed product page for research.",
+            "Scrolled down to find checkout button.",
+            "Clicked on the shopping cart icon.",
+            "Typed address into the delivery field.",
+            "Waiting for page to load assets.",
+            "Navigated back to search results.",
+        ]
+        fmt = "[Nexus-Log] op={op} | status={status} | activity={task}\n"
+    else:
+        ops = ["scanning", "sync", "validating", "dispatching", "pruning", "archiving"]
+        statuses = ["ok", "warning", "pending", "critical", "recovering", "retrying"]
+        templates = [
+            "Synchronized local telemetry with master node",
+            "Dispatched control packet to edge clusters",
+            "Scanned system memory for orphaned fragments",
+            "Re-validated session handshake for worker-42",
+            "Pruned stale operational logs from Q1-2026",
+            "Archived encrypted operational snapshot to cold storage",
+        ]
+        fmt = "NEXUS-OPS | operation={op} | status={status} | context: {task}\n"
+
+    rng = random.Random(42)
+    target_chars = int(target_tokens * 3.5)
+    blocks = []
+    current_chars = 0
+    while current_chars < target_chars:
+        op = rng.choice(ops)
+        status = rng.choice(statuses)
+        task = rng.choice(templates)
+        block = fmt.format(op=op, status=status, task=task)
+        blocks.append(block)
+        current_chars += len(block)
+    return "".join(blocks)
