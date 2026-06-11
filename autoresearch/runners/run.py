@@ -1,8 +1,3 @@
-#!/usr/bin/env python3
-import os
-# Set default llama.cpp root directory
-os.environ.setdefault("AUTORESEARCH_LLAMA_CPP_ROOT", "/home/shark/workspace/Nexus-System/llama.cpp")
-
 import sys
 import csv
 import time
@@ -31,8 +26,8 @@ def parse_args():
     parser.add_argument("--desc", type=str, help="Description of the experiment (required for logging single runs)")
     parser.add_argument("--model", type=str, default=config.MODEL, help="Model filename in models/ directory")
     parser.add_argument("--kv", type=str, default=config.KV_CACHE, help="KV cache type (e.g. q4_0, q4_1, f16)")
-    parser.add_argument("--kv-k", "--cache-type-k", "-ctk", dest="kv_k", type=str, default=config.KV_CACHE_K, help="Key cache type (overrides --kv if set)")
-    parser.add_argument("--kv-v", "--cache-type-v", "-ctv", dest="kv_v", type=str, default=config.KV_CACHE_V, help="Value cache type (overrides --kv if set)")
+    parser.add_argument("--kv-k", "--cache-type-k", "-ctk", dest="kv_k", type=str, default=None, help="Key cache type (overrides --kv if set)")
+    parser.add_argument("--kv-v", "--cache-type-v", "-ctv", dest="kv_v", type=str, default=None, help="Value cache type (overrides --kv if set)")
     parser.add_argument("--max-tokens", type=int, default=1024, help="Max generation tokens")
     parser.add_argument("--ctx-size", "-c", type=int, default=config.CTX_SIZE, help="Context size")
     parser.add_argument("--port", type=int, default=18080, help="Port for llama-server")
@@ -124,34 +119,74 @@ def write_row(results_file: Path, commit: str, val_score: float, memory_gb: floa
         })
 
 def run_evaluation(cfg: dict | Any, **overrides) -> Dict[str, Any]:
-    def get_val(name: str, default: Any = None) -> Any:
-        if name in overrides and overrides[name] is not None:
-            return overrides[name]
-        if isinstance(cfg, dict):
-            if name in cfg and cfg[name] is not None:
-                return cfg[name]
-            name_lower = name.lower()
-            if name_lower in cfg and cfg[name_lower] is not None:
-                return cfg[name_lower]
-            name_upper = name.upper()
-            if name_upper in cfg and cfg[name_upper] is not None:
-                return cfg[name_upper]
+    norm_cfg = {}
+    is_dict = False
+    try:
+        is_dict = isinstance(cfg, dict)
+    except Exception:
+        pass
+
+    if is_dict:
+        try:
+            for k, v in cfg.items():
+                if v is not None:
+                    try:
+                        norm_cfg[str(k).lower()] = v
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+    else:
+        has_dict = False
+        try:
+            has_dict = hasattr(cfg, "__dict__")
+        except Exception:
+            pass
+        if has_dict:
+            try:
+                for k, v in cfg.__dict__.items():
+                    if not k.startswith('_') and k not in ('method_calls', 'mock_calls'):
+                        if v is not None:
+                            norm_cfg[k.lower()] = v
+            except Exception:
+                pass
         else:
-            val = getattr(cfg, name, None)
-            if val is not None:
-                return val
-            val = getattr(cfg, name.lower(), None)
-            if val is not None:
-                return val
-            val = getattr(cfg, name.upper(), None)
-            if val is not None:
-                return val
-        return default
+            is_none = True
+            try:
+                is_none = (cfg is None)
+            except Exception:
+                pass
+            if not is_none:
+                attrs = []
+                try:
+                    attrs = dir(cfg)
+                except Exception:
+                    pass
+                for attr in attrs:
+                    if not attr.startswith('_'):
+                        try:
+                            val = getattr(cfg, attr)
+                            if val is not None:
+                                norm_cfg[attr.lower()] = val
+                        except Exception:
+                            pass
+
+    norm_overrides = {k.lower(): v for k, v in overrides.items() if v is not None}
+
+    def get_val(name: str, default: Any = None) -> Any:
+        name_lower = name.lower()
+        if name_lower in norm_overrides:
+            return norm_overrides[name_lower]
+        return norm_cfg.get(name_lower, default)
 
     model_filename = get_val("model", "g4-opt-it-Q4_K_M.gguf")
     kv_cache = get_val("kv", "q4_0")
-    k_val = get_val("kv_k") or kv_cache
-    v_val = get_val("kv_v") or kv_cache
+    k_val = get_val("kv_k")
+    if k_val is None:
+        k_val = kv_cache
+    v_val = get_val("kv_v")
+    if v_val is None:
+        v_val = kv_cache
     max_tokens = get_val("max_tokens", 1024)
     include_coding = get_val("include_coding", True)
     t_val = get_val("threads", 12)
