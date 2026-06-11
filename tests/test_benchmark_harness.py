@@ -42,6 +42,18 @@ class TestBenchmarkHarness(unittest.TestCase):
         self.assertEqual(score, 1.0)
         self.assertEqual(tokens, 100)
 
+    def test_system_prefix(self):
+        task = DummyTask()
+        self.mock_client.complete.return_value = {
+            "content": "Done",
+            "usage": {"total_tokens": 10},
+            "choices": [{"message": {"tool_calls": []}}]
+        }
+        self.harness._run_task_loop(task, pass_num=1, system_prefix="<|think|>")
+        self.mock_client.complete.assert_called_once()
+        args, kwargs = self.mock_client.complete.call_args
+        self.assertTrue(args[0].startswith("<|think|>Initial Prompt"))
+
     @patch("time.time")
     def test_evaluate_success(self, mock_time):
         # 1. t_start = 0

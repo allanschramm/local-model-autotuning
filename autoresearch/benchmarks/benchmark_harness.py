@@ -35,6 +35,7 @@ class BenchmarkHarness:
     def _run_task_loop(self, task: EvalTask, pass_num: int, padding: str = "", max_steps: int = 8, **kwargs) -> Tuple[float, int]:
         timeout_at = kwargs.get("timeout_at")
         prompt = task.get_initial_prompt(pass_num, padding)
+        prompt = kwargs.pop("system_prefix", "") + prompt
         tools = task.get_tools(pass_num)
         step = 0
         total_tokens = 0
