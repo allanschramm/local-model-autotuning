@@ -54,5 +54,26 @@ class TestBenchmarkCoding(unittest.TestCase):
         self.assertEqual(result.val_pass2, 0.4)
         self.assertEqual(result.val_score, 0.5)
 
+    @patch("autoresearch.benchmarks.benchmark_coding.run_evalplus")
+    @patch("pathlib.Path.mkdir")
+    def test_run_benchmark_with_stats(self, _mock_mkdir, mock_run_evalplus):
+        # Mock returns with stats
+        mock_run_evalplus.side_effect = [
+            {"pass1_plus": 0.6, "total_tokens": 100, "total_seconds": 10.0},
+            {"pass1_plus": 0.4, "total_tokens": 200, "total_seconds": 5.0}
+        ]
+        
+        from autoresearch.core.llama_client import LlamaClient
+        client = MagicMock(spec=LlamaClient)
+        client.port = 1234
+        
+        result = benchmark_coding.run_benchmark(client, model_name="test-model")
+        
+        self.assertEqual(result.val_pass1, 0.6)
+        self.assertEqual(result.val_pass2, 0.4)
+        self.assertEqual(result.val_score, 0.5)
+        self.assertEqual(result.total_seconds, 15.0)
+        self.assertEqual(result.avg_tps, 20.0)
+
 if __name__ == "__main__":
     unittest.main()

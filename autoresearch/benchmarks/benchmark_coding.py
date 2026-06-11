@@ -164,6 +164,18 @@ def run_evalplus(dataset: str, port: int, output_dir: Path, model_name: str, tas
             except:
                 pass
     
+    # Load stats if available
+    import json
+    stats_file = res_root / f"stats_{dataset}.json"
+    if stats_file.exists():
+        try:
+            with open(stats_file) as f:
+                stats = json.load(f)
+                scores["total_tokens"] = stats.get("total_tokens", 0)
+                scores["total_seconds"] = stats.get("total_seconds", 0.0)
+        except Exception:
+            pass
+
     return scores
 
 from autoresearch.core.llama_client import LlamaClient
@@ -189,12 +201,16 @@ def run_benchmark(client: LlamaClient, **kwargs) -> BenchmarkResult:
     
     avg_score = (he_val + mbpp_val) / 2
     
+    total_tokens = he_scores.get("total_tokens", 0) + mbpp_scores.get("total_tokens", 0)
+    total_seconds = he_scores.get("total_seconds", 0.0) + mbpp_scores.get("total_seconds", 0.0)
+    avg_tps = total_tokens / total_seconds if total_seconds > 0 else 0.0
+
     return BenchmarkResult(
         val_score=round(avg_score, 4),
         val_pass1=he_val,
         val_pass2=mbpp_val,
-        avg_tps=0.0, # EvalPlus doesn't easily provide raw TPS here
-        total_seconds=0.0
+        avg_tps=round(avg_tps, 2),
+        total_seconds=round(total_seconds, 2)
     )
 
 def main():
