@@ -102,7 +102,7 @@ Decomposed tasks from codebase audit. Each task is atomic, testable, and indepen
 - **Fix**: Extract to named constants with docstring explaining calibration
 - **Impact**: Readability, maintainability
 
-### 4.3 Don't inject metadata keys into config dicts
+### 4.3 Don't inject metadata keys into config dicts (Done)
 - **File**: `autoresearch/core/search.py:33-35`
 - **What**: `get_neighbors()` adds `_changed`, `_old`, `_new` to config dicts
 - **Fix**: Return `(config, metadata)` namedtuple or dataclass instead
