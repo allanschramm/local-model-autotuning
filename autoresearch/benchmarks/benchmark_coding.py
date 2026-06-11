@@ -114,8 +114,19 @@ def run_evalplus(dataset: str, port: int, output_dir: Path, model_name: str, tas
     env = os.environ.copy()
     env["EVALPLUS_MAX_TOKENS"] = str(MAXTOK)
 
-    codegen_cmd = [
-        "uv", "run", "--with", "evalplus", "python3", str(ROOT_DIR / "evalplus_wrapper.py"),
+    try:
+        import evalplus
+        has_evalplus = True
+    except ImportError:
+        has_evalplus = False
+
+    if has_evalplus:
+        base_cmd = [sys.executable]
+    else:
+        base_cmd = ["uv", "run", "--with", "evalplus", "python3"]
+
+    codegen_cmd = base_cmd + [
+        str(ROOT_DIR / "evalplus_wrapper.py"),
         "--model", "local-model",
         "--dataset", dataset,
         "--base_url", f"http://localhost:{port}/v1",
@@ -155,8 +166,11 @@ def run_evalplus(dataset: str, port: int, output_dir: Path, model_name: str, tas
     samples_file = samples_files[0]
     print(f"    Evaluating samples: {samples_file}")
 
-    eval_cmd = [
-        "uv", "run", "--with", "evalplus", "python3", "-m", "evalplus.evaluate",
+    if has_evalplus:
+        eval_cmd = [sys.executable, "-m", "evalplus.evaluate"]
+    else:
+        eval_cmd = ["uv", "run", "--with", "evalplus", "python3", "-m", "evalplus.evaluate"]
+    eval_cmd += [
         "--dataset", dataset,
         "--samples", str(samples_file)
     ]

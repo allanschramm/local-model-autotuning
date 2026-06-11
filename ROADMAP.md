@@ -114,7 +114,7 @@ Decomposed tasks from codebase audit. Each task is atomic, testable, and indepen
 - **Fix**: Parse evalplus stdout for timing info, or add token counting wrapper
 - **Impact**: Coding-only trials get TPS data
 
-### 4.5 Avoid reinstalling evalplus every run
+### 4.5 Avoid reinstalling evalplus every run (Done)
 - **File**: `autoresearch/benchmarks/benchmark_coding.py:117-118`
 - **What**: `uv run --with evalplus` reinstalls every subprocess call (2x per trial)
 - **Fix**: Check `import evalplus` first, use `uv run` only as fallback
