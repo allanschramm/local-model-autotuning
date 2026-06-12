@@ -20,6 +20,11 @@ class TestAutoLoop(unittest.TestCase):
             "FLASH_ATTN": "on",
             "NO_MMAP": False,
             "TEMP": 0.2,
+            "TOP_P": None,
+            "TOP_K": None,
+            "MIN_P": None,
+            "PRESENCE_PENALTY": None,
+            "REPEAT_PENALTY": None,
         }
         
         search_strategy = SearchStrategy(autoloop.SEARCH_SPACE, use_pareto_tiebreaker=True)
@@ -28,7 +33,8 @@ class TestAutoLoop(unittest.TestCase):
         
         # Verify each neighbor only differs by one parameter
         for neighbor in neighbors:
-            diffs = sum(1 for k in config if config[k] != neighbor.config[k])
+            all_keys = set(config.keys()) | set(neighbor.config.keys())
+            diffs = sum(1 for k in all_keys if config.get(k) != neighbor.config.get(k))
             self.assertEqual(diffs, 1)
 
     @patch("autoloop.estimate_vram_mb")

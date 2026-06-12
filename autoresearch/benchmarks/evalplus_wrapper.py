@@ -77,7 +77,63 @@ if __name__ == "__main__":
     # Run evalplus.codegen main
     from evalplus.codegen import codegen
     import evalplus.codegen
-    
+
     # We need to replicate what 'python3 -m evalplus.codegen' does
     # which is calling main()
-    evalplus.codegen.main()
+    try:
+        evalplus.codegen.main()
+    except SystemExit:
+        pass
+
+    # Post-codegen: backfill missing problems with empty solutions so
+    # evaluation does not crash on partial datasets (e.g. when using
+    # --id_range or when the trial budget cuts codegen short).
+    import json as _json
+    import glob as _glob
+    if root_path and dataset != "unknown":
+        try:
+            from evalplus.data import get_human_eval_plus as _get_he, get_mbpp_plus as _get_mbpp
+        except ImportError:
+            from evalplus.data import get_human_eval as _get_he, get_mbpp as _get_mbpp
+        try:
+            if dataset == "humaneval":
+                problems = _get_he()
+            elif dataset == "mbpp":
+                problems = _get_mbpp()
+            else:
+                problems = None
+        except Exception:
+            problems = None
+        if problems:
+            pattern = str(Path(root_path) / dataset / "*.jsonl")
+            for samples_file in _glob.glob(pattern):
+                if samples_file.endswith(".raw.jsonl"):
+                    continue
+                existing_ids = set()
+                lines = []
+                try:
+                    with open(samples_file, "r") as f:
+                        for line in f:
+                            entry = _json.loads(line)
+                            existing_ids.add(entry.get("task_id", ""))
+                            lines.append(line)
+                except Exception:
+                    continue
+                missing = [tid for tid in problems if tid not in existing_ids]
+                if missing:
+                    print(f"  [BACKFILL] Adding {len(missing)} empty entries for missing problems...")
+                    try:
+                        with open(samples_file, "rb+") as f_bin:
+                            f_bin.seek(0, 2)
+                            if f_bin.tell() > 0:
+                                f_bin.seek(-1, 2)
+                                if f_bin.read(1) != b"\n":
+                                    f_bin.write(b"\n")
+                    except Exception:
+                        pass
+                    with open(samples_file, "a") as f:
+                        for tid in missing:
+                            f.write(_json.dumps({
+                                "task_id": tid,
+                                "completion": "# no solution (budget exhausted)\n"
+                            }) + "\n")

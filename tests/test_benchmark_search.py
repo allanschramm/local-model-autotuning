@@ -8,10 +8,10 @@ class TestBenchmarkSearch(unittest.TestCase):
     def test_parse_args_defaults(self):
         with patch("sys.argv", ["benchmark_search.py"]):
             args = benchmark_search.parse_args()
-            self.assertEqual(args.model, "g4-opt-it-Q4_K_M.gguf")
-            self.assertEqual(args.ctx_size, 16384)
-            self.assertEqual(args.kv, "q4_0")
-            self.assertEqual(args.threads, 12)
+            self.assertEqual(args.model, config.MODEL)
+            self.assertEqual(args.ctx_size, config.CTX_SIZE)
+            self.assertEqual(args.kv, config.KV_CACHE)
+            self.assertEqual(args.threads, config.THREADS)
             self.assertEqual(args.include_coding, config.INCLUDE_CODING)
 
     @patch("autoresearch.runners.run.handle_single_run")

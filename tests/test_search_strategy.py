@@ -33,14 +33,13 @@ class TestSearchStrategy(unittest.TestCase):
         self.assertIn("TPS improved", reason)
 
     def test_is_improvement_pareto_vram(self):
-        # Score tied, TPS same/slightly lower but within 95%, VRAM improved (reduced by >= 5%)
+        # Score tied, TPS same, VRAM improved — but VRAM is no longer a tie-breaker
         strategy = SearchStrategy({}, use_pareto_tiebreaker=True)
         is_imp, reason = strategy.is_improvement(
             baseline_score=0.70, baseline_tps=30.0, baseline_vram=4.0,
             new_score=0.70, new_tps=29.0, new_vram=3.5
         )
-        self.assertTrue(is_imp)
-        self.assertIn("VRAM improved", reason)
+        self.assertFalse(is_imp)  # VRAM no longer used as tie-breaker
 
     def test_is_improvement_pareto_no_tps_no_vram(self):
         # Score tied, TPS regressed heavily, VRAM improved (not enough for TPS drop)

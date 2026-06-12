@@ -94,19 +94,27 @@ class SearchStrategy:
     ) -> Tuple[bool, str]:
         """
         Evaluate if the new trial beats the baseline.
+        Rules (Allan's matrix):
+          Score+  Speed+  → KEEP
+          Score+  Speed-  → KEEP
+          Score+  Speed=  → KEEP
+          Score-  Speed+  → DISCARD
+          Score-  Speed-  → DISCARD
+          Score=  Speed+  → KEEP
+          Score=  Speed=  → DISCARD
         Returns (is_improvement, reason_string).
         """
         delta = new_score - baseline_score
-        
+
+        # Score improved → always KEEP
         if new_score > baseline_score + 0.0001:
             return True, f"Score improved (Δ={delta:+.6f})"
-            
+
+        # Score tied → KEEP only if speed improved
         if self.use_pareto_tiebreaker and abs(new_score - baseline_score) <= 0.0001:
             if new_tps > baseline_tps * 1.05:
                 return True, f"Score tied, TPS improved (+{new_tps - baseline_tps:.1f})"
-            elif new_tps >= baseline_tps * 0.95 and new_vram < baseline_vram * 0.95:
-                return True, f"Score/TPS tied, VRAM improved (-{baseline_vram - new_vram:.1f}GB)"
-                
+
         return False, ""
 
     def format_config_summary(self, cfg: Config) -> str:

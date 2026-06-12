@@ -291,9 +291,10 @@ def run_evaluation(cfg: dict | Any, **overrides) -> Dict[str, Any]:
             # 3. Coding (If Enabled)
             if include_coding:
                 print(f"  [coding] Running (limit={task_limit_val})...")
-                coding_res = run_coding(client, is_test=False, model_name=model_filename, task_limit=task_limit_val, timeout_at=timeout_at)
+                coding_res = run_coding(client, is_test=False, model_name=model_filename, task_limit=task_limit_val, timeout_at=timeout_at, max_tokens=max_tokens, **gen_kwargs)
                 res["coding_val"] = coding_res.val_score
                 res["coding_vram"] = runner.peak_vram_mb
+                res["coding_tps"] = coding_res.avg_tps
             
             # Compute combined metrics
             tps_list = []
@@ -301,6 +302,8 @@ def run_evaluation(cfg: dict | Any, **overrides) -> Dict[str, Any]:
                 tps_list.append(res["nexus_tps"])
             if include_claw_val:
                 tps_list.append(res["claw_tps"])
+            if include_coding and res.get("coding_tps", 0) > 0:
+                tps_list.append(res["coding_tps"])
                 
             if tps_list:
                 avg_tps = sum(tps_list) / len(tps_list)

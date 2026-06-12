@@ -38,14 +38,18 @@ SEARCH_SPACE = {
     "CONT_BATCHING":     [False, True],
     "FLASH_ATTN":        ["on"],
     "NO_MMAP":           [False, True],
-    "TEMP":              [0.0, 0.1, 0.2, 0.4, 0.6],
+    "TEMP":              [0.0, 0.2, 0.6, 0.7, 1.0],
+    "TOP_P":             [None, 0.8, 0.9, 0.95],
+    "TOP_K":             [None, 20, 40, 64],
+    "MIN_P":             [None, 0.0, 0.02, 0.05],
+    "PRESENCE_PENALTY":  [None, 0.0, 1.5],
+    "REPEAT_PENALTY":    [None, 1.0, 1.1],
 }
 
 # Params not in search space but needed for config persistence
 PASSTHROUGH_PARAMS = [
     "KV_CACHE", "MODEL", "JINJA", "REASONING_BUDGET", "REASONING_BUDGET_MESSAGE",
-    "REASONING", "SPEC_TYPE", "TOP_P", "MIN_P", "TOP_K",
-    "REPEAT_PENALTY", "PRESENCE_PENALTY", "FREQUENCY_PENALTY",
+    "REASONING", "SPEC_TYPE", "FREQUENCY_PENALTY",
     "INCLUDE_CODING", "CODING_TASK_LIMIT",
     "INCLUDE_NEXUS", "INCLUDE_CLAW",
 ]
