@@ -136,8 +136,12 @@ def _get_test_code(entry: dict, dataset: str) -> str:
         # MBPP has 'test' field with assert statements
         test = entry.get("test", "")
         if not test:
-            test_list = entry.get("test_list", [])
-            test = "\n".join(test_list)
+            assertion = entry.get("assertion", "")
+            if assertion:
+                test = assertion
+            else:
+                test_list = entry.get("test_list", [])
+                test = "\n".join(test_list)
         return test
     return ""
 
