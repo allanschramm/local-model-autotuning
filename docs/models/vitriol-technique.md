@@ -1,0 +1,45 @@
+# VITRIOL — MoE-on-small-VRAM technique
+
+Source: https://www.youtube.com/watch?v=ZwNCsUTNWOA (Codacus on Qwen 3.6 35B-A3B on i5-12th + 16GB RAM + GTX 1070 8GB → 18 tok/s, 132k ctx).
+
+## Core insight
+For MoE models, you don't put the whole model on the GPU. You put **attention + shared expert + routing** on the GPU, and the **256 routed experts stay in CPU/RAM**. Per-token active compute is small (3-4B), so the CPU bottleneck is acceptable.
+
+## The 2-knob split
+
+```
+-ncmoe 40            # --n-cpu-moe 40 — ALL 40 layers' MoE experts on CPU
+-ngl 99              # --n-gpu-layers 99 — max attention+shared on GPU
+-cache-type-k q4_0   # K cache quantized to 4-bit
+-cache-type-v q4_0   # V cache quantized to 4-bit
+-c 132000            # --ctx-size 132k (Codacus pushed to 132k, tried 64k first)
+```
+
+The 2 flags compose:
+- `--n-gpu-layers N` decides attention/shared layers on GPU (N=99 = as many as fit)
+- `--n-cpu-moe N` decides which layers' MoE experts are forced to CPU
+
+For a 40-layer MoE, `--n-cpu-moe 40` keeps all experts on CPU. Lower N = move some experts to GPU (eats VRAM, may or may not help speed — needs testing).
+
+## When does it help vs not?
+- Helps: large MoE models (35B+ total, ≤5B active) on ≤16GB VRAM rigs.
+- Doesn't help: small dense models, or when you have enough VRAM to fit the full active path.
+- Trade-off: lower tok/s than full-GPU, but **infinite context** if you have SSD offload.
+
+## Codacus result vs ours
+| | Codacus | Our rig |
+|---|---|---|
+| CPU | i5-12th gen | i5/i7 12th+ (WSL) |
+| RAM | 16 GB | 16 GB |
+| GPU | GTX 1070 8GB | RTX 4060 8GB |
+| Result | 18 tok/s @ 132k ctx | Expected 25-35 tok/s @ 132k ctx (2× CUDA cores) |
+| Floor | our TPS Floor is 20 (autoresearch) | we should clear it |
+
+## Related flags (from our llama-server turboquant build)
+- `--n-cpu-moe-draft N` / `-ncmoed` — same for MTP draft model
+- `--no-mmap` — force full model into RAM (Codacus skipped, we have 16GB so would OOM)
+- `--spec-type mtp` — MTP speculative decoding (NOT `draft-mtp` — see model cards)
+
+## See also
+- [Qwen3.6-35B-A3B model card](qwen3.6-35b-a3b.md) — the model Codacus tested
+- [Gemma-4-26B-A4B model card](gemma-4-26b-a4b.md) — same technique, larger active params

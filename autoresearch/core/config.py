@@ -1,8 +1,8 @@
 # config.py
 # The ONLY changeable file for agent tweaks
 
-MODEL = 'Qwen3.5-9B-MTP-Q4_K_M.gguf'
-CTX_SIZE = 32768
+MODEL = 'gemma-4-26B-A4B-it-UD-Q4_K_M.gguf'
+CTX_SIZE = 8192
 KV_CACHE = 'q4_0'
 KV_CACHE_K = 'q4_0'
 KV_CACHE_V = 'q4_0'
@@ -12,7 +12,7 @@ THREADS = 8
 THREADS_BATCH = 8
 FLASH_ATTN = 'on'
 SPEC_TYPE = None
-SPEC_DRAFT_N_MAX = 1
+SPEC_DRAFT_N_MAX = 0
 NO_MMAP = False
 JINJA = False
 REASONING_BUDGET = None
