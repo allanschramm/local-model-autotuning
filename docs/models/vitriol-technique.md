@@ -27,13 +27,13 @@ For a 40-layer MoE, `--n-cpu-moe 40` keeps all experts on CPU. Lower N = move so
 - Trade-off: lower tok/s than full-GPU, but **infinite context** if you have SSD offload.
 
 ## Codacus result vs ours
-| | Codacus | Our rig |
+| | Codacus | Nosso rig |
 |---|---|---|
 | CPU | i5-12th gen | i5/i7 12th+ (WSL) |
 | RAM | 16 GB | 16 GB |
 | GPU | GTX 1070 8GB | RTX 4060 8GB |
-| Result | 18 tok/s @ 132k ctx | Expected 25-35 tok/s @ 132k ctx (2× CUDA cores) |
-| Floor | our TPS Floor is 20 (autoresearch) | we should clear it |
+| Result | 18 tok/s @ 132k ctx | Validar — esperado 25-35 tok/s @ 132k ctx (2× CUDA cores), mas commit `2bd795b` em Gemma 4 26B-A4B deu só 13-18 tok/s (ainda abaixo do floor 20 do autoresearch) |
+| Floor | nosso TPS Floor é 20 (autoresearch) | Validar se Qwen3.6 35B-A3B com 3B active consegue passar |
 
 ## Related flags (from our llama-server turboquant build)
 - `--n-cpu-moe-draft N` / `-ncmoed` — same for MTP draft model
@@ -41,5 +41,5 @@ For a 40-layer MoE, `--n-cpu-moe 40` keeps all experts on CPU. Lower N = move so
 - `--spec-type mtp` — MTP speculative decoding (NOT `draft-mtp` — see model cards)
 
 ## See also
-- [Qwen3.6-35B-A3B model card](qwen3.6-35b-a3b.md) — the model Codacus tested
-- [Gemma-4-26B-A4B model card](gemma-4-26b-a4b.md) — same technique, larger active params
+- [Qwen3.6-35B-A3B model card](qwen3.6-35b-a3b.md) — o modelo que Codacus testou (35B total / 3B active)
+- [Gemma-4-26B-A4B model card](gemma-4-26b-a4b.md) — mesma técnica, active params um pouco maior (4B), testado no nosso rig (commit `2bd795b`: HumanEval 0.533, TPS 13-18)

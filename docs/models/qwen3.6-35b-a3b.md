@@ -4,7 +4,7 @@
 **Unsloth docs:** https://unsloth.ai/docs/models/qwen3.6
 **MTP-specific repo:** https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF
 **License:** Apache-2.0
-**Local file:** `/mnt/d/LLM-Models/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf` (22.1 GB)
+**Local file:** `/mnt/d/LLM-Models/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf` (~21.6 GB) [Validar tamanho exato do download atual — possivelmente re-quantizado desde a extração original]
 **Symlink:** `models/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf -> /mnt/d/LLM-Models/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf`
 **Family:** Qwen3.6 (Alibaba)
 **Quantization:** Unsloth Dynamic 2.0 — `UD-Q4_K_M` (calibrated on real-world use-cases, important layers upcasted)
@@ -131,15 +131,16 @@ Our `qwen9b-mtp.sh` currently uses `--spec-type draft-mtp`, but our turboquant `
 
 MTP adds ~2 GB RAM/VRAM headroom and 1.4-2.2× speedup (Unsloth). Unambiguously turn it ON.
 
-## Our config baseline (TBD)
-- `CTX_SIZE`: start 8192 (conservative — KV cache for 262K context is huge)
-- `KV_CACHE_K = KV_CACHE_V`: try `q4_0` first, then `turbo2/3/4` if llama-server version supports
-- `SPEC_TYPE = "draft-mtp"` (Qwen3.6 has MTP)
-- `SPEC_DRAFT_N_MAX = 2`
+## Our config baseline
+- `CTX_SIZE`: **65536** (atualizado em commit `78d54e2` — tuning buscou 65k pra 9B-MTP; Validar se valor ótimo para 35B-A3B é o mesmo ou se precisa reduzir)
+- `KV_CACHE_K = KV_CACHE_V`: tentar `q4_0` primeiro, depois `turbo2/3/4` se o llama-server suportar [Validar quais TurboQuant types nosso build expõe]
+- `SPEC_TYPE = "mtp"` (corrigido — o `draft-mtp` é silenciosamente rejeitado pelo turboquant build, ver flag verification abaixo)
+- `SPEC_DRAFT_N_MAX = 2` (recomendado Unsloth; range 1-6)
 - `THREADS = 8` (16/8 hyperthreaded cores)
 - `BATCH_SIZE = 512` `UBATCH_SIZE = 128`
 - `FLASH_ATTN = "on"`
-- `--n-gpu-layers`: TBD (autoloop will discover)
+- `--n-gpu-layers`: Validar (autoloop vai descobrir)
+- `--n-cpu-moe`: 40 (= total de layers — mantém todos os experts no CPU/RAM, padrão Codacus) — suporte nativo adicionado em commit `2bd795b`
 - Sampling for coding: `temperature=0.6, top_p=0.95, top_k=20, min_p=0.0, presence_penalty=0.0, repeat_penalty=1.0`
 
 ## Sources / Verification
@@ -148,7 +149,7 @@ MTP adds ~2 GB RAM/VRAM headroom and 1.4-2.2× speedup (Unsloth). Unambiguously 
 - Unsloth MTP guide (https://unsloth.ai/docs/models/mtp.md, extracted same day, truncated at 5k chars)
 
 ## Open questions
-1. Does our `llama-server` (turboquant build) support `--spec-type draft-mtp`? Check with `--help`.
-2. Exact value of `--n-gpu-layers` for our 8 GB VRAM + 3B active MoE.
-3. Verify MTP works with non-`-MTP-GGUF` repo or re-download the MTP-specific repo.
-4. Re-extract full Unsloth Qwen3.6 llama.cpp section to confirm canonical command.
+1. **[Resolvido]** `llama-server` (turboquant build) NÃO aceita `--spec-type draft-mtp` — o valor é silenciosamente rejeitado. Flag correta é `--spec-type mtp`. Validado por inspeção de `common/arg.cpp` (valores aceitos: `none | mtp | ngram-cache | ngram-simple | ngram-map-k | ngram-mod`).
+2. Validar: exato valor de `--n-gpu-layers` para nosso 8 GB VRAM + 3B active MoE — autoloop vai descobrir.
+3. Validar: MTP funciona com este GGUF ou precisa re-download do `Qwen3.6-35B-A3B-MTP-GGUF` (este arquivo NÃO tem tensores MTP).
+4. Validar: re-extrair seção completa Unsloth Qwen3.6 llama.cpp pra confirmar comando canônico.

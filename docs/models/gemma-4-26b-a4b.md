@@ -106,16 +106,23 @@ Expected performance:
 
 MTP: `--spec-type mtp` (corrected flag, not `draft-mtp` — see Qwen3.6 card for the bug story).
 
-## Our config baseline (TBD)
-- `CTX_SIZE`: 8192 start
-- `KV_CACHE_K = KV_CACHE_V`: `q4_0` first
-- `SPEC_TYPE = "draft-mtp"` (Gemma 4 has MTP)
-- `SPEC_DRAFT_N_MAX = 2`
+## Our config baseline
+- `CTX_SIZE`: **65536** (atualizado em commit `78d54e2`; Validar se valor ótimo para 26B-A4B é o mesmo ou se precisa reduzir)
+- `KV_CACHE_K = KV_CACHE_V`: `q4_0` primeiro; [Validar quais TurboQuant types nosso build expõe para KV cache]
+- `SPEC_TYPE`: Validar — Gemma 4 MTP está em sub-pasta do GGUF, não confirmado que este arquivo local tem os tensores MTP. Se não tiver, fica `none` por ora.
+- `SPEC_DRAFT_N_MAX = 2` (se MTP funcionar)
 - `THREADS = 8`
 - `BATCH_SIZE = 512` `UBATCH_SIZE = 128`
 - `FLASH_ATTN = "on"`
-- `--n-gpu-layers`: TBD
-- Sampling: TBD (re-extract)
+- `--n-gpu-layers`: Validar (autoloop vai descobrir)
+- `--n-cpu-moe`: **15** (para 30 layers — mantém metade dos experts no CPU/RAM, padrão configurado em commit `2bd795b`)
+- Sampling: Validar — Unsloth doc truncado antes da seção "Recommended Settings"
+
+### Teste real (commit `2bd795b`)
+- Rodou `gemma-4-26B-A4B-it-UD-Q4_K_M.gguf` no nosso rig (8 GB VRAM) com VITRIOL (`--n-cpu-moe 15`)
+- **HumanEval pass@1 = 0.533 (16/30)**
+- **TPS ~13-18** (abaixo do floor de 20 — score zerado, descarte)
+- Resultado fica como evidência da viabilidade da técnica; tuning posterior precisa melhorar TPS
 
 ## Sources / Verification
 - HF model card (extracted 2026-06-15)
@@ -123,11 +130,11 @@ MTP: `--spec-type mtp` (corrected flag, not `draft-mtp` — see Qwen3.6 card for
 - Unsloth MTP guide (https://unsloth.ai/docs/models/mtp.md, extracted same day, truncated at 5k chars)
 
 ## Open questions
-1. Verify the local GGUF has the embedded MTP file (or is the MTP-less version, requiring re-download).
-2. Confirm MTP works with `--spec-type draft-mtp` flag in our `llama-server` build.
-3. Find the exact `--n-gpu-layers` value for 4B-active MoE on 8 GB VRAM.
-4. Re-extract the "🦙 llama.cpp Guide" and "Recommended Settings" sections of the Unsloth doc to get canonical command + sampling.
-5. Re-confirm sampling params (Unsloth's doc was truncated mid-sentence in our extract).
+1. **[Resolvido]** `--spec-type draft-mtp` é inválido no turboquant build — usar `--spec-type mtp`. Verificado por inspeção de `common/arg.cpp`.
+2. Validar: o GGUF local realmente NÃO tem tensores MTP (verificado por `GGUFReader`), ou seja, MTP para Gemma 4 requer re-download da sub-pasta do HF (Unsloth menciona que MTP fica em "sub-folder within the GGUF package").
+3. Validar: exato valor de `--n-gpu-layers` para 4B-active MoE em 8 GB VRAM. Commit `2bd795b` rodou Gemma 4 só com `--n-cpu-moe 15`, sem anotar o `--n-gpu-layers` exato.
+4. Validar: re-extrair seção "🦙 llama.cpp Guide" e "Recommended Settings" do Unsloth doc (estava truncado em 5k chars no extrato original).
+5. Validar: sampling params exatos para Gemma 4 (doc truncado antes da seção).
 
 ## Notes on prior runs
 Earlier 9B-MTP tuner runs included Gemma-4-E4B and Gemma-4-12B in `results.tsv` — both lost badly to Qwen3.5-9B on Coding/Retrieval. The 26B-A4B is the first large Gemma we test; expect different ranking.
