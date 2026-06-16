@@ -35,6 +35,7 @@ def parse_args():
     parser.add_argument("--threads", "-t", type=int, default=config.THREADS, help="Number of threads for llama-server")
     parser.add_argument("--threads-batch", type=int, default=config.THREADS_BATCH, help="Number of batch/prefill threads for llama-server")
     parser.add_argument("--ngl", "--n-gpu-layers", "-ngl", type=int, default=99, help="Number of GPU layers to offload")
+    parser.add_argument("--n-cpu-moe", "-ncmoe", type=int, default=getattr(config, 'N_CPU_MOE', None), help="Keep MoE expert weights of first N layers on CPU (VITRIOL)")
     parser.add_argument("--batch-size", "-b", type=int, default=config.BATCH_SIZE, help="Batch size for llama-server")
     parser.add_argument("--ubatch-size", "-ub", type=int, default=config.UBATCH_SIZE, help="Micro-batch size for llama-server")
     parser.add_argument("--parallel", type=int, default=1, help="Parallel slots count")
@@ -208,6 +209,7 @@ def run_evaluation(cfg: dict | Any, **overrides) -> Dict[str, Any]:
     msg_val = get_val("reasoning_budget_message")
     reasoning_val = get_val("reasoning")
     cont_batch_val = get_val("cont_batching", False)
+    n_cpu_moe_val = get_val("n_cpu_moe")
     include_nexus_val = get_val("include_nexus", False)
     include_claw_val = get_val("include_claw", False)
     context_tokens_val = get_val("context_tokens", 8192)
@@ -235,7 +237,8 @@ def run_evaluation(cfg: dict | Any, **overrides) -> Dict[str, Any]:
         reasoning_budget_message=msg_val,
         reasoning=reasoning_val,
         cont_batching=cont_batch_val,
-        spec_type=spec_type_val
+        spec_type=spec_type_val,
+        n_cpu_moe=n_cpu_moe_val
     )
     
     server_log = BASE_DIR / "llama_server.log"

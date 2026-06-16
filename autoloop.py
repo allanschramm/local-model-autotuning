@@ -51,7 +51,7 @@ PASSTHROUGH_PARAMS = [
     "KV_CACHE", "MODEL", "JINJA", "REASONING_BUDGET", "REASONING_BUDGET_MESSAGE",
     "REASONING", "SPEC_TYPE", "FREQUENCY_PENALTY",
     "INCLUDE_CODING", "CODING_TASK_LIMIT",
-    "INCLUDE_NEXUS", "INCLUDE_CLAW",
+    "INCLUDE_NEXUS", "INCLUDE_CLAW", "N_CPU_MOE",
 ]
 
 # ── Graceful shutdown ────────────────────────────────────────────────────
@@ -90,7 +90,7 @@ def write_config(cfg: dict[str, Any]) -> None:
         "BATCH_SIZE", "UBATCH_SIZE", "THREADS", "THREADS_BATCH",
         "FLASH_ATTN", "SPEC_TYPE", "SPEC_DRAFT_N_MAX", "NO_MMAP",
         "JINJA", "REASONING_BUDGET", "REASONING_BUDGET_MESSAGE",
-        "REASONING", "CONT_BATCHING",
+        "REASONING", "CONT_BATCHING", "N_CPU_MOE",
     ]
     for p in server_params:
         lines.append(f"{p} = {repr(cfg.get(p))}")

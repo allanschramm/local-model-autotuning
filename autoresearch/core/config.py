@@ -19,6 +19,7 @@ REASONING_BUDGET = None
 REASONING_BUDGET_MESSAGE = None
 REASONING = None
 CONT_BATCHING = False
+N_CPU_MOE = 15  # VITRIOL: first 15 of 30 layers' MoE experts on CPU for Gemma4 26B-A4B
 
 # Generation options (Unsloth-corrected for Qwen3.5 thinking mode)
 TEMP = 0.4
@@ -33,4 +34,4 @@ FREQUENCY_PENALTY = None
 INCLUDE_CODING = True
 INCLUDE_NEXUS = True
 INCLUDE_CLAW = False
-CODING_TASK_LIMIT = 30  # Tasks per dataset (HumanEval/MBPP). 0 = full dataset.
+CODING_TASK_LIMIT = 10  # Tasks per dataset (HumanEval/MBPP). 0 = full dataset.

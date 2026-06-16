@@ -57,6 +57,7 @@ class ServerIntent:
     cont_batching: bool = False
     host: str = "127.0.0.1"
     spec_type: str | None = None
+    n_cpu_moe: int | None = None
 
 # VRAM Estimation Constants (calibrated for f16 KV cache and typical systems)
 VRAM_KB_PER_TOKEN_F16 = 80.0
@@ -214,8 +215,12 @@ class LlamaServerRunner:
         is_small_dense = any(f"-{x}B" in model_name_up for x in ["2", "4", "7", "8", "9"]) and not ("MOE" in model_name_up or "A1B" in model_name_up)
 
         if is_moe and not is_small_dense:
-            print(f"  [VITRIOL] MoE Expert Streaming enabled for {self.intent.model_path.name}. Offloading experts to CPU.")
-            cmd += ["--override-tensor", ".*exps.*=CPU"]
+            if self.intent.n_cpu_moe is not None:
+                print(f"  [VITRIOL] MoE Expert Streaming: --n-cpu-moe {self.intent.n_cpu_moe} for {self.intent.model_path.name}.")
+                cmd += ["--n-cpu-moe", str(self.intent.n_cpu_moe)]
+            else:
+                print(f"  [VITRIOL] MoE Expert Streaming enabled for {self.intent.model_path.name}. Offloading experts to CPU.")
+                cmd += ["--override-tensor", ".*exps.*=CPU"]
 
         return cmd
 
