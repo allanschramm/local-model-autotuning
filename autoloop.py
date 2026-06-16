@@ -34,7 +34,7 @@ SEARCH_SPACE = {
     "BATCH_SIZE":        [256, 512, 1024],
     "UBATCH_SIZE":       [64, 128, 256, 512],
     "SPEC_DRAFT_N_MAX":  [0, 1, 2, 3, 4],
-    "CTX_SIZE":          [8192, 16384, 32768, 65536],
+    "CTX_SIZE":          [65536, 98304, 131072],
     "CONT_BATCHING":     [False, True],
     "FLASH_ATTN":        ["on"],
     "NO_MMAP":           [False, True],
@@ -237,17 +237,9 @@ def main():
         selected_models = [baseline_cfg.get("MODEL", "g4-opt-it-Q4_K_M.gguf")]
 
     # 2. Resolve trial budget
-    trial_budget_sec = None
+    trial_budget_sec = 300.0  # Fixed 5-minute window
     if cli_args.trial_budget:
         trial_budget_sec = parse_budget_seconds(cli_args.trial_budget)
-    elif sys.stdin.isatty():
-        choice = input("\nEnter max trial budget (e.g. 5m, 300s, 15m) [default 5m]: ").strip()
-        if choice:
-            trial_budget_sec = parse_budget_seconds(choice)
-        else:
-            trial_budget_sec = 300.0
-    else:
-        trial_budget_sec = 300.0
 
     print("=" * 60)
     print("  AUTONOMOUS HILL-CLIMBING LOOP")

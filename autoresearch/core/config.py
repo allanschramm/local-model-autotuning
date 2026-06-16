@@ -2,7 +2,7 @@
 # The ONLY changeable file for agent tweaks
 
 MODEL = 'gemma-4-26B-A4B-it-UD-Q4_K_M.gguf'
-CTX_SIZE = 8192
+CTX_SIZE = 65536
 KV_CACHE = 'q4_0'
 KV_CACHE_K = 'q4_0'
 KV_CACHE_V = 'q4_0'
