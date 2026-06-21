@@ -21,7 +21,6 @@ from autoresearch.benchmarks.benchmark_harness import BenchmarkHarness, EvalTask
 # ---------------------------------------------------------------------------
 # Constants and Defaults
 # ---------------------------------------------------------------------------
-EVAL_TIMEOUT = 180
 ROOT_DIR = Path(__file__).resolve().parent
 DATA_DIR = ROOT_DIR / "data"
 FIXTURE_PATH = DATA_DIR / "memory_fixture.json"
@@ -32,10 +31,6 @@ EXPECTED_MODEL = "Qwen3.5-9B-Q4_K_M.gguf"
 EXPECTED_CTX = 65536
 EXPECTED_KV = "q4_0"
 
-TARGET_MODELS = {
-    "qwen3.5-9b": "Qwen3.5-9B-Q4_K_M.gguf",
-    "qwen3.5-4b": "Qwen3.5-4B-Q4_K_M.gguf",
-}
 
 NEXUS_TOKEN = os.getenv("NEXUS_TOKEN") or os.getenv("NEXUS_UNLOCK_TOKEN") or ""
 _DEFAULT_MEMORY_QUERY = "override token central control plane"

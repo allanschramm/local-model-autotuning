@@ -364,7 +364,7 @@ def main():
                 print(f"\n[AUTOLOOP] Local maxima reached in round {round_num}.")
                 print("[AUTOLOOP] Attempting Random Restart...")
                 new_baseline = None
-                for restart_attempt in range(50):
+                for _ in range(50):
                     candidate = search_strategy.random_restart(visited, baseline_cfg)
                     if not candidate:
                         break

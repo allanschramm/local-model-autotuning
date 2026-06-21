@@ -278,12 +278,6 @@ class LlamaServerRunner:
     def __exit__(self, _exc_type, _exc_val, _exc_tb):
         self._cleanup_all()
 
-    def read_log(self) -> str:
-        if self._server_log:
-            self._server_log.flush()
-            if hasattr(self._server_log, "name"):
-                return Path(self._server_log.name).read_text(encoding="utf-8", errors="replace")
-        return ""
 
     def _wait_for_server(self, port: int) -> bool:
         deadline = time.time() + self.timeout
