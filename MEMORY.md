@@ -1,24 +1,27 @@
 # Agent Experiment Memory
 
-## 1. Experiment Log (TSV Summary)
+## 1. Experiment Log (Best per model)
 
-| Commit | Model | Config (KV, Ctx, Threads, MTP) | VRAM (GB) | TPS | Score | Status | Notes |
+| Commit | Model | KV | Ctx | VRAM (GB) | TPS | Score | Status |
 |---|---|---|---|---|---|---|---|
-| `127ea10` | 9B-MTP | default, ctx=128k | 7.8 | - | 0.430657 | **Keep** | Baseline 9B-MTP 128k |
-| `027bcc3` | Qwopus-9B | default, ctx=128k | 7.7 | - | 0.374961 | **Keep** | Baseline Qwopus-9B |
-| `027bcc3` | Qwen-2B | default, ctx=128k | 3.5 | - | 0.317142 | **Keep** | Baseline Qwen-2B |
-| `429179` | Qwen-2B | f16 KV cache | 3.8 | - | 0.355324 | **Keep** | Improved from 0.317 |
-| `430933` | Gemma-4B | f16 KV cache | 6.1 | - | 0.366415 | **Keep** | Improved from 0.343 |
-| `a8461ef` | Qwen3.5-9B-IQ4_NL | turbo3, ctx=65536, threads=12 | 7.8 | 159.1 | 0.340196 | **Keep** | retrieval=0.5914, agency=0.1727 |
-| `33cc25f` | g4-opt-it | kv=q4_0, ctx=16384, threads=12 | 7.7 | 24.3 | 0.000000 | **Discard** | Combined TPS (24.3) fell below 30.0 threshold. |
-| `33cc25f` | Qwen3.5-9B-MTP | kv=q4_0, ctx=65536, threads=12 | 7.0 | 43.2 | 0.188909 | **Discard** | MTP test, no improvement over 9B baseline. |
+| `bab91e9` | Qwen3.5-9B-MTP | q4_0 | 32768 | 6.9 | 157.3 | 0.772067 | Keep |
+| `0c8e5fc` | gemma4-v2 | turbo4 | 65536 | 8.0 | 29.5 | 0.312922 | Keep |
 
-## 2. Blocked Configurations (Fails / Low TPS)
+## 2. Working Configs
 
-*   **Low Throughput Bottleneck**: `g4-opt-it` with standard `q4_0` KV cache at 16k context gets only **24.3 TPS** (below the 30.0 TPS threshold), zeroing the score. Requires `turbo` quant formats or higher thread parallelism to meet the throughput target.
-*   **VRAM Limits**: 9B models with `f16` KV cache at large context (64k+) will exceed the 7.9 GB safety budget. Lower quantization (like `turbo3` or `q4_0`) is strictly required.
+*   **Qwen3.5-9B-MTP**: `kv=q4_0`, `ctx=32768`, `threads=12` → **0.7721** (coding=0.8167, retrieval=0.4150)
+*   **gemma4-v2**: `kv=turbo4 K+V`, `ctx=65536`, `threads=8`, `temp=0.4`, `batch=128/ubatch=64` → **0.3129** (coding=0.3333, retrieval=0.1499)
 
-## 3. Working Hypotheses
+## 3. Blocked Configurations (Fails / Regressions)
 
-*   **TurboQuant Efficiency**: `turbo3` KV cache quant allows 9B models to execute at 65k context within 7.8 GB of VRAM while sustaining very high throughput (159.1 TPS).
-*   **Thread Configuration**: 12 threads provides an optimal processing rate without causing thread scheduling contention on the host CPU.
+*   **gemma4-v2 temp=0.2 + batch=512/256 + repeat_penalty=1.05**: score caiu para **0.1648**. MBPP timeout na task 1/3. Não usar.
+*   **gemma4-v2 ctx<65536 com Nexus**: padding de 50K tokens quebra o contexto. Nexus exige ctx>=65536.
+*   **Low Throughput**: `g4-opt-it` com `q4_0` em 16k → 24.3 TPS (abaixo do threshold 30.0). Score zerado. Precisa turbo3/turbo4 ou mais threads.
+*   **VRAM Limits**: modelos maiores que 9B com `f16` KV em 64k+ estouram 7.9 GB. Usar turbo4.
+
+## 4. Working Hypotheses
+
+*   **Turbo4 no Gemma4 12B dense**: VRAM fica flat em ~7.9GB até 128K ctx graças ao TurboQuant agressivo. Custo do KV cache é amortizado na medição por `nvidia-smi` a 10Hz.
+*   **MTP ausente no Gemma4**: modelo não tem `nextn_predict_layers`. Speculative decoding não ajuda aqui.
+*   **Threads**: 8 threads no Gemma4 12B batem melhor que 12 (teste anterior com 12 threads não foi registrado porque ainda não há baseline confirmado).
+*   **Batch sizing**: `batch=128, ubatch=64` é mais estável no Gemma4 do que `512/256` sob trial budget curto.
