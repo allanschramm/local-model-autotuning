@@ -190,14 +190,13 @@ class LlamaServerRunner:
             global _LLAMA_SERVER_HELP_CACHE
             if _LLAMA_SERVER_HELP_CACHE is None:
                 try:
-                    # Query help to see if draft-mtp is supported
                     _LLAMA_SERVER_HELP_CACHE = subprocess.check_output([str(self.llama_server), "--help"], stderr=subprocess.STDOUT, text=True)
                 except Exception:
                     _LLAMA_SERVER_HELP_CACHE = "mtp"
-                if "mtp" in _LLAMA_SERVER_HELP_CACHE:
-                    spec_type_val = "mtp"
-                else:
-                    spec_type_val = "draft-mtp"
+            if "mtp" in _LLAMA_SERVER_HELP_CACHE:
+                spec_type_val = "mtp"
+            else:
+                spec_type_val = "draft-mtp"
             print(f"  [MTP] Multi-Token Prediction detected for {self.intent.model_path.name}. Auto-selected spec-type: {spec_type_val}")
 
         if spec_type_val is not None and spec_type_val.lower() != "none" and self.intent.spec_draft_n_max > 0:

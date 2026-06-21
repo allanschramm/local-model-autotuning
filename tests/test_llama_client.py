@@ -78,7 +78,7 @@ class TestLlamaClient(unittest.TestCase):
         mock_res.__enter__.return_value = mock_res
         mock_urlopen.return_value = mock_res
 
-        self.client.complete("Say hello", max_tokens=100, temperature=0.5)
+        self.client.complete("Say hello", max_tokens=100, temp=0.5)
 
         args, _ = mock_urlopen.call_args
         req = args[0]

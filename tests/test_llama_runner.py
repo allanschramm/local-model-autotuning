@@ -54,7 +54,7 @@ class TestLlamaRunner(unittest.TestCase):
         runner = LlamaServerRunner(intent)
         cmd = runner._build_cmd(18080)
         self.assertIn("--spec-type", cmd)
-        self.assertIn("draft-mtp", cmd)
+        self.assertIn("mtp", cmd)
 
     @patch("autoresearch.core.llama_runner.resolve_llama_server")
     def test_build_cmd_vitriol_moe(self, mock_resolve):

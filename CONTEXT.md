@@ -51,8 +51,14 @@ _Avoid_: grid, parameter space
 ### Evaluation
 
 **Val Score**:
-The single scalar metric used for keep/discard decisions. When Coding is enabled: 80% Coding + 10% Nexus + 10% Claw. Without Coding: 60% Claw + 40% Nexus. Zeroed if TPS falls below the TPS Floor.
+The single scalar metric used for keep/discard decisions. When Coding is enabled: **80% Coding + 10% Nexus + 10% Claw**. Without Coding: **60% Nexus + 40% Claw**. Zeroed if TPS falls below the TPS Floor.
 _Avoid_: score, result, metric
+
+> **Weighting rule** (consistent with `run.py` implementation):
+> - `INCLUDE_CODING=True` → `0.80 × coding + 0.10 × nexus + 0.10 × claw`
+> - `INCLUDE_CODING=False` → `0.60 × nexus + 0.40 × claw`
+>
+> Earlier docs claimed "60% Claw + 40% Nexus" without Coding; this was inconsistent with the implementation. The weights above are the authoritative reference.
 
 **TPS Floor**:
 The minimum throughput (tokens per second) a Trial must achieve. Below this, Val Score is forced to zero regardless of accuracy.
@@ -87,6 +93,60 @@ Hardware-accelerated KV cache compression formats (`turbo2`, `turbo3`, `turbo4`)
 _Avoid_: quantized cache, compressed KV
 
 **Multi-Token Prediction (MTP)**:
-Speculative decoding using specialized draft heads to predict multiple tokens ahead, improving throughput.
+Speculative decoding using specialized draft heads (built into the model) to predict multiple tokens ahead, improving throughput. Distinct from "speculative decoding with separate draft model", which fails on MoE+SSM models.
 _Avoid_: speculative decoding (when referring specifically to MTP)
 
+### Generic Configuration Skeleton
+
+The example below uses portable placeholders. Replace with your actual paths/values.
+
+**Model file**: place in `models/` (relative to repo root), e.g. `models/<model-filename>.gguf`. Symlinks to absolute paths under your home directory are also OK.
+
+**Working llama-server command template**:
+```
+llama-server \
+  -m models/<model-filename>.gguf \
+  --host 0.0.0.0 --port 8083 \
+  -ngl 999 \
+  --n-cpu-moe 32 \
+  --cache-type-k q4_0 --cache-type-v q4_0 \
+  -c 8192 \
+  --override-tensor "v\\..*=CPU" \
+  --flash-attn on --no-warmup
+```
+
+**MTP flags (only when the GGUF was downloaded from the `-MTP-GGUF` repo variant)**:
+```
+--spec-type mtp --spec-draft-n-max 2
+```
+Notes:
+- Turboquant and similar forks accept `--spec-type mtp` (NOT `draft-mtp`).
+- Upstream `ggml-org/llama.cpp` accepts `--spec-type draft-mtp`.
+- `scripts/setup-check.sh` probes your build's `--help` and validates compatibility.
+- MTP adds ~1 GB VRAM headroom. Speedup is **1.15–1.25× for MoE**, **1.4–2.0× for dense**.
+
+**Key flags explained**:
+- `-ngl 999`: lets auto-fit adjust GPU layers. Avoid combining with explicit `--n-cpu-moe` smaller than auto-fit targets.
+- `--n-cpu-moe 32`: first 32 layers' MoE experts on CPU, remaining layers' experts on GPU. Adjust based on your MoE layer count.
+- `--override-tensor "v\\..*=CPU"`: value projection weights forced to CPU (saves ~500MB VRAM on multimodal GGUFs).
+- `--no-warmup`: required to avoid OOM during empty-run warmup on tight VRAM (e.g., 8GB).
+- `--parallel 1`: reduces RS buffer (recurrent state for delta net) significantly on hybrid architectures.
+
+**Performance expectations** (illustrative — depends on hardware + flags):
+- q4_0 KV at 8k ctx on RTX 4060 8GB with MoE offload: ~11 tok/s (no MTP), ~13 tok/s (with MTP).
+- TurboQuant does not always help — on GQA 8:1 architectures, `turbo4` K cache auto-upgrades to `q8_0` with no speed/VRAM gain over plain `q4_0`. Run `whichllm plan` to inspect your specific model.
+
+**Filesystem caveats**:
+- Models on 9p bridges (e.g. `/mnt/c/...`, `/mnt/d/...`) load very slowly via `mmap` (10–50× slower than native ext4). Copy or symlink model files into `models/` (native ext4) for normal speed.
+- For WSL2: ensure `vm.overcommit_memory=1` and ample WSL `.wslconfig` memory (≥24 GB) when serving 20+ GB models.
+
+## Discovery Workflow (cross-reference)
+
+For users selecting which model to autotune, see [`docs/discovery/discover-models.md`](discovery/discover-models.md). It documents the **whichllm → Pareto frontier → autoloop handoff** flow that complements the autoloop once a Baseline model has been picked.
+
+## Cached lessons (general, not user-specific)
+
+- **MoE offload is mandatory on 8GB VRAM**: without explicit `--n-cpu-moe`, auto-fit can put 36/42 layers with GATE overflow, dropping throughput to ~0.7 tok/s. Always pair `--n-cpu-moe` with explicit `--override-tensor`.
+- **Speculative decoding with separate draft models fails on MoE+SSM**: verification becomes PCIe-bound (MoE expert fetch per token) and SSM layers can't parallelize across a draft window. MTP is a different mechanism and works.
+- **`whichllm` score ≠ coding benchmark**: whichllm blends AA Intelligence Index, Aider, LiveBench (intelligence weighted). For Claude Code / Pi Agent loops, cross-reference SWE-bench Verified — Gemma-4-26B-A4B ranks top in whichllm but scores only ~17% on SWE-bench Verified (bad coding agent despite high general intelligence).
+- **Pareto frontier beats "highest score"**: for coding agents with high mistake cost, pick the Pareto-optimal tok/s × SWE-bench point, not the highest single-axis leader.

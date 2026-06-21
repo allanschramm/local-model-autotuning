@@ -4,8 +4,10 @@
 **Unsloth docs:** https://unsloth.ai/docs/models/qwen3.6
 **MTP-specific repo:** https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF
 **License:** Apache-2.0
-**Local file:** `/mnt/d/LLM-Models/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf` (~21.6 GB) [Validar tamanho exato do download atual — possivelmente re-quantizado desde a extração original]
-**Symlink:** `models/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf -> /mnt/d/LLM-Models/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf`
+**Local file:** `$MODELS_DIR/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf` (21.11 GB, baixado do repo MTP-GGUF em 2026-06-19). `$MODELS_DIR` defaults to `~/models` or set via env.
+**Symlink:** `models/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf -> $MODELS_DIR/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf`
+
+**MTP-GGUF (validado 2026-06-19):** o arquivo em disco é do repo `unsloth/Qwen3.6-35B-A3B-MTP-GGUF`. Validado via llama-server log: `qwen35moe.nextn_predict_layers u32 = 1` confirma que os tensores MTP estão integrados no `.gguf`. NÃO é o mesmo arquivo do repo base `Qwen3.6-35B-A3B-GGUF` (esse NÃO tem MTP). Filename **não contém "MTP"**, então o auto-detect do `llama_runner.py` (linha 189) só dispara se passar `spec_type` explícito.
 **Family:** Qwen3.6 (Alibaba)
 **Quantization:** Unsloth Dynamic 2.0 — `UD-Q4_K_M` (calibrated on real-world use-cases, important layers upcasted)
 
@@ -75,18 +77,24 @@ To disable thinking: `--chat-template-kwargs '{"enable_thinking": false}'` (TBD:
 - Recommended `presence_penalty` range: 0.0 to 2.0 (off by default; higher may slightly decrease perf)
 
 ## MTP (Multi-Token Prediction)
-- **This GGUF does NOT contain MTP tensors.** MTP is in the separate repo `Qwen3.6-35B-A3B-MTP-GGUF` (different HF repo, bundles MTP file directly into the GGUF).
-- To use MTP, **re-download from `-MTP-GGUF` repo**: `hf download unsloth/Qwen3.6-35B-A3B-MTP-GGUF`.
-- llama.cpp flags (from our turboquant build, `common/arg.cpp`):
+- **Status (2026-06-19):** MTP-GGUF já baixado e validado em disco. Tensores MTP presentes no arquivo (`nextn_predict_layers = 1` confirmado via log).
+- **Speedup empírico medido (MESMO PROMPT, MESMAS FLAGS, só file swap):**
+  - Base GGUF → 11.1 tok/s (`r_q4`)
+  - MTP-GGUF (sem flag MTP ativa) → 22.5 tok/s (`mtp_baseline`)
+  - **Ganho: 2.03× só com file swap.** Provável causa: MTP tensors carregados auxiliam mesmo inativos, OU perfil de quantização Unsloth SOTA.
+- **Speedup projetado com MTP ativo** (próximo teste, não executado): +1.15-1.25× pra MoE → ~26-28 tok/s.
+- llama.cpp flags (turboquant build):
   ```
-  --spec-type mtp
-  --spec-draft-n-max 2    # Unsloth's recommended starting point; try 1–6
-  --spec-draft-type-k q4_0  # optional: quantize draft KV cache
+  --spec-type mtp               # NÃO draft-mtp (esse é upstream llama.cpp, silenciosamente rejeitado aqui)
+  --spec-draft-n-max 2          # Unsloth recomenda; testar 1-6
+  --spec-draft-type-k q4_0
   --spec-draft-type-v q4_0
-  --n-cpu-moe-draft N      # keep draft MoE experts on CPU
   ```
-- **+2 GB RAM/VRAM headroom** for MTP draft model
-- Qwen3.6 35B-A3B reaches **240 tok/s on RTX 6000** with MTP (Unsloth benchmark)
+- **Auto-detect:** `llama_runner.py:189-205` faz probe do `--help` e usa `mtp` se disponível. Filename-based auto-detect SÓ dispara se "MTP" no nome — não é nosso caso (renomear OU passar `spec_type` explícito).
+- **Cuidado:** thinking mode é default, consome tokens sem output visível. Pra ver resposta final, `enable_thinking: false` no payload ou `max_tokens > 200`.
+- **Distinção crítica:** speculative decoding com draft model externo (Qwen 3.5 800M) FALHA pra MoE+SSM (validado em YouTube 2026-06-19: 17→11 tok/s com 65% aceitação). MTP usa cabeças treinadas no próprio modelo e é mecanismo diferente.
+- Ver session log completo: `docs/sessions/2026-06-19-mtp-baseline.md`.
+
 
 ## llama.cpp flags (per Unsloth)
 TBD — Unsloth doc section was truncated at the 5k mark in our extraction. The Qwen3.6 doc references a "🦙 Llama.cpp Guide" subsection we did not fully capture. **Re-extract if needed before first run.**
@@ -143,13 +151,19 @@ MTP adds ~2 GB RAM/VRAM headroom and 1.4-2.2× speedup (Unsloth). Unambiguously 
 - `--n-cpu-moe`: 40 (= total de layers — mantém todos os experts no CPU/RAM, padrão Codacus) — suporte nativo adicionado em commit `2bd795b`
 - Sampling for coding: `temperature=0.6, top_p=0.95, top_k=20, min_p=0.0, presence_penalty=0.0, repeat_penalty=1.0`
 
+## TPS medidos (2026-06-19)
+- `r_q4` (base GGUF, sem MTP): **11.1 tok/s** (medido Allan)
+- `mtp_baseline` (MTP-GGUF, sem flag MTP): **22.5 tok/s** (medido M3, 5 runs × 100 tok, média 22.14/22.36/22.89/22.44/22.84)
+- Próximo: `mtp_active` (MTP-GGUF + `--spec-type mtp --spec-draft-n-max 2`): projetado 26-28 tok/s (NÃO executado, aguardando OK Allan)
+
 ## Sources / Verification
 - HF model card (extracted 2026-06-15)
 - Unsloth Qwen3.6 doc (https://unsloth.ai/docs/models/qwen3.6.md, extracted same day, truncated at 5k chars)
 - Unsloth MTP guide (https://unsloth.ai/docs/models/mtp.md, extracted same day, truncated at 5k chars)
 
 ## Open questions
-1. **[Resolvido]** `llama-server` (turboquant build) NÃO aceita `--spec-type draft-mtp` — o valor é silenciosamente rejeitado. Flag correta é `--spec-type mtp`. Validado por inspeção de `common/arg.cpp` (valores aceitos: `none | mtp | ngram-cache | ngram-simple | ngram-map-k | ngram-mod`).
-2. Validar: exato valor de `--n-gpu-layers` para nosso 8 GB VRAM + 3B active MoE — autoloop vai descobrir.
-3. Validar: MTP funciona com este GGUF ou precisa re-download do `Qwen3.6-35B-A3B-MTP-GGUF` (este arquivo NÃO tem tensores MTP).
-4. Validar: re-extrair seção completa Unsloth Qwen3.6 llama.cpp pra confirmar comando canônico.
+1. **[Resolvido 2026-06-19]** `llama-server` (turboquant build) NÃO aceita `--spec-type draft-mtp` — o valor é silenciosamente rejeitado. Flag correta é `--spec-type mtp`. Validado por inspeção de `common/arg.cpp` e probe automático em `llama_runner.py:189-205`.
+2. **[Resolvido 2026-06-19]** MTP-GGUF tem tensores MTP (`nextn_predict_layers = 1` confirmado). File swap sozinho dá 2× TPS. Validar: ganho adicional com `--spec-type mtp` ativo (próximo teste).
+3. Validar: exato valor de `--n-gpu-layers` para nosso 8 GB VRAM + 3B active MoE — autoloop vai descobrir.
+4. Validar: ganho com `--no-mmap` e `--mlock` (sweep adicional, ainda não testado).
+5. Validar: re-extrair seção completa Unsloth Qwen3.6 llama.cpp pra confirmar comando canônico upstream (vs divergências do turboquant build).

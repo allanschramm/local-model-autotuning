@@ -1,2 +1,18 @@
-evalplus
-huggingface_hub[cli]
+# Runtime dependencies for local-model-autoresearch
+# Tested with Python 3.11+
+
+# Core autoloop + bench harness
+evalplus            # Coding benchmark (HumanEval+ / MBPP+)
+
+# Model discovery + download
+huggingface_hub[cli] # `hf` CLI used to download GGUF files
+uv                   # `uvx` for running `uvx whichllm@latest` (prefer `curl -LsSf https://astral.sh/uv/install.sh | sh` or `pipx install uv`)
+
+# llama-server HTTP client (used by LlamaClient)
+httpx
+
+# Config + YAML parsing (autoloop reads config.py + benchmark fixtures)
+pyyaml
+
+# Misc utilities
+requests

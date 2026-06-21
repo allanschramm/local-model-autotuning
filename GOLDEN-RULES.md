@@ -1,5 +1,3 @@
-<!-- Scope: codebase development. Research loop agents → read program.md -->
-
 # Golden Rules & Learnings for Auto-Tuning
 
 ## 1. Performance-Impacting Flags
@@ -7,9 +5,10 @@
 *   **KV Cache Quantization**: Quantizing K/V caches (e.g., `q8_0`, `turbo3`, `q4_0`) reduces memory bandwidth requirements and VRAM footprint, yielding higher TPS at a minor retrieval cost.
 *   **Flash Attention (`-fa`)**: Must always be `on` to utilize optimized GPU kernels. Disabling drops TPS by 3x+.
 *   **Speculative Decoding (MTP)**:
-    *   Nexus-System `llama.cpp` uses `--spec-type draft-mtp`.
-    *   Turboquant `llama.cpp` uses `--spec-type mtp`.
-    *   Speculative draft tokens (`--spec-draft-n-max` between `1` and `4`) accelerate generation if accepted.
+    *   Upstream `llama.cpp` accepts `--spec-type draft-mtp`.
+    *   Turboquant and similar forks typically accept `--spec-type mtp` (NOT `draft-mtp`). The autoloop's `llama_runner.py` probes `--help` at runtime and picks whichever value the build supports.
+    *   Speculative draft tokens (`--spec-draft-n-max` between `1` and `4`) accelerate generation if accepted. Speedup is **1.15–1.25× for MoE**, **1.4–2.0× for dense**.
+    *   **Architectural caveat**: speculative decoding with a separate draft model (e.g., Qwen-3.5-800M as drafter) does **not** help MoE+SSM models — verification becomes PCIe-bound. MTP (draft heads built into the model) is a different mechanism and does help.
 *   **Offloading (`-ngl`)**: Default to maximum (`99` or `999`) for full GPU. Partial CPU offload is acceptable if throughput stays above 20 TPS — trading speed for accuracy is a valid strategy.
 *   **Batching (`-b` / `-ub`)**: Micro-batch (`-ub`) and batch (`-b`) sizes balance GPU Tensor Core utilization during prefill against VRAM overhead.
 *   **Threading (`-t`)**: CPU threads must match physical CPU core boundaries to avoid thrashing and context-switch latency.
@@ -23,16 +22,24 @@
 *   **NVML Failsafe**: If NVML query fails mid-run, set `nvml = None` in the exception block immediately to avoid repetitive CDLL calling overhead.
 *   **Testing CDLL**: When writing unit tests for VRAM sampling, always mock `ctypes.CDLL` to raise an exception. This forces fallback to the mocked `nvidia-smi` parser and avoids testing against host GPU status.
 
+## 3. llama-server binary resolution
 
-## 3. Loop Agent Constraints
+*   **Resolution order** (checked by `llama_runner.py`): `./llama.cpp/build-cuda/bin/llama-server`, `./llama.cpp/build/bin/llama-server`, parent dirs, then `AUTORESEARCH_LLAMA_CPP_ROOT` env var.
+*   **Upstream `ggml-org/llama.cpp` and forks are not interchangeable** for advanced features. TurboQuant, MTP, QAT, and diffusion support require specific forks. If a flag (`--spec-type`, `--cache-type-k`, `--n-cpu-moe`) is silently rejected, the build lacks that feature — try a different fork.
+*   **Default install path is `./llama.cpp/` in the repo root.** Forks or custom builds must be cloned with the literal name `llama.cpp` to be auto-discovered, OR exported via `AUTORESEARCH_LLAMA_CPP_ROOT=/path/to/build`.
+*   **`scripts/setup-check.sh` validates** that the build supports the expected flags (probes `--help`). Run it before the autoloop.
 
-*   **Single Changeable Surface**: The looping agent must only modify constants in [autoresearch/core/config.py](file:///home/shark/workspace/autoresearch-public/config.py).
+## 4. Loop Agent Constraints
+
+*   **Single Changeable Surface**: The looping agent must only modify constants in `autoresearch/core/config.py`.
 *   **No Code Edits**: The looping agent is strictly forbidden from editing codebase source code (e.g., `run.py`, benchmarks, tests) under any circumstances. If any error, bug, or exception occurs during the Search, the agent MUST NOT attempt to edit code to fix it. Instead, the agent MUST immediately stop execution, print the full traceback/error, and warn the user.
 *   **Unified Evaluation**: Every round must execute all active benchmarks (Nexus Retrieval + Claw Agency + optionally Coding) rather than testing a single domain.
 *   **Canonical Results File**: All runs must log results exclusively to the single canonical tab-separated file `results.tsv`. No other results CSV, TSV, or log files should be committed or left in the workspace.
 *   **Offline Results**: Benchmark results and search tweak branches must be kept offline and local-only. Never push result/tweak branches or local benchmark scores to the remote public repository to avoid polluting the public history or messing up other users' results.
+*   **Hardware-Aware Path Resolution**: Path constants in `config.py` (e.g., `MODEL`) must use portable references — never absolute system paths (`/home/user/...`). Use `models/` (relative) or environment variables.
 
-## 4. Codebase Architecture
+## 5. Codebase Architecture
 
 *   **Simplicity First**: Never overengineer. Keep the architecture simple. Less is more.
 *   **Minimalism**: Try to reduce lines of code, not increase. Simplify instead of complicate.
+*   **Portable Documentation**: Docs and configs must use relative paths, env vars, or placeholders — never `/home/<user>/...` or `/mnt/<host>/...` in committed files.

@@ -105,6 +105,11 @@ When the user requests a durable behavior change, record it here or in the relev
 
 ## Child DOX Index
 - [ClawBench/AGENTS.md](file:///home/shark/workspace/autoresearch-public/ClawBench/AGENTS.md) — Agency benchmark harness and sandboxing boundaries.
+- [docs/AGENTS.md](docs/AGENTS.md) — durable documentation (model cards, ADRs, discovery guides, session logs).
+  - [docs/models/](docs/models/) — per-model GGUF specs.
+  - [docs/adr/](docs/adr/) — architecture decision records.
+  - [docs/discovery/](docs/discovery/) — user-facing guides (whichllm, Pareto frontier, model selection).
+  - [docs/sessions/](docs/sessions/) — empirical session logs.
 
 This project is not yet indexed. Before continuing you must scan the project, build the DOX tree and replace this message with the actual index. Go deep and scan files recursively to properly evaluate complexity and create nested DOX files where needed.
 
