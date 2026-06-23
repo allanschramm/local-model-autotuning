@@ -1,6 +1,6 @@
 # AutoResearch Search Protocol
 
-This is an autonomous hill-climbing system adapted to the local Nexus runtime, focusing on a unified Trial covering Retrieval, Agency, and Coding.
+This is an autonomous hill-climbing system adapted to the local runtime, focusing exclusively on Agentic Coding tasks.
 
 The contract is strict:
 
@@ -29,24 +29,22 @@ Once the setup is clean, begin the Search.
 
 ## Evaluation Suite
 
-The runner executes a unified Trial and reports a single Val Score across domains:
+The runner executes a unified Trial and reports a single Val Score purely based on coding capability:
 
-### Nexus
-Tests context-stress with synthetic history. The model must navigate the needle-in-a-haystack to find the override token, verify it, and unlock the control plane.
+### HumanEval+
+Basic algorithmic reasoning and Python proficiency.
 
-### Claw
-Tests tool-use (JSON browser calls) and instruction-following using selected tasks.
+### MBPP+
+Entry-level to medium complexity programming problems.
 
-### Coding
-Uses EvalPlus to evaluate HumanEval+ and MBPP+.
+### SWE-bench (Stub / WIP)
+Real-world repository issue resolution and complex debugging.
 
 ### Val Score & Throughput
-The system computes the `Val Score` based on a fixed ratio depending on whether Coding is included:
-- `80% Coding + 10% Nexus + 10% Claw`
-- Without Coding: `60% Claw + 40% Nexus`
+The system computes the `Val Score` based on a fixed ratio representing coding proficiency:
+- `40% SWE-bench + 30% HumanEval + 30% MBPP` (For now, SWE is weighted 0 and the rest is averaged until fully integrated).
 
-A `Speed Factor` applies a soft penalty to Nexus and Claw scores based on throughput.
-If a Trial falls below the **TPS Floor** (default 20.0 TPS), the `Val Score` is aggressively zeroed.
+If a Trial falls below the **TPS Floor** (default 20.0 TPS), the `Val Score` is aggressively zeroed to ensure runtime viability for interactive agent usage.
 
 ### Constraints
 - **Hardware target:** Agnostic (optimize for your local GPU/VRAM).

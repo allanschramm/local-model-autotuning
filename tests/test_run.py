@@ -1,26 +1,25 @@
 import unittest
 from unittest.mock import patch, MagicMock, mock_open
 from autoresearch.runners import run
+from autoresearch.benchmarks.benchmark_harness import BenchmarkResult
 from pathlib import Path
 import csv
 
 class TestRun(unittest.TestCase):
 
     @patch("autoresearch.runners.run.LlamaServerRunner")
-    @patch("autoresearch.runners.run.run_nexus")
-    @patch("autoresearch.runners.run.run_claw")
     @patch("autoresearch.runners.run.run_coding")
     @patch("autoresearch.runners.run.get_git_commit")
     @patch("autoresearch.runners.run.open", new_callable=mock_open)
-    def test_single_run_improved(self, mock_file, mock_commit, _mock_coding, mock_claw, mock_nexus, mock_runner):
+    def test_single_run_improved(self, mock_file, mock_commit, mock_coding, mock_runner):
         # Setup mocks
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
         mock_commit.return_value = "abcdefg"
         
-        # Mock scores
-        mock_nexus.return_value = MagicMock(val_score=0.8, avg_tps=40.0)
-        mock_claw.return_value = MagicMock(val_score=0.7, avg_tps=30.0)
-        _mock_coding.return_value = MagicMock(val_score=0.75)
+        # Mock coding result with all 4 benchmark fields
+        mock_coding.return_value = BenchmarkResult(
+            val_score=0.75, val_pass1=0.6, val_pass2=0.8, val_pass3=0.7, val_pass4=0.5, avg_tps=40.0
+        )
         
         # Mock get_previous_best to return 0.5 (so we improve)
         with patch("autoresearch.runners.run.get_previous_best", return_value=0.5):
@@ -34,7 +33,7 @@ class TestRun(unittest.TestCase):
             args.threads = 12
             args.ngl = 99
             args.context_tokens = 8192
-            args.include_coding = False
+            args.include_coding = True
             args.grid = False
             
             with patch("sys.exit") as mock_exit:
@@ -45,17 +44,15 @@ class TestRun(unittest.TestCase):
         mock_file.assert_called_with(run.RESULTS_FILE, "a", newline="")
 
     @patch("autoresearch.runners.run.LlamaServerRunner")
-    @patch("autoresearch.runners.run.run_nexus")
-    @patch("autoresearch.runners.run.run_claw")
     @patch("autoresearch.runners.run.run_coding")
     @patch("autoresearch.runners.run.get_git_commit")
     @patch("autoresearch.runners.run.open", new_callable=mock_open)
-    def test_grid_run(self, mock_file, mock_commit, mock_coding, mock_claw, mock_nexus, mock_runner):
+    def test_grid_run(self, mock_file, mock_commit, mock_coding, mock_runner):
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
         mock_commit.return_value = "abcdefg"
-        mock_nexus.return_value = MagicMock(val_score=0.8, avg_tps=40.0)
-        mock_claw.return_value = MagicMock(val_score=0.7, avg_tps=30.0)
-        mock_coding.return_value = MagicMock(val_score=0.75)
+        mock_coding.return_value = BenchmarkResult(
+            val_score=0.75, val_pass1=0.6, val_pass2=0.8, val_pass3=0.7, val_pass4=0.5, avg_tps=40.0
+        )
         
         args = MagicMock()
         args.model = "g4-opt-it-Q4_K_M.gguf"
@@ -64,7 +61,7 @@ class TestRun(unittest.TestCase):
         args.threads = 12
         args.ngl = 99
         args.context_tokens = 8192
-        args.include_coding = False
+        args.include_coding = True
         args.grid = True
         args.grid_kvs = "q4_0"
         args.grid_max_tokens = "512"
@@ -73,16 +70,11 @@ class TestRun(unittest.TestCase):
         
         mock_file.assert_called_with(run.RESULTS_FILE, "a", newline="")
 
-    @patch("autoresearch.runners.run.LlamaServerRunner")
-    @patch("autoresearch.runners.run.run_nexus")
-    @patch("autoresearch.runners.run.run_claw")
+    @patch("autoresearch.runners.run.run_evaluation")
     @patch("autoresearch.runners.run.get_git_commit")
     @patch("autoresearch.runners.run.open", new_callable=mock_open)
-    def test_multidimensional_grid_run(self, mock_file, mock_commit, mock_claw, mock_nexus, mock_runner):
-        mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
+    def test_multidimensional_grid_run(self, mock_file, mock_commit, mock_eval):
         mock_commit.return_value = "abcdefg"
-        mock_nexus.return_value = MagicMock(val_score=0.8, avg_tps=40.0)
-        mock_claw.return_value = MagicMock(val_score=0.7, avg_tps=30.0)
         
         args = MagicMock()
         args.model = "g4-opt-it-Q4_K_M.gguf"
@@ -92,8 +84,10 @@ class TestRun(unittest.TestCase):
         args.threads_batch = 16
         args.ngl = 99
         args.context_tokens = 8192
-        args.include_coding = False
+        args.include_coding = True
         args.grid = True
+        args.grid_kvs = None
+        args.kv = "q4_0"
         args.grid_kvs_k = "q8_0,f16"
         args.grid_kvs_v = "q4_0"
         args.grid_max_tokens = "512,1024"
@@ -103,26 +97,22 @@ class TestRun(unittest.TestCase):
         args.grid_ubatch_sizes = "128"
         args.grid_spec_draft_n_max = "1,2"
         
-        with patch("autoresearch.runners.run.run_evaluation") as mock_eval:
-            mock_eval.return_value = {
-                "status": "OK",
-                "nexus_val": 0.8, "nexus_tps": 40.0,
-                "claw_val": 0.7, "claw_tps": 30.0,
-                "val_score": 0.74, "avg_tps": 35.0, "peak_vram_gb": 4.0
-            }
-            run.handle_grid_run(args)
-            # Combinations: 2 (kvs_k) * 1 (kvs_v) * 2 (max_tokens) * 2 (threads) * 2 (threads_batch) * 1 (batch) * 1 (ubatch) * 2 (spec_draft) = 32
-            self.assertEqual(mock_eval.call_count, 32)
+        mock_eval.return_value = {
+            "status": "OK",
+            "coding_val": 0.75, "coding_tps": 40.0,
+            "lcb_val": 0.6, "he_val": 0.8, "mbpp_val": 0.7, "bigcode_val": 0.5,
+            "swe_val": 0.0,
+            "val_score": 0.74, "avg_tps": 35.0, "peak_vram_gb": 4.0
+        }
+        run.handle_grid_run(args)
+        # Combinations: 2 (kvs_k) * 1 (kvs_v) * 2 (max_tokens) * 2 (threads) * 2 (threads_batch) * 1 (batch) * 1 (ubatch) * 2 (spec_draft) = 32
+        self.assertEqual(mock_eval.call_count, 32)
 
     @patch("autoresearch.runners.run.LlamaServerRunner")
-    @patch("autoresearch.runners.run.run_nexus")
-    @patch("autoresearch.runners.run.run_claw")
     @patch("autoresearch.runners.run.run_coding")
-    def test_run_evaluation_without_coding(self, mock_coding, mock_claw, mock_nexus, mock_runner):
+    def test_run_evaluation_without_coding(self, mock_coding, mock_runner):
         # Setup mocks
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
-        mock_nexus.return_value = MagicMock(val_score=0.8, avg_tps=40.0)
-        mock_claw.return_value = MagicMock(val_score=0.6, avg_tps=30.0)
         
         args = MagicMock()
         args.kv_k = "q4_0"
@@ -135,20 +125,16 @@ class TestRun(unittest.TestCase):
         args.spec_type = None
         args.coding_task_limit = 30
         
-        # Call with include_coding = False, include_nexus = True, include_claw = True
+        # Call with include_coding = False
         res = run.run_evaluation(
             args, model="g4-opt-it-Q4_K_M.gguf", kv="q4_0", max_tokens=1024,
-            include_coding=False, include_nexus=True, include_claw=True
+            include_coding=False
         )
         
         # Verify coding was NOT called
         mock_coding.assert_not_called()
-        # Verify nexus and claw WERE called
-        mock_nexus.assert_called_once()
-        mock_claw.assert_called_once()
         
-        # Check weighted score computation
-        self.assertEqual(res["val_score"], 0.70)
+        # Check val_score is 0 when coding disabled
         self.assertEqual(res["coding_val"], 0.0)
 
 if __name__ == "__main__":

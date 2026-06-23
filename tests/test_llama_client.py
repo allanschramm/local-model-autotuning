@@ -26,8 +26,9 @@ class TestLlamaClient(unittest.TestCase):
 
         self.assertEqual(response, {
             "content": "Hello world",
+            "reasoning_content": "",
             "usage": {"total_tokens": 15},
-            "choices": [{"message": {"content": "Hello world", "tool_calls": []}}]
+            "choices": [{"message": {"content": "Hello world", "reasoning_content": "", "tool_calls": []}}]
         })
         mock_urlopen.assert_called_once()
         
@@ -58,8 +59,9 @@ class TestLlamaClient(unittest.TestCase):
 
         self.assertEqual(response, {
             "content": "",
+            "reasoning_content": "",
             "usage": {"total_tokens": 25},
-            "choices": [{"message": {"content": "", "tool_calls": tool_calls}}]
+            "choices": [{"message": {"content": "", "reasoning_content": "", "tool_calls": tool_calls}}]
         })
         
         # Verify payload contains tools

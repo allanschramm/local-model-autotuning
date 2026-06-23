@@ -1,8 +1,8 @@
 # config.py
 # The ONLY changeable file for agent tweaks
 
-MODEL = 'gemma-4-26B-A4B-it-UD-Q4_K_M.gguf'
-CTX_SIZE = 65536
+MODEL = 'Qwen3.5-4B-MTP-Q4_K_M.gguf'
+CTX_SIZE = 131072
 KV_CACHE = 'q4_0'
 KV_CACHE_K = 'q4_0'
 KV_CACHE_V = 'q4_0'
@@ -19,7 +19,7 @@ REASONING_BUDGET = None
 REASONING_BUDGET_MESSAGE = None
 REASONING = None
 CONT_BATCHING = False
-N_CPU_MOE = 15  # VITRIOL: first 15 of 30 layers' MoE experts on CPU for Gemma4 26B-A4B
+N_CPU_MOE = None
 
 # Generation options (Unsloth-corrected for Qwen3.5 thinking mode)
 TEMP = 0.4
@@ -32,6 +32,9 @@ FREQUENCY_PENALTY = None
 
 # Benchmarks to run
 INCLUDE_CODING = True
-INCLUDE_NEXUS = True
+INCLUDE_NEXUS = False
 INCLUDE_CLAW = False
-CODING_TASK_LIMIT = 10  # Tasks per dataset (HumanEval/MBPP). 0 = full dataset.
+CODING_TASK_LIMIT = 10      # tasks per dataset for HE+ / MBPP+
+LCB_TASK_LIMIT = 10         # LiveCodeBench v6 sample (contamination-free competitive prog)
+BIGCODE_TASK_LIMIT = 10     # BigCodeBench Hard sample (library-call tasks)
+EVALPLUS_STRICT = True      # use evalplus `test` field (strict mode) for HE+/MBPP+

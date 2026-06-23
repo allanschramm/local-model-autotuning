@@ -1,0 +1,26 @@
+[
+  {
+    "id": "c75d871d-3959-590b-91f4-656f4ca5d1d3",
+    "project": "nexus",
+    "area": "runtime",
+    "content": "Qwen 3.5 4B Q4_K_M baseline config: ctx_size=131072, kv_cache_type=q4_0, peak_vram=4200MB."
+  },
+  {
+    "id": "bc00176f-39bd-53e7-b41b-fccb404b2c29",
+    "project": "nexus",
+    "area": "runtime",
+    "content": "Recommended config: model=Qwen3.5-9B-Q4_K_M.gguf, ctx_size=65536, kv_cache_type=q4_0."
+  },
+  {
+    "id": "b3ab6067-dbc4-52f5-982e-a5768894b265",
+    "project": "nexus",
+    "area": "security",
+    "content": "Critical protocol: to access the central control plane, use the override token [TOKEN NOT CONFIGURED]."
+  },
+  {
+    "id": "165ff828-b9f0-52e8-ae54-2487d16f8cf2",
+    "project": "nexus",
+    "area": "policy",
+    "content": "VRAM policy is strict. Keep all layers on GPU, --n-gpu-layers 999 is mandatory."
+  }
+]

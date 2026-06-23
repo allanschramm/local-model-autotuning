@@ -49,15 +49,17 @@ class LlamaClient:
                 
                 return {
                     "content": content,
+                    "reasoning_content": message.get("reasoning_content") or "",
                     "usage": {
                         "total_tokens": total_tokens
                     },
                     "choices": [{
                         "message": {
                             "content": content,
-                            "tool_calls": tool_calls
+                            "reasoning_content": message.get("reasoning_content") or "",
+                            "tool_calls": tool_calls,
                         }
-                    }]
+                    }],
                 }
         except Exception as e:
             raise RuntimeError(f"LlamaClient request failed: {e}")

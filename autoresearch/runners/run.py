@@ -12,9 +12,6 @@ from autoresearch.core.llama_client import LlamaClient
 from autoresearch.benchmarks.benchmark_harness import BenchmarkResult
 from autoresearch.core import config
 
-# Benchmarks
-from autoresearch.benchmarks.prepare import run_benchmark as run_nexus
-from autoresearch.benchmarks.prepare_claw import run_benchmark as run_claw
 from autoresearch.benchmarks.benchmark_coding import run_benchmark as run_coding
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -105,18 +102,31 @@ def get_previous_best(results_file: Path) -> float:
         print(f"Error reading results.tsv: {e}")
     return best_score
 
-def write_row(results_file: Path, commit: str, val_score: float, memory_gb: float, status: str, description: str):
+def write_row(results_file: Path, commit: str, val_score: float, swe_score: float, he_score: float, mbpp_score: float, memory_gb: float, status: str, description: str, lcb_score: float = 0.0, bigcode_score: float = 0.0):
+    fieldnames = ["commit", "val_score", "swe_score", "lcb_score", "he_score", "mbpp_score", "bigcode_score", "memory_gb", "status", "description"]
     file_exists = results_file.exists() and results_file.stat().st_size > 0
+    needs_header = True
+    if file_exists:
+        # Check if header already has the new columns; if not, rewrite the file
+        with open(results_file, "r", newline="") as f:
+            existing_header = f.readline().strip().split("\t")
+        if existing_header == fieldnames:
+            needs_header = False
     with open(results_file, "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["commit", "val_score", "memory_gb", "status", "description"], delimiter="\t")
-        if not file_exists:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter="\t")
+        if needs_header:
             writer.writeheader()
         writer.writerow({
             "commit": commit,
             "val_score": f"{val_score:.6f}",
+            "swe_score": f"{swe_score:.6f}",
+            "lcb_score": f"{lcb_score:.6f}",
+            "he_score": f"{he_score:.6f}",
+            "mbpp_score": f"{mbpp_score:.6f}",
+            "bigcode_score": f"{bigcode_score:.6f}",
             "memory_gb": f"{memory_gb:.1f}",
             "status": status,
-            "description": description
+            "description": description,
         })
 
 def run_evaluation(cfg: dict | Any, **overrides) -> Dict[str, Any]:
@@ -250,9 +260,8 @@ def run_evaluation(cfg: dict | Any, **overrides) -> Dict[str, Any]:
             
     res = {
         "status": "OK",
-        "nexus_val": 0.0, "nexus_tps": 0.0, "nexus_vram": 0.0,
-        "claw_val": 0.0, "claw_tps": 0.0, "claw_vram": 0.0,
         "coding_val": 0.0, "coding_vram": 0.0,
+        "he_val": 0.0, "mbpp_val": 0.0, "swe_val": 0.0,
         "val_score": 0.0, "avg_tps": 0.0, "peak_vram_gb": 0.0
     }
     
@@ -275,36 +284,38 @@ def run_evaluation(cfg: dict | Any, **overrides) -> Dict[str, Any]:
             client = LlamaClient(runner.port)
             system_prefix = "<|think|>\n"
             
-            # 1. Nexus (Retrieval)
-            if include_nexus_val:
-                print("  [nexus] Running...")
-                nexus_res = run_nexus(client, max_tokens=max_tokens, system_prefix=system_prefix, context_tokens=context_tokens_val, timeout_at=timeout_at, **gen_kwargs)
-                res["nexus_val"] = nexus_res.val_score
-                res["nexus_tps"] = nexus_res.avg_tps
-                res["nexus_vram"] = runner.peak_vram_mb
-            
-            # 2. Claw (Agency)
-            if include_claw_val:
-                print("  [claw] Running...")
-                claw_res = run_claw(client, max_tokens=max_tokens, system_prefix=system_prefix, context_tokens=context_tokens_val, timeout_at=timeout_at, **gen_kwargs)
-                res["claw_val"] = claw_res.val_score
-                res["claw_tps"] = claw_res.avg_tps
-                res["claw_vram"] = runner.peak_vram_mb
+            # 1. Coding (HumanEval + MBPP + SWE stub)
             
             # 3. Coding (If Enabled)
             if include_coding:
                 print(f"  [coding] Running (limit={task_limit_val})...")
-                coding_res = run_coding(client, is_test=False, model_name=model_filename, task_limit=task_limit_val, timeout_at=timeout_at, max_tokens=max_tokens, **gen_kwargs)
+                lcb_limit_val = getattr(config, "LCB_TASK_LIMIT", 10)
+                bigcode_limit_val = getattr(config, "BIGCODE_TASK_LIMIT", 10)
+                coding_res = run_coding(
+                    client,
+                    is_test=False,
+                    model_name=model_filename,
+                    task_limit=task_limit_val,
+                    lcb_task_limit=lcb_limit_val,
+                    bigcode_task_limit=bigcode_limit_val,
+                    timeout_at=timeout_at,
+                    max_tokens=max_tokens,
+                    **gen_kwargs,
+                )
                 res["coding_val"] = coding_res.val_score
                 res["coding_vram"] = runner.peak_vram_mb
                 res["coding_tps"] = coding_res.avg_tps
+                # Pass field layout (see benchmark_coding.run_benchmark):
+                #   val_pass1 = LCB, val_pass2 = HE, val_pass3 = MBPP, val_pass4 = BigCode
+                res["lcb_val"] = getattr(coding_res, "val_pass1", 0.0)
+                res["he_val"] = getattr(coding_res, "val_pass2", 0.0)
+                res["mbpp_val"] = getattr(coding_res, "val_pass3", 0.0)
+                res["bigcode_val"] = getattr(coding_res, "val_pass4", 0.0)
+                # Keep legacy swe_val slot (unused) populated with 0 for results.tsv compat
+                res["swe_val"] = 0.0
             
             # Compute combined metrics
             tps_list = []
-            if include_nexus_val:
-                tps_list.append(res["nexus_tps"])
-            if include_claw_val:
-                tps_list.append(res["claw_tps"])
             if include_coding and res.get("coding_tps", 0) > 0:
                 tps_list.append(res["coding_tps"])
                 
@@ -320,21 +331,10 @@ def run_evaluation(cfg: dict | Any, **overrides) -> Dict[str, Any]:
                 
             res["peak_vram_gb"] = max(runner.peak_vram_mb, 0.0) / 1024.0
             
-            # Normalize weights: Coding = 80 (if enabled), Nexus = 10 (if enabled), Claw = 10 (if enabled)
-            total_weight = 0.0
-            weighted_score = 0.0
-            
-            if include_coding and "coding_val" in res:
-                total_weight += 80.0
-                weighted_score += res["coding_val"] * 80.0
-            if include_nexus_val:
-                total_weight += 10.0
-                weighted_score += res["nexus_val"] * 10.0
-            if include_claw_val:
-                total_weight += 10.0
-                weighted_score += res["claw_val"] * 10.0
-                
-            res["val_score"] = round(weighted_score / total_weight, 6) if total_weight > 0.0 else 0.0
+            # Normalize weights: Coding = 100% (SWE 40%, HumanEval 30%, MBPP 30%)
+            # Currently benchmark_coding returns the average of HumanEval and MBPP as val_score.
+            # SWE will be added in benchmark_coding later.
+            res["val_score"] = res.get("coding_val", 0.0)
                 
     except Exception as e:
         print(f"  [FAIL] Evaluation failed: {e}")
@@ -365,7 +365,7 @@ def handle_single_run(args):
     
     if res["status"] != "OK":
         print(f"Evaluation failed: {res['status']}")
-        write_row(RESULTS_FILE, commit, 0.0, res["peak_vram_gb"], "discard", f"FAIL: {res['status']} | {args.desc}")
+        write_row(RESULTS_FILE, commit, 0.0, 0.0, 0.0, 0.0, res["peak_vram_gb"], "discard", f"FAIL: {res['status']} | {args.desc}")
         sys.exit(1)
         
     val_score = res["val_score"]
@@ -374,14 +374,17 @@ def handle_single_run(args):
     
     # Format details in description
     details = f"{args.model} kv={args.kv} ctx={args.ctx_size} TPS={res['avg_tps']:.1f} VRAM={res['peak_vram_gb']:.1f}GB coding={res['coding_val']:.4f}"
-    if include_nexus_val:
-        details += f" retrieval={res['nexus_val']:.4f}"
-    if include_claw_val:
-        details += f" agency={res['claw_val']:.4f}"
+    details += f" lcb={res.get('lcb_val', 0.0):.4f} he={res.get('he_val', 0.0):.4f} mbpp={res.get('mbpp_val', 0.0):.4f} bigcode={res.get('bigcode_val', 0.0):.4f}"
     details += f" | {args.desc}"
     
     # Log to results.tsv
-    write_row(RESULTS_FILE, commit, val_score, res["peak_vram_gb"], status, details)
+    write_row(
+        RESULTS_FILE, commit, val_score,
+        res.get("swe_val", 0.0), res.get("he_val", 0.0), res.get("mbpp_val", 0.0),
+        res["peak_vram_gb"], status, details,
+        lcb_score=res.get("lcb_val", 0.0),
+        bigcode_score=res.get("bigcode_val", 0.0),
+    )
     
     print("\n" + "="*40)
     print("EVALUATION COMPLETE")
@@ -391,13 +394,11 @@ def handle_single_run(args):
     print(f"Context Size:   {args.ctx_size}")
     print("-"*40)
     print(f"Coding Score:     {res['coding_val']:.4f}")
-    if include_nexus_val:
-        print(f"Nexus (Retrieval): {res['nexus_val']:.4f} (TPS: {res['nexus_tps']:.1f})")
-    if include_claw_val:
-        print(f"Claw (Agency):    {res['claw_val']:.4f} (TPS: {res['claw_tps']:.1f})")
-    print("-"*40)
-    if include_nexus_val or include_claw_val:
-        print(f"Combined TPS:     {res['avg_tps']:.1f} (Threshold: >= 20.0)")
+    print(f"  LCB:            {res.get('lcb_val', 0.0):.4f}")
+    print(f"  HumanEval+:     {res.get('he_val', 0.0):.4f}")
+    print(f"  MBPP+:          {res.get('mbpp_val', 0.0):.4f}")
+    print(f"  BigCode Hard:   {res.get('bigcode_val', 0.0):.4f}")
+    print(f"Combined TPS:     {res['avg_tps']:.1f} (Threshold: >= 20.0)")
     print(f"Peak VRAM:        {res['peak_vram_gb']:.1f} GB")
     print(f"Current Score:    {val_score:.6f}")
     print(f"Previous Best:    {prev_best:.6f}")
@@ -469,11 +470,17 @@ def handle_grid_run(args):
                    f"ctx={args.ctx_size} threads={threads} threads_batch={threads_batch} "
                    f"batch={batch_size} ubatch={ubatch_size} spec_draft={spec_draft} "
                    f"TPS={res['avg_tps']:.1f} VRAM={res['peak_vram_gb']:.1f}GB "
-                   f"retrieval={res['nexus_val']:.4f} agency={res['claw_val']:.4f}")
-        if args.include_coding:
-            details += f" coding={res['coding_val']:.4f}"
+                   f"coding={res.get('coding_val', 0.0):.4f} lcb={res.get('lcb_val', 0.0):.4f} "
+                   f"he={res.get('he_val', 0.0):.4f} mbpp={res.get('mbpp_val', 0.0):.4f} "
+                   f"bigcode={res.get('bigcode_val', 0.0):.4f}")
             
-        write_row(RESULTS_FILE, commit, res["val_score"], res["peak_vram_gb"], status, details)
+        write_row(
+            RESULTS_FILE, commit, res["val_score"],
+            res.get("swe_val", 0.0), res.get("he_val", 0.0), res.get("mbpp_val", 0.0),
+            res["peak_vram_gb"], status, details,
+            lcb_score=res.get("lcb_val", 0.0),
+            bigcode_score=res.get("bigcode_val", 0.0),
+        )
         print(f"Grid sweep entry logged: score={res['val_score']:.6f}")
 
 def main():

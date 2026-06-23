@@ -5,10 +5,8 @@ from autoresearch.runners import run
 class TestConfigParsing(unittest.TestCase):
 
     @patch("autoresearch.runners.run.LlamaServerRunner")
-    @patch("autoresearch.runners.run.run_nexus")
-    @patch("autoresearch.runners.run.run_claw")
     @patch("autoresearch.runners.run.run_coding")
-    def test_run_evaluation_config_normalization_and_fallback(self, mock_coding, mock_claw, mock_nexus, mock_runner):
+    def test_run_evaluation_config_normalization_and_fallback(self, mock_coding, mock_runner):
         # Mock runner context manager
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
         
@@ -34,10 +32,8 @@ class TestConfigParsing(unittest.TestCase):
         self.assertEqual(intent.threads, 4)
 
     @patch("autoresearch.runners.run.LlamaServerRunner")
-    @patch("autoresearch.runners.run.run_nexus")
-    @patch("autoresearch.runners.run.run_claw")
     @patch("autoresearch.runners.run.run_coding")
-    def test_run_evaluation_object_config_normalization(self, mock_coding, mock_claw, mock_nexus, mock_runner):
+    def test_run_evaluation_object_config_normalization(self, mock_coding, mock_runner):
         # Mock runner
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
 

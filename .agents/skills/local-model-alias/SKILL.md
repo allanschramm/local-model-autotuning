@@ -1,6 +1,6 @@
 ---
 name: local-model-alias
-description: Cria um alias novo em `models/aliases/<name>/config.yaml` para o launcher global `qwen-up`. Use quando um baseline novo for descoberto (ex: novo flag combo, novo modelo, novo TPS medido) e Allan precisar subir o modelo manualmente depois.
+description: "Cria um alias novo em `models/aliases/<name>/config.yaml` para o launcher global `qwen-up`. Use quando um baseline novo for descoberto (ex: novo flag combo, novo modelo, novo TPS medido) e Allan precisar subir o modelo manualmente depois."
 ---
 
 # local-model-alias
