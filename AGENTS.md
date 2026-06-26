@@ -104,14 +104,15 @@ Default section order:
 When the user requests a durable behavior change, record it here or in the relevant child AGENTS.md
 
 ## Child DOX Index
-- [ClawBench/AGENTS.md](file:///home/shark/workspace/autoresearch-public/ClawBench/AGENTS.md) — Agency benchmark harness and sandboxing boundaries.
+- [autoresearch/AGENTS.md](autoresearch/AGENTS.md) — Core autotuning package.
 - [docs/AGENTS.md](docs/AGENTS.md) — durable documentation (model cards, ADRs, discovery guides, session logs).
   - [docs/models/](docs/models/) — per-model GGUF specs.
   - [docs/adr/](docs/adr/) — architecture decision records.
   - [docs/discovery/](docs/discovery/) — user-facing guides (whichllm, Pareto frontier, model selection).
   - [docs/sessions/](docs/sessions/) — empirical session logs.
+- [scripts/AGENTS.md](scripts/AGENTS.md) — Operator scripts (setup, monitoring, configuration server daemon).
+- [tests/AGENTS.md](tests/AGENTS.md) — Unit and integration test suite.
 
-This project is not yet indexed. Before continuing you must scan the project, build the DOX tree and replace this message with the actual index. Go deep and scan files recursively to properly evaluate complexity and create nested DOX files where needed.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
