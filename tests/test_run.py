@@ -136,6 +136,34 @@ class TestRun(unittest.TestCase):
         
         # Check val_score is 0 when coding disabled
         self.assertEqual(res["coding_val"], 0.0)
+    @patch("autoresearch.runners.run.LlamaServerRunner")
+    @patch("autoresearch.runners.run.run_coding")
+    def test_run_evaluation_validation_mode(self, mock_coding, mock_runner):
+        mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
+        
+        args = MagicMock()
+        args.kv_k = "q4_0"
+        args.kv_v = "q4_0"
+        args.threads = 12
+        args.threads_batch = None
+        args.batch_size = 512
+        args.ubatch_size = 128
+        args.spec_draft_n_max = 1
+        args.spec_type = None
+        args.coding_task_limit = 30
+        
+        # Call with validation = True
+        res = run.run_evaluation(
+            args, model="g4-opt-it-Q4_K_M.gguf", kv="q4_0", max_tokens=1024,
+            include_coding=True, validation=True
+        )
+        
+        # Verify run_coding was called with limits set to 2
+        mock_coding.assert_called_once()
+        kwargs = mock_coding.call_args[1]
+        self.assertEqual(kwargs["task_limit"], 2)
+        self.assertEqual(kwargs["lcb_task_limit"], 2)
+        self.assertEqual(kwargs["bigcode_task_limit"], 2)
 
 if __name__ == "__main__":
     unittest.main()

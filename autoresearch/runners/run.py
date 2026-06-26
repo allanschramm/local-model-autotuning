@@ -45,6 +45,9 @@ def parse_args():
     parser.add_argument("--include-nexus", action="store_true", default=getattr(config, "INCLUDE_NEXUS", False), help="Include Nexus benchmark")
     parser.add_argument("--include-claw", action="store_true", default=getattr(config, "INCLUDE_CLAW", False), help="Include Claw benchmark")
     parser.add_argument("--coding-task-limit", type=int, default=getattr(config, "CODING_TASK_LIMIT", 30), help="Tasks per dataset (0=full dataset)")
+    parser.add_argument("--lcb-task-limit", type=int, default=getattr(config, "LCB_TASK_LIMIT", 10), help="LiveCodeBench task limit")
+    parser.add_argument("--bigcode-task-limit", type=int, default=getattr(config, "BIGCODE_TASK_LIMIT", 10), help="BigCodeBench task limit")
+    parser.add_argument("--validation", action="store_true", help="Run validation only: 2 tasks per benchmark to test VRAM and TPS")
     parser.add_argument("--no-mmap", action="store_true", default=config.NO_MMAP, help="Disable mmap")
     parser.add_argument("--jinja", action="store_true", default=config.JINJA, help="Enable Jinja chat template engine")
     parser.add_argument("--reasoning-budget", type=int, default=config.REASONING_BUDGET, help="Thinking budget tokens limit")
@@ -206,7 +209,15 @@ def run_evaluation(cfg: dict | Any, **overrides) -> Dict[str, Any]:
     ub_val = get_val("ubatch_size", 128)
     spec_val = get_val("spec_draft_n_max", 1)
     spec_type_val = get_val("spec_type")
-    task_limit_val = get_val("coding_task_limit", 30)
+    is_validation = get_val("validation", False)
+    if is_validation:
+        task_limit_val = 2
+        lcb_limit_val = 2
+        bigcode_limit_val = 2
+    else:
+        task_limit_val = get_val("coding_task_limit", getattr(config, "CODING_TASK_LIMIT", 10))
+        lcb_limit_val = get_val("lcb_task_limit", getattr(config, "LCB_TASK_LIMIT", 10))
+        bigcode_limit_val = get_val("bigcode_task_limit", getattr(config, "BIGCODE_TASK_LIMIT", 10))
     flash_attn_val = get_val("flash_attn", "on")
     parallel_val = get_val("parallel", 1)
     ctx_size_val = get_val("ctx_size", 16384)
@@ -288,9 +299,7 @@ def run_evaluation(cfg: dict | Any, **overrides) -> Dict[str, Any]:
             
             # 3. Coding (If Enabled)
             if include_coding:
-                print(f"  [coding] Running (limit={task_limit_val})...")
-                lcb_limit_val = getattr(config, "LCB_TASK_LIMIT", 10)
-                bigcode_limit_val = getattr(config, "BIGCODE_TASK_LIMIT", 10)
+                print(f"  [coding] Running (limit={task_limit_val}, lcb_limit={lcb_limit_val}, bigcode_limit={bigcode_limit_val})...")
                 coding_res = run_coding(
                     client,
                     is_test=False,
@@ -369,11 +378,16 @@ def handle_single_run(args):
         sys.exit(1)
         
     val_score = res["val_score"]
-    improved = val_score > prev_best
-    status = "keep" if improved else "discard"
+    is_validation = getattr(args, "validation", False)
+    if is_validation:
+        status = "discard"
+    else:
+        improved = val_score > prev_best
+        status = "keep" if improved else "discard"
     
     # Format details in description
-    details = f"{args.model} kv={args.kv} ctx={args.ctx_size} TPS={res['avg_tps']:.1f} VRAM={res['peak_vram_gb']:.1f}GB coding={res['coding_val']:.4f}"
+    prefix = "[validation] " if is_validation else ""
+    details = f"{prefix}{args.model} kv={args.kv} ctx={args.ctx_size} TPS={res['avg_tps']:.1f} VRAM={res['peak_vram_gb']:.1f}GB coding={res['coding_val']:.4f}"
     details += f" lcb={res.get('lcb_val', 0.0):.4f} he={res.get('he_val', 0.0):.4f} mbpp={res.get('mbpp_val', 0.0):.4f} bigcode={res.get('bigcode_val', 0.0):.4f}"
     details += f" | {args.desc}"
     
@@ -404,7 +418,9 @@ def handle_single_run(args):
     print(f"Previous Best:    {prev_best:.6f}")
     print("-"*40)
     
-    if improved:
+    if is_validation:
+        print(f"\n>>> STATUS: VALIDATION (Ignored for keep status)")
+    elif improved:
         print(f"\n>>> STATUS: KEEP (Improved by +{val_score - prev_best:.6f})")
         print(">>> Run this to commit your tweak:")
         print(f"    git commit -am \"keep: {args.desc} (score: {val_score:.6f})\"")
