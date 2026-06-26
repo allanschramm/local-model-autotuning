@@ -103,6 +103,8 @@ Default section order:
 
 When the user requests a durable behavior change, record it here or in the relevant child AGENTS.md
 
+- **Fair testing across models**: Always keep exactly 10 tasks per dataset for evaluations (never 5 tasks) to guarantee fair model comparisons.
+
 ## Child DOX Index
 - [autoresearch/AGENTS.md](autoresearch/AGENTS.md) — Core autotuning package.
 - [docs/AGENTS.md](docs/AGENTS.md) — durable documentation (model cards, ADRs, discovery guides, session logs).
