@@ -41,16 +41,28 @@
 ## VITRIOL / Split strategy
 Since the model is ~5.6 GB and we have 8 GB of VRAM, we can run with maximum GPU offload (`--n-gpu-layers 999`), loading the model completely into GPU VRAM.
 
-## Our config baseline (TBD)
+## Our config baseline (Verified 2026-06-26)
 - `MODEL = 'ornith-1.0-9b-Q4_K_M.gguf'`
-- `CTX_SIZE = 32768` (safe initial limit for 8GB VRAM)
+- `CTX_SIZE = 131072` (Maximum context offloaded cleanly)
 - `KV_CACHE = 'q4_0'`
-- `NGL = 999`
+- `NGL = 99` (GPU Offloaded)
 - `THREADS = 8`
+- `THREADS_BATCH = 8`
+- `FLASH_ATTN = 'on'`
+
+### Benchmark Scores (10 tasks baseline)
+- **Coding Score:** `0.4800`
+  - **HumanEval+:** `0.4000`
+  - **MBPP+:** `0.9000`
+  - **LiveCodeBench:** `0.4000`
+  - **BigCodeBench Hard:** `0.1000`
+- **Peak VRAM:** `7.9 GB`
+- **TPS:** `49.4`
 
 ## Sources / Verification
 - HuggingFace Model Card (`deepreinforce-ai/Ornith-1.0-9B-GGUF`)
 - Checked with local scratch tool parsing `models/ornith-1.0-9b-Q4_K_M.gguf` metadata via `GGUFReader` on 2026-06-26.
+- Verification baseline run completed successfully on 2026-06-26.
 
 ## Open questions
-- None (baseline specs verified).
+- None (baseline verified).
