@@ -412,6 +412,15 @@ class TestBenchmarkCoding(unittest.TestCase):
         result = benchmark_coding._strip_code(text)
         self.assertIn("n = 1", result)
 
+    def test_strip_code_preserves_indentation(self):
+        """Verify that horizontal indentation is preserved even when empty lines are stripped."""
+        text = f"    def solution():\n        return True\n\n"
+        self.assertEqual(benchmark_coding._strip_code(text), "    def solution():\n        return True")
+
+        # Fenced code with indentation
+        text_fence = "```python\n    x = 1\n    return x\n```"
+        self.assertEqual(benchmark_coding._strip_code(text_fence), "    x = 1\n    return x")
+
     # ------------------------------------------------------------------ run_coding_eval: content + reasoning_content
 
     @patch("autoresearch.benchmarks.benchmark_coding._run_lcb_tests")

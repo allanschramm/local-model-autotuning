@@ -102,7 +102,10 @@ def build_args(cfg: dict) -> tuple[list[str], str, int, str]:
         sys.exit(2)
     model_path = Path(str(model))
     if not model_path.is_absolute():
-        model_path = REPO_ROOT / model_path
+        if (REPO_ROOT / "models" / model_path).exists():
+            model_path = REPO_ROOT / "models" / model_path
+        else:
+            model_path = REPO_ROOT / model_path
     args += ["--model", str(model_path)]
 
     alias = derive_alias(cfg)

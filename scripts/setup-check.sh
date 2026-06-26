@@ -81,7 +81,7 @@ echo ""
 echo "--- llama.cpp flags ---"
 LLAMA_BIN=""
 for candidate in \
-    "$AUTORESEARCH_LLAMA_CPP_ROOT/build-cuda/bin/llama-server" \
+    "${AUTORESEARCH_LLAMA_CPP_ROOT:-}/build-cuda/bin/llama-server" \
     "$REPO_ROOT/llama.cpp/build-cuda/bin/llama-server" \
     "$REPO_ROOT/../llama.cpp/build-cuda/bin/llama-server"; do
     if [[ -x "$candidate" ]]; then

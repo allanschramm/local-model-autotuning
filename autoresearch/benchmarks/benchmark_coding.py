@@ -71,6 +71,19 @@ _CODE_LINE_PREFIXES = (
 )
 
 
+def _strip_empty_lines(s: str) -> str:
+    if not s:
+        return ""
+    lines = s.splitlines()
+    start = 0
+    while start < len(lines) and not lines[start].strip():
+        start += 1
+    end = len(lines)
+    while end > start and not lines[end - 1].strip():
+        end -= 1
+    return "\n".join(lines[start:end])
+
+
 def _strip_code(text: str) -> str:
     """
     Extract Python code from a model response, handling thinking-model output.
@@ -85,13 +98,13 @@ def _strip_code(text: str) -> str:
     """
     if not text:
         return ""
-    text = text.strip()
+    text = _strip_empty_lines(text)
 
     # 1) Strip closed <think>...</think> blocks (handles multiple, non-greedy).
     text = _THINK_CLOSED_RE.sub("", text)
     # 2) Strip unclosed <think> block (truncated thinking, no code emitted).
     text = _THINK_OPEN_RE.sub("", text)
-    text = text.strip()
+    text = _strip_empty_lines(text)
 
     if not text:
         return ""
@@ -99,7 +112,7 @@ def _strip_code(text: str) -> str:
     # 3) Fenced code block.
     m = _FENCE_RE.search(text)
     if m:
-        return m.group(1).strip()
+        return _strip_empty_lines(m.group(1))
 
     # 4) No fence. If first non-empty line looks like Python, return whole text.
     first = next((ln for ln in text.splitlines() if ln.strip()), "")
@@ -114,7 +127,7 @@ def _strip_code(text: str) -> str:
             code_start = i
             break
     if code_start is not None:
-        return "\n".join(lines[code_start:]).strip()
+        return _strip_empty_lines("\n".join(lines[code_start:]))
 
     # Last resort: return as-is. Let the test runner surface the syntax error.
     return text
@@ -487,7 +500,10 @@ def run_coding_eval(
             # reasoning_content holds the think block. _strip_code handles both.
             raw_response = res.get("content", "") or ""
             reasoning = res.get("reasoning_content", "") or ""
-            combined = (raw_response + "\n" + reasoning).strip() if reasoning else raw_response
+            if raw_response.strip():
+                combined = raw_response
+            else:
+                combined = reasoning
         except Exception as e:
             print(f"    {tid} FAIL: {e}", flush=True)
             continue
@@ -497,11 +513,14 @@ def run_coding_eval(
             print(f"    {tid} FAIL (no code extracted) ({i+1}/{total})", flush=True)
             continue
 
-        # Run the dataset-appropriate test
         ok = False
         if dataset in ("humaneval", "mbpp"):
             if not test_code:
                 continue
+            entry_point = entry.get("entry_point", "")
+            if entry_point and f"def {entry_point}" not in code:
+                prompt_sig = entry.get("prompt", "")
+                code = prompt_sig + "\n" + code
             ok = _run_tests(code, test_code)
         elif dataset == "lcb":
             ok = _run_lcb_tests(code, entry)
@@ -538,6 +557,8 @@ WEIGHT_BIGCODE = 0.15
 # Per-dataset max_tokens override. Default 1024 is too tight for thinking models
 # on competitive-programming / library-call tasks where the prompt already eats
 # context and the think block eats output budget before any code is emitted.
+HE_MAX_TOKENS = 2048
+MBPP_MAX_TOKENS = 2048
 LCB_MAX_TOKENS = 2048
 BIGCODE_MAX_TOKENS = 2048
 
@@ -565,12 +586,14 @@ def run_benchmark(client: LlamaClient, **kwargs) -> BenchmarkResult:
 
     # 1) HumanEval+ (strict)
     he_pass, he_tokens, he_time = run_coding_eval(
-        client, "humaneval", task_limit=task_limit, timeout_at=timeout_at, **gen_kwargs,
+        client, "humaneval", task_limit=task_limit, timeout_at=timeout_at,
+        max_tokens=HE_MAX_TOKENS, **gen_kwargs,
     )
 
     # 2) MBPP+
     mbpp_pass, mbpp_tokens, mbpp_time = run_coding_eval(
-        client, "mbpp", task_limit=task_limit, timeout_at=timeout_at, **gen_kwargs,
+        client, "mbpp", task_limit=task_limit, timeout_at=timeout_at,
+        max_tokens=MBPP_MAX_TOKENS, **gen_kwargs,
     )
 
     # 3) LiveCodeBench v6 (sampled). Thinking models need more headroom for think+code.

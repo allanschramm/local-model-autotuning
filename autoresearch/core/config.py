@@ -1,7 +1,7 @@
 # config.py
 # The ONLY changeable file for agent tweaks
 
-MODEL = 'Qwen3.5-4B-MTP-Q4_K_M.gguf'
+MODEL = 'ornith-1.0-9b-Q4_K_M.gguf'
 CTX_SIZE = 131072
 KV_CACHE = 'q4_0'
 KV_CACHE_K = 'q4_0'
@@ -38,3 +38,6 @@ CODING_TASK_LIMIT = 10      # tasks per dataset for HE+ / MBPP+
 LCB_TASK_LIMIT = 10         # LiveCodeBench v6 sample (contamination-free competitive prog)
 BIGCODE_TASK_LIMIT = 10     # BigCodeBench Hard sample (library-call tasks)
 EVALPLUS_STRICT = True      # use evalplus `test` field (strict mode) for HE+/MBPP+
+TRIAL_BUDGET = 300          # 5 minutes budget max for a single run
+
+

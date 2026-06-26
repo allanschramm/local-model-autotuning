@@ -17,7 +17,7 @@ class LlamaClient:
             "max_tokens": kwargs.get("max_tokens", 512),
             "temperature": kwargs.get("temp", 0.1),
             "stream": False,
-            "stop": kwargs.get("stop", ["</s>", "Instruction:", "User:", "Task:"])
+            "stop": kwargs.get("stop", ["</s>", "Instruction:", "User:"])
         }
         
         # Forward tools if present
