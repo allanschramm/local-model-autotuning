@@ -39,7 +39,7 @@ model-up                # start default alias (first found, or DEFAULT_ALIAS)
 model-up <name>         # start a specific alias
 model-up list           # list all aliases
 model-up status         # health check of running server
-model-up stop           # kill server
+model-down              # kill server (alias to model-up stop)
 ```
 
 ## Plug into a harness (Pi Agent, Hermes Agent, Claude Code)
