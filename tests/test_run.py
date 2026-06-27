@@ -165,5 +165,55 @@ class TestRun(unittest.TestCase):
         self.assertEqual(kwargs["lcb_task_limit"], 2)
         self.assertEqual(kwargs["bigcode_task_limit"], 2)
 
+    @patch("autoresearch.runners.run.run_evaluation")
+    @patch("autoresearch.runners.run.get_git_commit")
+    @patch("autoresearch.runners.run.open", new_callable=mock_open)
+    def test_single_run_validation_passes(self, mock_file, mock_commit, mock_eval):
+        mock_commit.return_value = "abcdefg"
+        mock_eval.return_value = {
+            "status": "OK",
+            "coding_val": 0.25, "coding_tps": 40.0,
+            "lcb_val": 0.0, "he_val": 0.5, "mbpp_val": 0.5, "bigcode_val": 0.0,
+            "swe_val": 0.0,
+            "val_score": 0.25, "avg_tps": 35.0, "peak_vram_gb": 4.0
+        }
+        
+        args = MagicMock()
+        args.desc = "validation test"
+        args.model = "ornith-1.0-9b-Q4_K_M.gguf"
+        args.kv = "q4_0"
+        args.ctx_size = 131072
+        args.validation = True
+        args.min_score = 0.20
+        
+        with patch("sys.exit") as mock_exit:
+            run.handle_single_run(args)
+            mock_exit.assert_not_called()
+
+    @patch("autoresearch.runners.run.run_evaluation")
+    @patch("autoresearch.runners.run.get_git_commit")
+    @patch("autoresearch.runners.run.open", new_callable=mock_open)
+    def test_single_run_validation_fails(self, mock_file, mock_commit, mock_eval):
+        mock_commit.return_value = "abcdefg"
+        mock_eval.return_value = {
+            "status": "OK",
+            "coding_val": 0.15, "coding_tps": 40.0,
+            "lcb_val": 0.0, "he_val": 0.3, "mbpp_val": 0.3, "bigcode_val": 0.0,
+            "swe_val": 0.0,
+            "val_score": 0.15, "avg_tps": 35.0, "peak_vram_gb": 4.0
+        }
+        
+        args = MagicMock()
+        args.desc = "validation test"
+        args.model = "ornith-1.0-9b-Q4_K_M.gguf"
+        args.kv = "q4_0"
+        args.ctx_size = 131072
+        args.validation = True
+        args.min_score = 0.20
+        
+        with patch("sys.exit") as mock_exit:
+            run.handle_single_run(args)
+            mock_exit.assert_called_once_with(1)
+
 if __name__ == "__main__":
     unittest.main()

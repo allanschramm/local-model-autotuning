@@ -27,6 +27,7 @@ import sys
 import tempfile
 import time
 import zlib
+import textwrap
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -513,6 +514,8 @@ def run_coding_eval(
             print(f"    {tid} FAIL (no code extracted) ({i+1}/{total})", flush=True)
             continue
 
+        code = textwrap.dedent(code)
+
         ok = False
         if dataset in ("humaneval", "mbpp"):
             if not test_code:
@@ -520,6 +523,7 @@ def run_coding_eval(
             entry_point = entry.get("entry_point", "")
             if entry_point and f"def {entry_point}" not in code:
                 prompt_sig = entry.get("prompt", "")
+                code = textwrap.indent(code, "    ")
                 code = prompt_sig + "\n" + code
             ok = _run_tests(code, test_code)
         elif dataset == "lcb":

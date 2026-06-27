@@ -48,6 +48,7 @@ def parse_args():
     parser.add_argument("--lcb-task-limit", type=int, default=getattr(config, "LCB_TASK_LIMIT", 10), help="LiveCodeBench task limit")
     parser.add_argument("--bigcode-task-limit", type=int, default=getattr(config, "BIGCODE_TASK_LIMIT", 10), help="BigCodeBench task limit")
     parser.add_argument("--validation", action="store_true", help="Run validation only: 2 tasks per benchmark to test VRAM and TPS")
+    parser.add_argument("--min-score", type=float, default=0.20, help="Minimum score required for validation mode to pass")
     parser.add_argument("--no-mmap", action="store_true", default=config.NO_MMAP, help="Disable mmap")
     parser.add_argument("--jinja", action="store_true", default=config.JINJA, help="Enable Jinja chat template engine")
     parser.add_argument("--reasoning-budget", type=int, default=config.REASONING_BUDGET, help="Thinking budget tokens limit")
@@ -379,7 +380,27 @@ def handle_single_run(args):
         
     val_score = res["val_score"]
     is_validation = getattr(args, "validation", False)
+    if not isinstance(is_validation, bool):
+        is_validation = False
+    min_score = getattr(args, "min_score", 0.20)
+    if not isinstance(min_score, (int, float)):
+        min_score = 0.20
     if is_validation:
+        if val_score < min_score:
+            print(f"Validation failed: Score {val_score:.6f} is below the minimum required score of {min_score:.6f}")
+            status = "discard"
+            prefix = "[validation] "
+            details = f"{prefix}{args.model} FAIL (below min-score {min_score:.2f}) kv={args.kv} ctx={args.ctx_size} TPS={res['avg_tps']:.1f} VRAM={res['peak_vram_gb']:.1f}GB coding={res['coding_val']:.4f}"
+            details += f" lcb={res.get('lcb_val', 0.0):.4f} he={res.get('he_val', 0.0):.4f} mbpp={res.get('mbpp_val', 0.0):.4f} bigcode={res.get('bigcode_val', 0.0):.4f}"
+            details += f" | {args.desc}"
+            write_row(
+                RESULTS_FILE, commit, val_score,
+                res.get("swe_val", 0.0), res.get("he_val", 0.0), res.get("mbpp_val", 0.0),
+                res["peak_vram_gb"], status, details,
+                lcb_score=res.get("lcb_val", 0.0),
+                bigcode_score=res.get("bigcode_val", 0.0),
+            )
+            sys.exit(1)
         status = "discard"
     else:
         improved = val_score > prev_best

@@ -113,6 +113,36 @@ class TestBenchmarkCoding(unittest.TestCase):
         self.assertEqual(pass_rate, 0.5)
         self.assertGreater(tokens, 0)
 
+    @patch("autoresearch.benchmarks.benchmark_coding._load_problems")
+    @patch("autoresearch.benchmarks.benchmark_coding._run_tests")
+    def test_run_coding_eval_indentation_handling(self, mock_run_tests, mock_load):
+        """Verify that run_coding_eval properly dedents and re-indents raw code."""
+        mock_load.return_value = {
+            "HE/0": {
+                "prompt": "def f0(x):\n    \"\"\"docstring\"\"\"",
+                "test": "assert f0(1) == 1",
+                "entry_point": "f0",
+            }
+        }
+        mock_run_tests.return_value = True
+
+        from autoresearch.core.llama_client import LlamaClient
+        client = MagicMock(spec=LlamaClient)
+        # Mock completion response with extra 8-space indentation (common in thinking blocks)
+        client.complete.return_value = {
+            "content": "        return x",
+            "usage": {"total_tokens": 10},
+        }
+
+        benchmark_coding.run_coding_eval(client, "humaneval", task_limit=1)
+
+        # Inspect the code passed to _run_tests
+        mock_run_tests.assert_called_once()
+        actual_code = mock_run_tests.call_args[0][0]
+        # Should have the prompt_sig, followed by exactly 4 spaces + return x
+        expected_code = "def f0(x):\n    \"\"\"docstring\"\"\"\n    return x"
+        self.assertEqual(actual_code, expected_code)
+
     # ------------------------------------------------------------------ LCB
 
     def test_lcb_private_case_decode(self):
