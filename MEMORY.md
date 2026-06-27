@@ -7,14 +7,14 @@
 | `bab91e9` | Qwen3.5-9B-MTP | q4_0 | 32768 | 6.9 | 157.3 | 0.772067 | Keep |
 | `0c8e5fc` | gemma4-v2 | turbo4 | 65536 | 8.0 | 29.5 | 0.312922 | Keep |
 | `a06b9f9` | Ornith-1.0-9B | q4_0 | 131072 | 7.4 | 52.2 | 0.580000 | Keep |
-| `d5ddbd1` | Ornith-1.0-35B | q4_0 | 131072 | 4.1 | 23.6 | 0.485000 | Keep |
+| `d5ddbd1` | Ornith-1.0-35B | q4_0 | 131072 | 6.3 | 27.9 | 0.555000 | Keep |
 
 ## 2. Working Configs
 
 *   **Qwen3.5-9B-MTP**: `kv=q4_0`, `ctx=32768`, `threads=12` → **0.7721** (coding=0.8167, retrieval=0.4150)
 *   **gemma4-v2**: `kv=turbo4 K+V`, `ctx=65536`, `threads=8`, `temp=0.4`, `batch=128/ubatch=64` → **0.3129** (coding=0.3333, retrieval=0.1499)
 *   **Ornith-1.0-9B**: `kv=q4_0`, `ctx=131072`, `threads=8`, `temp=0.4` → **0.5800** (coding=0.5800: lcb=0.40, he=0.80, mbpp=0.90, bigcode=0.10)
-*   **Ornith-1.0-35B**: `kv=q4_0`, `ctx=131072`, `threads=8`, `temp=0.4`, `n-cpu-moe=40` (VITRIOL) → **0.4850** (coding=0.4850: lcb=0.20, he=0.70, mbpp=0.90, bigcode=0.10)
+*   **Ornith-1.0-35B**: `kv=q4_0`, `ctx=131072`, `threads=8`, `temp=0.4`, `n-cpu-moe=36` (VITRIOL) → **0.5550** (coding=0.5550: lcb=0.40, he=0.80, mbpp=0.80, bigcode=0.10)
 
 ## 3. Blocked Configurations (Fails / Regressions)
 
