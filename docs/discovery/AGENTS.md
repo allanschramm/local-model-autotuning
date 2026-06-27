@@ -23,3 +23,4 @@ User-facing guides for **discovering, evaluating, and selecting** local LLMs tha
 
 ## Child DOX Index
 - [`discover-models.md`](./discover-models.md) — end-to-end workflow: whichllm discovery → Pareto frontier → autoloop target selection.
+- [`agent-onboarding.md`](./agent-onboarding.md) — onboarding guide for future agents.
