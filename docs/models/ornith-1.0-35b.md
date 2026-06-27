@@ -52,14 +52,14 @@ With MoE, we place **attention + shared expert + routing** on the GPU, and keep 
 - `THREADS_BATCH = 8`
 - `FLASH_ATTN = 'on'`
 
-### Benchmark Scores (Validation baseline)
-- **Coding Score:** `0.4250`
-  - **LiveCodeBench:** `0.5000`
-  - **HumanEval+:** `0.5000`
-  - **MBPP+:** `0.5000`
-  - **BigCodeBench Hard:** `0.0000`
+### Benchmark Scores (10 tasks baseline)
+- **Coding Score:** `0.4850`
+  - **LiveCodeBench:** `0.2000`
+  - **HumanEval+:** `0.7000`
+  - **MBPP+:** `0.9000`
+  - **BigCodeBench Hard:** `0.1000`
 - **Peak VRAM:** `4.1 GB`
-- **TPS:** `25.0`
+- **TPS:** `23.6`
 
 ## Sources / Verification
 - HuggingFace Model Card (`deepreinforce-ai/Ornith-1.0-35B-GGUF`)
