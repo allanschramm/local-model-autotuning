@@ -87,7 +87,7 @@ def get_git_commit() -> str:
     except Exception:
         return "unknown"
 
-def get_previous_best(results_file: Path) -> float:
+def get_previous_best(results_file: Path, model_name: str | None = None) -> float:
     if not results_file.exists():
         return 0.0
     best_score = 0.0
@@ -96,6 +96,9 @@ def get_previous_best(results_file: Path) -> float:
             reader = csv.DictReader(f, delimiter="\t")
             for row in reader:
                 if row.get("status") == "keep":
+                    desc = row.get("description", "")
+                    if model_name and model_name not in desc:
+                        continue
                     try:
                         score = float(row.get("val_score", 0.0))
                         if score > best_score:
@@ -362,7 +365,7 @@ def handle_single_run(args):
     commit = get_git_commit()
     
     # Read previous best score
-    prev_best = get_previous_best(RESULTS_FILE)
+    prev_best = get_previous_best(RESULTS_FILE, args.model)
     print(f"Previous best 'keep' score: {prev_best:.6f}")
     
     include_nexus_val = getattr(args, "include_nexus", False)
