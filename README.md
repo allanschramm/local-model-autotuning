@@ -216,7 +216,7 @@ Plug into Pi Agent / Hermes Agent / Claude Code:
 3. Plug no Pi Agent / Hermes Agent / Claude Code com `base_url=http://127.0.0.1:18080/v1`
 4. (Opcional) Repita enquanto autoloop melhora — a cada keep, restart do server com novo config
 
-**Aliases persistentes (avançado)**: se você quiser um alias com nome amigável em vez de derivado do filename, crie `models/aliases/<name>/config.yaml` (schema em `models/aliases/INDEX.md`). Use `~/.local/bin/qwen-up <name>` pra subir. Esse fluxo é independente do `serve-config.py`.
+**Aliases persistentes (avançado)**: se você quiser um alias com nome amigável em vez de derivado do filename, crie `models/aliases/<name>/config.yaml` (schema em `models/aliases/INDEX.md`). Use `~/.local/bin/model-up <name>` pra subir. Esse fluxo é independente do `serve-config.py`.
 
 ## Build do `llama.cpp` com suporte a CUDA
 

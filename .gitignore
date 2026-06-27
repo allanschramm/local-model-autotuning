@@ -68,5 +68,5 @@ run_nexus_only.py
 models/aliases/*/config.yaml
 
 # Local launcher artifacts
-.qwen-up.pid
-.qwen-up.log
+.model-up.pid
+.model-up.log

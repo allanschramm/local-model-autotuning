@@ -1,6 +1,6 @@
 # Model Aliases
 
-Per-user aliases for the global `qwen-up` launcher. **Each user maintains their own `models/aliases/<name>/config.yaml`** — these are gitignored (paths are machine-specific).
+Per-user aliases for the global `model-up` launcher. **Each user maintains their own `models/aliases/<name>/config.yaml`** — these are gitignored (paths are machine-specific).
 
 This `INDEX.md` is **kept tracked as a template/schema reference**. Copy it to your own per-alias config or use it as a guide.
 
@@ -30,21 +30,21 @@ metrics:                            # optional, for your own tracking
 status: ready                      # ready | untested | deprecated
 ```
 
-Each flag string in `flags:` may contain a value (`--ctx-size 8192`); the launcher (`qwen-up`) splits with `shlex` before passing to `llama-server`.
+Each flag string in `flags:` may contain a value (`--ctx-size 8192`); the launcher (`model-up`) splits with `shlex` before passing to `llama-server`.
 
 ## Commands
 
 ```bash
-qwen-up                # start default alias (first found, or DEFAULT_ALIAS)
-qwen-up <name>         # start a specific alias
-qwen-up list           # list all aliases
-qwen-up status         # health check of running server
-qwen-up stop           # kill server
+model-up                # start default alias (first found, or DEFAULT_ALIAS)
+model-up <name>         # start a specific alias
+model-up list           # list all aliases
+model-up status         # health check of running server
+model-up stop           # kill server
 ```
 
 ## Plug into a harness (Pi Agent, Hermes Agent, Claude Code)
 
-After `qwen-up <name>`, point your harness at:
+After `model-up <name>`, point your harness at:
 
 ```yaml
 base_url: http://127.0.0.1:18080/v1
@@ -67,4 +67,4 @@ The autoloop rewrites `autoresearch/core/config.py` on every keep — useful for
 ## See also
 
 - [`../docs/discovery/discover-models.md`](../docs/discovery/discover-models.md) — full workflow including model selection.
-- `qwen-up` launcher — installed at `~/.local/bin/qwen-up`. Source not in this repo; copy from your local install or write your own.
+- `model-up` launcher — installed at `~/.local/bin/model-up`. Source not in this repo; copy from your local install or write your own.
