@@ -1,0 +1,69 @@
+# Ornith-1.0-35B — Model Card (Local)
+
+**Source repo:** https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B-GGUF
+**Unsloth docs:** https://unsloth.ai/docs/models/qwen35 (model uses Qwen 3.5 MoE architecture)
+**License:** Apache-2.0
+**Local file:** `models/ornith-1.0-35b-Q4_K_M.gguf` (19.70 GiB)
+**Family:** Ornith (based on Qwen 3.5 MoE architecture)
+**Quantization:** `Q4_K_M` (4.88 BPW)
+
+## Architecture (from GGUF metadata, verified via llama-server log)
+- Causal LM (hybrid Attention + SSM + MoE)
+- **`block_count` = 40 layers**
+- **35B total / 3B activated** (MoE, `expert_count=256, expert_used_count=8` + 1 shared expert)
+- Hidden **2048**, vocab 248320, ctx **262144**
+- **Hybrid Attention + SSM (Mamba-2 style) + MoE layers**:
+  - `full_attention_interval = 4` — every 4th layer is full attention
+  - Contains `ssm.conv_kernel=4`, `ssm.state_size=128`, `ssm.group_count=16`, `ssm.time_step_rank=32`, `ssm.inner_size=4096`
+  - 10 layers of full attention (head count: 16 Q, 2 KV, key/value length 256)
+  - 30 layers of SSM / linear path
+- `rope.freq_base = 10,000,000`
+- **`general.name` = `Ornith 1.0 35B`**, file_type=15 (Q4_K_M), quantization_version=2
+- 733 tensors total
+
+## Hardware requirements (per community and size)
+- Quantization file size: **19.7 GiB**
+- Total target memory (RAM + VRAM): **~24 GB**
+
+**Our target:** 8 GB VRAM (RTX 4060) + 24 GB RAM. We are at the 4-bit limit. Offloading routed experts to CPU/RAM is mandatory to fit in VRAM.
+
+## VITRIOL / Split strategy (MoE expert offloading)
+With MoE, we place **attention + shared expert + routing** on the GPU, and keep the **256 routed experts in CPU/RAM**.
+- `--n-gpu-layers 99` — load active paths into VRAM.
+- `--n-cpu-moe 40` — offloads MoE experts of all 40 layers to the CPU.
+
+## Recommended Settings (based on Qwen 3.5)
+- **Temperature:** 0.4
+- **Top P:** 0.95
+- **Top K:** 20
+- **Min P:** 0.0
+- **Repeat Penalty:** 1.0 (disabled)
+
+## MTP (Multi-Token Prediction)
+- **NO MTP tensors in this GGUF.** No spec_type configured.
+
+## Our config baseline (Verified 2026-06-27)
+- `MODEL = 'ornith-1.0-35b-Q4_K_M.gguf'`
+- `CTX_SIZE = 131072`
+- `KV_CACHE = 'q4_0'`
+- `NGL = 99`
+- `N_CPU_MOE = 40`
+- `THREADS = 8`
+- `THREADS_BATCH = 8`
+- `FLASH_ATTN = 'on'`
+
+### Benchmark Scores (Validation baseline)
+- **Coding Score:** `0.4250`
+  - **LiveCodeBench:** `0.5000`
+  - **HumanEval+:** `0.5000`
+  - **MBPP+:** `0.5000`
+  - **BigCodeBench Hard:** `0.0000`
+- **Peak VRAM:** `4.1 GB`
+- **TPS:** `25.0`
+
+## Sources / Verification
+- HuggingFace Model Card (`deepreinforce-ai/Ornith-1.0-35B-GGUF`)
+- Verification validation run completed successfully on 2026-06-27.
+
+## Open questions
+- None (baseline verified).

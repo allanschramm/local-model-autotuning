@@ -53,4 +53,5 @@ One markdown file per GGUF model we run on this rig. Cards are the canonical loc
 - [gemma-4-26b-a4b.md](gemma-4-26b-a4b.md) — Gemma-4-26B-A4B-it (UD-Q4_K_M, 16.2 GB).
 - [vitriol-technique.md](vitriol-technique.md) — Codacus MoE-on-small-VRAM technique (cross-cutting, not a model card).
 - [ornith-1.0-9b.md](ornith-1.0-9b.md) — Ornith-1.0-9B (Q4_K_M, 5.63 GB).
+- [ornith-1.0-35b.md](ornith-1.0-35b.md) — Ornith-1.0-35B (Q4_K_M, 19.70 GB).
 
