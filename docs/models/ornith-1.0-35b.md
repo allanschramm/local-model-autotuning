@@ -30,7 +30,7 @@
 ## VITRIOL / Split strategy (MoE expert offloading)
 With MoE, we place **attention + shared expert + routing** on the GPU, and keep the **256 routed experts in CPU/RAM**.
 - `--n-gpu-layers 99` — load active paths into VRAM.
-- `--n-cpu-moe 40` — offloads MoE experts of all 40 layers to the CPU.
+- `--n-cpu-moe 32` — offloads MoE experts of the first 32 layers to the CPU, keeping the last 8 layers of experts on the GPU.
 
 ## Recommended Settings (based on Qwen 3.5)
 - **Temperature:** 0.4
@@ -47,7 +47,7 @@ With MoE, we place **attention + shared expert + routing** on the GPU, and keep 
 - `CTX_SIZE = 131072`
 - `KV_CACHE = 'q4_0'`
 - `NGL = 99`
-- `N_CPU_MOE = 40`
+- `N_CPU_MOE = 32`
 - `THREADS = 8`
 - `THREADS_BATCH = 8`
 - `FLASH_ATTN = 'on'`
@@ -58,8 +58,8 @@ With MoE, we place **attention + shared expert + routing** on the GPU, and keep 
   - **HumanEval+:** `0.8000`
   - **MBPP+:** `0.8000`
   - **BigCodeBench Hard:** `0.1000`
-- **Peak VRAM:** `6.3 GB`
-- **TPS:** `27.9`
+- **Peak VRAM:** `7.7 GB`
+- **TPS:** `31.5`
 
 ## Sources / Verification
 - HuggingFace Model Card (`deepreinforce-ai/Ornith-1.0-35B-GGUF`)

@@ -62,7 +62,7 @@ The autoloop rewrites `autoresearch/core/config.py` on every keep — useful for
 | Name | Model GGUF | Port | Baseline Score | TPS | Notes |
 | :--- | :--- | :---: | :---: | :---: | :--- |
 | `o9` | `models/ornith-1.0-9b-Q4_K_M.gguf` | 18080 | 0.5800 | 52.2 | Full GPU Offload |
-| `o35` | `models/ornith-1.0-35b-Q4_K_M.gguf` | 18080 | 0.5550 | 27.9 | VITRIOL (`--n-cpu-moe 36`) |
+| `o35` | `models/ornith-1.0-35b-Q4_K_M.gguf` | 18080 | 0.5550 | 31.5 | VITRIOL (`--n-cpu-moe 32`) |
 
 ## See also
 
