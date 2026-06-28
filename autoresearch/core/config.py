@@ -1,15 +1,15 @@
 # config.py
 # The ONLY changeable file for agent tweaks
 
-MODEL = 'ornith-1.0-9b-Q4_K_M.gguf'
+MODEL = 'ornith-1.0-35b-Q4_K_M.gguf'
 CTX_SIZE = 131072
 KV_CACHE = 'q4_0'
 KV_CACHE_K = 'q4_0'
 KV_CACHE_V = 'q4_0'
 BATCH_SIZE = 512
 UBATCH_SIZE = 128
-THREADS = 8
-THREADS_BATCH = 8
+THREADS = 12
+THREADS_BATCH = 12
 FLASH_ATTN = 'on'
 SPEC_TYPE = None
 SPEC_DRAFT_N_MAX = 0
@@ -18,8 +18,8 @@ JINJA = False
 REASONING_BUDGET = None
 REASONING_BUDGET_MESSAGE = None
 REASONING = None
-CONT_BATCHING = False
-N_CPU_MOE = None
+CONT_BATCHING = True
+N_CPU_MOE = 32
 
 # Generation options (Unsloth-corrected for Qwen3.5 thinking mode)
 TEMP = 0.4
