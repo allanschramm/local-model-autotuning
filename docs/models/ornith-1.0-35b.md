@@ -65,5 +65,31 @@ With MoE, we place **attention + shared expert + routing** on the GPU, and keep 
 - HuggingFace Model Card (`deepreinforce-ai/Ornith-1.0-35B-GGUF`)
 - Verification validation run completed successfully on 2026-06-27.
 
+## Tuning History (2026-06-29)
+
+### BeeLlama tested (no gains)
+- BeeLlama baseline: 27 TPS (stock fork is faster)
+- BeeLlama + CopySpec: 22 TPS (worse)
+- BeeLlama + DFlash (GPU): 3.3 TPS (draft competes for VRAM)
+- BeeLlama + DFlash (CPU): OOM (cross-attention overflows 16 GB RAM)
+
+### IQ3_M tested (slower)
+- File: 15.7 GB vs Q4_K_M 19.7 GB
+- Slower at every n-cpu-moe setting (kernel less optimized)
+- Not recommended
+
+### n-cpu-moe sweep results
+| n-cpu-moe | GPU layers | TPS | VRAM | Notes |
+|-----------|-----------|-----|------|-------|
+| 36 | 4/40 | 27.9 | 6.3 GB | Too much on CPU |
+| 34 | 6/40 | 29.2 | 7.1 GB | |
+| **32** | **8/40** | **31.5** | **7.7 GB** | **✅ Best** |
+| 30 + turbo3 | 10/40 | 19.6 | — | Turbo3 kills TPS |
+
+### Verdict
+- **n-cpu-moe 32 is the sweet spot** for RTX 4060 8 GB
+- No fork, quant, or speculative decoding improves TPS or score
+- 35B is hardware-limited by 8 GB VRAM
+
 ## Open questions
 - None (baseline verified).

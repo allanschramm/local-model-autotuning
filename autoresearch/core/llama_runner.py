@@ -121,7 +121,7 @@ def estimate_vram_mb(model_path: Path, ctx_size: int, kv_cache_k: str | None = N
 def resolve_llama_server() -> Path:
     for candidate in LLAMA_SERVER_CANDIDATES:
         if candidate.exists():
-            return candidate
+            return candidate.resolve()  # follow symlinks to get real path
     raise FileNotFoundError(
         "llama-server not found. Expected one of: "
         + ", ".join(str(path) for path in LLAMA_SERVER_CANDIDATES)

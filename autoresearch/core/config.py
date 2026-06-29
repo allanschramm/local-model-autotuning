@@ -1,15 +1,15 @@
 # config.py
 # The ONLY changeable file for agent tweaks
 
-MODEL = 'ornith-1.0-35b-Q4_K_M.gguf'
+MODEL = 'ornith-1.0-9b-Q4_K_M.gguf'
 CTX_SIZE = 131072
 KV_CACHE = 'q4_0'
 KV_CACHE_K = 'q4_0'
 KV_CACHE_V = 'q4_0'
 BATCH_SIZE = 512
 UBATCH_SIZE = 128
-THREADS = 12
-THREADS_BATCH = 12
+THREADS = 8
+THREADS_BATCH = 8
 FLASH_ATTN = 'on'
 SPEC_TYPE = None
 SPEC_DRAFT_N_MAX = 0

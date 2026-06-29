@@ -64,5 +64,27 @@ Since the model is ~5.6 GB and we have 8 GB of VRAM, we can run with maximum GPU
 - Checked with local scratch tool parsing `models/ornith-1.0-9b-Q4_K_M.gguf` metadata via `GGUFReader` on 2026-06-26.
 - Verification baseline run completed successfully on 2026-06-26.
 
+## Tuning History (2026-06-29)
+
+### Hyperparam sweep
+| Param | Score | TPS | Verdict |
+|-------|-------|-----|---------|
+| Baseline (0.4/0.95/20) | **0.580** | **52.2** | ✅ Best |
+| TEMP=0.7 | 0.325 | 51.9 | ❌ |
+| TOP_P=0.9 | 0.425 | 51.3 | ❌ |
+| REPEAT_PENALTY=1.05 | 0.490 | 48.2 | ❌ |
+| TOP_K=40 + REPEAT_PENALTY=1.05 | 0.625 (val) | 51.2 | ⚠️ Full 10-task: 0.49 |
+
+### BeeLlama tested (no gains)
+- BeeLlama baseline: 41.7 TPS (20% slower than stock fork)
+- BeeLlama + CopySpec: 45.1 TPS (marginal, server crashes)
+- BeeLlama + TCQ turbo3_tcq: HTTP 500 at 131k ctx
+- BeeLlama + turbo3: 31.4 TPS (saves VRAM but kills TPS)
+
+### Verdict
+- **0.580 / 52.2 TPS is the ceiling** for RTX 4060 8 GB
+- No hyperparam, fork, or quant improves either score or speed
+- 9B is the optimal model for this hardware
+
 ## Open questions
 - None (baseline verified).
