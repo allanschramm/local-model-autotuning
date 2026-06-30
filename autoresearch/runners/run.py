@@ -1,5 +1,6 @@
 import sys
 import csv
+import json
 import time
 import argparse
 import subprocess
@@ -7,7 +8,7 @@ import itertools
 from pathlib import Path
 from typing import Dict, Any
 
-from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent
+from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent, resolve_llama_bench
 from autoresearch.core.llama_client import LlamaClient
 from autoresearch.benchmarks.benchmark_harness import BenchmarkResult
 from autoresearch.core import config
@@ -17,6 +18,66 @@ from autoresearch.benchmarks.benchmark_coding import run_benchmark as run_coding
 BASE_DIR = Path(__file__).resolve().parent
 RESULTS_FILE = BASE_DIR.parent.parent / "results.tsv"
 MODELS_DIR = BASE_DIR.parent.parent / "models"
+
+# ── llama-bench defaults ────────────────────────────────────────────────
+BENCH_TPS_THRESHOLD = 30.0  # min tg t/s from llama-bench (real TPS floor 20.0, bench is ~1.2-1.5x higher)
+BENCH_N_PROMPT = 512
+BENCH_N_GEN = 128
+
+
+def run_llama_bench_validation(
+    model_path: Path,
+    ngl: int = 99,
+    threads: int = 8,
+    batch_size: int = 512,
+    ubatch_size: int = 128,
+    flash_attn: str = "on",
+    cache_type_k: str = "q4_0",
+    cache_type_v: str = "q4_0",
+    n_prompt: int = BENCH_N_PROMPT,
+    n_gen: int = BENCH_N_GEN,
+) -> float:
+    """Run llama-bench with given config. Returns tg t/s. Raises on failure."""
+    llama_bench = resolve_llama_bench()
+
+    cmd = [
+        str(llama_bench),
+        "-m", str(model_path),
+        "-p", str(n_prompt),
+        "-n", str(n_gen),
+        "-t", str(threads),
+        "-ngl", str(ngl),
+        "-b", str(batch_size),
+        "-ub", str(ubatch_size),
+        "-fa", flash_attn,
+        "-ctk", cache_type_k,
+        "-ctv", cache_type_v,
+        "-o", "json",
+        "--no-warmup",
+        "-r", "3",
+    ]
+
+    print(f"  [bench] {' '.join(str(a) for a in cmd)}")
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    if result.returncode != 0:
+        raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
+
+    data = json.loads(result.stdout)
+    tg_tps = 0.0
+    pp_tps = 0.0
+    for entry in data:
+        n_p = entry.get("n_prompt", 0)
+        n_g = entry.get("n_gen", 0)
+        avg_ts = entry.get("avg_ts", 0.0)
+        if n_g > 0 and n_p == 0:
+            tg_tps = avg_ts
+        elif n_p > 0 and n_g == 0:
+            pp_tps = avg_ts
+
+    if tg_tps == 0.0:
+        raise RuntimeError(f"llama-bench returned no tg result: {result.stdout[:300]}")
+
+    return tg_tps
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Unified AutoResearch Benchmark Runner")
@@ -47,8 +108,11 @@ def parse_args():
     parser.add_argument("--coding-task-limit", type=int, default=getattr(config, "CODING_TASK_LIMIT", 30), help="Tasks per dataset (0=full dataset)")
     parser.add_argument("--lcb-task-limit", type=int, default=getattr(config, "LCB_TASK_LIMIT", 10), help="LiveCodeBench task limit")
     parser.add_argument("--bigcode-task-limit", type=int, default=getattr(config, "BIGCODE_TASK_LIMIT", 10), help="BigCodeBench task limit")
-    parser.add_argument("--validation", action="store_true", help="Run validation only: 2 tasks per benchmark to test VRAM and TPS")
-    parser.add_argument("--min-score", type=float, default=0.20, help="Minimum score required for validation mode to pass")
+    parser.add_argument("--validation", action="store_true",
+        help="Bench-only mode: run llama-bench then exit (no coding benchmarks). "
+             "Validates model loads + tg t/s >= bench-tts-threshold.")
+    parser.add_argument("--bench-tts-threshold", type=float, default=BENCH_TPS_THRESHOLD,
+        help="Minimum text generation t/s from llama-bench validation (default: 30)")
     parser.add_argument("--no-mmap", action="store_true", default=config.NO_MMAP, help="Disable mmap")
     parser.add_argument("--jinja", action="store_true", default=config.JINJA, help="Enable Jinja chat template engine")
     parser.add_argument("--reasoning-budget", type=int, default=config.REASONING_BUDGET, help="Thinking budget tokens limit")
@@ -136,7 +200,7 @@ def write_row(results_file: Path, commit: str, val_score: float, swe_score: floa
             "description": description,
         })
 
-def run_evaluation(cfg: dict | Any, **overrides) -> Dict[str, Any]:
+def run_evaluation(cfg: dict | Any, skip_bench: bool = False, **overrides) -> Dict[str, Any]:
     norm_cfg = {}
     is_dict = False
     try:
@@ -214,14 +278,9 @@ def run_evaluation(cfg: dict | Any, **overrides) -> Dict[str, Any]:
     spec_val = get_val("spec_draft_n_max", 1)
     spec_type_val = get_val("spec_type")
     is_validation = get_val("validation", False)
-    if is_validation:
-        task_limit_val = 2
-        lcb_limit_val = 2
-        bigcode_limit_val = 2
-    else:
-        task_limit_val = get_val("coding_task_limit", getattr(config, "CODING_TASK_LIMIT", 10))
-        lcb_limit_val = get_val("lcb_task_limit", getattr(config, "LCB_TASK_LIMIT", 10))
-        bigcode_limit_val = get_val("bigcode_task_limit", getattr(config, "BIGCODE_TASK_LIMIT", 10))
+    task_limit_val = get_val("coding_task_limit", getattr(config, "CODING_TASK_LIMIT", 10))
+    lcb_limit_val = get_val("lcb_task_limit", getattr(config, "LCB_TASK_LIMIT", 10))
+    bigcode_limit_val = get_val("bigcode_task_limit", getattr(config, "BIGCODE_TASK_LIMIT", 10))
     flash_attn_val = get_val("flash_attn", "on")
     parallel_val = get_val("parallel", 1)
     ctx_size_val = get_val("ctx_size", 16384)
@@ -266,19 +325,73 @@ def run_evaluation(cfg: dict | Any, **overrides) -> Dict[str, Any]:
         n_cpu_moe=n_cpu_moe_val
     )
     
+    # ── Pre-check: llama-bench validation ────────────────────────────────
+    bench_tts_threshold = get_val("bench_tts_threshold", BENCH_TPS_THRESHOLD)
+    is_validation = get_val("validation", False)
+
+    res = {
+        "status": "OK",
+        "coding_val": 0.0, "coding_vram": 0.0,
+        "he_val": 0.0, "mbpp_val": 0.0, "swe_val": 0.0,
+        "val_score": 0.0, "avg_tps": 0.0, "peak_vram_gb": 0.0,
+        "bench_tg_tps": 0.0, "bench_pp_tps": 0.0,
+    }
+
+    if not skip_bench:
+        try:
+            bench_tg = run_llama_bench_validation(
+                model_path=MODELS_DIR / model_filename,
+                ngl=ngl_val,
+                threads=t_val,
+                batch_size=b_val,
+                ubatch_size=ub_val,
+                flash_attn=flash_attn_val,
+                cache_type_k=k_val,
+                cache_type_v=v_val,
+                n_prompt=BENCH_N_PROMPT,
+                n_gen=BENCH_N_GEN,
+            )
+        except FileNotFoundError as e:
+            print(f"  [FAIL] llama-bench not found: {e}")
+            res["status"] = f"FAIL: llama-bench not found"
+            return res
+        except subprocess.CalledProcessError as e:
+            print(f"  [FAIL] llama-bench crashed: {e}")
+            res["status"] = f"FAIL: llama-bench crashed"
+            return res
+        except Exception as e:
+            print(f"  [FAIL] llama-bench error: {e}")
+            res["status"] = f"FAIL: llama-bench error: {str(e)[:50]}"
+            return res
+
+        res["bench_tg_tps"] = bench_tg
+        print(f"  [bench] pp {BENCH_N_PROMPT}: {res.get('bench_pp_tps', 0):.1f} t/s, tg {BENCH_N_GEN}: {bench_tg:.1f} t/s")
+
+        if bench_tg < bench_tts_threshold:
+            print(f"  [FAIL] llama-bench tg {bench_tg:.1f} t/s below threshold {bench_tts_threshold:.1f}")
+            res["status"] = f"FAIL: bench tg {bench_tg:.1f} < threshold {bench_tts_threshold:.1f}"
+            return res
+
+        if is_validation:
+            print(f"  [OK] Validation passed: tg {bench_tg:.1f} t/s >= {bench_tts_threshold:.1f}")
+            res["avg_tps"] = bench_tg
+            res["val_score"] = 1.0 if bench_tg >= bench_tts_threshold else 0.0
+            return res
+
+    if is_validation and skip_bench:
+        # skip_bench=True + validation=True: bench was suppressed, nothing to do
+        print(f"  [SKIP] Validation skipped (skip_bench=True)")
+        return res
+
+    # ── Full evaluation ──────────────────────────────────────────────────
     server_log = BASE_DIR / "llama_server.log"
     if server_log.exists():
         try:
             server_log.unlink()
         except OSError:
             pass
-            
-    res = {
-        "status": "OK",
-        "coding_val": 0.0, "coding_vram": 0.0,
-        "he_val": 0.0, "mbpp_val": 0.0, "swe_val": 0.0,
-        "val_score": 0.0, "avg_tps": 0.0, "peak_vram_gb": 0.0
-    }
+
+    res["peak_vram_gb"] = 0.0  # will be set after coding
     
     gen_kwargs = {
         "temp": get_val("temp", 0.2),
@@ -385,35 +498,33 @@ def handle_single_run(args):
     is_validation = getattr(args, "validation", False)
     if not isinstance(is_validation, bool):
         is_validation = False
-    min_score = getattr(args, "min_score", 0.20)
-    if not isinstance(min_score, (int, float)):
-        min_score = 0.20
+
     if is_validation:
-        if val_score < min_score:
-            print(f"Validation failed: Score {val_score:.6f} is below the minimum required score of {min_score:.6f}")
-            status = "discard"
-            prefix = "[validation] "
-            details = f"{prefix}{args.model} FAIL (below min-score {min_score:.2f}) kv={args.kv} ctx={args.ctx_size} TPS={res['avg_tps']:.1f} VRAM={res['peak_vram_gb']:.1f}GB coding={res['coding_val']:.4f}"
-            details += f" lcb={res.get('lcb_val', 0.0):.4f} he={res.get('he_val', 0.0):.4f} mbpp={res.get('mbpp_val', 0.0):.4f} bigcode={res.get('bigcode_val', 0.0):.4f}"
-            details += f" | {args.desc}"
-            write_row(
-                RESULTS_FILE, commit, val_score,
-                res.get("swe_val", 0.0), res.get("he_val", 0.0), res.get("mbpp_val", 0.0),
-                res["peak_vram_gb"], status, details,
-                lcb_score=res.get("lcb_val", 0.0),
-                bigcode_score=res.get("bigcode_val", 0.0),
-            )
-            sys.exit(1)
+        bench_tg = res.get("bench_tg_tps", 0.0)
+        details = f"[bench-validation] {args.model} kv={args.kv} tg={bench_tg:.1f}t/s ctx={args.ctx_size} | {args.desc}"
+        print(f"\n{'='*40}")
+        print("BENCH VALIDATION RESULTS")
+        print('='*40)
+        print(f"Model:          {args.model}")
+        print(f"KV Cache:       {args.kv}")
+        print(f"Context Size:   {args.ctx_size}")
+        print("-"*40)
+        print(f"Bench tg:       {bench_tg:.1f} t/s")
+        print(f"Bench pp:       {res.get('bench_pp_tps', 0.0):.1f} t/s")
+        print("-"*40)
+        if val_score >= 1.0:
+            print(">>> STATUS: VALIDATION PASSED")
+        else:
+            print(">>> STATUS: VALIDATION FAILED")
         status = "discard"
     else:
         improved = val_score > prev_best
         status = "keep" if improved else "discard"
-    
-    # Format details in description
-    prefix = "[validation] " if is_validation else ""
-    details = f"{prefix}{args.model} kv={args.kv} ctx={args.ctx_size} TPS={res['avg_tps']:.1f} VRAM={res['peak_vram_gb']:.1f}GB coding={res['coding_val']:.4f}"
-    details += f" lcb={res.get('lcb_val', 0.0):.4f} he={res.get('he_val', 0.0):.4f} mbpp={res.get('mbpp_val', 0.0):.4f} bigcode={res.get('bigcode_val', 0.0):.4f}"
-    details += f" | {args.desc}"
+        
+        details = f"{args.model} kv={args.kv} ctx={args.ctx_size} TPS={res['avg_tps']:.1f} VRAM={res['peak_vram_gb']:.1f}GB coding={res['coding_val']:.4f}"
+        details += f" lcb={res.get('lcb_val', 0.0):.4f} he={res.get('he_val', 0.0):.4f} mbpp={res.get('mbpp_val', 0.0):.4f} bigcode={res.get('bigcode_val', 0.0):.4f}"
+        details += f" bench_tg={res.get('bench_tg_tps', 0.0):.1f}"
+        details += f" | {args.desc}"
     
     # Log to results.tsv
     write_row(
@@ -430,28 +541,28 @@ def handle_single_run(args):
     print(f"Model:          {args.model}")
     print(f"KV Cache:       {args.kv}")
     print(f"Context Size:   {args.ctx_size}")
-    print("-"*40)
-    print(f"Coding Score:     {res['coding_val']:.4f}")
-    print(f"  LCB:            {res.get('lcb_val', 0.0):.4f}")
-    print(f"  HumanEval+:     {res.get('he_val', 0.0):.4f}")
-    print(f"  MBPP+:          {res.get('mbpp_val', 0.0):.4f}")
-    print(f"  BigCode Hard:   {res.get('bigcode_val', 0.0):.4f}")
-    print(f"Combined TPS:     {res['avg_tps']:.1f} (Threshold: >= 20.0)")
-    print(f"Peak VRAM:        {res['peak_vram_gb']:.1f} GB")
-    print(f"Current Score:    {val_score:.6f}")
-    print(f"Previous Best:    {prev_best:.6f}")
-    print("-"*40)
+    if not is_validation:
+        print("-"*40)
+        print(f"Coding Score:     {res['coding_val']:.4f}")
+        print(f"  LCB:            {res.get('lcb_val', 0.0):.4f}")
+        print(f"  HumanEval+:     {res.get('he_val', 0.0):.4f}")
+        print(f"  MBPP+:          {res.get('mbpp_val', 0.0):.4f}")
+        print(f"  BigCode Hard:   {res.get('bigcode_val', 0.0):.4f}")
+        print(f"Combined TPS:     {res['avg_tps']:.1f} (Threshold: >= 20.0)")
+        print(f"Bench tg:         {res.get('bench_tg_tps', 0.0):.1f} t/s")
+        print(f"Peak VRAM:        {res['peak_vram_gb']:.1f} GB")
+        print(f"Current Score:    {val_score:.6f}")
+        print(f"Previous Best:    {prev_best:.6f}")
+        print("-"*40)
     
-    if is_validation:
-        print(f"\n>>> STATUS: VALIDATION (Ignored for keep status)")
-    elif improved:
-        print(f"\n>>> STATUS: KEEP (Improved by +{val_score - prev_best:.6f})")
-        print(">>> Run this to commit your tweak:")
-        print(f"    git commit -am \"keep: {args.desc} (score: {val_score:.6f})\"")
-    else:
-        print(f"\n>>> STATUS: DISCARD (Regressed or no improvement by {val_score - prev_best:.6f})")
-        print(">>> Run this to discard your tweak:")
-        print("    git checkout . && git clean -fd")
+        if improved:
+            print(f"\n>>> STATUS: KEEP (Improved by +{val_score - prev_best:.6f})")
+            print(">>> Run this to commit your tweak:")
+            print(f"    git commit -am \"keep: {args.desc} (score: {val_score:.6f})\"")
+        else:
+            print(f"\n>>> STATUS: DISCARD (Regressed or no improvement by {val_score - prev_best:.6f})")
+            print(">>> Run this to discard your tweak:")
+            print("    git checkout . && git clean -fd")
 
 def handle_grid_run(args):
     print("Starting multidimensional grid sweep...")

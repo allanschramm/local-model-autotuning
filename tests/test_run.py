@@ -7,11 +7,12 @@ import csv
 
 class TestRun(unittest.TestCase):
 
+    @patch("autoresearch.runners.run.run_llama_bench_validation", return_value=45.0)
     @patch("autoresearch.runners.run.LlamaServerRunner")
     @patch("autoresearch.runners.run.run_coding")
     @patch("autoresearch.runners.run.get_git_commit")
     @patch("autoresearch.runners.run.open", new_callable=mock_open)
-    def test_single_run_improved(self, mock_file, mock_commit, mock_coding, mock_runner):
+    def test_single_run_improved(self, mock_file, mock_commit, mock_coding, mock_runner, mock_bench):
         # Setup mocks
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
         mock_commit.return_value = "abcdefg"
@@ -43,11 +44,12 @@ class TestRun(unittest.TestCase):
         # File should have been opened for appending
         mock_file.assert_called_with(run.RESULTS_FILE, "a", newline="")
 
+    @patch("autoresearch.runners.run.run_llama_bench_validation", return_value=45.0)
     @patch("autoresearch.runners.run.LlamaServerRunner")
     @patch("autoresearch.runners.run.run_coding")
     @patch("autoresearch.runners.run.get_git_commit")
     @patch("autoresearch.runners.run.open", new_callable=mock_open)
-    def test_grid_run(self, mock_file, mock_commit, mock_coding, mock_runner):
+    def test_grid_run(self, mock_file, mock_commit, mock_coding, mock_runner, mock_bench):
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
         mock_commit.return_value = "abcdefg"
         mock_coding.return_value = BenchmarkResult(
@@ -125,9 +127,8 @@ class TestRun(unittest.TestCase):
         args.spec_type = None
         args.coding_task_limit = 30
         
-        # Call with include_coding = False
         res = run.run_evaluation(
-            args, model="g4-opt-it-Q4_K_M.gguf", kv="q4_0", max_tokens=1024,
+            args, skip_bench=True, model="g4-opt-it-Q4_K_M.gguf", kv="q4_0", max_tokens=1024,
             include_coding=False
         )
         
@@ -154,28 +155,27 @@ class TestRun(unittest.TestCase):
         
         # Call with validation = True
         res = run.run_evaluation(
-            args, model="g4-opt-it-Q4_K_M.gguf", kv="q4_0", max_tokens=1024,
+            args, skip_bench=True, model="g4-opt-it-Q4_K_M.gguf", kv="q4_0", max_tokens=1024,
             include_coding=True, validation=True
         )
         
-        # Verify run_coding was called with limits set to 2
-        mock_coding.assert_called_once()
-        kwargs = mock_coding.call_args[1]
-        self.assertEqual(kwargs["task_limit"], 2)
-        self.assertEqual(kwargs["lcb_task_limit"], 2)
-        self.assertEqual(kwargs["bigcode_task_limit"], 2)
+        # With bench validation, validation mode returns immediately after bench (skipped here)
+        # So run_coding is not called in bench-validation mode
+        mock_coding.assert_not_called()
 
     @patch("autoresearch.runners.run.run_evaluation")
     @patch("autoresearch.runners.run.get_git_commit")
     @patch("autoresearch.runners.run.open", new_callable=mock_open)
     def test_single_run_validation_passes(self, mock_file, mock_commit, mock_eval):
         mock_commit.return_value = "abcdefg"
+        # Bench-validation returns val_score=1.0 on pass
         mock_eval.return_value = {
             "status": "OK",
-            "coding_val": 0.25, "coding_tps": 40.0,
-            "lcb_val": 0.0, "he_val": 0.5, "mbpp_val": 0.5, "bigcode_val": 0.0,
+            "coding_val": 0.0,
+            "lcb_val": 0.0, "he_val": 0.0, "mbpp_val": 0.0, "bigcode_val": 0.0,
             "swe_val": 0.0,
-            "val_score": 0.25, "avg_tps": 35.0, "peak_vram_gb": 4.0
+            "val_score": 1.0, "avg_tps": 42.0, "peak_vram_gb": 0.0,
+            "bench_tg_tps": 42.0, "bench_pp_tps": 190.0,
         }
         
         args = MagicMock()
@@ -184,7 +184,6 @@ class TestRun(unittest.TestCase):
         args.kv = "q4_0"
         args.ctx_size = 131072
         args.validation = True
-        args.min_score = 0.20
         
         with patch("sys.exit") as mock_exit:
             run.handle_single_run(args)
@@ -195,12 +194,13 @@ class TestRun(unittest.TestCase):
     @patch("autoresearch.runners.run.open", new_callable=mock_open)
     def test_single_run_validation_fails(self, mock_file, mock_commit, mock_eval):
         mock_commit.return_value = "abcdefg"
+        # Bench-validation: FAIL status means val_score=0.0
         mock_eval.return_value = {
-            "status": "OK",
-            "coding_val": 0.15, "coding_tps": 40.0,
-            "lcb_val": 0.0, "he_val": 0.3, "mbpp_val": 0.3, "bigcode_val": 0.0,
+            "status": "FAIL: bench tg 15.0 < threshold 30.0",
+            "coding_val": 0.0,
+            "lcb_val": 0.0, "he_val": 0.0, "mbpp_val": 0.0, "bigcode_val": 0.0,
             "swe_val": 0.0,
-            "val_score": 0.15, "avg_tps": 35.0, "peak_vram_gb": 4.0
+            "val_score": 0.0, "avg_tps": 0.0, "peak_vram_gb": 0.0
         }
         
         args = MagicMock()
@@ -209,7 +209,6 @@ class TestRun(unittest.TestCase):
         args.kv = "q4_0"
         args.ctx_size = 131072
         args.validation = True
-        args.min_score = 0.20
         
         with patch("sys.exit") as mock_exit:
             run.handle_single_run(args)

@@ -97,7 +97,7 @@ class TestAdversarialChallenger(unittest.TestCase):
         )
         
         cfg = CrashyConfig()
-        res = run_evaluation(cfg, include_coding=False)
+        res = run_evaluation(cfg, skip_bench=True, include_coding=False)
         intent = mock_runner.call_args[0][0]
         self.assertEqual(intent.model_path.name, "g4-opt-it-Q4_K_M.gguf")
 
@@ -112,7 +112,7 @@ class TestAdversarialChallenger(unittest.TestCase):
             None: "none-key-value",
             "model": "model-from-dict.gguf"
         }
-        res = run_evaluation(cfg, include_coding=False)
+        res = run_evaluation(cfg, skip_bench=True, include_coding=False)
         intent = mock_runner.call_args[0][0]
         self.assertEqual(intent.model_path.name, "model-from-dict.gguf")
 
@@ -122,7 +122,7 @@ class TestAdversarialChallenger(unittest.TestCase):
         """Check if run_evaluation handles None config safely."""
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
         
-        res = run_evaluation(None, model="fallback-override.gguf", include_coding=False)
+        res = run_evaluation(None, skip_bench=True, model="fallback-override.gguf", include_coding=False)
         intent = mock_runner.call_args[0][0]
         self.assertEqual(intent.model_path.name, "fallback-override.gguf")
 
@@ -132,7 +132,7 @@ class TestAdversarialChallenger(unittest.TestCase):
         """Check if run_evaluation handles list config safely."""
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
         
-        res = run_evaluation(["some", "list"], model="list-override.gguf", include_coding=False)
+        res = run_evaluation(["some", "list"], skip_bench=True, model="list-override.gguf", include_coding=False)
         intent = mock_runner.call_args[0][0]
         self.assertEqual(intent.model_path.name, "list-override.gguf")
 
@@ -154,7 +154,7 @@ class TestAdversarialChallenger(unittest.TestCase):
         """Verify run_evaluation does not crash on dict with a key that raises on __str__."""
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
         cfg = {BadKey(): "value", "model": "bad-key-model.gguf"}
-        res = run_evaluation(cfg, include_coding=False)
+        res = run_evaluation(cfg, skip_bench=True, include_coding=False)
         intent = mock_runner.call_args[0][0]
         self.assertEqual(intent.model_path.name, "bad-key-model.gguf")
 
@@ -164,7 +164,7 @@ class TestAdversarialChallenger(unittest.TestCase):
         """Verify run_evaluation does not crash on class that raises on __dict__ access."""
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
         cfg = BadDictClass()
-        res = run_evaluation(cfg, model="bad-dict-override.gguf", include_coding=False)
+        res = run_evaluation(cfg, skip_bench=True, model="bad-dict-override.gguf", include_coding=False)
         intent = mock_runner.call_args[0][0]
         self.assertEqual(intent.model_path.name, "bad-dict-override.gguf")
 
@@ -174,7 +174,7 @@ class TestAdversarialChallenger(unittest.TestCase):
         """Verify run_evaluation does not crash on class that raises on dir() call."""
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
         cfg = BadDirClass()
-        res = run_evaluation(cfg, model="bad-dir-override.gguf", include_coding=False)
+        res = run_evaluation(cfg, skip_bench=True, model="bad-dir-override.gguf", include_coding=False)
         intent = mock_runner.call_args[0][0]
         self.assertEqual(intent.model_path.name, "bad-dir-override.gguf")
 

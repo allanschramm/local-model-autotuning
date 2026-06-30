@@ -118,6 +118,14 @@ def estimate_vram_mb(model_path: Path, ctx_size: int, kv_cache_k: str | None = N
 
 
 
+LLAMA_BENCH_CANDIDATES = (
+    LLAMA_CPP_ROOT / "build-cuda" / "bin" / "llama-bench",
+    LLAMA_CPP_ROOT / "build" / "bin" / "llama-bench",
+    ROOT_DIR / "llama.cpp" / "build-cuda" / "bin" / "llama-bench",
+    ROOT_DIR / "llama.cpp" / "build" / "bin" / "llama-bench",
+)
+
+
 def resolve_llama_server() -> Path:
     for candidate in LLAMA_SERVER_CANDIDATES:
         if candidate.exists():
@@ -125,6 +133,16 @@ def resolve_llama_server() -> Path:
     raise FileNotFoundError(
         "llama-server not found. Expected one of: "
         + ", ".join(str(path) for path in LLAMA_SERVER_CANDIDATES)
+    )
+
+
+def resolve_llama_bench() -> Path:
+    for candidate in LLAMA_BENCH_CANDIDATES:
+        if candidate.exists():
+            return candidate.resolve()
+    raise FileNotFoundError(
+        "llama-bench not found. Expected one of: "
+        + ", ".join(str(path) for path in LLAMA_BENCH_CANDIDATES)
     )
 
 

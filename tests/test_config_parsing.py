@@ -20,7 +20,7 @@ class TestConfigParsing(unittest.TestCase):
         }
         
         # Override KV through kwargs (overrides dict)
-        res = run.run_evaluation(cfg_dict, kv="f16", include_coding=False)
+        res = run.run_evaluation(cfg_dict, skip_bench=True, kv="f16", include_coding=False)
         
         # Retrieve ServerIntent passed to LlamaServerRunner
         intent = mock_runner.call_args[0][0]
@@ -46,7 +46,7 @@ class TestConfigParsing(unittest.TestCase):
 
         cfg_obj = CustomConfig()
         
-        res = run.run_evaluation(cfg_obj, include_coding=False)
+        res = run.run_evaluation(cfg_obj, skip_bench=True, include_coding=False)
         
         intent = mock_runner.call_args[0][0]
         self.assertEqual(intent.model_path.name, "obj-model.gguf")
