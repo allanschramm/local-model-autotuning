@@ -1,23 +1,17 @@
 {
   "version": 1,
   "skills": {
-    "caveman": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "skillPath": "skills/productivity/caveman/SKILL.md",
-      "computedHash": "536908fcfcb232600a5875aa85f1fd50fd13305e9d67379bcd95f07c8c916f3f"
-    },
     "design-an-interface": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/deprecated/design-an-interface/SKILL.md",
       "computedHash": "f3f225914515407b8224e8ec6187db337c5e65bad0703936a0acb3f802947a7d"
     },
-    "diagnose": {
+    "diagnosing-bugs": {
       "source": "mattpocock/skills",
       "sourceType": "github",
-      "skillPath": "skills/engineering/diagnose/SKILL.md",
-      "computedHash": "1c3c85517ac42116fe5f2bfb5150f7b3e38ad23808e40b33fbb01f1afb611983"
+      "skillPath": "skills/engineering/diagnosing-bugs/SKILL.md",
+      "computedHash": "c8743c51df3760039b2dcb8a5a61437da3128c6efb4c5381734a3f05403e9a84"
     },
     "edit-article": {
       "source": "mattpocock/skills",
@@ -145,12 +139,6 @@
       "skillPath": "skills/deprecated/ubiquitous-language/SKILL.md",
       "computedHash": "4828c4957014e7d9c1fd62d65e92264d6d46808089953e14d1bbba5a92dfff4d"
     },
-    "write-a-skill": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "skillPath": "skills/productivity/write-a-skill/SKILL.md",
-      "computedHash": "3b58a16bde08f84ed490cd449ecdc40289216d660e070c485f53bc2d1ed2b843"
-    },
     "writing-beats": {
       "source": "mattpocock/skills",
       "sourceType": "github",
@@ -168,12 +156,6 @@
       "sourceType": "github",
       "skillPath": "skills/in-progress/writing-shape/SKILL.md",
       "computedHash": "5f34ec8f61e2a4f0da9533b6049a71c3cde8c16b6d1077f4ccc1e3467dbebc2f"
-    },
-    "zoom-out": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "skillPath": "skills/engineering/zoom-out/SKILL.md",
-      "computedHash": "a8b8ed45609fdfa9f184d0c9f69326e43822a42eebea14db2792d777373de562"
     }
   }
 }
