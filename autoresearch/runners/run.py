@@ -53,7 +53,6 @@ def run_llama_bench_validation(
         "-ctk", cache_type_k,
         "-ctv", cache_type_v,
         "-o", "json",
-        "--no-warmup",
         "-r", "3",
     ]
 
@@ -64,15 +63,12 @@ def run_llama_bench_validation(
 
     data = json.loads(result.stdout)
     tg_tps = 0.0
-    pp_tps = 0.0
     for entry in data:
-        n_p = entry.get("n_prompt", 0)
         n_g = entry.get("n_gen", 0)
-        avg_ts = entry.get("avg_ts", 0.0)
+        n_p = entry.get("n_prompt", 0)
         if n_g > 0 and n_p == 0:
-            tg_tps = avg_ts
-        elif n_p > 0 and n_g == 0:
-            pp_tps = avg_ts
+            tg_tps = entry.get("avg_ts", 0.0)
+            break
 
     if tg_tps == 0.0:
         raise RuntimeError(f"llama-bench returned no tg result: {result.stdout[:300]}")
@@ -334,7 +330,7 @@ def run_evaluation(cfg: dict | Any, skip_bench: bool = False, **overrides) -> Di
         "coding_val": 0.0, "coding_vram": 0.0,
         "he_val": 0.0, "mbpp_val": 0.0, "swe_val": 0.0,
         "val_score": 0.0, "avg_tps": 0.0, "peak_vram_gb": 0.0,
-        "bench_tg_tps": 0.0, "bench_pp_tps": 0.0,
+        "bench_tg_tps": 0.0,
     }
 
     if not skip_bench:
@@ -365,7 +361,7 @@ def run_evaluation(cfg: dict | Any, skip_bench: bool = False, **overrides) -> Di
             return res
 
         res["bench_tg_tps"] = bench_tg
-        print(f"  [bench] pp {BENCH_N_PROMPT}: {res.get('bench_pp_tps', 0):.1f} t/s, tg {BENCH_N_GEN}: {bench_tg:.1f} t/s")
+        print(f"  [bench] tg {BENCH_N_GEN}: {bench_tg:.1f} t/s")
 
         if bench_tg < bench_tts_threshold:
             print(f"  [FAIL] llama-bench tg {bench_tg:.1f} t/s below threshold {bench_tts_threshold:.1f}")
@@ -377,11 +373,6 @@ def run_evaluation(cfg: dict | Any, skip_bench: bool = False, **overrides) -> Di
             res["avg_tps"] = bench_tg
             res["val_score"] = 1.0 if bench_tg >= bench_tts_threshold else 0.0
             return res
-
-    if is_validation and skip_bench:
-        # skip_bench=True + validation=True: bench was suppressed, nothing to do
-        print(f"  [SKIP] Validation skipped (skip_bench=True)")
-        return res
 
     # ── Full evaluation ──────────────────────────────────────────────────
     server_log = BASE_DIR / "llama_server.log"

@@ -137,9 +137,10 @@ class TestRun(unittest.TestCase):
         
         # Check val_score is 0 when coding disabled
         self.assertEqual(res["coding_val"], 0.0)
+    @patch("autoresearch.runners.run.run_llama_bench_validation", return_value=42.0)
     @patch("autoresearch.runners.run.LlamaServerRunner")
     @patch("autoresearch.runners.run.run_coding")
-    def test_run_evaluation_validation_mode(self, mock_coding, mock_runner):
+    def test_run_evaluation_validation_mode(self, mock_coding, mock_runner, mock_bench):
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
         
         args = MagicMock()
@@ -153,15 +154,16 @@ class TestRun(unittest.TestCase):
         args.spec_type = None
         args.coding_task_limit = 30
         
-        # Call with validation = True
+        # validation=True w/o skip_bench: runs bench mock, returns early
         res = run.run_evaluation(
-            args, skip_bench=True, model="g4-opt-it-Q4_K_M.gguf", kv="q4_0", max_tokens=1024,
+            args, model="g4-opt-it-Q4_K_M.gguf", kv="q4_0", max_tokens=1024,
             include_coding=True, validation=True
         )
         
-        # With bench validation, validation mode returns immediately after bench (skipped here)
-        # So run_coding is not called in bench-validation mode
+        # Validation mode skips coding
         mock_coding.assert_not_called()
+        self.assertEqual(res["val_score"], 1.0)
+        self.assertEqual(res["bench_tg_tps"], 42.0)
 
     @patch("autoresearch.runners.run.run_evaluation")
     @patch("autoresearch.runners.run.get_git_commit")
