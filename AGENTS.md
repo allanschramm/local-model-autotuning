@@ -13,6 +13,7 @@ Repository-wide agent guidelines are owned by the repository developers.
 - Loop agents: Strictly forbidden from editing code. If error/crash occurs, stop immediately, report error, warn user.
 - Results local-only: Never push results, tweaks, or run branches to remote repository. Keep all benchmark runs offline.
 - Architecture: Never overengineer. Keep it simple. Less is more. Reduce lines of code. Simplify instead of complicate.
+- Docs always: Update relevant docs (model cards, ADRs, config comments) whenever any codebase/model/config improvement is found or applied.
 
 ## Work Guidance
 - Use `/caveman lite|full|ultra|wenyan` for communication style constraint.
