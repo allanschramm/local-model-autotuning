@@ -197,133 +197,20 @@ def write_row(results_file: Path, commit: str, val_score: float, swe_score: floa
         })
 
 def run_evaluation(cfg: dict | Any, skip_bench: bool = False, **overrides) -> Dict[str, Any]:
-    norm_cfg = {}
-    is_dict = False
-    try:
-        is_dict = isinstance(cfg, dict)
-    except Exception:
-        pass
+    intent, norm = ServerIntent.from_config(cfg, MODELS_DIR, **overrides)
+    model_filename = intent.model_path.name
 
-    if is_dict:
-        try:
-            for k, v in cfg.items():
-                if v is not None:
-                    try:
-                        norm_cfg[str(k).lower()] = v
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-    else:
-        has_dict = False
-        try:
-            has_dict = hasattr(cfg, "__dict__")
-        except Exception:
-            pass
-        if has_dict:
-            try:
-                for k, v in cfg.__dict__.items():
-                    if not k.startswith('_') and k not in ('method_calls', 'mock_calls'):
-                        if v is not None:
-                            norm_cfg[k.lower()] = v
-            except Exception:
-                pass
-        else:
-            is_none = True
-            try:
-                is_none = (cfg is None)
-            except Exception:
-                pass
-            if not is_none:
-                attrs = []
-                try:
-                    attrs = dir(cfg)
-                except Exception:
-                    pass
-                for attr in attrs:
-                    if not attr.startswith('_'):
-                        try:
-                            val = getattr(cfg, attr)
-                            if val is not None:
-                                norm_cfg[attr.lower()] = val
-                        except Exception:
-                            pass
+    max_tokens = norm.get("max_tokens", 1024)
+    include_coding = norm.get("include_coding", True)
+    task_limit_val = norm.get("coding_task_limit", getattr(config, "CODING_TASK_LIMIT", 10))
+    lcb_limit_val = norm.get("lcb_task_limit", getattr(config, "LCB_TASK_LIMIT", 10))
+    bigcode_limit_val = norm.get("bigcode_task_limit", getattr(config, "BIGCODE_TASK_LIMIT", 10))
+    context_tokens_val = norm.get("context_tokens", 8192)
+    trial_budget = norm.get("trial_budget")
 
-    norm_overrides = {k.lower(): v for k, v in overrides.items() if v is not None}
-
-    def get_val(name: str, default: Any = None) -> Any:
-        name_lower = name.lower()
-        if name_lower in norm_overrides:
-            return norm_overrides[name_lower]
-        return norm_cfg.get(name_lower, default)
-
-    model_filename = get_val("model", "g4-opt-it-Q4_K_M.gguf")
-    kv_cache = get_val("kv", "q4_0")
-    k_val = get_val("kv_k")
-    if k_val is None:
-        k_val = kv_cache
-    v_val = get_val("kv_v")
-    if v_val is None:
-        v_val = kv_cache
-    max_tokens = get_val("max_tokens", 1024)
-    include_coding = get_val("include_coding", True)
-    t_val = get_val("threads", 12)
-    tb_val = get_val("threads_batch")
-    b_val = get_val("batch_size", 512)
-    ub_val = get_val("ubatch_size", 128)
-    spec_val = get_val("spec_draft_n_max", 1)
-    spec_type_val = get_val("spec_type")
-    is_validation = get_val("validation", False)
-    task_limit_val = get_val("coding_task_limit", getattr(config, "CODING_TASK_LIMIT", 10))
-    lcb_limit_val = get_val("lcb_task_limit", getattr(config, "LCB_TASK_LIMIT", 10))
-    bigcode_limit_val = get_val("bigcode_task_limit", getattr(config, "BIGCODE_TASK_LIMIT", 10))
-    flash_attn_val = get_val("flash_attn", "on")
-    parallel_val = get_val("parallel", 1)
-    ctx_size_val = get_val("ctx_size", 16384)
-    port_val = get_val("port", 18080)
-    ngl_val = get_val("ngl", 99)
-    host_val = get_val("host", "127.0.0.1")
-    no_mmap_val = get_val("no_mmap", False)
-    jinja_val = get_val("jinja", False)
-    budget_val = get_val("reasoning_budget")
-    msg_val = get_val("reasoning_budget_message")
-    reasoning_val = get_val("reasoning")
-    cont_batch_val = get_val("cont_batching", False)
-    n_cpu_moe_val = get_val("n_cpu_moe")
-    include_nexus_val = get_val("include_nexus", False)
-    include_claw_val = get_val("include_claw", False)
-    context_tokens_val = get_val("context_tokens", 8192)
-    trial_budget = get_val("trial_budget")
-
-    intent = ServerIntent(
-        model_path=MODELS_DIR / model_filename,
-        ctx_size=ctx_size_val,
-        kv_cache=kv_cache,
-        flash_attn=flash_attn_val,
-        port=port_val,
-        host=host_val,
-        ngl=ngl_val,
-        batch_size=b_val,
-        ubatch_size=ub_val,
-        threads=t_val,
-        parallel=parallel_val,
-        kv_cache_k=k_val,
-        kv_cache_v=v_val,
-        threads_batch=tb_val,
-        spec_draft_n_max=spec_val,
-        no_mmap=no_mmap_val,
-        jinja=jinja_val,
-        reasoning_budget=budget_val,
-        reasoning_budget_message=msg_val,
-        reasoning=reasoning_val,
-        cont_batching=cont_batch_val,
-        spec_type=spec_type_val,
-        n_cpu_moe=n_cpu_moe_val
-    )
-    
     # ── Pre-check: llama-bench validation ────────────────────────────────
-    bench_tts_threshold = get_val("bench_tts_threshold", BENCH_TPS_THRESHOLD)
-    is_validation = get_val("validation", False)
+    bench_tts_threshold = norm.get("bench_tts_threshold", BENCH_TPS_THRESHOLD)
+    is_validation = norm.get("validation", False)
 
     res = {
         "status": "OK",
@@ -336,14 +223,14 @@ def run_evaluation(cfg: dict | Any, skip_bench: bool = False, **overrides) -> Di
     if not skip_bench:
         try:
             bench_tg = run_llama_bench_validation(
-                model_path=MODELS_DIR / model_filename,
-                ngl=ngl_val,
-                threads=t_val,
-                batch_size=b_val,
-                ubatch_size=ub_val,
-                flash_attn=flash_attn_val,
-                cache_type_k=k_val,
-                cache_type_v=v_val,
+                model_path=intent.model_path,
+                ngl=intent.ngl,
+                threads=intent.threads,
+                batch_size=intent.batch_size,
+                ubatch_size=intent.ubatch_size,
+                flash_attn=intent.flash_attn,
+                cache_type_k=intent.kv_cache_k or intent.kv_cache,
+                cache_type_v=intent.kv_cache_v or intent.kv_cache,
                 n_prompt=BENCH_N_PROMPT,
                 n_gen=BENCH_N_GEN,
             )
@@ -385,13 +272,13 @@ def run_evaluation(cfg: dict | Any, skip_bench: bool = False, **overrides) -> Di
     res["peak_vram_gb"] = 0.0  # will be set after coding
     
     gen_kwargs = {
-        "temp": get_val("temp", 0.2),
-        "top_p": get_val("top_p"),
-        "min_p": get_val("min_p"),
-        "top_k": get_val("top_k"),
-        "repeat_penalty": get_val("repeat_penalty"),
-        "presence_penalty": get_val("presence_penalty"),
-        "frequency_penalty": get_val("frequency_penalty"),
+        "temp": norm.get("temp", 0.2),
+        "top_p": norm.get("top_p"),
+        "min_p": norm.get("min_p"),
+        "top_k": norm.get("top_k"),
+        "repeat_penalty": norm.get("repeat_penalty"),
+        "presence_penalty": norm.get("presence_penalty"),
+        "frequency_penalty": norm.get("frequency_penalty"),
     }
     gen_kwargs = {k: v for k, v in gen_kwargs.items() if v is not None}
     

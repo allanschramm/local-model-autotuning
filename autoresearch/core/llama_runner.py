@@ -59,6 +59,66 @@ class ServerIntent:
     spec_type: str | None = None
     n_cpu_moe: int | None = None
 
+    @classmethod
+    def from_config(cls, cfg: dict | Any, models_dir: Path, **overrides) -> tuple['ServerIntent', dict]:
+        """Normalize config from dict/object/MagicMock, build ServerIntent.
+
+        Returns (intent, norm_dict) where norm_dict holds all config fields
+        (server + non-server) for callers that need remaining params.
+        """
+        norm = {}
+        if isinstance(cfg, dict):
+            for k, v in cfg.items():
+                if v is not None:
+                    try:
+                        norm[str(k).lower()] = v
+                    except Exception:
+                        pass
+        elif cfg is not None:
+            try:
+                d = cfg.__dict__
+            except Exception:
+                d = None
+            if d is not None:
+                for k, v in d.items():
+                    if not k.startswith('_') and k not in ('method_calls', 'mock_calls') and v is not None:
+                        norm[k.lower()] = v
+
+        norm.update({k.lower(): v for k, v in overrides.items() if v is not None})
+
+        model_fn = norm.get("model", "g4-opt-it-Q4_K_M.gguf")
+        kv_cache = norm.get("kv", "q4_0")
+        k_val = norm.get("kv_k") or kv_cache
+        v_val = norm.get("kv_v") or kv_cache
+
+        intent = cls(
+            model_path=models_dir / model_fn,
+            ctx_size=norm.get("ctx_size", 16384),
+            kv_cache=kv_cache,
+            flash_attn=norm.get("flash_attn", "on"),
+            port=norm.get("port", 18080),
+            host=norm.get("host", "127.0.0.1"),
+            ngl=norm.get("ngl", 99),
+            batch_size=norm.get("batch_size", 512),
+            ubatch_size=norm.get("ubatch_size", 128),
+            threads=norm.get("threads", 12),
+            parallel=norm.get("parallel", 1),
+            kv_cache_k=k_val,
+            kv_cache_v=v_val,
+            threads_batch=norm.get("threads_batch"),
+            spec_draft_n_max=norm.get("spec_draft_n_max", 1),
+            no_mmap=norm.get("no_mmap", False),
+            jinja=norm.get("jinja", False),
+            reasoning_budget=norm.get("reasoning_budget"),
+            reasoning_budget_message=norm.get("reasoning_budget_message"),
+            reasoning=norm.get("reasoning"),
+            cont_batching=norm.get("cont_batching", False),
+            spec_type=norm.get("spec_type"),
+            n_cpu_moe=norm.get("n_cpu_moe"),
+        )
+
+        return intent, norm
+
 # VRAM Estimation Constants (calibrated for f16 KV cache and typical systems)
 VRAM_KB_PER_TOKEN_F16 = 80.0
 """Calibrated memory consumption per context token at f16 precision (in kilobytes)."""

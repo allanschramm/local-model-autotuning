@@ -13,12 +13,12 @@ import sys
 import json
 import signal
 import random
-import importlib
 import time
 from pathlib import Path
 from typing import Any
 
 from autoresearch.core.llama_runner import estimate_vram_mb
+from autoresearch.core.config import load_config, write_config
 from autoresearch.runners.run import run_evaluation, get_git_commit, write_row, RESULTS_FILE, MODELS_DIR
 from autoresearch.core.search import SearchStrategy
 
@@ -68,54 +68,8 @@ signal.signal(signal.SIGTERM, _signal_handler)
 
 def load_config() -> dict[str, Any]:
     """Hot-reload config.py and return current values as dict."""
-    from autoresearch.core import config
-    importlib.reload(config)
-    result = {}
-    for param in list(SEARCH_SPACE.keys()) + PASSTHROUGH_PARAMS:
-        result[param] = getattr(config, param, None)
-    return result
-
-
-def write_config(cfg: dict[str, Any]) -> None:
-    """Persist config dict back to config.py."""
-    lines = [
-        "# config.py",
-        "# The ONLY changeable file for agent tweaks",
-        "",
-    ]
-
-    # Server/runtime params
-    server_params = [
-        "MODEL", "CTX_SIZE", "KV_CACHE", "KV_CACHE_K", "KV_CACHE_V",
-        "BATCH_SIZE", "UBATCH_SIZE", "THREADS", "THREADS_BATCH",
-        "FLASH_ATTN", "SPEC_TYPE", "SPEC_DRAFT_N_MAX", "NO_MMAP",
-        "JINJA", "REASONING_BUDGET", "REASONING_BUDGET_MESSAGE",
-        "REASONING", "CONT_BATCHING", "N_CPU_MOE",
-    ]
-    for p in server_params:
-        lines.append(f"{p} = {repr(cfg.get(p))}")
-
-    lines.append("")
-    lines.append("# Generation options")
-    gen_params = [
-        "TEMP", "TOP_P", "MIN_P", "TOP_K",
-        "REPEAT_PENALTY", "PRESENCE_PENALTY", "FREQUENCY_PENALTY",
-    ]
-    for p in gen_params:
-        lines.append(f"{p} = {repr(cfg.get(p))}")
-
-    lines.append("")
-    lines.append("# Benchmarks to run")
-    lines.append(f"INCLUDE_CODING = {repr(cfg.get('INCLUDE_CODING', True))}")
-    lines.append(f"INCLUDE_NEXUS = {repr(cfg.get('INCLUDE_NEXUS', False))}")
-    lines.append(f"INCLUDE_CLAW = {repr(cfg.get('INCLUDE_CLAW', False))}")
-    limit = cfg.get("CODING_TASK_LIMIT", 30)
-    lines.append(f"CODING_TASK_LIMIT = {limit}  # Tasks per dataset (HumanEval/MBPP). 0 = full dataset.")
-    lines.append("")
-
-    # Write config to package path
-    path = BASE_DIR / "autoresearch" / "core" / "config.py"
-    path.write_text("\n".join(lines), encoding="utf-8")
+    from autoresearch.core import config as _cfg
+    return _cfg.load_config(list(SEARCH_SPACE.keys()) + PASSTHROUGH_PARAMS)
 
 
 def preflight_vram_ok(cfg: dict[str, Any], vram_limit: float | None) -> bool:

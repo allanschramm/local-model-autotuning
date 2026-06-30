@@ -2,6 +2,9 @@
 # The ONLY changeable file for agent tweaks
 # NOTE: CTX_SIZE is frozen at 131072. Min ctx floor = 100k. Never lower it.
 
+from typing import Any
+from pathlib import Path
+
 MODEL = 'gemma-4-12B-it-qat-UD-Q4_K_XL.gguf'
 CTX_SIZE = 131072
 KV_CACHE = 'q4_0'
@@ -41,5 +44,68 @@ LCB_TASK_LIMIT = 10         # LiveCodeBench v6 sample (contamination-free compet
 BIGCODE_TASK_LIMIT = 10     # BigCodeBench Hard sample (library-call tasks)
 EVALPLUS_STRICT = True
 TRIAL_BUDGET = 300
+
+
+# ── Config persistence ────────────────────────────────────────────────────
+
+
+def load_config(params: list[str] | None = None) -> dict[str, Any]:
+    """Hot-reload config.py and return current values as dict."""
+    import importlib
+    import sys
+
+    mod = sys.modules[__name__]
+    importlib.reload(mod)
+    if params is not None:
+        return {p: getattr(mod, p, None) for p in params}
+    return {k: v for k, v in vars(mod).items() if k.isupper() and not k.startswith('_')}
+
+
+def write_config(cfg: dict[str, Any], path: str | Path | None = None) -> None:
+    """Persist config dict back to config.py."""
+    from pathlib import Path
+
+    if path is None:
+        path = Path(__file__).resolve()
+    path = Path(path)
+
+    lines = [
+        "# config.py",
+        "# The ONLY changeable file for agent tweaks",
+        "# NOTE: CTX_SIZE is frozen at 131072. Min ctx floor = 100k. Never lower it.",
+        "",
+    ]
+
+    server_params = [
+        "MODEL", "CTX_SIZE", "KV_CACHE", "KV_CACHE_K", "KV_CACHE_V",
+        "BATCH_SIZE", "UBATCH_SIZE", "THREADS", "THREADS_BATCH",
+        "FLASH_ATTN", "SPEC_TYPE", "SPEC_DRAFT_N_MAX", "NO_MMAP",
+        "JINJA", "REASONING_BUDGET", "REASONING_BUDGET_MESSAGE",
+        "REASONING", "CONT_BATCHING", "N_CPU_MOE",
+    ]
+    for p in server_params:
+        lines.append(f"{p} = {repr(cfg.get(p))}")
+
+    lines.append("")
+    lines.append("# Generation options (Unsloth-corrected for Qwen3.5 thinking mode)")
+    gen_params = [
+        "TEMP", "TOP_P", "MIN_P", "TOP_K",
+        "REPEAT_PENALTY", "PRESENCE_PENALTY", "FREQUENCY_PENALTY",
+    ]
+    for p in gen_params:
+        lines.append(f"{p} = {repr(cfg.get(p))}")
+
+    lines.append("")
+    lines.append("# Benchmarks to run")
+    lines.append(f"INCLUDE_CODING = {repr(cfg.get('INCLUDE_CODING', True))}")
+    lines.append(f"INCLUDE_NEXUS = {repr(cfg.get('INCLUDE_NEXUS', False))}")
+    lines.append(f"INCLUDE_CLAW = {repr(cfg.get('INCLUDE_CLAW', False))}")
+    lines.append(f"CODING_TASK_LIMIT = {cfg.get('CODING_TASK_LIMIT', 10)}  # tasks per dataset for HE+ / MBPP+")
+    lines.append(f"LCB_TASK_LIMIT = {cfg.get('LCB_TASK_LIMIT', 10)}  # LiveCodeBench v6 sample (contamination-free competitive prog)")
+    lines.append(f"BIGCODE_TASK_LIMIT = {cfg.get('BIGCODE_TASK_LIMIT', 10)}  # BigCodeBench Hard sample (library-call tasks)")
+    lines.append(f"EVALPLUS_STRICT = {repr(cfg.get('EVALPLUS_STRICT', True))}")
+    lines.append(f"TRIAL_BUDGET = {cfg.get('TRIAL_BUDGET', 300)}")
+
+    path.write_text("\n".join(lines), encoding="utf-8")
 
 
