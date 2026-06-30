@@ -17,6 +17,7 @@ Repository-wide agent guidelines are owned by the repository developers.
 - Config frozen: Never change any config value without explicit user permission. Never touch ctx_size under any circumstance.
 - Min context 100k: All validation, tuning, and recommendations assume ctx >= 100k. Small-context tests are irrelevant — reject any suggestion to lower ctx. This is a hard floor.
 - No timeouts: Never set execution timeouts on commands unless explicitly told to. Benchmarks and model tests run until completion.
+- Ask first, ship never: When user asks "can we do X?", answer yes/no only. Do not implement unless user explicitly says "do it" / "implement" / "go ahead".
 
 ## Work Guidance
 - Use `/caveman lite|full|ultra|wenyan` for communication style constraint.
