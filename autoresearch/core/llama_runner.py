@@ -208,10 +208,11 @@ class LlamaServerRunner:
             ]
 
         # VITRIOL Optimization: Hardware Necromancy for large MoE models.
-        moe_indicators = ["MOE", "A3B", "A4B", "A1B", "A2B", "8X3B", "8X4B", "10B", "11B", "12B", "13B", "14B", "15B", "16B", "17B", "18B", "19B", "20B", "21B", "22B", "23B", "24B", "25B", "26B", "35B"]
+        # Only match actual MoE architecture patterns, not model size numbers.
+        moe_indicators = ["MOE", "A3B", "A4B", "A1B", "A2B", "8X3B", "8X4B"]
         model_name_up = self.intent.model_path.name.upper()
         is_moe = any(ind in model_name_up for ind in moe_indicators)
-        is_small_dense = any(f"-{x}B" in model_name_up for x in ["2", "4", "7", "8", "9"]) and not ("MOE" in model_name_up or "A1B" in model_name_up)
+        is_small_dense = any(f"-{x}B" in model_name_up for x in ["2", "4", "6", "7", "8", "9", "12"]) and not ("MOE" in model_name_up or "A1B" in model_name_up or "A3B" in model_name_up or "A4B" in model_name_up)
 
         if is_moe and not is_small_dense:
             if self.intent.n_cpu_moe is not None:

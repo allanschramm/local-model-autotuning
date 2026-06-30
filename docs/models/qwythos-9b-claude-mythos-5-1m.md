@@ -26,6 +26,8 @@
 
 Fits entirely in 8 GB with 131k context and flash-attn.
 
+**Hard constraint: ctx >= 100k always.** Small-ctx tests are irrelevant for this model's use case.
+
 ## Batch/Ubatch Sweet Spot (llama-bench 2026-06-30)
 
 **RTX 4060 — Qwythos 9B Q4_K_M — pp512 / tg128:**
@@ -46,29 +48,40 @@ Fits entirely in 8 GB with 131k context and flash-attn.
 
 | Param | Value | Rationale |
 |---|---|---|
-| TEMP | 0.6 | Slightly higher than Ornith baseline for creative tasks |
+| TEMP | 0.6 | Per HF card for Qwythos reasoning model |
 | TOP_P | 0.95 | Default nucleus sampling |
 | TOP_K | 20 | Focused token pool |
 | REPEAT_PENALTY | 1.05 | Light penalty for repetition reduction |
 | BATCH_SIZE | 1024 | Matched with ubatch=256 |
-| UBATCH_SIZE | 256 | Sweet spot on RTX 4060 |
-| SPEC_TYPE | draft-mtp | Uses MTP head for speculative decoding |
-| SPEC_DRAFT_N_MAX | 6 | Draft 6 tokens ahead |
+| UBATCH_SIZE | 256 | Sweet spot on RTX 4060 (llama-bench) |
+| SPEC_TYPE | None | MTP + 131k ctx exceeds 8GB VRAM |
+| SPEC_DRAFT_N_MAX | 0 | Disabled — no VRAM headroom for draft
 
 ## MTP (Multi-Token Prediction)
 
-MTP variant (`Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf`) includes an MTP head. Use with `--spec-type draft-mtp --spec-draft-n-max 6` for speculative decoding — predicts multiple tokens per forward pass, improving overall throughput.
+MTP variant (`Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf`) includes an MTP head.
+Use with `--spec-type draft-mtp --spec-draft-n-max 6` on builds that support it (beellama, upstream llama.cpp).
+
+**Status on RTX 4060 8GB:** MTP + 131k ctx exceeds VRAM.
+- Non-MTP at 131k uses ~7.5 GB already
+- MTP adds model overhead (+0.26 GB) + draft KV cache
+- With `--spec-draft-ctx-size 512`, server loads but throughput collapses (~5 min per task)
+- At 8192 ctx, MTP fits (7.3 GB, 42 TPS) but throughput is _lower_ than non-MTP at 131k
+- **Verdict**: No VRAM headroom for MTP benefit on 8GB card with 131k context
 
 ## Validation Bench (2 tasks each, 2026-06-30)
 
-### ubatch=512/128 baseline
-- Coding Score: 0.1250 (HE: 0.5000, MBPP: 0.0000, LCB: 0.0000, BigCode: 0.0000)
-- TPS: 52.6 / VRAM: 7.3 GB
+All runs with `config.py` defaults unless noted.
 
-### ubatch=1024/256
-- Coding Score: **0.4250** (HE: 0.5000, MBPP: 0.5000, LCB: 0.5000, BigCode: 0.0000)
-- TPS: 51.2 / VRAM: 7.5 GB
-- **3.4× score improvement** over ubatch=512/128
+| Run | Server | Model | Batch/Ubatch | Score | TPS | VRAM |
+|-----|--------|-------|-------------|------|----|------|
+| 1 | turboquant | non-MTP | 512/128 | 0.1250 | 52.6 | 7.3 GB |
+| **2** | **turboquant** | **non-MTP** | **1024/256** | **0.4250** | **51.2** | **7.5 GB** |
+| 3 | beellama | MTP | 1024/256 | timed out | — | — |
+| 4 | beellama | MTP + draft-ctx 512 | 1024/256 | timed out | — | — |
+| 5 | beellama | MTP @ 8k ctx | 1024/256 | 0.1250 | 42.0 | 7.3 GB |
+
+**Winner: Run 2** — non-MTP, 1024/256, turboquant. Score 0.4250 at 51.2 TPS.
 
 ## Config Baseline (2026-06-30)
 
@@ -77,8 +90,8 @@ MODEL = 'Qwythos-9B-Claude-Mythos-5-1M-Q4_K_M.gguf'
 CTX_SIZE = 131072
 BATCH_SIZE = 1024
 UBATCH_SIZE = 256
-SPEC_TYPE = 'draft-mtp'
-SPEC_DRAFT_N_MAX = 6
+SPEC_TYPE = None
+SPEC_DRAFT_N_MAX = 0
 TEMP = 0.6
 TOP_P = 0.95
 TOP_K = 20
@@ -86,4 +99,7 @@ REPEAT_PENALTY = 1.05
 ```
 
 ## Tuning History
-- 2026-06-30: Initial validation, llama-bench sweep, MTP enabled
+- 2026-06-30: Initial validation (512/128 → 0.1250)
+- 2026-06-30: Batch sweep (1024/256 → 0.4250, 3.4× improvement)
+- 2026-06-30: llama-bench ubatch sweep (ub=256 is sweet spot)
+- 2026-06-30: MTP tested — no VRAM headroom on 8GB at 131k ctx

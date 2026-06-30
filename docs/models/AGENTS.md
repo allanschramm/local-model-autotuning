@@ -49,6 +49,7 @@ One markdown file per GGUF model we run on this rig. Cards are the canonical loc
 
 ## Child DOX Index
 - [README.md](README.md) — quick index (kept for human readers; auto-mirror of this list).
+- [gemma-4-12b.md](gemma-4-12b.md) — Gemma-4-12B (UD-Q4_K_XL, 6.3 GB).
 - [qwythos-9b-claude-mythos-5-1m.md](qwythos-9b-claude-mythos-5-1m.md) — Qwythos-9B-Claude-Mythos-5-1M (Q4_K_M + MTP-Q4_K_M, 5.3 GB each).
 - [qwen3.6-35b-a3b.md](qwen3.6-35b-a3b.md) — Qwen3.6-35B-A3B (UD-Q4_K_M, 22.1 GB).
 - [gemma-4-26b-a4b.md](gemma-4-26b-a4b.md) — Gemma-4-26B-A4B-it (UD-Q4_K_M, 16.2 GB).
