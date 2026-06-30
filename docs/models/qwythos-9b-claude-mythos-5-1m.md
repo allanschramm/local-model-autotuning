@@ -1,0 +1,89 @@
+# Qwythos-9B-Claude-Mythos-5-1M — Model Card (Local)
+
+**Source repo:** https://huggingface.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF
+**License:** Apache-2.0
+**Local files:**
+- `models/Qwythos-9B-Claude-Mythos-5-1M-Q4_K_M.gguf` (5.3 GB)
+- `models/Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf` (MTP variant, ~5.3 GB)
+**Family:** Qwythos (based on Qwen 3.5 architecture)
+**Quantization:** `Q4_K_M` (file_type=15)
+
+## Architecture (from GGUF metadata)
+- Causal LM (hybrid Attention + SSM — Qwen 3.5 arch)
+- **`block_count` = 32 layers**
+- Hidden **4096**, context **1,048,576** (1M tokens)
+- **Hybrid Attention + SSM (Mamba-2 style)**:
+  - `full_attention_interval = 4` — every 4th layer is full attention
+  - SSM: `conv_kernel=4`, `state_size=128`, `group_count=16`, `time_step_rank=32`, `inner_size=4096`
+  - 8 full attention layers, 24 SSM layers
+- `rope.freq_base = 10,000,000`
+- **MTP support**: MTP variant includes multi-token prediction head for speculative decoding
+
+## Hardware Requirements (RTX 4060 8GB)
+| Quant | Size | VRAM (idle) | VRAM (131k ctx) |
+|---|---|---|---|
+| Q4_K_M | 5.3 GB | ~5.5 GB | ~7.5 GB |
+
+Fits entirely in 8 GB with 131k context and flash-attn.
+
+## Batch/Ubatch Sweet Spot (llama-bench 2026-06-30)
+
+**RTX 4060 — Qwythos 9B Q4_K_M — pp512 / tg128:**
+
+| ubatch | pp512 (t/s) | tg128 (t/s) |
+|-------:|-----------:|----------:|
+| 64     | 1480.68    | **50.16** |
+| 128    | 1814.17    | 42.15     |
+| **256** | **1922.61** | **49.75** |
+| 512    | 1939.81    | 41.03     |
+| 1024   | 1529.87    | 41.50     |
+| 2048   | 1917.10    | 48.98     |
+| 4096   | 1849.93    | 42.12     |
+
+**Winner: ubatch=256** — best balance of prompt processing (1922 t/s) and text generation (49.8 t/s). ubatch=512 gives +1% pp speed but loses 18% tg speed.
+
+## Recommended Settings
+
+| Param | Value | Rationale |
+|---|---|---|
+| TEMP | 0.6 | Slightly higher than Ornith baseline for creative tasks |
+| TOP_P | 0.95 | Default nucleus sampling |
+| TOP_K | 20 | Focused token pool |
+| REPEAT_PENALTY | 1.05 | Light penalty for repetition reduction |
+| BATCH_SIZE | 1024 | Matched with ubatch=256 |
+| UBATCH_SIZE | 256 | Sweet spot on RTX 4060 |
+| SPEC_TYPE | draft-mtp | Uses MTP head for speculative decoding |
+| SPEC_DRAFT_N_MAX | 6 | Draft 6 tokens ahead |
+
+## MTP (Multi-Token Prediction)
+
+MTP variant (`Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf`) includes an MTP head. Use with `--spec-type draft-mtp --spec-draft-n-max 6` for speculative decoding — predicts multiple tokens per forward pass, improving overall throughput.
+
+## Validation Bench (2 tasks each, 2026-06-30)
+
+### ubatch=512/128 baseline
+- Coding Score: 0.1250 (HE: 0.5000, MBPP: 0.0000, LCB: 0.0000, BigCode: 0.0000)
+- TPS: 52.6 / VRAM: 7.3 GB
+
+### ubatch=1024/256
+- Coding Score: **0.4250** (HE: 0.5000, MBPP: 0.5000, LCB: 0.5000, BigCode: 0.0000)
+- TPS: 51.2 / VRAM: 7.5 GB
+- **3.4× score improvement** over ubatch=512/128
+
+## Config Baseline (2026-06-30)
+
+```python
+MODEL = 'Qwythos-9B-Claude-Mythos-5-1M-Q4_K_M.gguf'
+CTX_SIZE = 131072
+BATCH_SIZE = 1024
+UBATCH_SIZE = 256
+SPEC_TYPE = 'draft-mtp'
+SPEC_DRAFT_N_MAX = 6
+TEMP = 0.6
+TOP_P = 0.95
+TOP_K = 20
+REPEAT_PENALTY = 1.05
+```
+
+## Tuning History
+- 2026-06-30: Initial validation, llama-bench sweep, MTP enabled

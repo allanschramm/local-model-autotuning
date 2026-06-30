@@ -4,6 +4,7 @@ Local model cards for GGUF models we run on this rig.
 Pattern: 1 card per model, with hardware reqs, sampling, MTP status, and local config baseline.
 
 Cards:
+- [Qwythos-9B-Claude-Mythos-5-1M](qwythos-9b-claude-mythos-5-1m.md)
 - [Qwen3.6-35B-A3B](qwen3.6-35b-a3b.md)
 - [Gemma-4-26B-A4B](gemma-4-26b-a4b.md)
 - [VITRIOL technique](vitriol-technique.md) — the Codacus MoE-split strategy
