@@ -1,6 +1,5 @@
 import sys
 import csv
-import json
 import time
 import argparse
 import subprocess
@@ -8,72 +7,13 @@ import itertools
 from pathlib import Path
 from typing import Dict, Any
 
-from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent, resolve_llama_bench
-from autoresearch.core.llama_client import LlamaClient
-from autoresearch.benchmarks.benchmark_harness import BenchmarkResult
 from autoresearch.core import config
 
-from autoresearch.benchmarks.benchmark_coding import run_benchmark as run_coding
+from autoresearch.runners.evaluation import ExperimentRunner, BENCH_TPS_THRESHOLD
 
 BASE_DIR = Path(__file__).resolve().parent
 RESULTS_FILE = BASE_DIR.parent.parent / "results.tsv"
 MODELS_DIR = BASE_DIR.parent.parent / "models"
-
-# ── llama-bench defaults ────────────────────────────────────────────────
-BENCH_TPS_THRESHOLD = 30.0  # min tg t/s from llama-bench (real TPS floor 20.0, bench is ~1.2-1.5x higher)
-BENCH_N_PROMPT = 512
-BENCH_N_GEN = 128
-
-
-def run_llama_bench_validation(
-    model_path: Path,
-    ngl: int = 99,
-    threads: int = 8,
-    batch_size: int = 512,
-    ubatch_size: int = 128,
-    flash_attn: str = "on",
-    cache_type_k: str = "q4_0",
-    cache_type_v: str = "q4_0",
-    n_prompt: int = BENCH_N_PROMPT,
-    n_gen: int = BENCH_N_GEN,
-) -> float:
-    """Run llama-bench with given config. Returns tg t/s. Raises on failure."""
-    llama_bench = resolve_llama_bench()
-
-    cmd = [
-        str(llama_bench),
-        "-m", str(model_path),
-        "-p", str(n_prompt),
-        "-n", str(n_gen),
-        "-t", str(threads),
-        "-ngl", str(ngl),
-        "-b", str(batch_size),
-        "-ub", str(ubatch_size),
-        "-fa", flash_attn,
-        "-ctk", cache_type_k,
-        "-ctv", cache_type_v,
-        "-o", "json",
-        "-r", "3",
-    ]
-
-    print(f"  [bench] {' '.join(str(a) for a in cmd)}")
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-    if result.returncode != 0:
-        raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
-
-    data = json.loads(result.stdout)
-    tg_tps = 0.0
-    for entry in data:
-        n_g = entry.get("n_gen", 0)
-        n_p = entry.get("n_prompt", 0)
-        if n_g > 0 and n_p == 0:
-            tg_tps = entry.get("avg_ts", 0.0)
-            break
-
-    if tg_tps == 0.0:
-        raise RuntimeError(f"llama-bench returned no tg result: {result.stdout[:300]}")
-
-    return tg_tps
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Unified AutoResearch Benchmark Runner")
@@ -171,17 +111,10 @@ def get_previous_best(results_file: Path, model_name: str | None = None) -> floa
 
 def write_row(results_file: Path, commit: str, val_score: float, swe_score: float, he_score: float, mbpp_score: float, memory_gb: float, status: str, description: str, lcb_score: float = 0.0, bigcode_score: float = 0.0):
     fieldnames = ["commit", "val_score", "swe_score", "lcb_score", "he_score", "mbpp_score", "bigcode_score", "memory_gb", "status", "description"]
-    file_exists = results_file.exists() and results_file.stat().st_size > 0
-    needs_header = True
-    if file_exists:
-        # Check if header already has the new columns; if not, rewrite the file
-        with open(results_file, "r", newline="") as f:
-            existing_header = f.readline().strip().split("\t")
-        if existing_header == fieldnames:
-            needs_header = False
+    new_file = not results_file.exists() or results_file.stat().st_size == 0
     with open(results_file, "a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter="\t")
-        if needs_header:
+        if new_file:
             writer.writeheader()
         writer.writerow({
             "commit": commit,
@@ -197,155 +130,27 @@ def write_row(results_file: Path, commit: str, val_score: float, swe_score: floa
         })
 
 def run_evaluation(cfg: dict | Any, skip_bench: bool = False, **overrides) -> Dict[str, Any]:
-    intent, norm = ServerIntent.from_config(cfg, MODELS_DIR, **overrides)
-    model_filename = intent.model_path.name
+    """Run one trial and return results as a dict (backward-compat wrapper).
 
-    max_tokens = norm.get("max_tokens", 1024)
-    include_coding = norm.get("include_coding", True)
-    task_limit_val = norm.get("coding_task_limit", getattr(config, "CODING_TASK_LIMIT", 10))
-    lcb_limit_val = norm.get("lcb_task_limit", getattr(config, "LCB_TASK_LIMIT", 10))
-    bigcode_limit_val = norm.get("bigcode_task_limit", getattr(config, "BIGCODE_TASK_LIMIT", 10))
-    context_tokens_val = norm.get("context_tokens", 8192)
-    trial_budget = norm.get("trial_budget")
-
-    # ── Pre-check: llama-bench validation ────────────────────────────────
-    bench_tts_threshold = norm.get("bench_tts_threshold", BENCH_TPS_THRESHOLD)
-    is_validation = norm.get("validation", False)
-
-    res = {
-        "status": "OK",
-        "coding_val": 0.0, "coding_vram": 0.0,
-        "he_val": 0.0, "mbpp_val": 0.0, "swe_val": 0.0,
-        "val_score": 0.0, "avg_tps": 0.0, "peak_vram_gb": 0.0,
-        "bench_tg_tps": 0.0,
+    New code should use ExperimentRunner.run_trial() directly for a typed TrialResult.
+    """
+    runner = ExperimentRunner(MODELS_DIR)
+    tr = runner.run_trial(cfg, skip_bench=skip_bench, **overrides)
+    return {
+        "status": tr.status,
+        "val_score": tr.val_score,
+        "coding_val": tr.coding_val,
+        "coding_tps": tr.coding_tps,
+        "lcb_val": tr.lcb_val,
+        "he_val": tr.he_val,
+        "mbpp_val": tr.mbpp_val,
+        "bigcode_val": tr.bigcode_val,
+        "swe_val": tr.swe_val,
+        "avg_tps": tr.avg_tps,
+        "peak_vram_gb": tr.peak_vram_gb,
+        "bench_tg_tps": tr.bench_tg_tps,
+        "bench_pp_tps": tr.bench_pp_tps,
     }
-
-    if not skip_bench:
-        try:
-            bench_tg = run_llama_bench_validation(
-                model_path=intent.model_path,
-                ngl=intent.ngl,
-                threads=intent.threads,
-                batch_size=intent.batch_size,
-                ubatch_size=intent.ubatch_size,
-                flash_attn=intent.flash_attn,
-                cache_type_k=intent.kv_cache_k or intent.kv_cache,
-                cache_type_v=intent.kv_cache_v or intent.kv_cache,
-                n_prompt=BENCH_N_PROMPT,
-                n_gen=BENCH_N_GEN,
-            )
-        except FileNotFoundError as e:
-            print(f"  [FAIL] llama-bench not found: {e}")
-            res["status"] = f"FAIL: llama-bench not found"
-            return res
-        except subprocess.CalledProcessError as e:
-            print(f"  [FAIL] llama-bench crashed: {e}")
-            res["status"] = f"FAIL: llama-bench crashed"
-            return res
-        except Exception as e:
-            print(f"  [FAIL] llama-bench error: {e}")
-            res["status"] = f"FAIL: llama-bench error: {str(e)[:50]}"
-            return res
-
-        res["bench_tg_tps"] = bench_tg
-        print(f"  [bench] tg {BENCH_N_GEN}: {bench_tg:.1f} t/s")
-
-        if bench_tg < bench_tts_threshold:
-            print(f"  [FAIL] llama-bench tg {bench_tg:.1f} t/s below threshold {bench_tts_threshold:.1f}")
-            res["status"] = f"FAIL: bench tg {bench_tg:.1f} < threshold {bench_tts_threshold:.1f}"
-            return res
-
-        if is_validation:
-            print(f"  [OK] Validation passed: tg {bench_tg:.1f} t/s >= {bench_tts_threshold:.1f}")
-            res["avg_tps"] = bench_tg
-            res["val_score"] = 1.0 if bench_tg >= bench_tts_threshold else 0.0
-            return res
-
-    # ── Full evaluation ──────────────────────────────────────────────────
-    server_log = BASE_DIR / "llama_server.log"
-    if server_log.exists():
-        try:
-            server_log.unlink()
-        except OSError:
-            pass
-
-    res["peak_vram_gb"] = 0.0  # will be set after coding
-    
-    gen_kwargs = {
-        "temp": norm.get("temp", 0.2),
-        "top_p": norm.get("top_p"),
-        "min_p": norm.get("min_p"),
-        "top_k": norm.get("top_k"),
-        "repeat_penalty": norm.get("repeat_penalty"),
-        "presence_penalty": norm.get("presence_penalty"),
-        "frequency_penalty": norm.get("frequency_penalty"),
-    }
-    gen_kwargs = {k: v for k, v in gen_kwargs.items() if v is not None}
-    
-    trial_start = time.time()
-    timeout_at = trial_start + trial_budget if trial_budget else None
-
-    try:
-        with LlamaServerRunner(intent, log_path=server_log) as runner:
-            client = LlamaClient(runner.port)
-            system_prefix = "<|think|>\n"
-            
-            # 1. Coding (HumanEval + MBPP + SWE stub)
-            
-            # 3. Coding (If Enabled)
-            if include_coding:
-                print(f"  [coding] Running (limit={task_limit_val}, lcb_limit={lcb_limit_val}, bigcode_limit={bigcode_limit_val})...")
-                coding_res = run_coding(
-                    client,
-                    is_test=False,
-                    model_name=model_filename,
-                    task_limit=task_limit_val,
-                    lcb_task_limit=lcb_limit_val,
-                    bigcode_task_limit=bigcode_limit_val,
-                    timeout_at=timeout_at,
-                    max_tokens=max_tokens,
-                    **gen_kwargs,
-                )
-                res["coding_val"] = coding_res.val_score
-                res["coding_vram"] = runner.peak_vram_mb
-                res["coding_tps"] = coding_res.avg_tps
-                # Pass field layout (see benchmark_coding.run_benchmark):
-                #   val_pass1 = LCB, val_pass2 = HE, val_pass3 = MBPP, val_pass4 = BigCode
-                res["lcb_val"] = getattr(coding_res, "val_pass1", 0.0)
-                res["he_val"] = getattr(coding_res, "val_pass2", 0.0)
-                res["mbpp_val"] = getattr(coding_res, "val_pass3", 0.0)
-                res["bigcode_val"] = getattr(coding_res, "val_pass4", 0.0)
-                # Keep legacy swe_val slot (unused) populated with 0 for results.tsv compat
-                res["swe_val"] = 0.0
-            
-            # Compute combined metrics
-            tps_list = []
-            if include_coding and res.get("coding_tps", 0) > 0:
-                tps_list.append(res["coding_tps"])
-                
-            if tps_list:
-                avg_tps = sum(tps_list) / len(tps_list)
-                res["avg_tps"] = avg_tps
-                if avg_tps < 20.0:
-                    print(f"  [WARNING] Combined TPS {avg_tps:.2f} is below 20.0! Score set to 0.0.")
-                    res["val_score"] = 0.0
-                    return res
-            else:
-                res["avg_tps"] = 0.0
-                
-            res["peak_vram_gb"] = max(runner.peak_vram_mb, 0.0) / 1024.0
-            
-            # Normalize weights: Coding = 100% (SWE 40%, HumanEval 30%, MBPP 30%)
-            # Currently benchmark_coding returns the average of HumanEval and MBPP as val_score.
-            # SWE will be added in benchmark_coding later.
-            res["val_score"] = res.get("coding_val", 0.0)
-                
-    except Exception as e:
-        print(f"  [FAIL] Evaluation failed: {e}")
-        res["status"] = f"FAIL: {str(e)[:50]}"
-        res["val_score"] = 0.0
-        
-    return res
 
 def handle_single_run(args):
     if not args.desc:
@@ -443,34 +248,33 @@ def handle_single_run(args):
             print("    git checkout . && git clean -fd")
 
 def handle_grid_run(args):
+    """Run a multidimensional sweep over comma-separated grid parameters."""
+    def _g(attr, default):
+        """Grid param: comma-separated string → list of strings, or [default]."""
+        raw = getattr(args, attr, None)
+        return [x.strip() for x in raw.split(",") if x.strip()] if isinstance(raw, str) else [default]
+
+    def _fa(attr, default):
+        """Safe getattr: skip MagicMock auto-created attrs, return default instead."""
+        v = getattr(args, attr, None)
+        return v if isinstance(v, (int, str, type(None), float, bool)) else default
+
     print("Starting multidimensional grid sweep...")
     
-    grid_kvs = args.grid_kvs if isinstance(getattr(args, "grid_kvs", None), str) else None
-    kvs = [k.strip() for k in grid_kvs.split(",") if k.strip()] if grid_kvs else [args.kv]
-    
-    grid_max_tokens = args.grid_max_tokens if isinstance(getattr(args, "grid_max_tokens", None), str) else "1024"
-    max_tokens_list = [int(m.strip()) for m in grid_max_tokens.split(",") if m.strip()]
-    
-    grid_kvs_k = args.grid_kvs_k if isinstance(getattr(args, "grid_kvs_k", None), str) else None
-    kvs_k = [k.strip() for k in grid_kvs_k.split(",") if k.strip()] if grid_kvs_k else [None]
-    
-    grid_kvs_v = args.grid_kvs_v if isinstance(getattr(args, "grid_kvs_v", None), str) else None
-    kvs_v = [v.strip() for v in grid_kvs_v.split(",") if v.strip()] if grid_kvs_v else [None]
-    
-    grid_threads = args.grid_threads if isinstance(getattr(args, "grid_threads", None), str) else None
-    threads_list = [int(t.strip()) for t in grid_threads.split(",") if t.strip()] if grid_threads else [args.threads if isinstance(getattr(args, "threads", None), int) else 12]
-    
-    grid_threads_batch = args.grid_threads_batch if isinstance(getattr(args, "grid_threads_batch", None), str) else None
-    threads_batch_list = [int(tb.strip()) for tb in grid_threads_batch.split(",") if tb.strip()] if grid_threads_batch else [args.threads_batch if isinstance(getattr(args, "threads_batch", None), int) else None]
-    
-    grid_batch_sizes = args.grid_batch_sizes if isinstance(getattr(args, "grid_batch_sizes", None), str) else None
-    batch_sizes = [int(b.strip()) for b in grid_batch_sizes.split(",") if b.strip()] if grid_batch_sizes else [args.batch_size if isinstance(getattr(args, "batch_size", None), int) else 512]
-    
-    grid_ubatch_sizes = args.grid_ubatch_sizes if isinstance(getattr(args, "grid_ubatch_sizes", None), str) else None
-    ubatch_sizes = [int(u.strip()) for u in grid_ubatch_sizes.split(",") if u.strip()] if grid_ubatch_sizes else [args.ubatch_size if isinstance(getattr(args, "ubatch_size", None), int) else 128]
-    
-    grid_spec_draft_n_max = args.grid_spec_draft_n_max if isinstance(getattr(args, "grid_spec_draft_n_max", None), str) else None
-    spec_draft_list = [int(s.strip()) for s in grid_spec_draft_n_max.split(",") if s.strip()] if grid_spec_draft_n_max else [args.spec_draft_n_max if isinstance(getattr(args, "spec_draft_n_max", None), int) else 1]
+    kvs = _g("grid_kvs", args.kv)
+    max_tokens_list = [int(x) for x in _g("grid_max_tokens", "1024")]
+    kvs_k = _g("grid_kvs_k", None)
+    kvs_v = _g("grid_kvs_v", None)
+    threads_list = [int(x) for x in _g("grid_threads", _fa("threads", 12))]
+    tb_raw = getattr(args, "grid_threads_batch", None)
+    threads_batch_list = (
+        [int(x.strip()) for x in tb_raw.split(",") if x.strip()]
+        if isinstance(tb_raw, str) else
+        [_fa("threads_batch", None)]
+    )
+    batch_sizes = [int(x) for x in _g("grid_batch_sizes", _fa("batch_size", 512))]
+    ubatch_sizes = [int(x) for x in _g("grid_ubatch_sizes", _fa("ubatch_size", 128))]
+    spec_draft_list = [int(x) for x in _g("grid_spec_draft_n_max", _fa("spec_draft_n_max", 1))]
 
     commit = get_git_commit()
     

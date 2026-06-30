@@ -19,7 +19,8 @@ from typing import Any
 
 from autoresearch.core.llama_runner import estimate_vram_mb
 from autoresearch.core.config import load_config, write_config
-from autoresearch.runners.run import run_evaluation, get_git_commit, write_row, RESULTS_FILE, MODELS_DIR
+from autoresearch.runners.run import get_git_commit, write_row, RESULTS_FILE, MODELS_DIR
+from autoresearch.runners.evaluation import ExperimentRunner
 from autoresearch.core.search import SearchStrategy
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -89,18 +90,7 @@ def preflight_vram_ok(cfg: dict[str, Any], vram_limit: float | None) -> bool:
     est = estimate_vram_mb(MODELS_DIR / model, ctx, kv_k, kv_v)
     return est <= vram_limit
 
-def evaluate(cfg: dict[str, Any], trial_budget: float | None = None) -> dict[str, Any]:
-    """Run full benchmark suite with given config."""
-    defaults = {
-        "port": 18080,
-        "host": "127.0.0.1",
-        "parallel": 1,
-        "ngl": 99,
-        "max_tokens": 1024,
-        "context_tokens": 8192,
-    }
-    merged = {**defaults, **cfg}
-    return run_evaluation(merged, trial_budget=trial_budget)
+
 
 def load_visited() -> set[str]:
     """Load previously visited configs from disk."""
@@ -205,6 +195,15 @@ def main():
     visited = load_visited()
     print(f"[AUTOLOOP] Loaded {len(visited)} previously visited configs.")
 
+    runner = ExperimentRunner(MODELS_DIR)
+    _defaults = {
+        "port": 18080,
+        "host": "127.0.0.1",
+        "parallel": 1,
+        "ngl": 99,
+        "max_tokens": 1024,
+        "context_tokens": 8192,
+    }
     search_strategy = SearchStrategy(SEARCH_SPACE, use_pareto_tiebreaker=True)
 
     for model_name in selected_models:
@@ -240,10 +239,10 @@ def main():
 
             # ── Step 2: Evaluate baseline ────────────────────────────────
             print("\n[EVAL] Running baseline benchmarks...")
-            baseline_res = evaluate(baseline_cfg, trial_budget=trial_budget_sec)
-            baseline_score = baseline_res.get("val_score", 0.0)
-            baseline_tps = baseline_res.get("avg_tps", 0.0)
-            baseline_vram = baseline_res.get("peak_vram_gb", 0.0)
+            baseline_res = runner.run_trial({**_defaults, **baseline_cfg}, trial_budget=trial_budget_sec)
+            baseline_score = baseline_res.val_score
+            baseline_tps = baseline_res.avg_tps
+            baseline_vram = baseline_res.peak_vram_gb
 
             commit = get_git_commit()
             write_row(
@@ -282,10 +281,10 @@ def main():
                     continue
 
                 print(f"\n  [EVAL] Trying {changed}: {old_val} → {new_val}")
-                res = evaluate(neighbor.config, trial_budget=trial_budget_sec)
-                score = res.get("val_score", 0.0)
-                tps = res.get("avg_tps", 0.0)
-                vram = res.get("peak_vram_gb", 0.0)
+                res = runner.run_trial({**_defaults, **neighbor.config}, trial_budget=trial_budget_sec)
+                score = res.val_score
+                tps = res.avg_tps
+                vram = res.peak_vram_gb
 
                 delta = score - baseline_score
                 

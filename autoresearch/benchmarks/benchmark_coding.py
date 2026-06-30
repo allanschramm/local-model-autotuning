@@ -63,13 +63,6 @@ def parse_args():
 _THINK_CLOSED_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
 _THINK_OPEN_RE = re.compile(r"<think>.*$", re.DOTALL)
 _FENCE_RE = re.compile(r"```(?:python|py)?[ \t]*\n(.*?)```", re.DOTALL)
-# Lines that look like Python code (start of statement / decorator / continuation)
-_CODE_LINE_PREFIXES = (
-    "def ", "class ", "import ", "from ", "if __name__",
-    "@", "async def ", "with ", "try:", "for ", "while ",
-    "print(", "return ", "raise ", "yield ",
-    "n =", "x =", "a, b =", "a,b=", "result ", "out ",
-)
 
 
 def _strip_empty_lines(s: str) -> str:
@@ -86,51 +79,20 @@ def _strip_empty_lines(s: str) -> str:
 
 
 def _strip_code(text: str) -> str:
-    """
-    Extract Python code from a model response, handling thinking-model output.
-
-    Handles (in order):
-      1. <think>...</think> blocks (closed) - stripped.
-      2. Unclosed <think> (truncated thinking) - stripped from <think> to end of text.
-      3. Markdown fences ```python ... ``` or ``` ... ``` - extracted.
-      4. Plain code with no fence - returned as-is, or extracted from the
-         first code-looking line if a prose prefix is present.
-      5. Empty / think-only responses - returns "" (caller treats as "no code").
-    """
+    """Extract Python code from model response. Strips think blocks, extracts fenced code."""
     if not text:
         return ""
-    text = _strip_empty_lines(text)
-
-    # 1) Strip closed <think>...</think> blocks (handles multiple, non-greedy).
+    # Strip <think>...</think> blocks (closed or truncated).
     text = _THINK_CLOSED_RE.sub("", text)
-    # 2) Strip unclosed <think> block (truncated thinking, no code emitted).
     text = _THINK_OPEN_RE.sub("", text)
     text = _strip_empty_lines(text)
-
     if not text:
         return ""
-
-    # 3) Fenced code block.
+    # Fenced code block.
     m = _FENCE_RE.search(text)
     if m:
         return _strip_empty_lines(m.group(1))
-
-    # 4) No fence. If first non-empty line looks like Python, return whole text.
-    first = next((ln for ln in text.splitlines() if ln.strip()), "")
-    if any(first.lstrip().startswith(p) for p in _CODE_LINE_PREFIXES):
-        return text
-
-    # 5) Prose prefix: scan for the first line that looks like Python.
-    lines = text.splitlines()
-    code_start = None
-    for i, line in enumerate(lines):
-        if any(line.lstrip().startswith(p) for p in _CODE_LINE_PREFIXES):
-            code_start = i
-            break
-    if code_start is not None:
-        return _strip_empty_lines("\n".join(lines[code_start:]))
-
-    # Last resort: return as-is. Let the test runner surface the syntax error.
+    # No fence: return dedented text as-is.
     return text
 
 

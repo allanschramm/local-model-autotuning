@@ -1,9 +1,9 @@
 import unittest
 from unittest.mock import MagicMock, patch
-from autoresearch.benchmarks.benchmark_harness import BenchmarkHarness, EvalTask, BenchmarkResult, build_context_padding
+from autoresearch.benchmarks.benchmark_harness import BenchmarkHarness, BenchmarkResult, build_context_padding
 from autoresearch.core.llama_client import LlamaClient
 
-class DummyTask(EvalTask):
+class DummyTask:
     def __init__(self, id="test-task"):
         self.id = id
         self.p1_called = 0

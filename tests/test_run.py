@@ -7,9 +7,9 @@ import csv
 
 class TestRun(unittest.TestCase):
 
-    @patch("autoresearch.runners.run.run_llama_bench_validation", return_value=45.0)
-    @patch("autoresearch.runners.run.LlamaServerRunner")
-    @patch("autoresearch.runners.run.run_coding")
+    @patch("autoresearch.runners.evaluation.run_llama_bench_validation", return_value=45.0)
+    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
+    @patch("autoresearch.runners.evaluation.run_coding")
     @patch("autoresearch.runners.run.get_git_commit")
     @patch("autoresearch.runners.run.open", new_callable=mock_open)
     def test_single_run_improved(self, mock_file, mock_commit, mock_coding, mock_runner, mock_bench):
@@ -44,9 +44,9 @@ class TestRun(unittest.TestCase):
         # File should have been opened for appending
         mock_file.assert_called_with(run.RESULTS_FILE, "a", newline="")
 
-    @patch("autoresearch.runners.run.run_llama_bench_validation", return_value=45.0)
-    @patch("autoresearch.runners.run.LlamaServerRunner")
-    @patch("autoresearch.runners.run.run_coding")
+    @patch("autoresearch.runners.evaluation.run_llama_bench_validation", return_value=45.0)
+    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
+    @patch("autoresearch.runners.evaluation.run_coding")
     @patch("autoresearch.runners.run.get_git_commit")
     @patch("autoresearch.runners.run.open", new_callable=mock_open)
     def test_grid_run(self, mock_file, mock_commit, mock_coding, mock_runner, mock_bench):
@@ -110,8 +110,8 @@ class TestRun(unittest.TestCase):
         # Combinations: 2 (kvs_k) * 1 (kvs_v) * 2 (max_tokens) * 2 (threads) * 2 (threads_batch) * 1 (batch) * 1 (ubatch) * 2 (spec_draft) = 32
         self.assertEqual(mock_eval.call_count, 32)
 
-    @patch("autoresearch.runners.run.LlamaServerRunner")
-    @patch("autoresearch.runners.run.run_coding")
+    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
+    @patch("autoresearch.runners.evaluation.run_coding")
     def test_run_evaluation_without_coding(self, mock_coding, mock_runner):
         # Setup mocks
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
@@ -137,9 +137,9 @@ class TestRun(unittest.TestCase):
         
         # Check val_score is 0 when coding disabled
         self.assertEqual(res["coding_val"], 0.0)
-    @patch("autoresearch.runners.run.run_llama_bench_validation", return_value=42.0)
-    @patch("autoresearch.runners.run.LlamaServerRunner")
-    @patch("autoresearch.runners.run.run_coding")
+    @patch("autoresearch.runners.evaluation.run_llama_bench_validation", return_value=42.0)
+    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
+    @patch("autoresearch.runners.evaluation.run_coding")
     def test_run_evaluation_validation_mode(self, mock_coding, mock_runner, mock_bench):
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
         

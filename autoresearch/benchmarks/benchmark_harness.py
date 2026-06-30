@@ -3,7 +3,7 @@ import time
 import json
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Protocol, Tuple, Optional
+from typing import Any, Dict, List, Tuple, Optional
 from autoresearch.core.llama_client import LlamaClient
 
 @dataclass
@@ -17,16 +17,6 @@ class BenchmarkResult:
     total_seconds: float = 0.0
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-class EvalTask(Protocol):
-    """Polymorphic interface for an evaluation unit (supports agentic multi-turn)."""
-    id: str
-    def get_initial_prompt(self, pass_num: int, padding: str = "") -> str: ...
-    def get_tools(self, pass_num: int) -> List[Dict[str, Any]]: ...
-    def process_step(self, pass_num: int, response: str, tool_calls: List[Dict[str, Any]]) -> Optional[str]: 
-        """Return tool result to continue loop, or None to finish."""
-        ...
-    def get_final_score(self, pass_num: int) -> float: ...
-
 class BenchmarkHarness:
     """Deep module for Dual-Pass evaluation orchestration with agentic support."""
     def __init__(self, client: LlamaClient, target_tps: float = 20.0, p1_weight: float = 0.55):
@@ -35,7 +25,7 @@ class BenchmarkHarness:
         self.p1_weight = p1_weight
         self.p2_weight = 1.0 - p1_weight
 
-    def _run_task_loop(self, task: EvalTask, pass_num: int, padding: str = "", max_steps: int = 8, **kwargs) -> Tuple[float, int]:
+    def _run_task_loop(self, task: Any, pass_num: int, padding: str = "", max_steps: int = 8, **kwargs) -> Tuple[float, int]:
         timeout_at = kwargs.get("timeout_at")
         prompt = task.get_initial_prompt(pass_num, padding)
         prompt = kwargs.pop("system_prefix", "") + prompt
@@ -74,7 +64,7 @@ class BenchmarkHarness:
 
     def evaluate(
         self, 
-        tasks: List[EvalTask], 
+        tasks: List[Any], 
         context_padding: str = "",
         system_prefix: str = "",
         **kwargs

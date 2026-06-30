@@ -87,8 +87,8 @@ class TestAdversarialChallenger(unittest.TestCase):
         self.assertIsNotNone(val)
         self.assertAlmostEqual(val, 4344.8)
 
-    @patch("autoresearch.runners.run.LlamaServerRunner")
-    @patch("autoresearch.runners.run.run_coding")
+    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
+    @patch("autoresearch.runners.evaluation.run_coding")
     def test_run_evaluation_crashy_config_property(self, mock_coding, mock_runner):
         """Check that run_evaluation does not crash when a property raises a non-AttributeError exception."""
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
@@ -101,8 +101,8 @@ class TestAdversarialChallenger(unittest.TestCase):
         intent = mock_runner.call_args[0][0]
         self.assertEqual(intent.model_path.name, "g4-opt-it-Q4_K_M.gguf")
 
-    @patch("autoresearch.runners.run.LlamaServerRunner")
-    @patch("autoresearch.runners.run.run_coding")
+    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
+    @patch("autoresearch.runners.evaluation.run_coding")
     def test_run_evaluation_dict_non_string_keys(self, mock_coding, mock_runner):
         """Check if run_evaluation handles dicts with non-string keys safely."""
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
@@ -116,8 +116,8 @@ class TestAdversarialChallenger(unittest.TestCase):
         intent = mock_runner.call_args[0][0]
         self.assertEqual(intent.model_path.name, "model-from-dict.gguf")
 
-    @patch("autoresearch.runners.run.LlamaServerRunner")
-    @patch("autoresearch.runners.run.run_coding")
+    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
+    @patch("autoresearch.runners.evaluation.run_coding")
     def test_run_evaluation_none_config(self, mock_coding, mock_runner):
         """Check if run_evaluation handles None config safely."""
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
@@ -126,8 +126,8 @@ class TestAdversarialChallenger(unittest.TestCase):
         intent = mock_runner.call_args[0][0]
         self.assertEqual(intent.model_path.name, "fallback-override.gguf")
 
-    @patch("autoresearch.runners.run.LlamaServerRunner")
-    @patch("autoresearch.runners.run.run_coding")
+    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
+    @patch("autoresearch.runners.evaluation.run_coding")
     def test_run_evaluation_list_config(self, mock_coding, mock_runner):
         """Check if run_evaluation handles list config safely."""
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
@@ -148,8 +148,8 @@ class TestAdversarialChallenger(unittest.TestCase):
         self.assertIsNotNone(val)
         self.assertAlmostEqual(val, 4344.8)
 
-    @patch("autoresearch.runners.run.LlamaServerRunner")
-    @patch("autoresearch.runners.run.run_coding")
+    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
+    @patch("autoresearch.runners.evaluation.run_coding")
     def test_run_evaluation_bad_key(self, mock_coding, mock_runner):
         """Verify run_evaluation does not crash on dict with a key that raises on __str__."""
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
@@ -158,8 +158,8 @@ class TestAdversarialChallenger(unittest.TestCase):
         intent = mock_runner.call_args[0][0]
         self.assertEqual(intent.model_path.name, "bad-key-model.gguf")
 
-    @patch("autoresearch.runners.run.LlamaServerRunner")
-    @patch("autoresearch.runners.run.run_coding")
+    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
+    @patch("autoresearch.runners.evaluation.run_coding")
     def test_run_evaluation_bad_dict_class(self, mock_coding, mock_runner):
         """Verify run_evaluation does not crash on class that raises on __dict__ access."""
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
@@ -168,8 +168,8 @@ class TestAdversarialChallenger(unittest.TestCase):
         intent = mock_runner.call_args[0][0]
         self.assertEqual(intent.model_path.name, "bad-dict-override.gguf")
 
-    @patch("autoresearch.runners.run.LlamaServerRunner")
-    @patch("autoresearch.runners.run.run_coding")
+    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
+    @patch("autoresearch.runners.evaluation.run_coding")
     def test_run_evaluation_bad_dir_class(self, mock_coding, mock_runner):
         """Verify run_evaluation does not crash on class that raises on dir() call."""
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)

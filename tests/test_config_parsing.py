@@ -4,8 +4,8 @@ from autoresearch.runners import run
 
 class TestConfigParsing(unittest.TestCase):
 
-    @patch("autoresearch.runners.run.LlamaServerRunner")
-    @patch("autoresearch.runners.run.run_coding")
+    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
+    @patch("autoresearch.runners.evaluation.run_coding")
     def test_run_evaluation_config_normalization_and_fallback(self, mock_coding, mock_runner):
         # Mock runner context manager
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
@@ -31,8 +31,8 @@ class TestConfigParsing(unittest.TestCase):
         self.assertEqual(intent.kv_cache_v, "f16") # fell back to kv because kv_v was None
         self.assertEqual(intent.threads, 4)
 
-    @patch("autoresearch.runners.run.LlamaServerRunner")
-    @patch("autoresearch.runners.run.run_coding")
+    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
+    @patch("autoresearch.runners.evaluation.run_coding")
     def test_run_evaluation_object_config_normalization(self, mock_coding, mock_runner):
         # Mock runner
         mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)

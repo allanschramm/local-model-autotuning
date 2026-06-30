@@ -390,11 +390,11 @@ class TestBenchmarkCoding(unittest.TestCase):
         self.assertNotIn("</think>", result)
 
     def test_strip_code_prose_prefix_then_code(self):
-        """Prose prefix is stripped; code is extracted from the first code-looking line."""
+        """Prose prefix preserved (no fence to extract from); code still in output."""
         text = "Here is the solution:\n\nn = int(input())\nprint(n*2)"
         result = benchmark_coding._strip_code(text)
-        self.assertEqual(result, "n = int(input())\nprint(n*2)")
-        self.assertNotIn("Here is", result)
+        self.assertIn("n = int(input())", result)
+        self.assertIn("print(n*2)", result)
 
     def test_strip_code_function_definition_extraction(self):
         """BigCodeBench-style response: prose + think + bare function definition."""
@@ -417,7 +417,7 @@ class TestBenchmarkCoding(unittest.TestCase):
         self.assertEqual(result, "def add(a, b):\n    return a + b")
 
     def test_strip_code_mid_prose_think_then_code(self):
-        """Code is found even when surrounded by prose + think."""
+        """Think blocks stripped, prose prefix preserved, code in output."""
         text = (
             "Sure, here's the code:\n\n"
             f"<think>Wait, do I need the empty case?</think>\n"
@@ -429,7 +429,6 @@ class TestBenchmarkCoding(unittest.TestCase):
         self.assertIn("import sys", result)
         self.assertIn("n = int", result)
         self.assertNotIn("<think>", result)
-        self.assertNotIn("Sure", result)
 
     def test_strip_code_fenced_with_language_tag(self):
         """```py and ```python fences both work."""
@@ -437,9 +436,10 @@ class TestBenchmarkCoding(unittest.TestCase):
         self.assertEqual(benchmark_coding._strip_code(text), "print(1)")
 
     def test_strip_code_unclosed_fence_falls_through(self):
-        """Unclosed fence (model truncated) -> extract via code-line scan."""
+        """Unclosed fence preserved as-is (no special handling)."""
         text = f"<think>x</think>\n```python\nn = 1\n"
         result = benchmark_coding._strip_code(text)
+        self.assertIn("```python", result)
         self.assertIn("n = 1", result)
 
     def test_strip_code_preserves_indentation(self):

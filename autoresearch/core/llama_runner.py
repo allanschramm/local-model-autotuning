@@ -60,30 +60,13 @@ class ServerIntent:
     n_cpu_moe: int | None = None
 
     @classmethod
-    def from_config(cls, cfg: dict | Any, models_dir: Path, **overrides) -> tuple['ServerIntent', dict]:
-        """Normalize config from dict/object/MagicMock, build ServerIntent.
+    def from_config(cls, cfg: dict, models_dir: Path, **overrides) -> tuple['ServerIntent', dict]:
+        """Build ServerIntent from config dict. Caller converts non-dict to dict first.
 
         Returns (intent, norm_dict) where norm_dict holds all config fields
         (server + non-server) for callers that need remaining params.
         """
-        norm = {}
-        if isinstance(cfg, dict):
-            for k, v in cfg.items():
-                if v is not None:
-                    try:
-                        norm[str(k).lower()] = v
-                    except Exception:
-                        pass
-        elif cfg is not None:
-            try:
-                d = cfg.__dict__
-            except Exception:
-                d = None
-            if d is not None:
-                for k, v in d.items():
-                    if not k.startswith('_') and k not in ('method_calls', 'mock_calls') and v is not None:
-                        norm[k.lower()] = v
-
+        norm = {str(k).lower(): v for k, v in cfg.items() if v is not None and isinstance(k, (str, bytes))}
         norm.update({k.lower(): v for k, v in overrides.items() if v is not None})
 
         model_fn = norm.get("model", "g4-opt-it-Q4_K_M.gguf")
