@@ -15,6 +15,23 @@ BASE_DIR = Path(__file__).resolve().parent
 RESULTS_FILE = BASE_DIR.parent.parent / "results.tsv"
 MODELS_DIR = BASE_DIR.parent.parent / "models"
 
+# ── Run categories for TSV ────────────────────────────────────────────
+CATEGORY_VALIDATION = "validation"
+CATEGORY_10_TASK = "10-task"
+CATEGORY_FULL_SUITE = "full-suite"
+
+
+def determine_category(args) -> str:
+    """Infer run category from CLI args."""
+    if getattr(args, "validation", False):
+        return CATEGORY_VALIDATION
+    coding = getattr(args, "coding_task_limit", 10)
+    lcb = getattr(args, "lcb_task_limit", 10)
+    bigcode = getattr(args, "bigcode_task_limit", 10)
+    if coding <= 10 and lcb <= 10 and bigcode <= 10:
+        return CATEGORY_10_TASK
+    return CATEGORY_FULL_SUITE
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Unified AutoResearch Benchmark Runner")
     parser.add_argument("--desc", type=str, help="Description of the experiment (required for logging single runs)")
@@ -110,11 +127,38 @@ def get_previous_best(results_file: Path, model_name: str | None = None) -> floa
         print(f"Error reading results.tsv: {e}")
     return best_score
 
-def write_row(results_file: Path, commit: str, val_score: float, swe_score: float, he_score: float, mbpp_score: float, memory_gb: float, status: str, description: str, lcb_score: float = 0.0, bigcode_score: float = 0.0):
-    fieldnames = ["commit", "val_score", "swe_score", "lcb_score", "he_score", "mbpp_score", "bigcode_score", "memory_gb", "status", "description"]
+CATEGORY_FIELDNAMES = ["commit", "val_score", "swe_score", "lcb_score", "he_score",
+                      "mbpp_score", "bigcode_score", "memory_gb", "status", "category",
+                      "description"]
+
+
+def _ensure_category_column(results_file: Path) -> None:
+    """One-time migration: add category column if missing from existing file."""
+    if not results_file.exists() or results_file.stat().st_size == 0:
+        return
+    with open(results_file, "r") as f:
+        header = f.readline().strip()
+    if "\tcategory" in header.split("\t"):
+        return  # already migrated
+    # Read existing rows, add empty category
+    rows = []
+    with open(results_file, "r") as f:
+        reader = csv.DictReader(f, delimiter="\t")
+        for row in reader:
+            row["category"] = ""
+            rows.append(row)
+    # Rewrite with new header
+    with open(results_file, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=CATEGORY_FIELDNAMES, delimiter="\t")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def write_row(results_file: Path, commit: str, val_score: float, swe_score: float, he_score: float, mbpp_score: float, memory_gb: float, status: str, description: str, lcb_score: float = 0.0, bigcode_score: float = 0.0, category: str = ""):
+    _ensure_category_column(results_file)
     new_file = not results_file.exists() or results_file.stat().st_size == 0
     with open(results_file, "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter="\t")
+        writer = csv.DictWriter(f, fieldnames=CATEGORY_FIELDNAMES, delimiter="\t")
         if new_file:
             writer.writeheader()
         writer.writerow({
@@ -127,6 +171,7 @@ def write_row(results_file: Path, commit: str, val_score: float, swe_score: floa
             "bigcode_score": f"{bigcode_score:.6f}",
             "memory_gb": f"{memory_gb:.1f}",
             "status": status,
+            "category": category,
             "description": description,
         })
 
@@ -175,7 +220,7 @@ def handle_single_run(args):
     
     if res["status"] != "OK":
         print(f"Evaluation failed: {res['status']}")
-        write_row(RESULTS_FILE, commit, 0.0, 0.0, 0.0, 0.0, res["peak_vram_gb"], "discard", f"FAIL: {res['status']} | {args.desc}")
+        write_row(RESULTS_FILE, commit, 0.0, 0.0, 0.0, 0.0, res["peak_vram_gb"], "discard", f"FAIL: {res['status']} | {args.desc}", category=determine_category(args))
         sys.exit(1)
         
     val_score = res["val_score"]
@@ -198,6 +243,7 @@ def handle_single_run(args):
         res["peak_vram_gb"], status, details,
         lcb_score=res.get("lcb_val", 0.0),
         bigcode_score=res.get("bigcode_val", 0.0),
+        category=determine_category(args),
     )
     
     print("\n" + "="*40)
@@ -293,6 +339,7 @@ def handle_grid_run(args):
             res["peak_vram_gb"], status, details,
             lcb_score=res.get("lcb_val", 0.0),
             bigcode_score=res.get("bigcode_val", 0.0),
+            category=determine_category(args),
         )
         print(f"Grid sweep entry logged: score={res['val_score']:.6f}")
 

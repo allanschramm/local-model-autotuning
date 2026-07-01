@@ -19,7 +19,7 @@ from typing import Any
 
 from autoresearch.core.llama_runner import estimate_vram_mb
 from autoresearch.core.config import load_config, write_config
-from autoresearch.runners.run import get_git_commit, write_row, RESULTS_FILE, MODELS_DIR
+from autoresearch.runners.run import get_git_commit, write_row, RESULTS_FILE, MODELS_DIR, CATEGORY_10_TASK
 from autoresearch.runners.evaluation import ExperimentRunner
 from autoresearch.core.search import SearchStrategy
 
@@ -253,6 +253,7 @@ def main():
                 f"AutoLoop R{round_num} baseline for {model_name}: {search_strategy.format_config_summary(baseline_cfg)} "
                 f"TPS={baseline_tps:.1f}",
                 lcb_score=baseline_res.lcb_val, bigcode_score=baseline_res.bigcode_val,
+                category=CATEGORY_10_TASK,
             )
 
             print(f"[BASELINE] Score={baseline_score:.6f} TPS={baseline_tps:.1f} VRAM={baseline_vram:.1f}GB")
@@ -306,6 +307,7 @@ def main():
                     f"AutoLoop R{round_num} {changed}={new_val}: "
                     f"{search_strategy.format_config_summary(neighbor.config)} TPS={tps:.1f} Δ={delta:+.6f}",
                     lcb_score=res.lcb_val, bigcode_score=res.bigcode_val,
+                    category=CATEGORY_10_TASK,
                 )
 
                 if is_improvement:
