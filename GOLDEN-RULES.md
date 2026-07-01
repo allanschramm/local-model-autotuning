@@ -38,7 +38,26 @@
 *   **Offline Results**: Benchmark results and search tweak branches must be kept offline and local-only. Never push result/tweak branches or local benchmark scores to the remote public repository to avoid polluting the public history or messing up other users' results.
 *   **Hardware-Aware Path Resolution**: Path constants in `config.py` (e.g., `MODEL`) must use portable references — never absolute system paths (`/home/user/...`). Use `models/` (relative) or environment variables.
 
-## 5. Codebase Architecture
+## 5. Validation Protocol
+
+Every Trial runs a **2-step validation** before the full eval:
+
+1. **llama-bench speed check** (`prompt=512`, `gen=128`, 3 repeats). If `tg_tps < TPS Floor` (20.0), Trial FAILs immediately — no server spin-up, no coding eval.
+2. **Quick coding eval** (2 tasks per dataset: HE+, MBPP+, LCB, BigCodeBench). Validates the model generates coherent code under the config — not just fast garbage.
+
+**Validation mode** (`python3 benchmark_search.py --validation`): runs steps 1-2 and exits. No extended eval, no keep/discard. For quick config sanity checks.
+
+**Short-circuit**: Step 1 failure → logged as `FAIL` with bench TPS. The loop never wastes time on unusably slow configs.
+
+See `autoresearch/runners/evaluation.py` → `run_llama_bench_validation()` + `run_trial()` for implementation.
+
+## 6. Use the Harness, Not Raw Binaries
+
+*   **Do NOT run `llama-server` or `llama-bench` directly** for evaluation. The harness (`benchmark_search.py`, `autoloop.py`) resolves paths, translates config flags to CLI args, manages server lifecycle, monitors VRAM, and logs results. Bypassing it produces unlogged, unreproducible trials.
+*   **Do NOT override flags via raw `llama-server` CLI arguments**. All tuning goes through `autoresearch/core/config.py` constants. The harness reads config.py and generates the correct `llama-server` command.
+*   **The only mutation surface is `autoresearch/core/config.py`**. Change a constant there, then run `python3 benchmark_search.py --desc "what you changed"`. The harness translates config constants to `llama-server` flags automatically.
+
+## 7. Codebase Architecture
 
 *   **Simplicity First**: Never overengineer. Keep the architecture simple. Less is more.
 *   **Minimalism**: Try to reduce lines of code, not increase. Simplify instead of complicate.

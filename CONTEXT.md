@@ -50,6 +50,10 @@ _Avoid_: grid, parameter space
 
 ### Evaluation
 
+**Validation**:
+The 2-step pre-check that runs before every full Trial: (1) `llama-bench` speed test (tg_tps >= threshold), (2) quick coding eval with 2 tasks per dataset. If either step fails, the Trial is logged as FAIL and no extended evaluation runs. The `--validation` flag runs this check alone and exits.
+_Avoid_: bench-only, speed check, smoke test
+
 **Val Score**:
 The single scalar metric used for keep/discard decisions. When Coding is enabled: **80% Coding + 10% Nexus + 10% Claw**. Without Coding: **60% Nexus + 40% Claw**. Zeroed if TPS falls below the TPS Floor.
 _Avoid_: score, result, metric

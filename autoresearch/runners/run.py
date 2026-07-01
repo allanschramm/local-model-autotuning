@@ -45,8 +45,9 @@ def parse_args():
     parser.add_argument("--lcb-task-limit", type=int, default=getattr(config, "LCB_TASK_LIMIT", 10), help="LiveCodeBench task limit")
     parser.add_argument("--bigcode-task-limit", type=int, default=getattr(config, "BIGCODE_TASK_LIMIT", 10), help="BigCodeBench task limit")
     parser.add_argument("--validation", action="store_true",
-        help="Bench-only mode: run llama-bench then exit (no coding benchmarks). "
-             "Validates model loads + tg t/s >= bench-tts-threshold.")
+        help="Validation mode: run llama-bench + 2-task coding eval then exit. "
+             "Validates model loads, tg t/s >= bench-tts-threshold, and basic codegen. "
+             "No extended eval, no keep/discard. Useful for quick config sanity checks.")
     parser.add_argument("--bench-tts-threshold", type=float, default=BENCH_TPS_THRESHOLD,
         help="Minimum text generation t/s from llama-bench validation (default: 30)")
     parser.add_argument("--no-mmap", action="store_true", default=config.NO_MMAP, help="Disable mmap")

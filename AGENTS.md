@@ -28,6 +28,10 @@ Repository-wide agent guidelines are owned by the repository developers.
 - Test with `pytest`. Ensure all 101 tests pass.
 - Inspect `results.tsv` to ensure it is not polluted or modified by agent logic.
 
+## Pre-Task Reading
+- Before starting any task, read the frontmatter of **every available tool and skill** — tool names, descriptions, parameter schemas, and skill files. Know what each can do before choosing one.
+- Do not rely on memory. Re-read tool/skill descriptions each session. Tool schemas and skill instructions change.
+
 # DOX framework
 
 - DOX is highly performant AGENTS.md hierarchy installed here
