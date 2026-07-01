@@ -4,7 +4,6 @@
 **License:** Apache-2.0
 **Local files:**
 - `models/Qwythos-9B-Claude-Mythos-5-1M-Q4_K_M.gguf` (5.3 GB)
-- `models/Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf` (MTP variant, ~5.3 GB)
 **Family:** Qwythos (based on Qwen 3.5 architecture)
 **Architecture type:** Dense (all params active per token)
 **MTP:** Optional training head (orthogonal to architecture — both dense and MoE models can have MTP)
@@ -67,10 +66,7 @@ Fits entirely in 8 GB with 131k context and flash-attn.
 - MTP/no-MTP = whether model was trained to predict multiple future tokens (training objective)
 - In inference, an MTP head acts as a draft model for speculative decoding
 
-MTP variant (`Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf`) includes an MTP head.
-Use with `--spec-type draft-mtp --spec-draft-n-max 6` on builds that support it (beellama, upstream llama.cpp).
-
-**Status on RTX 4060 8GB:** MTP + 131k ctx exceeds VRAM.
+**Status on RTX 4060 8GB:** MTP + 131k ctx exceeds VRAM. The MTP variant was deleted — no VRAM headroom for MTP benefit on 8GB card with 131k context.
 - Non-MTP at 131k uses ~7.5 GB already
 - MTP adds model overhead (+0.26 GB) + draft KV cache
 - With `--spec-draft-ctx-size 512`, server loads but throughput collapses (~5 min per task)
@@ -114,4 +110,5 @@ REPEAT_PENALTY = 1.05
 - 2026-06-30: Batch sweep (1024/256 → 0.4250, 3.4× improvement)
 - 2026-06-30: llama-bench ubatch sweep (ub=256 is sweet spot)
 - 2026-06-30: MTP tested — no VRAM headroom on 8GB at 131k ctx
+- 2026-07-01: MTP variant deleted — non-MTP is the only local copy
 - 2026-07-01: Re-validation upstream build-cuda + cont-batching (0.3000, 50.4 TPS, 7.1 GB)
