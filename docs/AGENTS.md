@@ -40,7 +40,7 @@ Durable documentation for this repo: model cards, technique notes, architecture 
   - 0001 — Deepen llama-server runner.
   - 0002 — Consolidated evaluation harness.
   - 0003 — In-process benchmark orchestration.
-- [docs/discovery/AGENTS.md](discovery/AGENTS.md) — user-facing guides (whichllm, Pareto frontier, model selection workflow).
+- [docs/discovery/AGENTS.md](discovery/AGENTS.md) — user-facing guides (whichllm, Pareto frontier, model selection workflow, quantization selection).
 - [docs/sessions/AGENTS.md](sessions/AGENTS.md) — single-day empirical session logs.
 - [docs/llamacpp-toolset.md](llamacpp-toolset.md) — llama.cpp toolset reference: build, binaries, flags, bench/server/quantize/perplexity/imatrix commands.
   Covers: build from source, all built binaries, `llama-bench` syntax with multi-value ranges and output formats,
