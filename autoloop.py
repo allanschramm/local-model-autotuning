@@ -246,10 +246,13 @@ def main():
 
             commit = get_git_commit()
             write_row(
-                RESULTS_FILE, commit, baseline_score, baseline_vram,
+                RESULTS_FILE, commit, baseline_score,
+                baseline_res.swe_val, baseline_res.he_val, baseline_res.mbpp_val,
+                baseline_vram,
                 "keep",
                 f"AutoLoop R{round_num} baseline for {model_name}: {search_strategy.format_config_summary(baseline_cfg)} "
-                f"TPS={baseline_tps:.1f}"
+                f"TPS={baseline_tps:.1f}",
+                lcb_score=baseline_res.lcb_val, bigcode_score=baseline_res.bigcode_val,
             )
 
             print(f"[BASELINE] Score={baseline_score:.6f} TPS={baseline_tps:.1f} VRAM={baseline_vram:.1f}GB")
@@ -297,9 +300,12 @@ def main():
                 status = "keep" if is_improvement else "discard"
 
                 write_row(
-                    RESULTS_FILE, commit, score, vram, status,
+                    RESULTS_FILE, commit, score,
+                    res.swe_val, res.he_val, res.mbpp_val,
+                    vram, status,
                     f"AutoLoop R{round_num} {changed}={new_val}: "
-                    f"{search_strategy.format_config_summary(neighbor.config)} TPS={tps:.1f} Δ={delta:+.6f}"
+                    f"{search_strategy.format_config_summary(neighbor.config)} TPS={tps:.1f} Δ={delta:+.6f}",
+                    lcb_score=res.lcb_val, bigcode_score=res.bigcode_val,
                 )
 
                 if is_improvement:
