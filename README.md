@@ -1,96 +1,96 @@
 # local-model-autoresearch
 
-Autonomous hill-climbing optimizer for local LLM runtime flags via `llama.cpp`. Based on [karpathy/autoresearch](https://github.com/karpathy/autoresearch).
+Otimizador autônomo (hill-climbing) de flags de runtime de LLMs locais via `llama.cpp`. Baseado em [karpathy/autoresearch](https://github.com/karpathy/autoresearch).
 
-**What it does:** Finds the fastest, most accurate runtime config for your local GGUF model by benchmarking thousands of flag combinations automatically.
+**O que faz:** Encontra a config de runtime mais rápida e precisa pro seu modelo GGUF local, testando milhares de combinações de flags automaticamente.
 
-**What it doesn't do:** Re-quantize models. Only tunes how the model is served (KV cache, batching, threads, MTP).
-
----
-
-## Quickstart (Agent-Driven)
-
-Open your coding agent (Claude Code, Codex, Pi Agent, OpenCode) and paste:
-
-> *"Discover the best model for **coding** that fits my PC, download it, and start auto-tuning."*
-
-The agent will:
-1. Detect your hardware (GPU/VRAM/RAM)
-2. Run `whichllm` to shortlist candidates
-3. Cross-check with SWE-bench / Aider / LiveCodeBench
-4. Plot Pareto frontier (tok/s vs quality)
-5. Edit `autoresearch/core/config.py` with the best model
-6. Run `python3 autoloop.py --vram-limit-mb=<budget>` overnight
-
-**Result in the morning:** `results.tsv` with all trials + `config.py` at the best config found.
+**O que NÃO faz:** Re-quantizar modelos. Só ajusta como o modelo é servido (KV cache, batching, threads, MTP).
 
 ---
 
-## Prerequisites
+## Quickstart (via Agente)
 
-Install these **before** asking your agent:
+Abra seu agente de coding (Claude Code, Codex, Pi Agent, OpenCode) e cole:
 
-| Dependency | Command | Why |
+> *"Descubra o melhor modelo pra **coding** que cabe no meu PC, baixe e comece o auto-tuning."*
+
+O agente vai:
+1. Detectar seu hardware (GPU/VRAM/RAM)
+2. Rodar `whichllm` pra listar candidatos
+3. Cruzar com SWE-bench / Aider / LiveCodeBench
+4. Plotar Pareto frontier (tok/s vs qualidade)
+5. Editar `autoresearch/core/config.py` com o melhor modelo
+6. Rodar `python3 autoloop.py --vram-limit-mb=<budget>` overnight
+
+**Resultado de manhã:** `results.tsv` com todos os trials + `config.py` na melhor config encontrada.
+
+---
+
+## Pré-requisitos
+
+Instale **antes** de pedir pro agente:
+
+| Dep | Comando | Por quê |
 |---|---|---|
-| Python 3.11+ | `sudo apt install python3.11 python3.11-venv` | autoloop runtime |
-| CUDA Toolkit | `nvidia-smi` + NVIDIA driver | llama.cpp needs `-DGGML_CUDA=ON` |
-| build-essential + cmake >= 3.14 | `sudo apt install build-essential cmake` | compile llama.cpp |
-| uvx (or uv) | `pip install uv` | run `uvx whichllm@latest` |
-| huggingface_hub[cli] | `pip install huggingface_hub[cli]` | download GGUFs |
+| Python 3.11+ | `sudo apt install python3.11 python3.11-venv` | runtime do autoloop |
+| CUDA Toolkit | `nvidia-smi` + driver NVIDIA | llama.cpp precisa de `-DGGML_CUDA=ON` |
+| build-essential + cmake >= 3.14 | `sudo apt install build-essential cmake` | compilar llama.cpp |
+| uvx (ou uv) | `pip install uv` | rodar `uvx whichllm@latest` |
+| huggingface_hub[cli] | `pip install huggingface_hub[cli]` | baixar GGUFs |
 
-Then clone and compile `llama.cpp` (see [Build section](#build-llamacpp-with-cuda) below).
+Depois clone e compile o `llama.cpp` (ver [seção Build](#build-do-llamacpp-com-cuda) abaixo).
 
-### Verify readiness
+### Verificar se tá tudo pronto
 
 ```bash
 bash scripts/setup-check.sh
 ```
 
-Green output = ready to run autoloop.
+Output verde = pronto pro autoloop.
 
 ---
 
-## How It Works
+## Como Funciona
 
-### The Loop
+### O Loop
 
-1. Read current best config from `autoresearch/core/config.py`
-2. Run all enabled benchmarks (Coding: HE+, MBPP+, LCB, BigCodeBench)
-3. Compute Val Score (weighted accuracy + TPS floor enforcement)
-4. Mutate one param -> generate Neighbor config
-5. Evaluate Neighbor -> keep if improved (or Pareto tie-break)
-6. If local maxima -> random restart
-7. Loop forever until Ctrl+C
+1. Lê a config atual melhor de `autoresearch/core/config.py`
+2. Roda todos os benchmarks habilitados (Coding: HE+, MBPP+, LCB, BigCodeBench)
+3. Calcula Val Score (acurácia ponderada + TPS floor)
+4. Muta um param -> gera config Neighbor
+5. Avalia Neighbor -> keep se melhorou (ou Pareto tie-break)
+6. Se local maxima -> random restart
+7. Loop pra sempre até Ctrl+C
 
-### Editing Contract
+### Contrato de Edição
 
-| File | What | Can agent/loop edit? |
+| Arquivo | O quê | Agente/loop pode editar? |
 |---|---|---|
-| `autoresearch/core/config.py` | Runtime config | **Yes** (constants only) |
-| `benchmark_search.py` | CLI runner | **No** |
-| `autoresearch/benchmarks/*` | Evaluation logic | **No** |
-| `results.tsv` | Trial metrics | **Append only** |
+| `autoresearch/core/config.py` | Config de runtime | **Sim** (só constantes) |
+| `benchmark_search.py` | CLI runner | **Não** |
+| `autoresearch/benchmarks/*` | Lógica de avaliação | **Não** |
+| `results.tsv` | Métricas dos trials | **Só append** |
 
 ### Val Score
 
-Single scalar metric for keep/discard decisions:
-- With Coding: `80% Coding + 10% Nexus + 10% Claw`
-- Without Coding: `60% Nexus + 40% Claw`
+Métrica escalar única pra decisões de keep/discard:
+- Com Coding: `80% Coding + 10% Nexus + 10% Claw`
+- Sem Coding: `60% Nexus + 40% Claw`
 
-TPS Floor = 20 tok/s. Below this -> score zeroed.
+TPS Floor = 20 tok/s. Abixo disso -> score zerado.
 
-### Safety
+### Segurança
 
-- VRAM pre-flight check before every server start
-- Flash attention always on
-- All failures logged as `FAIL` in results.tsv, loop continues
-- Never pushes to remote
+- Checagem de VRAM antes de subir o servidor
+- Flash attention sempre ligado
+- Todas as falhas logadas como `FAIL` no results.tsv, loop continua
+- Nunca faz push pro remote
 
 ---
 
-## Build llama.cpp with CUDA
+## Build do llama.cpp com CUDA
 
-Clone inside repo root for auto-detection:
+Clone dentro da pasta raiz do repo pra detecção automática:
 
 ```bash
 git clone https://github.com/ggerganov/llama.cpp.git
@@ -105,69 +105,69 @@ cmake -B build-cuda \
 cmake --build build-cuda --config Release -j
 ```
 
-If cloned elsewhere, export the path:
+Se clonou em outro lugar, exporte o path:
 
 ```bash
-export AUTORESEARCH_LLAMA_CPP_ROOT="/path/to/llama.cpp"
+export AUTORESEARCH_LLAMA_CPP_ROOT="/caminho/pra/llama.cpp"
 ```
 
 ### Forks (TurboQuant / MTP)
 
-For advanced KV cache modes (`turbo2`, `turbo3`, `turbo4`, SPEC MTP):
+Pra modos avançados de KV cache (`turbo2`, `turbo3`, `turbo4`, SPEC MTP):
 
 - **TurboQuant**: `https://github.com/TheTom/llama-cpp-turboquant`
 - **MTP & TurboQuant**: `https://github.com/BoFan-tunning/llama.cpp-MTP-TurboQuant`
 
-Clone as `llama.cpp` in repo root. Build commands are identical.
+Clone como `llama.cpp` na raiz do repo. Comandos de build idênticos.
 
 ---
 
-## After Tuning: Serve the Model
+## Depois do Tuning: Subir o Modelo
 
 ```bash
-# Show the command (don't start)
+# Mostra o comando (sem iniciar)
 python3 scripts/serve-config.py print-cmd
 
-# Start llama-server detached
+# Sobe o llama-server detached
 python3 scripts/serve-config.py serve
 
-# Check status
+# Checa status
 python3 scripts/serve-config.py status
 
-# Stop
+# Para
 python3 scripts/serve-config.py stop
 ```
 
-Plug into your agent:
+Pluga no seu agente:
 
 ```
 base_url: http://127.0.0.1:18080/v1
-model:    <model-name-from-config>
+model:    <nome-do-modelo-do-config>
 ```
 
 ---
 
-## Manual Mode
+## Modo Manual
 
-If you prefer hands-on:
+Se preferir fazer na mão:
 
-1. Read `program.md` for rules
-2. Edit `autoresearch/core/config.py` with a hypothesis
-3. Run `python3 benchmark_search.py --desc "your hypothesis"`
-4. Check `results.tsv` for results
-5. Keep if Val Score improved, revert otherwise
+1. Leia `program.md` pra regras
+2. Edite `autoresearch/core/config.py` com uma hipótese
+3. Rode `python3 benchmark_search.py --desc "sua hipótese"`
+4. Cheque `results.tsv` pelos resultados
+5. Keep se o Val Score melhorou, reverte caso contrário
 
 ---
 
-## Supported Profiles
+## Profiles Suportados
 
-| Profile | Benchmarks | Example Models |
+| Profile | Benchmarks | Modelos Exemplo |
 |---|---|---|
 | **Coding** (default) | SWE-bench, Aider, HE+ | Qwen3.6-27B, Qwen3.6-35B-A3B |
 | **Writing** | MMLU-Pro, Chatbot Arena | Qwen3-14B, Gemma3-12B |
 | **Vision** | MMMU-Pro, MMBench | Qwen3-VL, Gemma-4-26B-A4B |
 
-Toggle in `autoresearch/core/config.py`:
+Troque em `autoresearch/core/config.py`:
 
 ```python
 INCLUDE_CODING = True
@@ -177,21 +177,21 @@ INCLUDE_CLAW = False
 
 ---
 
-## Agent Documentation
+## Documentação pra Agentes
 
-For agents working on this repo, read these in order:
+Agentes trabalhando neste repo, leiam nesta ordem:
 
 1. `AGENTS.md` (root) — DOX hierarchy, work contracts
-2. `program.md` — Search protocol rules
-3. `GOLDEN-RULES.md` — Performance flags, safety, validation
-4. `CONTEXT.md` — Terminology and definitions
-5. `docs/discovery/discover-models.md` — Model selection workflow
-6. `docs/discovery/whichllm-reference.md` — CLI reference
-7. `docs/discovery/quantization-cascade.md` — Quant format selection
-8. `docs/llamacpp-toolset.md` — llama.cpp binary reference
+2. `program.md` — Regras do protocolo Search
+3. `GOLDEN-RULES.md` — Flags de performance, segurança, validação
+4. `CONTEXT.md` — Terminologia e definições
+5. `docs/discovery/discover-models.md` — Workflow de seleção de modelo
+6. `docs/discovery/whichllm-reference.md` — Referência CLI
+7. `docs/discovery/quantization-cascade.md` — Seleção de formato de quant
+8. `docs/llamacpp-toolset.md` — Referência dos binários do llama.cpp
 
 ---
 
-## License
+## Licença
 
 MIT
