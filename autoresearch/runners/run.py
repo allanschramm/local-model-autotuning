@@ -128,33 +128,35 @@ def get_previous_best(results_file: Path, model_name: str | None = None) -> floa
     return best_score
 
 CATEGORY_FIELDNAMES = ["commit", "val_score", "swe_score", "lcb_score", "he_score",
-                      "mbpp_score", "bigcode_score", "memory_gb", "status", "category",
+                      "mbpp_score", "bigcode_score", "memory_gb", "elapsed_sec", "status", "category",
                       "description"]
 
 
 def _ensure_category_column(results_file: Path) -> None:
-    """One-time migration: add category column if missing from existing file."""
+    """One-time migration: add missing columns (category, elapsed_sec)."""
     if not results_file.exists() or results_file.stat().st_size == 0:
         return
     with open(results_file, "r") as f:
         header = f.readline().strip()
-    if "\tcategory" in header.split("\t"):
+    cols = header.split("\t")
+    if "category" in cols and "elapsed_sec" in cols:
         return  # already migrated
-    # Read existing rows, add empty category
     rows = []
     with open(results_file, "r") as f:
         reader = csv.DictReader(f, delimiter="\t")
         for row in reader:
-            row["category"] = ""
+            if "category" not in row:
+                row["category"] = ""
+            if "elapsed_sec" not in row:
+                row["elapsed_sec"] = ""
             rows.append(row)
-    # Rewrite with new header
     with open(results_file, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=CATEGORY_FIELDNAMES, delimiter="\t")
         writer.writeheader()
         writer.writerows(rows)
 
 
-def write_row(results_file: Path, commit: str, val_score: float, swe_score: float, he_score: float, mbpp_score: float, memory_gb: float, status: str, description: str, lcb_score: float = 0.0, bigcode_score: float = 0.0, category: str = ""):
+def write_row(results_file: Path, commit: str, val_score: float, swe_score: float, he_score: float, mbpp_score: float, memory_gb: float, status: str, description: str, lcb_score: float = 0.0, bigcode_score: float = 0.0, category: str = "", elapsed_sec: float = 0.0):
     _ensure_category_column(results_file)
     new_file = not results_file.exists() or results_file.stat().st_size == 0
     with open(results_file, "a", newline="") as f:
@@ -170,6 +172,7 @@ def write_row(results_file: Path, commit: str, val_score: float, swe_score: floa
             "mbpp_score": f"{mbpp_score:.6f}",
             "bigcode_score": f"{bigcode_score:.6f}",
             "memory_gb": f"{memory_gb:.1f}",
+            "elapsed_sec": f"{elapsed_sec:.0f}",
             "status": status,
             "category": category,
             "description": description,
@@ -196,6 +199,7 @@ def run_evaluation(cfg: dict | Any, skip_bench: bool = False, **overrides) -> Di
         "peak_vram_gb": tr.peak_vram_gb,
         "bench_tg_tps": tr.bench_tg_tps,
         "bench_pp_tps": tr.bench_pp_tps,
+        "elapsed_sec": tr.elapsed_sec,
     }
 
 def handle_single_run(args):
@@ -220,7 +224,7 @@ def handle_single_run(args):
     
     if res["status"] != "OK":
         print(f"Evaluation failed: {res['status']}")
-        write_row(RESULTS_FILE, commit, 0.0, 0.0, 0.0, 0.0, res["peak_vram_gb"], "discard", f"FAIL: {res['status']} | {args.desc}", category=determine_category(args))
+        write_row(RESULTS_FILE, commit, 0.0, 0.0, 0.0, 0.0, res["peak_vram_gb"], "discard", f"FAIL: {res['status']} | {args.desc}", category=determine_category(args), elapsed_sec=res.get("elapsed_sec", 0.0))
         sys.exit(1)
         
     val_score = res["val_score"]
@@ -244,6 +248,7 @@ def handle_single_run(args):
         lcb_score=res.get("lcb_val", 0.0),
         bigcode_score=res.get("bigcode_val", 0.0),
         category=determine_category(args),
+        elapsed_sec=res.get("elapsed_sec", 0.0),
     )
     
     print("\n" + "="*40)
@@ -340,6 +345,7 @@ def handle_grid_run(args):
             lcb_score=res.get("lcb_val", 0.0),
             bigcode_score=res.get("bigcode_val", 0.0),
             category=determine_category(args),
+            elapsed_sec=res.get("elapsed_sec", 0.0),
         )
         print(f"Grid sweep entry logged: score={res['val_score']:.6f}")
 

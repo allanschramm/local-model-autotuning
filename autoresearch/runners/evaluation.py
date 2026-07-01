@@ -42,6 +42,7 @@ class TrialResult:
     peak_vram_gb: float = 0.0
     bench_tg_tps: float = 0.0
     bench_pp_tps: float = 0.0
+    elapsed_sec: float = 0.0
 
 
 def run_llama_bench_validation(
@@ -260,4 +261,5 @@ class ExperimentRunner:
             res.status = f"FAIL: {str(e)[:50]}"
             res.val_score = 0.0
 
+        res.elapsed_sec = time.time() - trial_start
         return res

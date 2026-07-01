@@ -57,12 +57,13 @@ The launcher prints the exact connection string on success.
 
 The autoloop rewrites `autoresearch/core/config.py` on every keep — useful for automated search, painful for manual use. The alias system is the manual-use counterpart: pick a known-good config, name it, and start the model with one shell command from anywhere.
 
-## Registered Aliases (Templates)
+## Registered Aliases
 
-| Name | Model GGUF | Port | Baseline Score | TPS | Notes |
+| Name | Model GGUF | Port | Score | TPS | Notes |
 | :--- | :--- | :---: | :---: | :---: | :--- |
-| `o9` | `models/ornith-1.0-9b-Q4_K_M.gguf` | 18080 | 0.5800 | 52.2 | Full GPU Offload |
-| `o35` | `models/ornith-1.0-35b-Q4_K_M.gguf` | 18080 | 0.5550 | 31.5 | VITRIOL (`--n-cpu-moe 32`) |
+| `qwythos-9b` | `Qwythos-9B-Claude-Mythos-5-1M-Q4_K_M.gguf` | 18080 | **0.6400** | 50.9 | 10-task, b1024/ub256 |
+| `o9` | `ornith-1.0-9b-Q4_K_M.gguf` | 18080 | 0.5450 | 49.8 | 10-task, b1024/ub256 |
+| `o35` | `ornith-1.0-35b-Q4_K_M.gguf` | 18080 | 0.5550 | 31.5 | MoE, VITRIOL n-cpu-moe 32 |
 
 ## See also
 

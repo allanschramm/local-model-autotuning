@@ -1,6 +1,31 @@
-# Agent Experiment Memory
+# Project Memory — local-model-autotuning
 
-## 1. Experiment Log (Best per model)
+## Project Context
+
+Autonomous hill-climbing optimizer for local LLM runtime flags (KV cache quant, threads, batching, MTP, CPU offload). Forked from karpathy/autoresearch. Targets RTX 4060 8GB. Evaluates configs via coding benchmarks (HE+, MBPP+, LCB, BigCodeBench).
+
+**Core loop**: Load baseline from config.py → run all benchmarks → compute Val Score → mutate 1 param → evaluate neighbor → keep if better → random restart on stagnation → repeat until Ctrl+C.
+
+**Val Score weights**: HumanEval+ 25%, MBPP+ 25%, LiveCodeBench 35%, BigCodeBench Hard 15%. TPS floor = 20 tok/s (score zeroed below).
+
+## Rules
+
+- config.py is the ONLY mutable surface for agent tweaks
+- CTX_SIZE frozen at 131072. Min ctx floor = 100k. Never lower.
+- Flash attention always on
+- Never push results, tweaks, or run branches to remote (local-only)
+- Loop agents: never edit code; on error → stop, report, warn user
+- Always run harness (`benchmark_search.py` or `autoloop.py`), never raw `llama-server`/`llama-bench`
+
+## Architecture Decisions
+
+- **Single mutable surface**: Only `autoresearch/core/config.py` gets edited by agents/harness. All other files are fixed. Rationale: prevents gaming evaluation.
+- **Validation 2-step**: llama-bench speed check (512/128, 3 repeats) + quick coding eval (2 tasks/dataset). TPS < 20 → FAIL. `--validation` flag runs steps 1-2 then exits.
+- **ExperimentRunner extraction** (2026-06-30): Consolidated trial orchestration into `autoresearch/runners/evaluation.py`. ServerIntent.from_config() normalizes config before trial.
+- **GenerationParams dataclass** (2026-07-01): Replaced 5-file **kwargs passthrough chain with typed dataclass. Cleaner API surface.
+- **Quantization cascade docs** (2026-07-01): Created `docs/discovery/quantization-cascade.md` (user guide) and `quantization-cascade-agent.md` (agent reference) for quant selection methodology.
+
+## Experiment Log (Best per model)
 
 | Commit | Model | KV | Ctx | VRAM (GB) | TPS | Score | Status |
 |---|---|---|---|---|---|---|---|
@@ -9,25 +34,39 @@
 | `a06b9f9` | Ornith-1.0-9B | q4_0 | 131072 | 7.4 | 52.2 | 0.580000 | Keep |
 | `d5ddbd1` | Ornith-1.0-35B | q4_0 | 131072 | 7.7 | 31.5 | 0.555000 | Keep |
 
-## 2. Working Configs
+## Working Configs
 
 *   **Qwen3.5-9B-MTP**: `kv=q4_0`, `ctx=32768`, `threads=12` → **0.7721** (coding=0.8167, retrieval=0.4150)
 *   **gemma4-v2**: `kv=turbo4 K+V`, `ctx=65536`, `threads=8`, `temp=0.4`, `batch=128/ubatch=64` → **0.3129** (coding=0.3333, retrieval=0.1499)
 *   **Ornith-1.0-9B**: `kv=q4_0`, `ctx=131072`, `threads=8`, `temp=0.4` → **0.5800** (coding=0.5800: lcb=0.40, he=0.80, mbpp=0.90, bigcode=0.10)
 *   **Ornith-1.0-35B**: `kv=q4_0`, `ctx=131072`, `threads=8`, `temp=0.4`, `n-cpu-moe=32` (VITRIOL) → **0.5550** (coding=0.5550: lcb=0.40, he=0.80, mbpp=0.80, bigcode=0.10)
 
-## 3. Blocked Configurations (Fails / Regressions)
+## Blocked Configurations
 
-*   **gemma4-v2 temp=0.2 + batch=512/256 + repeat_penalty=1.05**: score caiu para **0.1648**. MBPP timeout na task 1/3. Não usar.
-*   **gemma4-v2 ctx<65536 com Nexus**: padding de 50K tokens quebra o contexto. Nexus exige ctx>=65536.
-*   **Low Throughput**: `g4-opt-it` com `q4_0` em 16k → 24.3 TPS (abaixo do threshold 30.0). Score zerado. Precisa turbo3/turbo4 ou mais threads.
-*   **VRAM Limits**: modelos maiores que 9B com `f16` KV em 64k+ estouram 7.9 GB. Usar turbo4.
+*   **gemma4-v2 temp=0.2 + batch=512/256 + repeat_penalty=1.05**: score dropped to 0.1648. MBPP timeout on task 1/3.
+*   **gemma4-v2 ctx<65536 with Nexus**: 50K token padding breaks context. Nexus requires ctx>=65536.
+*   **Low Throughput**: g4-opt-it with q4_0 at 16k → 24.3 TPS (below threshold 30.0). Score zeroed.
+*   **VRAM Limits**: Models >9B with f16 KV at 64k+ exceed 7.9 GB. Use turbo4.
 
-## 4. Working Hypotheses
+## Discovered Durable Knowledge
 
-*   **Turbo4 no Gemma4 12B dense**: VRAM fica flat em ~7.9GB até 128K ctx graças ao TurboQuant agressivo. Custo do KV cache é amortizado na medição por `nvidia-smi` a 10Hz.
-*   **MTP ausente no Gemma4**: modelo não tem `nextn_predict_layers`. Speculative decoding não ajuda aqui.
-*   **Threads**: 8 threads no Gemma4 12B batem melhor que 12 (teste anterior com 12 threads não foi registrado porque ainda não há baseline confirmed).
-*   **Batch sizing**: `batch=128, ubatch=64` é mais estável no Gemma4 do que `512/256` sob trial budget curto.
-*   **Identação nos Modelos de Raciocínio (Ornith/Qwen 3.5)**: Blocos `<think>` geram rascunhos identados em 8+ espaços (dentro de markdown lists). Se o output final for truncado, o fallback parser do harness traz a identação extra, quebrando a compilação (`IndentationError`) ao concatenar a assinatura. `textwrap.dedent()` e re-identação com exatos 4 espaços corrigem o parser e dobram a taxa de acerto (de 0.40 para 0.80 no HE+ do Ornith 9B).
-*   **VITRIOL MoE Streaming em 35B**: Mantendo todos os 256 routed experts no CPU/RAM via `--n-cpu-moe 40` permite carregar modelos de 35B em GPUs de 8 GB (RTX 4060) mantendo throughput aceitável (23.6 TPS) com pico de apenas 4.1 GB de VRAM.
+*   **Turbo4 Gemma4 12B dense**: VRAM flat at ~7.9GB up to 128K ctx thanks to aggressive TurboQuant. KV cache cost amortized by nvidia-smi 10Hz sampling.
+*   **MTP absent in Gemma4**: Model lacks `nextn_predict_layers`. Speculative decoding doesn't help.
+*   **Threads**: 8 threads better than 12 on Gemma4 12B (unregistered baseline issue with 12).
+*   **Batch sizing**: batch=128, ubatch=64 more stable on Gemma4 than 512/256 under short trial budget.
+*   **Indentation in reasoning models (Ornith/Qwen 3.5)**: `<think>` blocks generate 8+ space indented drafts (inside markdown lists). Truncated output → fallback parser carries extra indentation → IndentationError when concatenating signature. `textwrap.dedent()` + re-indent with exactly 4 spaces fixes parser and doubles HE+ accuracy (0.40 → 0.80 on Ornith 9B).
+*   **VITRIOL MoE Streaming 35B**: Keeping all 256 routed experts in CPU/RAM via `--n-cpu-moe 40` enables 35B model loading on 8GB VRAM (RTX 4060) with acceptable throughput (23.6 TPS) and peak VRAM only 4.1 GB.
+*   **UBATCH sweet spot**: 256 > 512 on RTX 4060 8GB for Gemma4. llama-bench: ub=256 pp1922 tg49.8 vs ub=512 pp1940 tg41.0. Higher ubatch = better prompt processing but worse token generation.
+*   **Category column in results.tsv** (2026-07-01): Added to enable fair cross-model comparisons.
+
+## Patterns
+
+- **Validation pipeline evolution**: llama-bench integration → quick coding checks after bench → lowered TPS threshold. Iterative stabilization over 2026-06-28 to 2026-07-01.
+- **Skill cleanup**: Deprecated grill-me, grill-with-docs, GitNexus skills removed. Skills lockfile pruned. Leaner skill set: subagent, debug, tdd, execute, report, review, feedback, plan, worktree, verify, ask, merge, brainstorm, parallel, new-skill.
+
+## Gotchas
+
+- `--n-cpu-moe` value matters: 32 works for 35B MoE, but too high wastes RAM without benefit on dense models
+- config.py write_config() preserves section headers and comments — safe to call repeatedly
+- GEN_KWARGS filtered to non-None values only before passing to llama-server
+- Never run llama-server or llama-bench directly — harness manages paths, lifecycle, VRAM monitoring, result logging
