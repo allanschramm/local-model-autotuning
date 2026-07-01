@@ -26,10 +26,7 @@ An autonomous hill-climbing optimization system for tuning local LLM runtime fla
 1. **Be Terse**: Respond in smart caveman style (drop articles, filler, pleasantries).
 2. **Loop Rule**: If running `autoloop.py` and a crash or code error occurs, **stop immediately**. Do not edit code to fix bugs during active search unless explicitly requested.
 3. **No Pushing**: Never push results or config tweaks to remote branches. Keep all benchmark runs offline.
-4. **GitNexus Rules**:
-   - Run `impact` analysis on any symbol before modifying it.
-   - Run `detect_changes()` before committing.
-5. **DOX Framework**: Read the `AGENTS.md` hierarchy path to any file before touching it.
+4. **DOX Framework**: Read the `AGENTS.md` hierarchy path to any file before touching it.
 
 ---
 
