@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from autoresearch.core import config
-from autoresearch.core.llama_client import LlamaClient
+from autoresearch.core.llama_client import LlamaClient, GenerationParams
 from autoresearch.benchmarks.benchmark_harness import BenchmarkResult
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -391,11 +391,11 @@ def _run_bigcode_tests(code: str, entry: dict, timeout: float = 15.0) -> bool:
 def run_coding_eval(
     client: LlamaClient,
     dataset: str,
+    gen_params: GenerationParams | None = None,
     task_limit: int = 0,
     timeout_at: float | None = None,
     problems: list[dict] | None = None,
     max_tokens: int | None = None,
-    **gen_kwargs,
 ) -> tuple[float, int, float]:
     """
     Run coding evaluation on a dataset. Returns (pass_at_1, total_tokens, total_seconds).
@@ -415,14 +415,11 @@ def run_coding_eval(
     if task_limit > 0:
         entries = entries[:task_limit]
 
-    # Per-dataset max_tokens override (thinking models need more room for LCB/BigCode).
-    # Copy gen_kwargs so we do not mutate the caller's dict, and pop max_tokens
-    # to avoid "got multiple values for keyword argument 'max_tokens'" when the
-    # caller passed it via **gen_kwargs.
-    gen_kwargs = dict(gen_kwargs)
-    gen_kwargs.pop("max_tokens", None)
+    # Per-dataset max_tokens override via gen_params.with_overrides().
+    override = {}
     if max_tokens is not None:
-        gen_kwargs["max_tokens"] = max_tokens
+        override["max_tokens"] = max_tokens
+    gen = (gen_params or GenerationParams()).with_overrides(**override)
 
     total = len(entries)
     passed = 0
@@ -454,7 +451,7 @@ def run_coding_eval(
             continue
 
         try:
-            res = client.complete(prompt, **gen_kwargs)
+            res = client.complete(prompt, gen=gen)
             usage = res.get("usage", {})
             total_tokens += int(usage.get("total_tokens", 0) or 0)
             # Combine content + reasoning_content. For thinking models, llama-server
@@ -529,7 +526,7 @@ LCB_MAX_TOKENS = 2048
 BIGCODE_MAX_TOKENS = 2048
 
 
-def run_benchmark(client: LlamaClient, **kwargs) -> BenchmarkResult:
+def run_benchmark(client: LlamaClient, gen_params: GenerationParams | None = None, **kwargs) -> BenchmarkResult:
     """
     Unified entry point. Runs LCB, HE+, MBPP+, BigCodeBench Hard.
 
@@ -541,10 +538,8 @@ def run_benchmark(client: LlamaClient, **kwargs) -> BenchmarkResult:
     bigcode_limit = kwargs.get("bigcode_task_limit", getattr(config, "BIGCODE_TASK_LIMIT", 10))
     timeout_at = kwargs.get("timeout_at", None)
 
-    # Forward only generation kwargs (drop bookkeeping params).
-    # max_tokens is handled per-dataset below, so strip it from gen_kwargs here.
-    gen_keys = {"task_limit", "lcb_task_limit", "bigcode_task_limit", "timeout_at", "model_name", "is_test"}
-    gen_kwargs = {k: v for k, v in kwargs.items() if k not in gen_keys and v is not None and k != "max_tokens"}
+    # ponytail: gen_params is a typed dataclass, not **kwargs passthrough.
+    # kwargs only has bookkeeping params (task_limit, timeout_at, model_name, is_test).
 
     # Pre-load non-evalplus datasets once (they have no `test_limit` arg path)
     lcb_problems = _load_livecodebench(task_limit=lcb_limit) if lcb_limit > 0 else []
@@ -552,26 +547,26 @@ def run_benchmark(client: LlamaClient, **kwargs) -> BenchmarkResult:
 
     # 1) HumanEval+ (strict)
     he_pass, he_tokens, he_time = run_coding_eval(
-        client, "humaneval", task_limit=task_limit, timeout_at=timeout_at,
-        max_tokens=HE_MAX_TOKENS, **gen_kwargs,
+        client, "humaneval", gen_params=gen_params, task_limit=task_limit, timeout_at=timeout_at,
+        max_tokens=HE_MAX_TOKENS,
     )
 
     # 2) MBPP+
     mbpp_pass, mbpp_tokens, mbpp_time = run_coding_eval(
-        client, "mbpp", task_limit=task_limit, timeout_at=timeout_at,
-        max_tokens=MBPP_MAX_TOKENS, **gen_kwargs,
+        client, "mbpp", gen_params=gen_params, task_limit=task_limit, timeout_at=timeout_at,
+        max_tokens=MBPP_MAX_TOKENS,
     )
 
     # 3) LiveCodeBench v6 (sampled). Thinking models need more headroom for think+code.
     lcb_pass, lcb_tokens, lcb_time = run_coding_eval(
-        client, "lcb", problems=lcb_problems, timeout_at=timeout_at,
-        max_tokens=LCB_MAX_TOKENS, **gen_kwargs,
+        client, "lcb", gen_params=gen_params, problems=lcb_problems, timeout_at=timeout_at,
+        max_tokens=LCB_MAX_TOKENS,
     )
 
     # 4) BigCodeBench Hard (sampled). Same headroom for thinking models.
     bigcode_pass, bigcode_tokens, bigcode_time = run_coding_eval(
-        client, "bigcode", problems=bigcode_problems, timeout_at=timeout_at,
-        max_tokens=BIGCODE_MAX_TOKENS, **gen_kwargs,
+        client, "bigcode", gen_params=gen_params, problems=bigcode_problems, timeout_at=timeout_at,
+        max_tokens=BIGCODE_MAX_TOKENS,
     )
 
     val_score = round(

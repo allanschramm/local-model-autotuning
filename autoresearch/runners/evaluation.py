@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent, resolve_llama_bench
-from autoresearch.core.llama_client import LlamaClient
+from autoresearch.core.llama_client import LlamaClient, GenerationParams
 from autoresearch.benchmarks.benchmark_coding import run_benchmark as run_coding
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -194,16 +194,15 @@ class ExperimentRunner:
             except OSError:
                 pass
 
-        gen_kwargs = {
-            "temp": norm.get("temp", 0.2),
-            "top_p": norm.get("top_p"),
-            "min_p": norm.get("min_p"),
-            "top_k": norm.get("top_k"),
-            "repeat_penalty": norm.get("repeat_penalty"),
-            "presence_penalty": norm.get("presence_penalty"),
-            "frequency_penalty": norm.get("frequency_penalty"),
-        }
-        gen_kwargs = {k: v for k, v in gen_kwargs.items() if v is not None}
+        gen_params = GenerationParams(
+            temp=norm.get("temp", 0.2),
+            top_p=norm.get("top_p"),
+            min_p=norm.get("min_p"),
+            top_k=norm.get("top_k"),
+            repeat_penalty=norm.get("repeat_penalty"),
+            presence_penalty=norm.get("presence_penalty"),
+            frequency_penalty=norm.get("frequency_penalty"),
+        )
 
         trial_start = time.time()
         timeout_at = trial_start + trial_budget if trial_budget else None
@@ -220,6 +219,7 @@ class ExperimentRunner:
                     )
                     coding_res = run_coding(
                         client,
+                        gen_params=gen_params,
                         is_test=False,
                         model_name=model_filename,
                         task_limit=task_limit_val,
@@ -227,7 +227,6 @@ class ExperimentRunner:
                         bigcode_task_limit=bigcode_limit_val,
                         timeout_at=timeout_at,
                         max_tokens=max_tokens,
-                        **gen_kwargs,
                     )
                     res.coding_val = coding_res.val_score
                     res.coding_tps = coding_res.avg_tps

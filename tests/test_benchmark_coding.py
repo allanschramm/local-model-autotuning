@@ -64,27 +64,29 @@ class TestBenchmarkCoding(unittest.TestCase):
     @patch("autoresearch.benchmarks.benchmark_coding._load_bigcodebench_hard")
     @patch("autoresearch.benchmarks.benchmark_coding._load_livecodebench")
     @patch("autoresearch.benchmarks.benchmark_coding.run_coding_eval")
-    def test_run_benchmark_passes_gen_kwargs(self, mock_eval, mock_lcb_loader, mock_bigcode_loader):
-        """Verify gen_kwargs are forwarded to all sub-eval calls."""
+    def test_run_benchmark_passes_gen_params(self, mock_eval, mock_lcb_loader, mock_bigcode_loader):
+        """Verify gen_params are forwarded to all sub-eval calls."""
         mock_lcb_loader.return_value = ["p1"] * 10
         mock_bigcode_loader.return_value = ["p2"] * 10
         mock_eval.return_value = (0.5, 50, 5.0)
 
-        from autoresearch.core.llama_client import LlamaClient
+        from autoresearch.core.llama_client import LlamaClient, GenerationParams
         client = MagicMock(spec=LlamaClient)
         client.port = 1234
 
+        gen_params = GenerationParams(temp=0.6, top_p=0.95, top_k=20)
         benchmark_coding.run_benchmark(
-            client, task_limit=5,
-            temperature=0.6, top_p=0.95, top_k=20,
+            client, gen_params=gen_params, task_limit=5,
         )
         # 4 sub-evals: HE, MBPP, LCB, BigCode
         self.assertEqual(mock_eval.call_count, 4)
         for call in mock_eval.call_args_list:
             _, kwargs = call
-            self.assertEqual(kwargs.get("temperature"), 0.6)
-            self.assertEqual(kwargs.get("top_p"), 0.95)
-            self.assertEqual(kwargs.get("top_k"), 20)
+            gen = kwargs.get("gen_params")
+            self.assertIsNotNone(gen)
+            self.assertEqual(gen.temp, 0.6)
+            self.assertEqual(gen.top_p, 0.95)
+            self.assertEqual(gen.top_k, 20)
 
     @patch("autoresearch.benchmarks.benchmark_coding._load_problems")
     @patch("autoresearch.benchmarks.benchmark_coding._run_tests")
@@ -501,7 +503,7 @@ class TestBenchmarkCoding(unittest.TestCase):
         mock_lcb.return_value = [{"question_title": "T", "question_content": "q", "platform": "atcoder", "starter_code": "", "_private_tests_decoded": [{"input": "1\n", "output": "2\n"}]}]
         mock_bcb.return_value = [{"task_id": "BCB/0", "instruct_prompt": "noop", "test": "import unittest\nclass TestCases(unittest.TestCase):\n    def test_one(self): self.assertTrue(True)\n", "entry_point": "task_func"}]
 
-        from autoresearch.core.llama_client import LlamaClient
+        from autoresearch.core.llama_client import LlamaClient, GenerationParams
         client = MagicMock(spec=LlamaClient)
         client.port = 1234
         client.complete.return_value = {
@@ -510,11 +512,13 @@ class TestBenchmarkCoding(unittest.TestCase):
             "choices": [{"message": {"content": "x = 1", "tool_calls": []}}],
         }
 
-        benchmark_coding.run_benchmark(client, task_limit=1, lcb_task_limit=1, bigcode_task_limit=1, max_tokens=512)
-        # Find the LCB and BigCode calls; check their max_tokens kwarg
+        benchmark_coding.run_benchmark(client, task_limit=1, lcb_task_limit=1, bigcode_task_limit=1)
+        # Find the LCB and BigCode calls; check gen.max_tokens
         seen_max = []
         for call in client.complete.call_args_list:
-            seen_max.append(call.kwargs.get("max_tokens"))
+            gen = call.kwargs.get("gen")
+            if gen:
+                seen_max.append(gen.max_tokens)
         # LCB and BigCodeBench calls should have 2048 (overridden). HE+MBPP
         # return early when their problem dict is empty, so they never reach
         # client.complete; only LCB/BigCode appear here.

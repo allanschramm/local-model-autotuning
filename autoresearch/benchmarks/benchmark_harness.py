@@ -4,7 +4,7 @@ import json
 import random
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple, Optional
-from autoresearch.core.llama_client import LlamaClient
+from autoresearch.core.llama_client import LlamaClient, GenerationParams
 
 @dataclass
 class BenchmarkResult:
@@ -19,16 +19,31 @@ class BenchmarkResult:
 
 class BenchmarkHarness:
     """Deep module for Dual-Pass evaluation orchestration with agentic support."""
-    def __init__(self, client: LlamaClient, target_tps: float = 20.0, p1_weight: float = 0.55):
+    def __init__(
+        self,
+        client: LlamaClient,
+        gen_params: GenerationParams | None = None,
+        target_tps: float = 20.0,
+        p1_weight: float = 0.55,
+        p2_max_tokens: int = 128,
+        p2_max_steps: int = 6,
+    ):
         self.client = client
+        self.gen_params = gen_params or GenerationParams()
         self.target_tps = target_tps
         self.p1_weight = p1_weight
         self.p2_weight = 1.0 - p1_weight
+        self.p2_max_tokens = p2_max_tokens
+        self.p2_max_steps = p2_max_steps
 
-    def _run_task_loop(self, task: Any, pass_num: int, padding: str = "", max_steps: int = 8, **kwargs) -> Tuple[float, int]:
-        timeout_at = kwargs.get("timeout_at")
+    def _run_task_loop(
+        self, task: Any, pass_num: int, padding: str = "", max_steps: int = 8,
+        gen: GenerationParams | None = None, timeout_at: float | None = None,
+        system_prefix: str = "",
+    ) -> Tuple[float, int]:
+        gen = gen or self.gen_params
         prompt = task.get_initial_prompt(pass_num, padding)
-        prompt = kwargs.pop("system_prefix", "") + prompt
+        prompt = system_prefix + prompt
         tools = task.get_tools(pass_num)
         step = 0
         total_tokens = 0
@@ -38,8 +53,7 @@ class BenchmarkHarness:
                 raise TimeoutError("Trial time budget exceeded")
             step += 1
             try:
-                # kwargs can override max_tokens/temperature/etc
-                res = self.client.complete(prompt, tools=tools, **kwargs)
+                res = self.client.complete(prompt, tools=tools, gen=gen)
                 content = res.get("content", "")
                 usage = res.get("usage", {})
                 total_tokens += int(usage.get("total_tokens", 0) or 0)
@@ -67,10 +81,10 @@ class BenchmarkHarness:
         tasks: List[Any], 
         context_padding: str = "",
         system_prefix: str = "",
-        **kwargs
+        timeout_at: float | None = None,
     ) -> BenchmarkResult:
         t_start = time.time()
-        timeout_at = kwargs.get("timeout_at")
+        gen = self.gen_params
         p1_scores = []
         p2_scores = []
         p2_total_tokens = 0
@@ -82,28 +96,23 @@ class BenchmarkHarness:
         for task in tasks:
             if timeout_at and time.time() > timeout_at:
                 raise TimeoutError("Trial time budget exceeded")
-            score_p1, _ = self._run_task_loop(task, pass_num=1, padding=context_padding, system_prefix=system_prefix, **kwargs)
+            score_p1, _ = self._run_task_loop(
+                task, pass_num=1, padding=context_padding,
+                system_prefix=system_prefix, timeout_at=timeout_at, gen=gen,
+            )
             p1_scores.append(score_p1)
 
         # --- PASS 2: Throughput (Clean measures) ---
+        p2_gen = gen.with_overrides(max_tokens=self.p2_max_tokens)
         for task in tasks:
             if timeout_at and time.time() > timeout_at:
                 raise TimeoutError("Trial time budget exceeded")
             t0 = time.time()
             
-            # Use p2_max_tokens/p2_max_steps if provided, otherwise defaults. 
-            # We copy kwargs to avoid modifying the caller's dict or Pass 1 state.
-            p2_kwargs = kwargs.copy()
-            p2_kwargs["max_tokens"] = p2_kwargs.pop("p2_max_tokens", 128)
-            p2_max_steps = p2_kwargs.pop("p2_max_steps", 6)
-            
             score_p2_raw, tokens = self._run_task_loop(
-                task, 
-                pass_num=2, 
-                padding="", 
-                system_prefix=system_prefix, 
-                max_steps=p2_max_steps, 
-                **p2_kwargs
+                task, pass_num=2, padding="",
+                system_prefix=system_prefix, timeout_at=timeout_at,
+                max_steps=self.p2_max_steps, gen=p2_gen,
             )
             dur = time.time() - t0
             
