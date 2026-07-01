@@ -6,6 +6,8 @@
 - `models/Qwythos-9B-Claude-Mythos-5-1M-Q4_K_M.gguf` (5.3 GB)
 - `models/Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf` (MTP variant, ~5.3 GB)
 **Family:** Qwythos (based on Qwen 3.5 architecture)
+**Architecture type:** Dense (all params active per token)
+**MTP:** Optional training head (orthogonal to architecture — both dense and MoE models can have MTP)
 **Quantization:** `Q4_K_M` (file_type=15)
 
 ## Architecture (from GGUF metadata)
@@ -17,7 +19,6 @@
   - SSM: `conv_kernel=4`, `state_size=128`, `group_count=16`, `time_step_rank=32`, `inner_size=4096`
   - 8 full attention layers, 24 SSM layers
 - `rope.freq_base = 10,000,000`
-- **MTP support**: MTP variant includes multi-token prediction head for speculative decoding
 
 ## Hardware Requirements (RTX 4060 8GB)
 | Quant | Size | VRAM (idle) | VRAM (131k ctx) |
@@ -58,6 +59,13 @@ Fits entirely in 8 GB with 131k context and flash-attn.
 | SPEC_DRAFT_N_MAX | 0 | Disabled — no VRAM headroom for draft
 
 ## MTP (Multi-Token Prediction)
+
+**MTP is not a model class.** It is a training technique orthogonal to architecture type:
+- Dense models can have MTP (this model, Qwen 3.5, Gemma 4)
+- MoE models can have MTP (Qwen 3.6, DeepSeek V3)
+- Dense/MoE = which subset of params activates per token (architecture)
+- MTP/no-MTP = whether model was trained to predict multiple future tokens (training objective)
+- In inference, an MTP head acts as a draft model for speculative decoding
 
 MTP variant (`Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf`) includes an MTP head.
 Use with `--spec-type draft-mtp --spec-draft-n-max 6` on builds that support it (beellama, upstream llama.cpp).

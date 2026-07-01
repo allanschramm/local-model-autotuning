@@ -9,6 +9,7 @@ This repository implements an autonomous hill-climbing search system optimizing 
 Repository-wide agent guidelines are owned by the repository developers.
 
 ## Local Contracts
+- **DO NOT USE PYTHON TO EDIT FILES.** Use the Edit tool for targeted changes. Use Write only for new files or full rewrites the user explicitly requested. Never run a Python script to read-modify-write a data file — it corrupts headers, drops rows, and destroys formatting.
 - Respond terse like smart caveman. All technical substance stay. Only fluff die.
 - Loop agents: Strictly forbidden from editing code. If error/crash occurs, stop immediately, report error, warn user.
 - Results local-only: Never push results, tweaks, or run branches to remote repository. Keep all benchmark runs offline.

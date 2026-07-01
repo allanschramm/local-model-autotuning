@@ -62,7 +62,7 @@ If a Trial falls below the **TPS Floor** (default 20.0 TPS), the `Val Score` is 
 
 ## Output format
 Each Trial logs exclusively to the canonical results file `results.tsv`. No other log files should be committed. The output format in `results.tsv` is tab-separated:
-`commit\tval_score\tmemory_gb\tstatus\tdescription`
+`commit\tmodel\tval_score\tmemory_gb\telapsed_sec\tstatus\tcategory\tdescription`
 
 ## The Search Process
 

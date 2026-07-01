@@ -3,6 +3,7 @@
 
 # Local benchmark results
 results.tsv
+*.bak
 grid_results.csv
 coding_results/
 autoresearch/data/

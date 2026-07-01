@@ -16,6 +16,7 @@ Autonomous hill-climbing optimizer for local LLM runtime flags (KV cache quant, 
 - Never push results, tweaks, or run branches to remote (local-only)
 - Loop agents: never edit code; on error → stop, report, warn user
 - Always run harness (`benchmark_search.py` or `autoloop.py`), never raw `llama-server`/`llama-bench`
+- README.md must always be in pt-BR. Agent-facing docs (docs/, AGENTS.md, GOLDEN-RULES.md, CONTEXT.md, program.md) stay in English [ses_0e12c7774ffe]
 
 ## Architecture Decisions
 
@@ -24,6 +25,7 @@ Autonomous hill-climbing optimizer for local LLM runtime flags (KV cache quant, 
 - **ExperimentRunner extraction** (2026-06-30): Consolidated trial orchestration into `autoresearch/runners/evaluation.py`. ServerIntent.from_config() normalizes config before trial.
 - **GenerationParams dataclass** (2026-07-01): Replaced 5-file **kwargs passthrough chain with typed dataclass. Cleaner API surface.
 - **Quantization cascade docs** (2026-07-01): Created `docs/discovery/quantization-cascade.md` (user guide) and `quantization-cascade-agent.md` (agent reference) for quant selection methodology.
+- **Human/agent doc split** (2026-07-01): README.md is for humans (concise, pt-BR, quickstart). docs/ is for agents (detailed, English, structured references). Humans paste a prompt to their coding agent; agents read program.md, GOLDEN-RULES.md, CONTEXT.md, and docs/ [ses_0e12c7774ffe].
 
 ## Experiment Log (Best per model)
 
@@ -58,6 +60,7 @@ Autonomous hill-climbing optimizer for local LLM runtime flags (KV cache quant, 
 *   **VITRIOL MoE Streaming 35B**: Keeping all 256 routed experts in CPU/RAM via `--n-cpu-moe 40` enables 35B model loading on 8GB VRAM (RTX 4060) with acceptable throughput (23.6 TPS) and peak VRAM only 4.1 GB.
 *   **UBATCH sweet spot**: 256 > 512 on RTX 4060 8GB for Gemma4. llama-bench: ub=256 pp1922 tg49.8 vs ub=512 pp1940 tg41.0. Higher ubatch = better prompt processing but worse token generation.
 *   **Category column in results.tsv** (2026-07-01): Added to enable fair cross-model comparisons.
+*   **Docs path discipline** (2026-07-01): User-facing docs must not contain hardcoded paths (`/home/shark/...`). Use `./llama.cpp/`, `$LLAMA_CPP`, or `AUTORESEARCH_LLAMA_CPP_ROOT` env var [ses_0e12c7774ffe].
 
 ## Patterns
 

@@ -3,6 +3,16 @@
 Local model cards for GGUF models we run on this rig.
 Pattern: 1 card per model, with hardware reqs, sampling, MTP status, and local config baseline.
 
+## Architecture vs Training Technique
+
+**Dense vs MoE** = architecture class (which params activate per token).
+**MTP (Multi-Token Prediction)** = training technique (orthogonal to architecture).
+Dense and MoE models can both have MTP support.
+
+**MTP model files come in two forms:**
+- **Full model + MTP head** (~5+ GB): contains the full base model weights plus an extra prediction head. Can run standalone OR as a draft model for speculative decoding. Example: `Qwythos-9B-*-MTP-*.gguf` (442 tensors, 32 layers).
+- **Draft-only MTP head** (<500 MB): contains only the MTP prediction layers (typically 3-4 extra blocks). NOT a standalone model — must be loaded as draft alongside its base model via `--spec-type draft-mtp --model-draft <head>`. Examples: `MTP/gemma-4-12B-it-*-MTP.gguf` (49 tensors, 4 layers each), `mtp-gemma-4-12B-it.gguf`.
+
 Cards:
 - [Gemma-4-12B](gemma-4-12b.md)
 - [Qwythos-9B-Claude-Mythos-5-1M](qwythos-9b-claude-mythos-5-1m.md)
