@@ -8,15 +8,17 @@ End-to-end workflow: **find models that fit your rig, filter for coding quality,
 uvx whichllm@latest
 ```
 
-Auto-detects GPU/CPU/RAM. Outputs a ranked list. Useful flags:
+Auto-detects GPU/CPU/RAM. Outputs a ranked list. See [`whichllm-reference.md`](./whichllm-reference.md) for full CLI docs.
+
+Key flags for this workflow:
 
 | Flag | Use |
 |---|---|
 | `--gpu-only` / `--fit gpu` | Only models that fit FULL GPU (faster, no offload penalty) |
 | `--speed usable` | Hide models too slow to be practical |
 | `--gpu "RTX 4090"` | Simulate different hardware before buying |
+| `--profile coding` | Rank by coding-agent quality |
 | `whichllm plan "qwen 3.6 35b"` | VRAM/quant options + estimated tok/s for one model |
-| `whichllm plan 'qwen3.5 9b'` | Same, for smaller model |
 
 **Caveat**: whichllm's "score" is intelligence-index (AA Index blended with Aider / LiveBench / Chatbot Arena). It is **NOT** a coding-agent benchmark. Gemma 4 26B A4B ranks #1 in whichllm but scores 17.4% on SWE-bench Verified — bad for coding agents despite the high score.
 

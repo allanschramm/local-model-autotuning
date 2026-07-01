@@ -23,6 +23,7 @@ User-facing guides for **discovering, evaluating, and selecting** local LLMs tha
 
 ## Child DOX Index
 - [`discover-models.md`](./discover-models.md) — end-to-end workflow: whichllm discovery → Pareto frontier → autoloop target selection.
+- [`whichllm-reference.md`](./whichllm-reference.md) — full whichllm CLI reference (commands, flags, profiles, examples).
 - [`quantization-cascade.md`](./quantization-cascade.md) — quantization format selection guide (UD vs standard, VRAM tiers, decision matrix).
 - [`quantization-cascade-agent.md`](./quantization-cascade-agent.md) — agent quick reference for quant selection (terse, grog-readable).
 - [`agent-onboarding.md`](./agent-onboarding.md) — onboarding guide for future agents.
