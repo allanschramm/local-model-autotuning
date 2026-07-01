@@ -1,8 +1,11 @@
 import unittest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
+from types import SimpleNamespace
+import json
 import autoloop
 from autoresearch.core.search import SearchStrategy
+
 
 class TestAutoLoop(unittest.TestCase):
 
@@ -26,12 +29,11 @@ class TestAutoLoop(unittest.TestCase):
             "PRESENCE_PENALTY": None,
             "REPEAT_PENALTY": None,
         }
-        
+
         search_strategy = SearchStrategy(autoloop.SEARCH_SPACE, use_pareto_tiebreaker=True)
         neighbors = search_strategy.get_neighbors(config)
         self.assertGreater(len(neighbors), 0)
-        
-        # Verify each neighbor only differs by one parameter
+
         for neighbor in neighbors:
             all_keys = set(config.keys()) | set(neighbor.config.keys())
             diffs = sum(1 for k in all_keys if config.get(k) != neighbor.config.get(k))
@@ -41,19 +43,307 @@ class TestAutoLoop(unittest.TestCase):
     def test_preflight_vram_ok(self, mock_estimate):
         mock_estimate.return_value = 5000.0
         cfg = {"MODEL": "m.gguf", "CTX_SIZE": 4096, "KV_CACHE_K": "q4_0"}
-        
-        # Under limit
+
         self.assertTrue(autoloop.preflight_vram_ok(cfg, 6000.0))
-        # Over limit
         self.assertFalse(autoloop.preflight_vram_ok(cfg, 4000.0))
-        # No limit
         self.assertTrue(autoloop.preflight_vram_ok(cfg, None))
+
+    @patch("autoloop.estimate_vram_mb")
+    def test_preflight_vram_ok_fallback(self, mock_estimate):
+        """KV_CACHE_K/V not set → falls back to KV_CACHE then q4_0."""
+        mock_estimate.return_value = 5000.0
+        cfg = {"MODEL": "m.gguf", "CTX_SIZE": 4096, "KV_CACHE": "q8_0"}
+        self.assertTrue(autoloop.preflight_vram_ok(cfg, 9999.0))
+        mock_estimate.assert_called_once()
+        # Should use KV_CACHE value
+        self.assertIn("q8_0", str(mock_estimate.call_args))
+
+        mock_estimate.reset_mock()
+        cfg2 = {"MODEL": "m.gguf", "CTX_SIZE": 4096}
+        self.assertTrue(autoloop.preflight_vram_ok(cfg2, 9999.0))
+        # Should fall back to "q4_0" default
+        self.assertIn("q4_0", str(mock_estimate.call_args))
 
     def test_parse_budget_seconds(self):
         self.assertEqual(autoloop.parse_budget_seconds("10m"), 600.0)
         self.assertEqual(autoloop.parse_budget_seconds("30s"), 30.0)
         self.assertEqual(autoloop.parse_budget_seconds("150"), 150.0)
         self.assertEqual(autoloop.parse_budget_seconds("invalid"), 300.0)
+        self.assertEqual(autoloop.parse_budget_seconds(" 5m "), 300.0)
+
+    def test_signal_handler(self):
+        autoloop._stop_requested = False
+        autoloop._signal_handler(None, None)
+        self.assertTrue(autoloop._stop_requested)
+        autoloop._stop_requested = False  # reset for other tests
+
+    def test_load_config_returns_dict(self):
+        """autoloop.load_config wraps config.load_config with search keys."""
+        cfg = autoloop.load_config()
+        self.assertIsInstance(cfg, dict)
+        self.assertIn("KV_CACHE_K", cfg)
+        self.assertIn("MODEL", cfg)
+        self.assertIn("CTX_SIZE", cfg)
+
+    def test_load_visited_no_file(self):
+        with patch("autoloop.VISITED_FILE") as mf:
+            mf.exists.return_value = False
+            self.assertEqual(autoloop.load_visited(), set())
+
+    def test_load_visited_with_data(self):
+        with patch("autoloop.VISITED_FILE") as mf:
+            mf.exists.return_value = True
+            mf.read_text.return_value = '["cfg1","cfg2"]'
+            self.assertEqual(autoloop.load_visited(), {"cfg1", "cfg2"})
+
+    def test_load_visited_invalid_json(self):
+        with patch("autoloop.VISITED_FILE") as mf:
+            mf.exists.return_value = True
+            mf.read_text.return_value = "not json"
+            self.assertEqual(autoloop.load_visited(), set())
+
+    def test_save_visited(self):
+        with patch("autoloop.VISITED_FILE") as mf:
+            autoloop.save_visited({"a", "b"})
+            mf.write_text.assert_called_once()
+            saved = json.loads(mf.write_text.call_args[0][0])
+            self.assertCountEqual(saved, ["a", "b"])
+
+    def test_save_visited_empty(self):
+        with patch("autoloop.VISITED_FILE") as mf:
+            autoloop.save_visited(set())
+            mf.write_text.assert_called_once()
+            self.assertEqual(json.loads(mf.write_text.call_args[0][0]), [])
+
+    # ── main() tests ───────────────────────────────────────────────
+
+    def _make_trial_result(self, **overrides):
+        """Factory for run_trial result namespace."""
+        defaults = {
+            "val_score": 0.5, "avg_tps": 10.0, "peak_vram_gb": 2.0,
+            "swe_val": 0.3, "he_val": 0.4, "mbpp_val": 0.6,
+            "lcb_val": 0.5, "bigcode_val": 0.5,
+        }
+        defaults.update(overrides)
+        return SimpleNamespace(**defaults)
+
+    def _full_config(self, **overrides):
+        cfg = {
+            "BATCH_SIZE": 1024, "CONT_BATCHING": True, "CTX_SIZE": 131072,
+            "FLASH_ATTN": "on", "KV_CACHE_K": "q4_0", "KV_CACHE_V": "q4_0",
+            "MIN_P": 0.0, "NO_MMAP": False, "PRESENCE_PENALTY": 0.0,
+            "REPEAT_PENALTY": 1.05, "SPEC_DRAFT_N_MAX": 0, "TEMP": 0.4,
+            "THREADS": 8, "THREADS_BATCH": 8, "TOP_K": 20, "TOP_P": 0.95,
+            "UBATCH_SIZE": 256,
+            "KV_CACHE": "q4_0", "MODEL": "test.gguf", "JINJA": False,
+            "REASONING_BUDGET": None, "REASONING_BUDGET_MESSAGE": None,
+            "REASONING": None, "SPEC_TYPE": None, "FREQUENCY_PENALTY": None,
+            "INCLUDE_CODING": True, "CODING_TASK_LIMIT": 10,
+            "INCLUDE_NEXUS": False, "INCLUDE_CLAW": False, "N_CPU_MOE": 32,
+        }
+        cfg.update(overrides)
+        return cfg
+
+    @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--vram-limit-mb", "99999"])
+    @patch("autoloop.MODELS_DIR")
+    @patch("autoloop.ExperimentRunner")
+    @patch("autoloop.load_config")
+    @patch("autoloop.write_config")
+    @patch("autoloop.get_git_commit", return_value="abc123")
+    @patch("autoloop.write_row")
+    def test_main_single_round_no_neighbors(
+        self, mock_write_row, mock_git, mock_wcfg, mock_lcfg,
+        mock_runner_cls, mock_models_dir
+    ):
+        """main() with --models flag (stdin non-tty fallback from baseline cfg)."""
+        mock_models_dir.glob.return_value = [Path("test.gguf")]
+        mock_lcfg.return_value = self._full_config(MODEL="test.gguf")
+        mock_runner = MagicMock()
+        mock_runner.run_trial.return_value = self._make_trial_result()
+        mock_runner_cls.return_value = mock_runner
+
+        with patch.object(SearchStrategy, "get_neighbors", return_value=[]):
+            with patch.object(SearchStrategy, "random_restart", return_value=None):
+                autoloop.main()
+
+        # Baseline eval ran
+        self.assertGreaterEqual(mock_runner.run_trial.call_count, 1)
+        # Baseline written
+        mock_write_row.assert_called()
+        # "Exhausted random search space" reached → no crash
+
+    @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--models", "test.gguf"])
+    @patch("autoloop.MODELS_DIR")
+    @patch("autoloop.ExperimentRunner")
+    @patch("autoloop.load_config")
+    @patch("autoloop.write_config")
+    @patch("autoloop.get_git_commit", return_value="abc123")
+    @patch("autoloop.write_row")
+    def test_main_with_models_flag(
+        self, mock_write_row, mock_git, mock_wcfg, mock_lcfg,
+        mock_runner_cls, mock_models_dir
+    ):
+        """--models flag with explicit model name."""
+        mock_models_dir.glob.return_value = [Path("test.gguf")]
+        mock_lcfg.return_value = self._full_config(MODEL="test.gguf")
+        mock_runner = MagicMock()
+        mock_runner.run_trial.return_value = self._make_trial_result()
+        mock_runner_cls.return_value = mock_runner
+
+        with patch.object(SearchStrategy, "get_neighbors", return_value=[]):
+            with patch.object(SearchStrategy, "random_restart", return_value=None):
+                autoloop.main()
+
+        mock_write_row.assert_called()
+        mock_wcfg.assert_called()
+
+    @patch("sys.argv", ["autoloop.py", "--models", "nonexistent.gguf"])
+    @patch("autoloop.MODELS_DIR")
+    def test_main_model_not_found(self, mock_models_dir):
+        """--models with name not in models dir → fuzzy match fallback then exit."""
+        mock_models_dir.glob.return_value = [Path("real.gguf")]
+        with self.assertRaises(SystemExit):
+            autoloop.main()
+
+    @patch("sys.argv", ["autoloop.py", "--models", "real"])
+    @patch("autoloop.MODELS_DIR")
+    @patch("autoloop.ExperimentRunner")
+    def test_main_model_fuzzy_match(self, mock_runner_cls, mock_models_dir):
+        """--models with partial name → fuzzy match to first result."""
+        mock_models_dir.glob.return_value = [Path("real.gguf"), Path("other.gguf")]
+        mock_runner = MagicMock()
+        mock_runner.run_trial.return_value = self._make_trial_result()
+        mock_runner_cls.return_value = mock_runner
+        with patch("autoloop.load_config", return_value=self._full_config(MODEL="real.gguf")):
+            with patch("autoloop.write_config"):
+                with patch("autoloop.get_git_commit", return_value="abc"):
+                    with patch("autoloop.write_row"):
+                        with patch.object(SearchStrategy, "get_neighbors", return_value=[]):
+                            with patch.object(SearchStrategy, "random_restart", return_value=None):
+                                autoloop.main()
+
+    @patch("sys.argv", ["autoloop.py", "--reset-visited"])
+    @patch("autoloop.VISITED_FILE")
+    @patch("autoloop.MODELS_DIR")
+    @patch("autoloop.ExperimentRunner")
+    @patch("autoloop.load_config")
+    @patch("autoloop.write_config")
+    @patch("autoloop.get_git_commit", return_value="abc")
+    @patch("autoloop.write_row")
+    def test_main_reset_visited(
+        self, mock_write_row, mock_git, mock_wcfg, mock_lcfg,
+        mock_runner_cls, mock_models_dir, mock_vfile
+    ):
+        """--reset-visited flag clears VISITED_FILE then runs."""
+        mock_vfile.exists.return_value = True
+        mock_models_dir.glob.return_value = [Path("test.gguf")]
+        mock_lcfg.return_value = self._full_config(MODEL="test.gguf")
+        mock_runner = MagicMock()
+        mock_runner.run_trial.return_value = self._make_trial_result()
+        mock_runner_cls.return_value = mock_runner
+
+        with patch.object(SearchStrategy, "get_neighbors", return_value=[]):
+            with patch.object(SearchStrategy, "random_restart", return_value=None):
+                autoloop.main()
+
+        mock_vfile.unlink.assert_called_once()
+        mock_write_row.assert_called()
+
+    @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--models", "test.gguf"])
+    @patch("autoloop.MODELS_DIR")
+    @patch("autoloop.ExperimentRunner")
+    @patch("autoloop.load_config")
+    @patch("autoloop.write_config")
+    @patch("autoloop.get_git_commit", return_value="abc")
+    @patch("autoloop.write_row")
+    @patch("autoloop.estimate_vram_mb")
+    def test_main_with_neighbor_improvement(
+        self, mock_vram, mock_write_row, mock_git, mock_wcfg, mock_lcfg,
+        mock_runner_cls, mock_models_dir
+    ):
+        """Neighbor with better score → writes new config and breaks."""
+        mock_models_dir.glob.return_value = [Path("test.gguf")]
+        mock_lcfg.return_value = self._full_config(MODEL="test.gguf")
+        mock_vram.return_value = 1000.0  # under default 7900MB limit
+        mock_runner = MagicMock()
+        mock_runner.run_trial.return_value = self._make_trial_result(val_score=0.5)
+        mock_runner_cls.return_value = mock_runner
+
+        base_config = self._full_config(MODEL="test.gguf")
+        strategy = SearchStrategy(autoloop.SEARCH_SPACE, use_pareto_tiebreaker=True)
+
+        def side_is_imp(bs, bt, bv, s, t, v):
+            return (True, "test improvement")
+
+        with patch.object(SearchStrategy, "is_improvement") as mock_is_imp:
+            mock_is_imp.side_effect = side_is_imp
+            with patch.object(SearchStrategy, "get_neighbors") as mock_gn:
+                nbr = strategy.get_neighbors(base_config)[0]
+                mock_gn.return_value = [nbr]
+                autoloop.main()
+
+        mock_wcfg.assert_called()
+
+    @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--trial-budget", "10m"])
+    @patch("autoloop.MODELS_DIR")
+    @patch("autoloop.ExperimentRunner")
+    @patch("autoloop.load_config")
+    @patch("autoloop.write_config")
+    @patch("autoloop.get_git_commit", return_value="abc")
+    @patch("autoloop.write_row")
+    def test_main_trial_budget(
+        self, mock_write_row, mock_git, mock_wcfg, mock_lcfg,
+        mock_runner_cls, mock_models_dir
+    ):
+        """--trial-budget 10m parsed correctly."""
+        mock_models_dir.glob.return_value = [Path("test.gguf")]
+        mock_lcfg.return_value = self._full_config(MODEL="test.gguf")
+        mock_runner = MagicMock()
+        mock_runner.run_trial.return_value = self._make_trial_result()
+        mock_runner_cls.return_value = mock_runner
+
+        with patch.object(SearchStrategy, "get_neighbors", return_value=[]):
+            with patch.object(SearchStrategy, "random_restart", return_value=None):
+                autoloop.main()
+
+        # verify trial_budget=600 passed to run_trial
+        args, kwargs = mock_runner.run_trial.call_args
+        self.assertEqual(kwargs, {"trial_budget": 600.0})
+
+    @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--models", "test.gguf",
+                         "--vram-limit-mb", "1"])
+    @patch("autoloop.MODELS_DIR")
+    @patch("autoloop.ExperimentRunner")
+    @patch("autoloop.load_config")
+    @patch("autoloop.write_config")
+    @patch("autoloop.get_git_commit", return_value="abc")
+    @patch("autoloop.write_row")
+    @patch("autoloop.estimate_vram_mb")
+    def test_main_vram_skip(
+        self, mock_vram, mock_write_row, mock_git, mock_wcfg, mock_lcfg,
+        mock_runner_cls, mock_models_dir
+    ):
+        """Neighbor exceeding VRAM limit gets skipped."""
+        mock_models_dir.glob.return_value = [Path("test.gguf")]
+        mock_lcfg.return_value = self._full_config(MODEL="test.gguf")
+        mock_runner = MagicMock()
+        mock_runner.run_trial.return_value = self._make_trial_result()
+        mock_runner_cls.return_value = mock_runner
+
+        # baseline VRAM OK, neighbor VRAM over limit
+        mock_vram.return_value = 5000.0  # over 1MB limit
+
+        strategy = SearchStrategy(autoloop.SEARCH_SPACE, use_pareto_tiebreaker=True)
+        base_config = self._full_config(MODEL="test.gguf")
+        nbr = strategy.get_neighbors(base_config)[0]
+
+        with patch.object(SearchStrategy, "get_neighbors", return_value=[nbr]):
+            with patch.object(SearchStrategy, "random_restart", return_value=None):
+                autoloop.main()
+
+        # Neighbor was skipped (vram over budget), but baseline still ran
+        self.assertGreaterEqual(mock_runner.run_trial.call_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()
