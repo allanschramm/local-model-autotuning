@@ -13,6 +13,7 @@ port: 18080                        # OpenAI-compatible port
 host: 127.0.0.1
 description: <one-line description>
 flags:
+  - --jinja               # required for Pi Agent (chat templates, tool calling, reasoning_content)
   - --ctx-size 8192
   - --n-gpu-layers 99
   - --n-cpu-moe 32
