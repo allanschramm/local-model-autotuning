@@ -254,6 +254,7 @@ def main():
                 f"TPS={baseline_tps:.1f}",
                 lcb_score=baseline_res.lcb_val, bigcode_score=baseline_res.bigcode_val,
                 category=CATEGORY_10_TASK,
+                model=model_name,
             )
 
             print(f"[BASELINE] Score={baseline_score:.6f} TPS={baseline_tps:.1f} VRAM={baseline_vram:.1f}GB")
@@ -308,6 +309,7 @@ def main():
                     f"{search_strategy.format_config_summary(neighbor.config)} TPS={tps:.1f} Δ={delta:+.6f}",
                     lcb_score=res.lcb_val, bigcode_score=res.bigcode_val,
                     category=CATEGORY_10_TASK,
+                    model=model_name,
                 )
 
                 if is_improvement:

@@ -114,9 +114,12 @@ def get_previous_best(results_file: Path, model_name: str | None = None) -> floa
             reader = csv.DictReader(f, delimiter="\t")
             for row in reader:
                 if row.get("status") == "keep":
-                    desc = row.get("description", "")
-                    if model_name and model_name not in desc:
-                        continue
+                    if model_name:
+                        row_model = row.get("model", "")
+                        if row_model and row_model != model_name:
+                            continue
+                        if not row_model and model_name not in row.get("description", ""):
+                            continue
                     try:
                         score = float(row.get("val_score", 0.0))
                         if score > best_score:
@@ -127,44 +130,52 @@ def get_previous_best(results_file: Path, model_name: str | None = None) -> floa
         print(f"Error reading results.tsv: {e}")
     return best_score
 
-CATEGORY_FIELDNAMES = ["commit", "val_score", "swe_score", "lcb_score", "he_score",
-                      "mbpp_score", "bigcode_score", "memory_gb", "elapsed_sec", "status", "category",
-                      "description"]
+CATEGORY_FIELDNAMES = [
+    "commit", "model", "category", "status",
+    "val_score", "swe_score", "lcb_score", "he_score",
+    "mbpp_score", "bigcode_score", "memory_gb", "elapsed_sec",
+    "tps", "bench_tg", "kv", "ctx",
+    "threads", "threads_batch", "batch_size", "ubatch_size",
+    "n_cpu_moe", "temp", "top_p", "top_k", "min_p",
+    "repeat_penalty", "presence_penalty", "cont_batching",
+    "flash_attn", "no_mmap", "spec_draft_n_max",
+    "description",
+]
 
 
 def _ensure_category_column(results_file: Path) -> None:
-    """One-time migration: add missing columns (category, elapsed_sec)."""
+    """One-time migration: add missing columns."""
     if not results_file.exists() or results_file.stat().st_size == 0:
         return
     with open(results_file, "r") as f:
         header = f.readline().strip()
     cols = header.split("\t")
-    if "category" in cols and "elapsed_sec" in cols:
+    if cols == CATEGORY_FIELDNAMES:
         return  # already migrated
     rows = []
     with open(results_file, "r") as f:
         reader = csv.DictReader(f, delimiter="\t")
         for row in reader:
-            if "category" not in row:
-                row["category"] = ""
-            if "elapsed_sec" not in row:
-                row["elapsed_sec"] = ""
             rows.append(row)
     with open(results_file, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=CATEGORY_FIELDNAMES, delimiter="\t")
+        writer = csv.DictWriter(f, fieldnames=CATEGORY_FIELDNAMES, delimiter="\t",
+                                extrasaction="ignore")
         writer.writeheader()
         writer.writerows(rows)
 
 
-def write_row(results_file: Path, commit: str, val_score: float, swe_score: float, he_score: float, mbpp_score: float, memory_gb: float, status: str, description: str, lcb_score: float = 0.0, bigcode_score: float = 0.0, category: str = "", elapsed_sec: float = 0.0):
+def write_row(results_file: Path, commit: str, val_score: float, swe_score: float, he_score: float, mbpp_score: float, memory_gb: float, status: str, description: str, lcb_score: float = 0.0, bigcode_score: float = 0.0, category: str = "", elapsed_sec: float = 0.0, model: str = "", tps: float = 0.0, bench_tg: float = 0.0, kv: str = "", ctx: int = 0, threads: int = 0, threads_batch: int = 0, batch_size: int = 0, ubatch_size: int = 0, n_cpu_moe: int = 0, temp: float = 0.0, top_p: float = 0.0, top_k: int = 0, min_p: float = 0.0, repeat_penalty: float = 0.0, presence_penalty: float = 0.0, cont_batching: str = "", flash_attn: str = "", no_mmap: str = "", spec_draft_n_max: int = 0):
     _ensure_category_column(results_file)
     new_file = not results_file.exists() or results_file.stat().st_size == 0
     with open(results_file, "a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=CATEGORY_FIELDNAMES, delimiter="\t")
         if new_file:
             writer.writeheader()
-        writer.writerow({
+        row = {
             "commit": commit,
+            "model": model,
+            "category": category,
+            "status": status,
             "val_score": f"{val_score:.6f}",
             "swe_score": f"{swe_score:.6f}",
             "lcb_score": f"{lcb_score:.6f}",
@@ -173,10 +184,28 @@ def write_row(results_file: Path, commit: str, val_score: float, swe_score: floa
             "bigcode_score": f"{bigcode_score:.6f}",
             "memory_gb": f"{memory_gb:.1f}",
             "elapsed_sec": f"{elapsed_sec:.0f}",
-            "status": status,
-            "category": category,
+            "tps": f"{tps:.1f}" if tps else "",
+            "bench_tg": f"{bench_tg:.1f}" if bench_tg else "",
+            "kv": kv,
+            "ctx": str(ctx) if ctx else "",
+            "threads": str(threads) if threads else "",
+            "threads_batch": str(threads_batch) if threads_batch else "",
+            "batch_size": str(batch_size) if batch_size else "",
+            "ubatch_size": str(ubatch_size) if ubatch_size else "",
+            "n_cpu_moe": str(n_cpu_moe) if n_cpu_moe else "",
+            "temp": f"{temp}" if temp else "",
+            "top_p": f"{top_p}" if top_p else "",
+            "top_k": str(top_k) if top_k else "",
+            "min_p": f"{min_p}" if min_p else "",
+            "repeat_penalty": f"{repeat_penalty}" if repeat_penalty else "",
+            "presence_penalty": f"{presence_penalty}" if presence_penalty else "",
+            "cont_batching": str(cont_batching) if cont_batching else "",
+            "flash_attn": flash_attn,
+            "no_mmap": str(no_mmap) if no_mmap else "",
+            "spec_draft_n_max": str(spec_draft_n_max) if spec_draft_n_max else "",
             "description": description,
-        })
+        }
+        writer.writerow(row)
 
 def run_evaluation(cfg: dict | Any, skip_bench: bool = False, **overrides) -> Dict[str, Any]:
     """Run one trial and return results as a dict (backward-compat wrapper).
@@ -224,7 +253,7 @@ def handle_single_run(args):
     
     if res["status"] != "OK":
         print(f"Evaluation failed: {res['status']}")
-        write_row(RESULTS_FILE, commit, 0.0, 0.0, 0.0, 0.0, res["peak_vram_gb"], "discard", f"FAIL: {res['status']} | {args.desc}", category=determine_category(args), elapsed_sec=res.get("elapsed_sec", 0.0))
+        write_row(RESULTS_FILE, commit, 0.0, 0.0, 0.0, 0.0, res["peak_vram_gb"], "discard", f"FAIL: {res['status']} | {args.desc}", category=determine_category(args), elapsed_sec=res.get("elapsed_sec", 0.0), model=args.model)
         sys.exit(1)
         
     val_score = res["val_score"]
@@ -249,6 +278,7 @@ def handle_single_run(args):
         bigcode_score=res.get("bigcode_val", 0.0),
         category=determine_category(args),
         elapsed_sec=res.get("elapsed_sec", 0.0),
+        model=args.model,
     )
     
     print("\n" + "="*40)
@@ -346,6 +376,7 @@ def handle_grid_run(args):
             bigcode_score=res.get("bigcode_val", 0.0),
             category=determine_category(args),
             elapsed_sec=res.get("elapsed_sec", 0.0),
+            model=args.model,
         )
         print(f"Grid sweep entry logged: score={res['val_score']:.6f}")
 
