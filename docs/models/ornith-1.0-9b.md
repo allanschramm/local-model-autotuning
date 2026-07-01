@@ -81,6 +81,18 @@ Since the model is ~5.6 GB and we have 8 GB of VRAM, we can run with maximum GPU
 - BeeLlama + TCQ turbo3_tcq: HTTP 500 at 131k ctx
 - BeeLlama + turbo3: 31.4 TPS (saves VRAM but kills TPS)
 
+### 2026-07-01 Validation (2-task, b1024/ub256, upstream build-cuda)
+| Metric | Value |
+|--------|-------|
+| Score | 0.5500 |
+| HE+ | 1.0000 |
+| MBPP+ | 0.5000 |
+| LCB | 0.5000 |
+| BigCode | 0.0000 |
+| TPS | 50.2 |
+| VRAM | 7.1 GB |
+| Bench tg | 43.7 t/s |
+
 ### Verdict
 - **0.580 / 52.2 TPS is the ceiling** for RTX 4060 8 GB
 - No hyperparam, fork, or quant improves either score or speed

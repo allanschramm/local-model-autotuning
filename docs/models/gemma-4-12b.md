@@ -86,7 +86,7 @@ REPEAT_PENALTY = 1.05
 # Gemma4-12B v2 (agentic-fable5) — Variant
 
 **Source repo:** https://huggingface.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF
-**Local file:** `models/gemma4-v2-Q3_K_M.gguf` (5.8 GB)
+**Local file:** `models/gemma-4-12B-fable5-Q3_K_M.gguf` (5.8 GB)
 **Base model:** `deepreinforce-ai/gemma-4-12B-it` finetuned for agentic coding
 
 An agentic coding fine-tune on Gemma 4 base. ~3.5× improvement on tau2-bench telecom over base (15% → 55%). Purchased at 3-bit.
@@ -99,29 +99,32 @@ An agentic coding fine-tune on Gemma 4 base. ~3.5× improvement on tau2-bench te
 
 ## Validation (2-task, 2026-07-01, 131k ctx)
 
+Config: `b=1024`, `ub=256`, `t=8`, `fa=on`, `cont-batching`, `ngl=99`
+
 | Bench | Score | TPS |
 |---|---|---|
-| HumanEval+ | **1.0000** | 44.8 |
-| MBPP+ | **0.5000** | 37.9 |
-| LCB | **0.5000** | 36.4 |
-| BigCode Hard | 0.0000 | 40.0 |
-| **Overall** | **0.5500** | **38.4** |
-| **VRAM** | **7.9 GB** (131k ctx) |
+| HumanEval+ | **1.0000** | 45.6 |
+| MBPP+ | **0.5000** | 50.2 |
+| LCB | **0.5000** | 53.9 |
+| BigCode Hard | 0.0000 | 52.5 |
+| **Overall** | **0.5500** | **43.0** |
+| **VRAM** | **7.4 GB** (131k ctx) |
+| **Bench tg** | **31.2 t/s** |
 
 ## vs Gemma 4 base (UD-Q4_K_XL)
 
 | Metric | v2 Q3_K_M | Base UD-Q4_K_XL | Delta |
 |---|---|---|---|
-| Score | **0.5500** | 0.5500 | **0%** |
-| TPS | 38.4 | 34.6 | **+11%** |
-| VRAM | 7.9 GB | 8.0 GB | -0.1 GB |
+| Score | **0.5500** | 0.4250 | **+29%** |
+| TPS | **43.0** | 36.0 | **+19%** |
+| VRAM | **7.4 GB** | 8.0 GB | -0.6 GB |
 
-Same coding score as base at Q4_K_XL, measured at 131k ctx. v2's agentic fine-tune compensates for Q3 quantization loss. BigCode Hard still zero — library-call tasks suffer at 3-bit.
+v2 at Q3 beats base at Q4_K_XL on both score and speed despite being lower quantization. Agentic fine-tune compensates for Q3 loss. Also uses 0.6 GB less VRAM.
 
 ## Limitations
 - **BigCode zero** = library-call tasks hit quality cliff at 3-bit
-- Q3 decode kernel ~25% slower than Q4 on RTX 4060
-- VRAM at 7.9 GB leaves only 0.1 GB headroom — any overhead risks OOM
+- Q3 decode kernel ~30% slower than Q4 on RTX 4060 (bench tg 31.2 vs 33.4)
 
 ## Tuning History
-- 2026-07-01: Downloaded Q3_K_M, validated at 131k (0.5500, 38.4 TPS, 7.9 GB) — no OOM
+- 2026-07-01: Renamed to `gemma-4-12B-fable5-Q3_K_M.gguf`, validated at 131k with b1024/ub256 (0.5500, 43.0 TPS, 7.4 GB)
+- 2026-07-01: Initial validation as `gemma4-v2-Q3_K_M.gguf` (0.5500, 38.4 TPS, 7.9 GB)

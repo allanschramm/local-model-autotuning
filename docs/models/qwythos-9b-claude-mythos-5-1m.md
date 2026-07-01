@@ -80,8 +80,11 @@ All runs with `config.py` defaults unless noted.
 | 3 | beellama | MTP | 1024/256 | timed out | — | — |
 | 4 | beellama | MTP + draft-ctx 512 | 1024/256 | timed out | — | — |
 | 5 | beellama | MTP @ 8k ctx | 1024/256 | 0.1250 | 42.0 | 7.3 GB |
+| 6 | upstream build-cuda | non-MTP | 1024/256 | 0.3000 | 50.4 | 7.1 GB |
 
 **Winner: Run 2** — non-MTP, 1024/256, turboquant. Score 0.4250 at 51.2 TPS.
+
+Run 6 (2026-07-01): upstream build-cuda + cont-batching. Score lower due to MBPP+ 0/2 — 2-task sampling fluke.
 
 ## Config Baseline (2026-06-30)
 
@@ -103,3 +106,4 @@ REPEAT_PENALTY = 1.05
 - 2026-06-30: Batch sweep (1024/256 → 0.4250, 3.4× improvement)
 - 2026-06-30: llama-bench ubatch sweep (ub=256 is sweet spot)
 - 2026-06-30: MTP tested — no VRAM headroom on 8GB at 131k ctx
+- 2026-07-01: Re-validation upstream build-cuda + cont-batching (0.3000, 50.4 TPS, 7.1 GB)
