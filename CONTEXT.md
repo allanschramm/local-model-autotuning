@@ -51,7 +51,9 @@ _Avoid_: grid, parameter space
 ### Evaluation
 
 **Validation**:
-The 2-step pre-check that runs before every full Trial: (1) `llama-bench` speed test (tg_tps >= threshold), (2) quick coding eval with 2 tasks per dataset. If either step fails, the Trial is logged as FAIL and no extended evaluation runs. The `--validation` flag runs this check alone and exits.
+The 2-step pre-check that runs before every full Trial: (1) `llama-bench` speed test (tg_tps >= threshold), (2) quick coding eval with 2 tasks per dataset (HE+, MBPP+, LCB, BigCodeBench — 8 tasks total). If either step fails, the Trial is logged as FAIL and no extended evaluation runs. The `--validation` flag runs this check alone and exits.
+
+**To validate a single model**: (1) set `MODEL` in `autoresearch/core/config.py`, (2) run `python3 benchmark_search.py --validation --desc "validate <model>"`. One model at a time — never parallel. See GOLDEN-RULES.md §5 for the full step-by-step.
 _Avoid_: bench-only, speed check, smoke test
 
 **Val Score**:

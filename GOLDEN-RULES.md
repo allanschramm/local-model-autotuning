@@ -51,6 +51,36 @@ Every Trial runs a **2-step validation** before the full eval:
 
 See `autoresearch/runners/evaluation.py` → `run_llama_bench_validation()` + `run_trial()` for implementation.
 
+### How to Validate a Single Model (step-by-step)
+
+When asked to "validate a model", follow this exact procedure:
+
+1. **Set MODEL in config.py** — Change `MODEL` in `autoresearch/core/config.py` to the target GGUF filename (e.g., `'my-model-Q4_K_M.gguf'`). Only change MODEL; leave all other constants at their current values unless the task explicitly says otherwise.
+
+2. **Run validation** — Execute directly, no wrapper scripts:
+   ```
+   python3 benchmark_search.py --validation --desc "validate <model-filename>"
+   ```
+   This runs the unified harness (not raw binaries). The harness:
+   - Resolves the model path from config.py's MODEL constant
+   - Translates config flags to llama-server CLI args
+   - Manages server lifecycle (start, health-check, teardown)
+   - Monitors VRAM via NVML sampling
+   - Logs results to results.tsv
+
+3. **What the --validation flag does** — Two steps, always both:
+   - **Step 1 (speed check)**: `llama-bench` with `prompt=512`, `gen=128`, 3 repeats. If `tg_tps < 20.0`, FAILs immediately — no coding eval runs.
+   - **Step 2 (2-task coding eval)**: 2 tasks per dataset — HumanEval+, MBPP+, LiveCodeBench v6, BigCodeBench Hard — 8 coding tasks total. Validates the model generates coherent code, not just fast garbage.
+
+4. **One model at a time** — Never run multiple validations in parallel. All models share the same GPU (CUDA device 0) and default port 18080. Each validation must finish (PASS or FAIL) before the next starts.
+
+5. **Result in results.tsv** — Written with category `validation` and status `discard` (validation runs never "keep"). Read the latest entry per model for comparison.
+
+**RULES**:
+- Do NOT run `llama-server` or `llama-bench` directly. The harness handles everything.
+- Do NOT write wrapper scripts or bash loops. Change config.py and invoke benchmark_search.py directly.
+- Do NOT batch models into a single command chain. One validation per invocation.
+
 ## 6. Use the Harness, Not Raw Binaries
 
 *   **Do NOT run `llama-server` or `llama-bench` directly** for evaluation. The harness (`benchmark_search.py`, `autoloop.py`) resolves paths, translates config flags to CLI args, manages server lifecycle, monitors VRAM, and logs results. Bypassing it produces unlogged, unreproducible trials.

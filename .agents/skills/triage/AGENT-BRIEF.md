@@ -72,6 +72,13 @@ Every Trial runs a **2-step validation** before full eval:
 
 2. **Quick coding eval** — 2 tasks per dataset (HE+, MBPP+, LCB, BigCodeBench). Validates the model generates coherent code under the config — not just fast garbage.
 
+### How to validate a single model
+
+1. Set `MODEL = '<filename>.gguf'` in `autoresearch/core/config.py`
+2. Run: `python3 benchmark_search.py --validation --desc "validate <filename>"`
+3. One model at a time. Never parallel. Never chain multiple in one command.
+4. Result goes to `results.tsv` with category `validation`.
+
 Use `--validation` flag to run steps 1-2 and exit (no extended eval, no keep/discard). Quick sanity check before committing to a full Trial.
 
 ---
