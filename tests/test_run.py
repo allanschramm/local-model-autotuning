@@ -154,15 +154,18 @@ class TestRun(unittest.TestCase):
         args.spec_type = None
         args.coding_task_limit = 30
         
-        # validation=True w/o skip_bench: runs bench mock, returns early
+        # validation=True: runs bench mock, then coding with task_limit=2
+        mock_coding.return_value = BenchmarkResult(
+            val_score=0.75, val_pass1=0.6, val_pass2=0.8, val_pass3=0.7, val_pass4=0.5, avg_tps=40.0
+        )
         res = run.run_evaluation(
             args, model="g4-opt-it-Q4_K_M.gguf", kv="q4_0", max_tokens=1024,
             include_coding=True, validation=True
         )
         
-        # Validation mode skips coding
-        mock_coding.assert_not_called()
-        self.assertEqual(res["val_score"], 1.0)
+        # Validation mode now runs quick 2-task coding
+        mock_coding.assert_called_once()
+        self.assertEqual(res["coding_val"], 0.75)
         self.assertEqual(res["bench_tg_tps"], 42.0)
 
     @patch("autoresearch.runners.run.run_evaluation")
@@ -170,13 +173,13 @@ class TestRun(unittest.TestCase):
     @patch("autoresearch.runners.run.open", new_callable=mock_open)
     def test_single_run_validation_passes(self, mock_file, mock_commit, mock_eval):
         mock_commit.return_value = "abcdefg"
-        # Bench-validation returns val_score=1.0 on pass
+        # Validation passes bench check + 2-task coding
         mock_eval.return_value = {
             "status": "OK",
-            "coding_val": 0.0,
-            "lcb_val": 0.0, "he_val": 0.0, "mbpp_val": 0.0, "bigcode_val": 0.0,
+            "coding_val": 0.75,
+            "lcb_val": 0.6, "he_val": 0.8, "mbpp_val": 0.7, "bigcode_val": 0.5,
             "swe_val": 0.0,
-            "val_score": 1.0, "avg_tps": 42.0, "peak_vram_gb": 0.0,
+            "val_score": 0.75, "avg_tps": 42.0, "peak_vram_gb": 6.0,
             "bench_tg_tps": 42.0, "bench_pp_tps": 190.0,
         }
         

@@ -182,32 +182,13 @@ def handle_single_run(args):
     if not isinstance(is_validation, bool):
         is_validation = False
 
-    if is_validation:
-        bench_tg = res.get("bench_tg_tps", 0.0)
-        details = f"[bench-validation] {args.model} kv={args.kv} tg={bench_tg:.1f}t/s ctx={args.ctx_size} | {args.desc}"
-        print(f"\n{'='*40}")
-        print("BENCH VALIDATION RESULTS")
-        print('='*40)
-        print(f"Model:          {args.model}")
-        print(f"KV Cache:       {args.kv}")
-        print(f"Context Size:   {args.ctx_size}")
-        print("-"*40)
-        print(f"Bench tg:       {bench_tg:.1f} t/s")
-        print(f"Bench pp:       {res.get('bench_pp_tps', 0.0):.1f} t/s")
-        print("-"*40)
-        if val_score >= 1.0:
-            print(">>> STATUS: VALIDATION PASSED")
-        else:
-            print(">>> STATUS: VALIDATION FAILED")
-        status = "discard"
-    else:
-        improved = val_score > prev_best
-        status = "keep" if improved else "discard"
-        
-        details = f"{args.model} kv={args.kv} ctx={args.ctx_size} TPS={res['avg_tps']:.1f} VRAM={res['peak_vram_gb']:.1f}GB coding={res['coding_val']:.4f}"
-        details += f" lcb={res.get('lcb_val', 0.0):.4f} he={res.get('he_val', 0.0):.4f} mbpp={res.get('mbpp_val', 0.0):.4f} bigcode={res.get('bigcode_val', 0.0):.4f}"
-        details += f" bench_tg={res.get('bench_tg_tps', 0.0):.1f}"
-        details += f" | {args.desc}"
+    improved = val_score > prev_best
+    status = "keep" if (improved and not is_validation) else "discard"
+
+    details = f"{args.model} kv={args.kv} ctx={args.ctx_size} TPS={res['avg_tps']:.1f} VRAM={res['peak_vram_gb']:.1f}GB coding={res['coding_val']:.4f}"
+    details += f" lcb={res.get('lcb_val', 0.0):.4f} he={res.get('he_val', 0.0):.4f} mbpp={res.get('mbpp_val', 0.0):.4f} bigcode={res.get('bigcode_val', 0.0):.4f}"
+    details += f" bench_tg={res.get('bench_tg_tps', 0.0):.1f}"
+    details += f" | {args.desc}"
     
     # Log to results.tsv
     write_row(
@@ -224,28 +205,26 @@ def handle_single_run(args):
     print(f"Model:          {args.model}")
     print(f"KV Cache:       {args.kv}")
     print(f"Context Size:   {args.ctx_size}")
-    if not is_validation:
-        print("-"*40)
-        print(f"Coding Score:     {res['coding_val']:.4f}")
-        print(f"  LCB:            {res.get('lcb_val', 0.0):.4f}")
-        print(f"  HumanEval+:     {res.get('he_val', 0.0):.4f}")
-        print(f"  MBPP+:          {res.get('mbpp_val', 0.0):.4f}")
-        print(f"  BigCode Hard:   {res.get('bigcode_val', 0.0):.4f}")
-        print(f"Combined TPS:     {res['avg_tps']:.1f} (Threshold: >= 20.0)")
-        print(f"Bench tg:         {res.get('bench_tg_tps', 0.0):.1f} t/s")
-        print(f"Peak VRAM:        {res['peak_vram_gb']:.1f} GB")
-        print(f"Current Score:    {val_score:.6f}")
-        print(f"Previous Best:    {prev_best:.6f}")
-        print("-"*40)
-    
-        if improved:
-            print(f"\n>>> STATUS: KEEP (Improved by +{val_score - prev_best:.6f})")
-            print(">>> Run this to commit your tweak:")
-            print(f"    git commit -am \"keep: {args.desc} (score: {val_score:.6f})\"")
-        else:
-            print(f"\n>>> STATUS: DISCARD (Regressed or no improvement by {val_score - prev_best:.6f})")
-            print(">>> Run this to discard your tweak:")
-            print("    git checkout . && git clean -fd")
+    print("-"*40)
+    print(f"Coding Score:     {res['coding_val']:.4f}")
+    print(f"  LCB:            {res.get('lcb_val', 0.0):.4f}")
+    print(f"  HumanEval+:     {res.get('he_val', 0.0):.4f}")
+    print(f"  MBPP+:          {res.get('mbpp_val', 0.0):.4f}")
+    print(f"  BigCode Hard:   {res.get('bigcode_val', 0.0):.4f}")
+    print(f"Combined TPS:     {res['avg_tps']:.1f} (Threshold: >= 20.0)")
+    print(f"Bench tg:         {res.get('bench_tg_tps', 0.0):.1f} t/s")
+    print(f"Peak VRAM:        {res['peak_vram_gb']:.1f} GB")
+    print(f"Current Score:    {val_score:.6f}")
+    print(f"Previous Best:    {prev_best:.6f}")
+    print("-"*40)
+    if improved:
+        print(f"\n>>> STATUS: KEEP (Improved by +{val_score - prev_best:.6f})")
+        print(">>> Run this to commit your tweak:")
+        print(f"    git commit -am \"keep: {args.desc} (score: {val_score:.6f})\"")
+    else:
+        print(f"\n>>> STATUS: DISCARD (Regressed or no improvement by {val_score - prev_best:.6f})")
+        print(">>> Run this to discard your tweak:")
+        print("    git checkout . && git clean -fd")
 
 def handle_grid_run(args):
     """Run a multidimensional sweep over comma-separated grid parameters."""

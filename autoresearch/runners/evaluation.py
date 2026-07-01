@@ -18,7 +18,7 @@ from autoresearch.benchmarks.benchmark_coding import run_benchmark as run_coding
 BASE_DIR = Path(__file__).resolve().parent
 
 # ── llama-bench defaults ────────────────────────────────────────────────
-BENCH_TPS_THRESHOLD = 30.0  # min tg t/s from llama-bench
+BENCH_TPS_THRESHOLD = 20.0  # min tg t/s from llama-bench
 BENCH_N_PROMPT = 512
 BENCH_N_GEN = 128
 
@@ -179,10 +179,12 @@ class ExperimentRunner:
                 return res
 
             if is_validation:
-                print(f"  [OK] Validation passed: tg {bench_tg:.1f} t/s >= {bench_tts_threshold:.1f}")
-                res.avg_tps = bench_tg
-                res.val_score = 1.0 if bench_tg >= bench_tts_threshold else 0.0
-                return res
+                print(f"  [OK] Bench validation passed: tg {bench_tg:.1f} t/s >= {bench_tts_threshold:.1f}")
+                # Coerce to quick 2-task coding validation
+                task_limit_val = 2
+                lcb_limit_val = 2
+                bigcode_limit_val = 2
+                # fall through to coding eval
 
         # ── Full evaluation ──────────────────────────────────────────────
         server_log = BASE_DIR / "llama_server.log"

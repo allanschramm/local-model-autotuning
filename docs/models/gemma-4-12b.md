@@ -79,4 +79,49 @@ REPEAT_PENALTY = 1.05
 ```
 
 ## Tuning History
-- 2026-06-30: Initial validation, score 0.5500, VRAM 8.0 GB
+- 2026-06-30: Initial validation (base), score 0.5500, VRAM 8.0 GB
+
+---
+
+# Gemma4-12B v2 (agentic-fable5) — Variant
+
+**Source repo:** https://huggingface.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF
+**Local file:** `models/gemma4-v2-Q3_K_M.gguf` (5.8 GB)
+**Base model:** `deepreinforce-ai/gemma-4-12B-it` finetuned for agentic coding
+
+An agentic coding fine-tune on Gemma 4 base. ~3.5× improvement on tau2-bench telecom over base (15% → 55%). Purchased at 3-bit.
+
+## Architecture
+- Same `gemma4` arch as base (dense 12B, 42 layers)
+- Post-trained on top of Gemma 4 for coding & tool-use
+- Native context: 262k tokens
+- Chat template: Gemma 4 (requires `--jinja`)
+
+## Validation (2-task, 2026-07-01, 131k ctx)
+
+| Bench | Score | TPS |
+|---|---|---|
+| HumanEval+ | **1.0000** | 44.8 |
+| MBPP+ | **0.5000** | 37.9 |
+| LCB | **0.5000** | 36.4 |
+| BigCode Hard | 0.0000 | 40.0 |
+| **Overall** | **0.5500** | **38.4** |
+| **VRAM** | **7.9 GB** (131k ctx) |
+
+## vs Gemma 4 base (UD-Q4_K_XL)
+
+| Metric | v2 Q3_K_M | Base UD-Q4_K_XL | Delta |
+|---|---|---|---|
+| Score | **0.5500** | 0.5500 | **0%** |
+| TPS | 38.4 | 34.6 | **+11%** |
+| VRAM | 7.9 GB | 8.0 GB | -0.1 GB |
+
+Same coding score as base at Q4_K_XL, measured at 131k ctx. v2's agentic fine-tune compensates for Q3 quantization loss. BigCode Hard still zero — library-call tasks suffer at 3-bit.
+
+## Limitations
+- **BigCode zero** = library-call tasks hit quality cliff at 3-bit
+- Q3 decode kernel ~25% slower than Q4 on RTX 4060
+- VRAM at 7.9 GB leaves only 0.1 GB headroom — any overhead risks OOM
+
+## Tuning History
+- 2026-07-01: Downloaded Q3_K_M, validated at 131k (0.5500, 38.4 TPS, 7.9 GB) — no OOM
