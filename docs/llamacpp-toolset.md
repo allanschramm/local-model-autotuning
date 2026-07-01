@@ -1,25 +1,26 @@
 # llama.cpp Toolset Reference
 
-Vendored runtime at `/home/shark/workspace/Nexus-System/llama.cpp/`. Built with CUDA in `build-cuda/`.
+Vendored runtime at `./llama.cpp/` (repo root). Built with CUDA in `build-cuda/`.
+
+**Path resolution:** The autoloop resolves `llama-server` via `autoresearch/core/llama_runner.py`. If your build is elsewhere, set `export AUTORESEARCH_LLAMA_CPP_ROOT=/path/to/llama.cpp`.
 
 ## Build
 
 ```bash
 # Full build (all tools)
-cmake -S /home/shark/workspace/Nexus-System/llama.cpp \
-      -B /home/shark/workspace/Nexus-System/llama.cpp/build-cuda \
-      -DGGML_CUDA=ON
-cmake --build /home/shark/workspace/Nexus-System/llama.cpp/build-cuda --config Release -j$(nproc)
+LLAMA_CPP="${AUTORESEARCH_LLAMA_CPP_ROOT:-./llama.cpp}"
+cmake -S "$LLAMA_CPP" -B "$LLAMA_CPP/build-cuda" -DGGML_CUDA=ON
+cmake --build "$LLAMA_CPP/build-cuda" --config Release -j$(nproc)
 
 # Build single target
-cmake --build /home/shark/workspace/Nexus-System/llama.cpp/build-cuda --target llama-bench -j$(nproc)
+cmake --build "$LLAMA_CPP/build-cuda" --target llama-bench -j$(nproc)
 ```
 
 Targets are prefixed `llama-` (e.g. `llama-quantize`, `llama-perplexity`).
 
 ## Built binaries location
 
-All binaries → `/home/shark/workspace/Nexus-System/llama.cpp/build-cuda/bin/`
+All binaries → `$LLAMA_CPP/build-cuda/bin/` (or `./llama.cpp/build-cuda/bin/` by default)
 
 | Binary | Purpose | Use case |
 |--------|---------|----------|
@@ -33,8 +34,8 @@ All binaries → `/home/shark/workspace/Nexus-System/llama.cpp/build-cuda/bin/`
 
 ## Hardware
 
-- GPU: RTX 4060 (8 GB VRAM, CUDA 8.9)
-- Monorepo siblings: `llama-cpp-turboquant/` (MTP/TurboQuant fork), `beellama.cpp/` (another variant)
+- GPU: RTX 4060 (8 GB VRAM, CUDA 8.9) — adapt paths and flags for your hardware
+- Forks: `llama-cpp-turboquant/` (MTP/TurboQuant), or any fork cloned as `llama.cpp` in repo root
 
 ---
 
@@ -360,22 +361,22 @@ python3 benchmark_search.py --desc "sweep batch 1024" --batch-size 1024
 2. `<repo>/llama.cpp/build-cuda/bin/llama-server`
 3. `<repo_parent>/llama.cpp/build-cuda/bin/llama-server`
 
-Default: `/home/shark/workspace/Nexus-System/llama.cpp/build-cuda/bin/`
+Default: `./llama.cpp/build-cuda/bin/`
 
 ---
 
 ## Build shortcuts
 
 ```bash
+# Set this once per session (or add to .bashrc)
+LLAMA_CPP="${AUTORESEARCH_LLAMA_CPP_ROOT:-./llama.cpp}"
+
 # Build all tools (CUDA)
-alias lc-build="cmake -S /home/shark/workspace/Nexus-System/llama.cpp -B /home/shark/workspace/Nexus-System/llama.cpp/build-cuda -DGGML_CUDA=ON && cmake --build /home/shark/workspace/Nexus-System/llama.cpp/build-cuda --config Release -j$(nproc)"
+alias lc-build="cmake -S $LLAMA_CPP -B $LLAMA_CPP/build-cuda -DGGML_CUDA=ON && cmake --build $LLAMA_CPP/build-cuda --config Release -j\$(nproc)"
 
 # Build single tool
-alias lc-bench="cmake --build /home/shark/workspace/Nexus-System/llama.cpp/build-cuda --target llama-bench -j$(nproc)"
-
-# Run from build dir
-alias lcb="/home/shark/workspace/Nexus-System/llama.cpp/build-cuda/bin"
+alias lc-bench="cmake --build $LLAMA_CPP/build-cuda --target llama-bench -j\$(nproc)"
 
 # Quick bench
-alias lbench="/home/shark/workspace/Nexus-System/llama.cpp/build-cuda/bin/llama-bench"
+alias lbench="$LLAMA_CPP/build-cuda/bin/llama-bench"
 ```

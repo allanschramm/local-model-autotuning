@@ -117,13 +117,14 @@ When the user requests a durable behavior change, record it here or in the relev
 - **Fair testing across models**: Always keep exactly 10 tasks per dataset for evaluations (never 5 tasks) to guarantee fair model comparisons.
 
 ## Child DOX Index
-- [autoresearch/AGENTS.md](autoresearch/AGENTS.md) — Core autotuning package.
-- [docs/AGENTS.md](docs/AGENTS.md) — durable documentation (model cards, ADRs, discovery guides, session logs).
-  - [docs/models/](docs/models/) — per-model GGUF specs.
-  - [docs/adr/](docs/adr/) — architecture decision records.
-  - [docs/discovery/](docs/discovery/) — user-facing guides (whichllm, Pareto frontier, model selection).
-  - [docs/sessions/](docs/sessions/) — empirical session logs.
-- [scripts/AGENTS.md](scripts/AGENTS.md) — Operator scripts (setup, monitoring, configuration server daemon).
+- [autoresearch/AGENTS.md](autoresearch/AGENTS.md) — Core autotuning package (config, runners, benchmarks).
+- [docs/AGENTS.md](docs/AGENTS.md) — Durable documentation contract.
+  - [docs/models/](docs/models/) — Per-model GGUF specs (architecture, quant, settings).
+  - [docs/adr/](docs/adr/) — Architecture decision records.
+  - [docs/discovery/](docs/discovery/) — User-facing guides: model selection workflow, whichllm CLI reference, quantization cascade, agent onboarding.
+  - [docs/sessions/](docs/sessions/) — Empirical session logs (reproducibility evidence).
+  - [docs/llamacpp-toolset.md](docs/llamacpp-toolset.md) — llama.cpp binary reference (build, bench, server, quantize).
+- [scripts/AGENTS.md](scripts/AGENTS.md) — Operator scripts (setup, monitoring, server daemon).
 - [tests/AGENTS.md](tests/AGENTS.md) — Unit and integration test suite.
 
 
