@@ -17,7 +17,11 @@ Cards:
 - [Gemma-4-12B](gemma-4-12b.md)
 - [Qwythos-9B-Claude-Mythos-5-1M](qwythos-9b-claude-mythos-5-1m.md)
 - [Qwen3.6-35B-A3B](qwen3.6-35b-a3b.md)
+- [Qwen-AgentWorld-35B-A3B](qwen-agentworld-35b-a3b.md)
 - [Gemma-4-26B-A4B](gemma-4-26b-a4b.md)
+- [Ornith-1.0-9B](ornith-1.0-9b.md)
+- [Ornith-1.0-35B](ornith-1.0-35b.md) — Q4_K_M (primary) + IQ3_M variant
+- [Ornith-1.0-35B IQ3_M](ornith-1.0-35b-iq3_m.md) — IQ3_M variant (rejected: slower than Q4_K_M)
 - [VITRIOL technique](vitriol-technique.md) — the Codacus MoE-split strategy
 
 ## Open extraction tasks

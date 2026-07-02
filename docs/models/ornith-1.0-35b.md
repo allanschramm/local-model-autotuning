@@ -65,6 +65,21 @@ With MoE, we place **attention + shared expert + routing** on the GPU, and keep 
 - HuggingFace Model Card (`deepreinforce-ai/Ornith-1.0-35B-GGUF`)
 - Verification validation run completed successfully on 2026-06-27.
 
+## Variant: IQ3_M (2026-07-02 GGUF verified)
+
+**Local file:** `models/deepreinforce-ai_Ornith-1.0-35B-IQ3_M.gguf` (15.74 GB)
+**Quantization:** `IQ3_M` (file_type=27, importance-quantized 3-bit)
+
+GGUF metadata (verified via `gguf.GGUFReader` 2026-07-02):
+- `general.name` = `Ornith 1.0 35B` — same model, different quant
+- `general.architecture` = `qwen35moe` — same 40-layer hybrid arch
+- `general.license` = `mit` (vs Apache-2.0 for Q4_K_M — upstream license differs by release)
+- `general.sampling.temp` = 1.0, `top_k` = 20, `top_p` = 0.95
+- Same expert config: `expert_count=256`, `expert_used_count=8`, `full_attention_interval=4`
+- 733 tensors total, no MTP tensors
+
+See [IQ3_M variant card](ornith-1.0-35b-iq3_m.md) for detailed testing results.
+
 ## Tuning History (2026-06-29)
 
 ### BeeLlama tested (no gains)

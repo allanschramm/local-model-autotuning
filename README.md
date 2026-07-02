@@ -163,9 +163,9 @@ Se preferir fazer na mão:
 
 | Profile | Benchmarks | Modelos Exemplo |
 |---|---|---|
-| **Coding** (default) | SWE-bench, Aider, HE+ | Qwen3.6-27B, Qwen3.6-35B-A3B |
-| **Writing** | MMLU-Pro, Chatbot Arena | Qwen3-14B, Gemma3-12B |
-| **Vision** | MMMU-Pro, MMBench | Qwen3-VL, Gemma-4-26B-A4B |
+| **Coding** (default) | SWE-bench, Aider, HE+ | Qualquer modelo GGUF local |
+| **Writing** | MMLU-Pro, Chatbot Arena | Qualquer modelo GGUF local |
+| **Vision** | MMMU-Pro, MMBench | Qualquer modelo GGUF local multimodal |
 
 Troque em `autoresearch/core/config.py`:
 
