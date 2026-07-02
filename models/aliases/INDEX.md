@@ -65,6 +65,8 @@ The autoloop rewrites `autoresearch/core/config.py` on every keep — useful for
 | `qwythos-9b` | `Qwythos-9B-Claude-Mythos-5-1M-Q4_K_M.gguf` | 18080 | **0.6400** | 50.9 | 10-task, b1024/ub256 |
 | `o9` | `ornith-1.0-9b-Q4_K_M.gguf` | 18080 | 0.5450 | 49.8 | 10-task, b1024/ub256 |
 | `o35` | `ornith-1.0-35b-Q4_K_M.gguf` | 18080 | 0.5550 | 31.5 | MoE, VITRIOL n-cpu-moe 32 |
+| `qwen3.6-35b-q3xl` | `Qwen3.6-35B-A3B-UD-Q3_K_XL.gguf` | 18080 | — | — | Q3_K_XL 16 GB, MTP, n-cpu-moe 32. Untested. |
+| `gemma-4-e4b` | `gemma-4-E4B-it-Q8_0.gguf` | 18080 | — | — | Q8_0 7.6 GB, near-lossless. Untested. |
 
 ## See also
 
