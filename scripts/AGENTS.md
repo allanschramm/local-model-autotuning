@@ -9,7 +9,7 @@ Repository operators and developers.
 ## Local Contracts
 - Scripts must be runnable from the repository root.
 - `setup-check.sh` is the canonical readiness verification script.
-- Do not commit absolute user paths (`/home/shark/`) in scripts; resolve dynamically or accept overrides.
+- Do not commit absolute user paths (`/home/<user>/`) in scripts; resolve dynamically or accept overrides.
 
 ## Work Guidance
 - Use `serve-config.py` as the preferred CLI helper to start/stop the llama-server daemon based on `config.py`.

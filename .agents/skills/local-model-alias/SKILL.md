@@ -17,7 +17,7 @@ Skill pra criar alias reutilizável de configuração do llama-server. Allan usa
 
 Pergunte se Allan não passar:
 - `name` — slug do alias (kebab-case, sem espaços). Ex: `qwen3.6-35b-mtp-active`.
-- `model` — path absoluto do GGUF. Descobrir via `ls /home/shark/models/` ou symlinks em `models/`.
+- `model` — path absoluto do GGUF. Descobrir via `ls models/` ou symlinks em `models/`.
 - `port` — porta OpenAI-compatible. Default `18080` se não especificado.
 - `flags` — lista de flags llama-server validadas. Já testadas e que deram o TPS registrado.
 - `metrics` (opcional) — `{tps, measured_at, measured_by, prompt_ref, notes}`.
@@ -68,7 +68,7 @@ Plug em Pi/Hermes: model=<alias_name>, base_url=http://127.0.0.1:<port>/v1
 
 - Não criar alias sem teste empírico que valide o TPS.
 - Não duplicar alias existente.
-- Não hardcodar paths Windows (`C:\...`) — sempre WSL `/home/shark/...`.
+- Não hardcodar paths Windows (`C:\...`) — sempre caminhos relativos ou env vars.
 - Não tocar `~/.local/bin/qwen-up` — é o launcher, não muda por alias.
 
 ## Exemplo
@@ -78,7 +78,7 @@ Input Allan: "cria um alias pro MTP ativo que vai dar 28 tok/s"
 ```yaml
 # models/aliases/qwen3.6-35b-mtp-active/config.yaml
 alias: qwen3.6-35b-mtp-active
-model: /home/shark/models/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
+model: models/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
 port: 18080
 host: 127.0.0.1
 description: Qwen3.6-35B-A3B com flag MTP ativa. Próximo teste.

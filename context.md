@@ -202,7 +202,7 @@ tests/test_search_strategy.py
     }
   ],
   "validationOutput": [
-    "context.md written to /home/shark/workspace/Nexus-System/local-model-autotuning/context.md with 6 sections and 5 clarification questions"
+    "context.md written to context.md with 6 sections and 5 clarification questions"
   ],
   "residualRisks": [
     "Did not read autore search/benchmarks/ or tests/ file contents — assumption is these are fixed as stated in program.md",

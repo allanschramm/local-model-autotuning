@@ -60,7 +60,7 @@ Autonomous hill-climbing optimizer for local LLM runtime flags (KV cache quant, 
 *   **VITRIOL MoE Streaming 35B**: Keeping all 256 routed experts in CPU/RAM via `--n-cpu-moe 40` enables 35B model loading on 8GB VRAM (RTX 4060) with acceptable throughput (23.6 TPS) and peak VRAM only 4.1 GB.
 *   **UBATCH sweet spot**: 256 > 512 on RTX 4060 8GB for Gemma4. llama-bench: ub=256 pp1922 tg49.8 vs ub=512 pp1940 tg41.0. Higher ubatch = better prompt processing but worse token generation.
 *   **Category column in results.tsv** (2026-07-01): Added to enable fair cross-model comparisons.
-*   **Docs path discipline** (2026-07-01): User-facing docs must not contain hardcoded paths (`/home/shark/...`). Use `./llama.cpp/`, `$LLAMA_CPP`, or `AUTORESEARCH_LLAMA_CPP_ROOT` env var [ses_0e12c7774ffe].
+*   **Docs path discipline** (2026-07-01): User-facing docs must not contain hardcoded paths (`/home/<user>/...`). Use `./llama.cpp/`, `$LLAMA_CPP`, or `AUTORESEARCH_LLAMA_CPP_ROOT` env var [ses_0e12c7774ffe].
 
 ## Patterns
 

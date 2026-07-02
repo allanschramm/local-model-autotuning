@@ -25,7 +25,7 @@ Repository-wide agent guidelines are owned by the repository developers.
 ## Work Guidance
 - Use `/caveman lite|full|ultra|wenyan` for communication style constraint.
 - Prioritize test-driven sanity. Verify logic changes using the test suite.
-- Maintain config single source of truth in [config.py](file:///home/shark/workspace/autoresearch-public/autoresearch/core/config.py).
+- Maintain config single source of truth in [config.py](autoresearch/core/config.py).
 
 ## Verification
 - Test with `pytest`. Ensure all 101 tests pass.

@@ -1,5 +1,5 @@
 
-=== /home/shark/.gemini/antigravity-cli/brain/74f162d7-085f-4761-8abd-e730ac5027a2/.system_generated/steps/383/content.md ===
+=== .gemini/antigravity-cli/brain/74f162d7-085f-4761-8abd-e730ac5027a2/.system_generated/steps/383/content.md ===
 
 For the complete documentation index, see
 llms.txt
@@ -556,7 +556,7 @@ Last updated
 5 minutes ago
 Was this helpful?
 
-=== /home/shark/.gemini/antigravity-cli/brain/74f162d7-085f-4761-8abd-e730ac5027a2/.system_generated/steps/385/content.md ===
+=== .gemini/antigravity-cli/brain/74f162d7-085f-4761-8abd-e730ac5027a2/.system_generated/steps/385/content.md ===
 
 For the complete documentation index, see
 llms.txt

@@ -6,7 +6,7 @@ Allan descobriu a ferramenta `uvx whichllm@latest` e rodou duas vezes no mesmo d
 ## Output 1 (15:31 BRT) — primeiro snapshot
 
 ```
-shark@DESKTOP-2CDK6UR:~$ uvx whichllm@latest
+user@DESKTOP:~$ uvx whichllm@latest
 
 ╭─────────────────────────────────────────────────── Hardware Info ────────────────────────────────────────────────────╮
 │ GPU 0: NVIDIA GeForce RTX 4060 — 8.0 GB (budget 7.5 GB) (CC 8.9, CUDA 13.3) — BW: 272 GB/s                           │
@@ -45,7 +45,7 @@ shark@DESKTOP-2CDK6UR:~$ uvx whichllm@latest
 ## Output 2 (15:36 BRT) — segundo snapshot, ~5min depois
 
 ```
-shark@DESKTOP-2CDK6UR:~$ uvx whichllm@latest
+user@DESKTOP:~$ uvx whichllm@latest
 
 ╭─────────────────────────────────────────────────── Hardware Info ────────────────────────────────────────────────────╮
 │ GPU 0: NVIDIA GeForce RTX 4060 — 8.0 GB (budget 7.5 GB) (CC 8.9, CUDA 13.3) — BW: 272 GB/s                           │

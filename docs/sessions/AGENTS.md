@@ -11,7 +11,7 @@ Single-day empirical session logs. Captures what was run, on which hardware, wit
 - **One file per session or per significant sub-iteration of a session.** Don't merge multiple sessions.
 - **Verbatim tool outputs** are preferred over paraphrased summaries. The point is reproducibility.
 - **Errors and corrections are first-class.** When an approach was wrong, log it explicitly so future operators don't repeat.
-- **Allan-specific paths** (`/home/shark/...`) are acceptable here because session logs are operator-specific. They are NOT acceptable in `docs/discovery/` or `docs/models/` (user-facing).
+- **Operator-specific paths** (historical session references) are acceptable here because session logs are operator-specific. They are NOT acceptable in `docs/discovery/` or `docs/models/` (user-facing).
 - **Do not edit a session log after the session is complete** except to fix typos. Add a follow-up file instead.
 - **No external-source URLs in technique claims** (per `docs/models/` rules — methodology names allowed, citations not).
 

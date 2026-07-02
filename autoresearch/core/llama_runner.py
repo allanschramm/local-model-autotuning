@@ -23,7 +23,7 @@ from typing import Any
 _LLAMA_SERVER_HELP_CACHE = None
 
 ROOT_DIR = Path(__file__).resolve().parent
-LLAMA_CPP_ROOT = Path(os.environ.get("AUTORESEARCH_LLAMA_CPP_ROOT", "/home/shark/workspace/Nexus-System/llama.cpp"))
+LLAMA_CPP_ROOT = Path(os.environ.get("AUTORESEARCH_LLAMA_CPP_ROOT", "./llama.cpp"))
 LLAMA_SERVER_CANDIDATES = (
     LLAMA_CPP_ROOT / "build-cuda" / "bin" / "llama-server",
     LLAMA_CPP_ROOT / "build" / "bin" / "llama-server",

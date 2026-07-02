@@ -10,11 +10,11 @@
 Prior attempts to evaluate `Ornith-1.0-9B` on the 4-bench composite returned `0.0000` scores on HumanEval+ and BigCodeBench. In this session, we systematically diagnosed and patched the following execution pipeline issues:
 
 1. **Stop Sequence Generation Cuts**: 
-   - **Issue:** The reasoning model frequently outputs thinking tokens like `"Task: "` inside its `<think>` blocks. The default `stop` sequence list in [llama_client.py](file:///home/shark/workspace/Nexus-System/local-model-autotuning/autoresearch/core/llama_client.py) included `"Task:"`, leading to premature generation halts.
-   - **Fix:** Removed `"Task:"` from the default `stop` list in [llama_client.py](file:///home/shark/workspace/Nexus-System/local-model-autotuning/autoresearch/core/llama_client.py).
+   - **Issue:** The reasoning model frequently outputs thinking tokens like `"Task: "` inside its `<think>` blocks. The default `stop` sequence list in [llama_client.py](file://./workspace/Nexus-System/local-model-autotuning/autoresearch/core/llama_client.py) included `"Task:"`, leading to premature generation halts.
+   - **Fix:** Removed `"Task:"` from the default `stop` list in [llama_client.py](file://./workspace/Nexus-System/local-model-autotuning/autoresearch/core/llama_client.py).
 2. **Thinking block response merging**: 
    - **Issue:** The runner concatenated `content` and `reasoning_content` blindly, appending plain English thoughts directly into the Python code, corrupting executable block parses.
-   - **Fix:** In [benchmark_coding.py](file:///home/shark/workspace/Nexus-System/local-model-autotuning/autoresearch/benchmarks/benchmark_coding.py#L487-L495), updated response combining logic to fall back to `reasoning_content` *only* if the main `content` field is empty.
+   - **Fix:** In [benchmark_coding.py](file://./workspace/Nexus-System/local-model-autotuning/autoresearch/benchmarks/benchmark_coding.py#L487-L495), updated response combining logic to fall back to `reasoning_content` *only* if the main `content` field is empty.
 3. **Missing Function Signatures**: 
    - **Issue:** As instruction-followers, the models generated *only* the function bodies. The test runner evaluated them as-is without prepending the signature definition, causing `NameError` on evaluation.
    - **Fix:** Prepended signature prompts (`entry.get("prompt", "")`) to the extracted function body when signature headers (`def ...`) are missing.
@@ -58,6 +58,6 @@ python3 benchmark_search.py --desc "validation run test" --validation
 
 ## 4. Test Suite Sanity
 
-- Added unit tests in [test_run.py](file:///home/shark/workspace/Nexus-System/local-model-autotuning/tests/test_run.py) and [test_benchmark_coding.py](file:///home/shark/workspace/Nexus-System/local-model-autotuning/tests/test_benchmark_coding.py) verifying the validation task overrides and indentation stripping fixes.
+- Added unit tests in [test_run.py](file://./workspace/Nexus-System/local-model-autotuning/tests/test_run.py) and [test_benchmark_coding.py](file://./workspace/Nexus-System/local-model-autotuning/tests/test_benchmark_coding.py) verifying the validation task overrides and indentation stripping fixes.
 - Verified all 89 unit tests pass.
 - All code changes are committed offline to the local repository. No changes pushed to remote repositories per repository rules.

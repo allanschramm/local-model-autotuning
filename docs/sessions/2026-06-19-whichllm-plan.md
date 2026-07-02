@@ -6,7 +6,7 @@ Allan rodou 2 `whichllm plan` + 1 `whichllm --speed usable`. Outputs verbatim ab
 ## Output 3: `whichllm plan "qwen 3.6 35b"`
 
 ```
-shark@DESKTOP-2CDK6UR:~$ whichllm plan "qwen 3.6 35b"
+user@DESKTOP:~$ whichllm plan "qwen 3.6 35b"
 
 Found 10 matches, using: nvidia/Qwen3.6-35B-A3B-NVFP4
 
@@ -55,7 +55,7 @@ Found 10 matches, using: nvidia/Qwen3.6-35B-A3B-NVFP4
 ## Output 4: `whichllm plan 'qwen3.5 9b'`
 
 ```
-shark@DESKTOP-2CDK6UR:~$ whichllm plan 'qwen3.5 9b'
+user@DESKTOP:~$ whichllm plan 'qwen3.5 9b'
 
 Found 6 matches, using: LuffyTheFox/Qwen3.5-9B-Claude-4.6-Opus-Uncensored-Distilled-GGUF
 

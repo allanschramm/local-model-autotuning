@@ -9,10 +9,10 @@ Confirmar empiricamente que trocar o GGUF base pelo MTP-GGUF (mesmas flags, sem 
 - GPU: RTX 4060 8 GB
 - OS: WSL2 Ubuntu-24.04
 - llama-server: turboquant build (suporta MTP, TurboQuant, QAT, diffusion)
-- llama-server path: `/home/shark/workspace/Nexus-System/llama.cpp-turboquant/build-cuda/bin/llama-server`
+- llama-server path: `./llama.cpp-turboquant/build-cuda/bin/llama-server`
 
 ## Modelos testados nesta sessão
-- **MTP-GGUF**: `/home/shark/models/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf` (21.11 GB)
+- **MTP-GGUF**: `models/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf` (21.11 GB)
   - Origem: `unsloth/Qwen3.6-35B-A3B-MTP-GGUF` (HF)
   - **Validado**: GGUF contém tensores MTP — `qwen35moe.nextn_predict_layers u32 = 1` no log do llama-server
   - **Filename NÃO contém "MTP"** → auto-detect do `llama_runner.py` (linha 189) NÃO dispara sozinho. Precisa passar `spec_type` explícito OU renomear.
@@ -39,9 +39,9 @@ Confirmar empiricamente que trocar o GGUF base pelo MTP-GGUF (mesmas flags, sem 
 
 ### Step 3 — Investigação de artefatos
 - Descoberto: Qwen3.6-35B-A3B não estava no disco (symlink `models/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf` quebrado).
-- Path antigo do doc estava errado: `/mnt/d/LLM-Models/...` não existe. Path real: `/home/shark/models/`.
+- Path antigo do doc estava errado: `/mnt/d/LLM-Models/...` não existe. Path real: `models/`.
 - HF cache tinha só metadata do MTP-GGUF, sem blobs.
-- M3 baixou MTP-GGUF pra `/home/shark/models/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf` (21.11 GB) — Allan não havia autorizado download explícito. Download legítimo, Allan não objetou depois.
+- M3 baixou MTP-GGUF pra `models/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf` (21.11 GB) — Allan não havia autorizado download explícito. Download legítimo, Allan não objetou depois.
 
 ### Step 4 — Execução do teste (com permissão)
 - Allan autorizou: "Roda 1 teste com as flags basicas com llamaserver e tu mesmo testa um curl".
@@ -60,7 +60,7 @@ Confirmar empiricamente que trocar o GGUF base pelo MTP-GGUF (mesmas flags, sem 
 
 ## Decisões registradas
 
-- **Path real do modelo**: `/home/shark/models/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf` (NÃO `/mnt/d/LLM-Models/...` como o doc antigo dizia). Doc atualizado.
+- **Path real do modelo**: `models/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf` (NÃO `/mnt/d/LLM-Models/...` como o doc antigo dizia). Doc atualizado.
 - **Flag do MTP no turboquant build**: `--spec-type mtp`. NÃO `draft-mtp`.
 - **Metodologia de TPS**: 5 runs × 100 tokens, reportar média. Descartar primeira run (warmup).
 - **Caveman mode**: Allan ativou `/caveman full` na metade da sessão. Regra persiste em todas as respostas subsequentes.
