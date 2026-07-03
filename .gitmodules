@@ -1,0 +1,9 @@
+[submodule "llama.cpp"]
+	path = llama.cpp
+	url = https://github.com/ggml-org/llama.cpp.git
+[submodule "beellama.cpp"]
+	path = beellama.cpp
+	url = https://github.com/Anbeeld/beellama.cpp.git
+[submodule "llama-cpp-turboquant"]
+	path = llama-cpp-turboquant
+	url = https://github.com/TheTom/llama-cpp-turboquant.git
