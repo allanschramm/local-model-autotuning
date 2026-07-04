@@ -117,6 +117,7 @@ When the user requests a durable behavior change, record it here or in the relev
 
 - **Fair testing across models**: Always keep exactly 10 tasks per dataset for evaluations (never 5 tasks) to guarantee fair model comparisons.
 - **README language**: README.md must always be in pt-BR. Agent-facing docs (docs/, AGENTS.md, GOLDEN-RULES.md, CONTEXT.md, program.md) stay in English.
+- **Agentic coding migration**: Treat HumanEval+/MBPP+/LiveCodeBench/BigCodeBench as direct-coding preflight benchmarks. Prefer long-horizon agentic targets for future coding-agent quality decisions once adapters exist.
 
 ## Child DOX Index
 - [autoresearch/AGENTS.md](autoresearch/AGENTS.md) — Core autotuning package (config, runners, benchmarks).
@@ -128,5 +129,4 @@ When the user requests a durable behavior change, record it here or in the relev
   - [docs/llamacpp-toolset.md](docs/llamacpp-toolset.md) — llama.cpp binary reference (build, bench, server, quantize).
 - [scripts/AGENTS.md](scripts/AGENTS.md) — Operator scripts (setup, monitoring, server daemon).
 - [tests/AGENTS.md](tests/AGENTS.md) — Unit and integration test suite.
-
 

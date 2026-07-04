@@ -55,7 +55,7 @@ Output verde = pronto pro autoloop.
 ### O Loop
 
 1. Lê a config atual melhor de `autoresearch/core/config.py`
-2. Roda todos os benchmarks habilitados (Coding: HE+, MBPP+, LCB, BigCodeBench)
+2. Roda todos os benchmarks habilitados (Coding atual: HE+, MBPP+, LCB, BigCodeBench)
 3. Calcula Val Score (acurácia ponderada + TPS floor)
 4. Muta um param -> gera config Neighbor
 5. Avalia Neighbor -> keep se melhorou (ou Pareto tie-break)
@@ -77,6 +77,15 @@ Métrica escalar única pra decisões de keep/discard:
 - Coding: `35% LiveCodeBench + 25% HumanEval+ + 25% MBPP+ + 15% BigCodeBench Hard`
 
 TPS Floor = 20 tok/s. Abixo disso -> score zerado.
+### Roadmap Agentic
+
+O score atual ainda é direct-coding. Para coding agents reais, o caminho é migrar para benchmarks long-horizon:
+
+```bash
+python benchmark_search.py --list-agentic-benchmarks
+```
+
+HE+/MBPP+/LCB/BigCode ficam como preflight rápido, não como medida final de agente.
 
 ### Segurança
 
@@ -176,6 +185,7 @@ Se preferir fazer na mão:
 | Profile | Benchmarks | Modelos Exemplo |
 |---|---|---|
 | **Coding** (default) | LiveCodeBench, HumanEval+, MBPP+, BigCodeBench Hard | Qualquer modelo GGUF local |
+| **Agentic Coding** (roadmap) | Benchmarks aprovados via catálogo local | Modelos locais servidos via endpoint OpenAI-compatible |
 | **Writing** | MMLU-Pro, Chatbot Arena | Qualquer modelo GGUF local |
 | **Vision** | MMMU-Pro, MMBench | Qualquer modelo GGUF local multimodal |
 

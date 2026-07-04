@@ -10,6 +10,7 @@ from typing import Dict, Any
 from autoresearch.core import config
 
 from autoresearch.runners.evaluation import ExperimentRunner, BENCH_TPS_THRESHOLD
+from autoresearch.benchmarks.agentic_benchmarks import format_agentic_benchmarks
 
 BASE_DIR = Path(__file__).resolve().parent
 RESULTS_FILE = BASE_DIR.parent.parent / "results.tsv"
@@ -58,6 +59,7 @@ def parse_args():
     parser.add_argument("--no-coding", dest="include_coding", action="store_false", help="Disable Coding benchmark")
     parser.add_argument("--include-nexus", action="store_true", default=getattr(config, "INCLUDE_NEXUS", False), help="Include Nexus benchmark")
     parser.add_argument("--include-claw", action="store_true", default=getattr(config, "INCLUDE_CLAW", False), help="Include Claw benchmark")
+    parser.add_argument("--list-agentic-benchmarks", action="store_true", help="List long-horizon agentic benchmark targets and exit")
     parser.add_argument("--coding-task-limit", type=int, default=getattr(config, "CODING_TASK_LIMIT", 30), help="Tasks per dataset (0=full dataset)")
     parser.add_argument("--lcb-task-limit", type=int, default=getattr(config, "LCB_TASK_LIMIT", 10), help="LiveCodeBench task limit")
     parser.add_argument("--bigcode-task-limit", type=int, default=getattr(config, "BIGCODE_TASK_LIMIT", 10), help="BigCodeBench task limit")
@@ -382,6 +384,9 @@ def handle_grid_run(args):
 
 def main():
     args = parse_args()
+    if args.list_agentic_benchmarks:
+        print(format_agentic_benchmarks())
+        return
     if args.grid:
         handle_grid_run(args)
     else:

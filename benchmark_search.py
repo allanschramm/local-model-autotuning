@@ -9,6 +9,7 @@ from pathlib import Path
 
 # Import search surface defaults from config.py (single source of truth)
 from autoresearch.core import config
+from autoresearch.benchmarks.agentic_benchmarks import format_agentic_benchmarks
 
 MODEL = config.MODEL
 CTX_SIZE = config.CTX_SIZE
@@ -55,6 +56,9 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
+    if args.list_agentic_benchmarks:
+        print(format_agentic_benchmarks())
+        sys.exit(0)
     
     # Import the execution logic from run.py
     from autoresearch.runners import run
