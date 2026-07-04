@@ -26,11 +26,19 @@ Real execution still needs an agent adapter that can:
 - collect pass/fail, elapsed time, token usage, and peak VRAM
 - append results without modifying benchmark fixtures
 
-## Candidate Direction
+## Approved Targets
 
-The next candidate to verify is `claw-eval/claw-eval`, because it is the ClawEval
-project the user already runs here. Do not add it to the catalog until its local
-command, runtime budget, task subset, and result parser are verified in this repo.
+`claw-eval/claw-eval` is approved as the next long-horizon agentic benchmark
+target and is checked out as the root submodule `claw-eval/`. It covers 300
+human-verified autonomous-agent tasks across `general`, `multimodal`, and
+`multi_turn` splits, scored with Pass^3 consistency.
+
+Do not execute it from this repo until these local integration pieces exist:
+
+- local-model adapter for the existing llama.cpp/SGLang server endpoint
+- fixed task subset policy for fair local comparisons
+- runtime budget and sandbox policy
+- result parser that maps Claw-Eval outputs into repo benchmark records
 
 ## Scoring Rule
 

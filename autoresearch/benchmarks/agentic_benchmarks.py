@@ -24,7 +24,21 @@ class AgenticBenchmarkSpec:
     priority: int
 
 
-AGENTIC_BENCHMARKS: tuple[AgenticBenchmarkSpec, ...] = ()
+AGENTIC_BENCHMARKS: tuple[AgenticBenchmarkSpec, ...] = (
+    AgenticBenchmarkSpec(
+        key="claw-eval",
+        name="Claw-Eval",
+        status="adopt-next",
+        scope="300 human-verified autonomous-agent tasks across general, multimodal, and multi-turn splits",
+        harness="claw-eval",
+        source_url="https://github.com/claw-eval/claw-eval",
+        notes=(
+            "External harness with Pass^3 scoring. Needs a local-model adapter, "
+            "task subset policy, runtime budget, and result parser before execution."
+        ),
+        priority=10,
+    ),
+)
 
 
 def list_agentic_benchmarks(status: str | None = None) -> list[AgenticBenchmarkSpec]:
