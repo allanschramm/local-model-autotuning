@@ -57,14 +57,8 @@ The 2-step pre-check that runs before every full Trial: (1) `llama-bench` speed 
 _Avoid_: bench-only, speed check, smoke test
 
 **Val Score**:
-The single scalar metric used for keep/discard decisions. When Coding is enabled: **80% Coding + 10% Nexus + 10% Claw**. Without Coding: **60% Nexus + 40% Claw**. Zeroed if TPS falls below the TPS Floor.
+The single scalar metric used for keep/discard decisions. Current Coding-only Trials use the Coding composite directly. Coding weights are **35% LiveCodeBench + 25% HumanEval+ + 25% MBPP+ + 15% BigCodeBench Hard**. Zeroed if TPS falls below the TPS Floor.
 _Avoid_: score, result, metric
-
-> **Weighting rule** (consistent with `run.py` implementation):
-> - `INCLUDE_CODING=True` → `0.80 × coding + 0.10 × nexus + 0.10 × claw`
-> - `INCLUDE_CODING=False` → `0.60 × nexus + 0.40 × claw`
->
-> Earlier docs claimed "60% Claw + 40% Nexus" without Coding; this was inconsistent with the implementation. The weights above are the authoritative reference.
 
 **TPS Floor**:
 The minimum throughput (tokens per second) a Trial must achieve. Below this, Val Score is forced to zero regardless of accuracy.
@@ -85,7 +79,7 @@ Agency benchmark. Tests tool-use (JSON browser calls) and instruction-following.
 _Avoid_: agency, ClawBench, tool-use benchmark
 
 **Coding**:
-Optional benchmark using EvalPlus (HumanEval+ and MBPP+). Measures code generation accuracy.
+Benchmark using LiveCodeBench v6, HumanEval+, MBPP+, and BigCodeBench Hard. Measures code generation accuracy under the current Coding profile.
 _Avoid_: EvalPlus, HumanEval
 
 ### Runtime
@@ -93,6 +87,10 @@ _Avoid_: EvalPlus, HumanEval
 **ServerIntent**:
 A pure data object describing the full configuration for a Trial — model path, context size, KV cache types, threads, speculative draft tokens, etc.
 _Avoid_: config object, server config
+
+**SGLang Backend**:
+Directory model paths under `models/` are served through SGLang instead of `llama-server`. SGLang Trials still flow through the harness, run the same Coding benchmark, and must obey the same 100k+ context floor.
+_Avoid_: raw SGLang run, direct server launch
 
 **TurboQuant**:
 Hardware-accelerated KV cache compression formats (`turbo2`, `turbo3`, `turbo4`) that fit large contexts within tight VRAM budgets.

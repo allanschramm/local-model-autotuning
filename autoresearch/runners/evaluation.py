@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent, resolve_llama_bench
+from autoresearch.core.sglang_runner import SGLangServerRunner, run_sglang_bench_validation
 from autoresearch.core.llama_client import LlamaClient, GenerationParams
 from autoresearch.benchmarks.benchmark_coding import run_benchmark as run_coding
 
@@ -145,47 +146,73 @@ class ExperimentRunner:
 
         # ── Pre-check: llama-bench validation ────────────────────────────
         if not skip_bench:
-            try:
-                bench_tg = run_llama_bench_validation(
-                    model_path=intent.model_path,
-                    ngl=intent.ngl,
-                    threads=intent.threads,
-                    batch_size=intent.batch_size,
-                    ubatch_size=intent.ubatch_size,
-                    flash_attn=intent.flash_attn,
-                    cache_type_k=intent.kv_cache_k or intent.kv_cache,
-                    cache_type_v=intent.kv_cache_v or intent.kv_cache,
-                    n_prompt=BENCH_N_PROMPT,
-                    n_gen=BENCH_N_GEN,
-                )
-            except FileNotFoundError as e:
-                print(f"  [FAIL] llama-bench not found: {e}")
-                res.status = "FAIL: llama-bench not found"
-                return res
-            except subprocess.CalledProcessError as e:
-                print(f"  [FAIL] llama-bench crashed: {e}")
-                res.status = "FAIL: llama-bench crashed"
-                return res
-            except Exception as e:
-                print(f"  [FAIL] llama-bench error: {e}")
-                res.status = f"FAIL: llama-bench error: {str(e)[:50]}"
-                return res
+            if intent.model_path.is_dir():
+                try:
+                    bench_tg = run_sglang_bench_validation(
+                        model_path=intent.model_path,
+                        batch_size=1,  # We use 1 here for bench
+                        n_prompt=BENCH_N_PROMPT,
+                        n_gen=BENCH_N_GEN,
+                    )
+                    res.bench_tg_tps = bench_tg
+                    print(f"  [bench] sglang.bench_one_batch tg {BENCH_N_GEN}: {bench_tg:.1f} t/s")
 
-            res.bench_tg_tps = bench_tg
-            print(f"  [bench] tg {BENCH_N_GEN}: {bench_tg:.1f} t/s")
+                    if bench_tg < bench_tts_threshold:
+                        print(f"  [FAIL] sglang bench tg {bench_tg:.1f} t/s below threshold {bench_tts_threshold:.1f}")
+                        res.status = f"FAIL: sglang bench tg {bench_tg:.1f} < threshold {bench_tts_threshold:.1f}"
+                        return res
 
-            if bench_tg < bench_tts_threshold:
-                print(f"  [FAIL] llama-bench tg {bench_tg:.1f} t/s below threshold {bench_tts_threshold:.1f}")
-                res.status = f"FAIL: bench tg {bench_tg:.1f} < threshold {bench_tts_threshold:.1f}"
-                return res
+                    if is_validation:
+                        print(f"  [OK] SGLang bench validation passed: tg {bench_tg:.1f} t/s >= {bench_tts_threshold:.1f}")
+                        task_limit_val = 2
+                        lcb_limit_val = 2
+                        bigcode_limit_val = 2
+                except Exception as e:
+                    print(f"  [FAIL] sglang bench error: {e}")
+                    res.status = f"FAIL: sglang bench error: {str(e)[:50]}"
+                    return res
+            else:
+                try:
+                    bench_tg = run_llama_bench_validation(
+                        model_path=intent.model_path,
+                        ngl=intent.ngl,
+                        threads=intent.threads,
+                        batch_size=intent.batch_size,
+                        ubatch_size=intent.ubatch_size,
+                        flash_attn=intent.flash_attn,
+                        cache_type_k=intent.kv_cache_k or intent.kv_cache,
+                        cache_type_v=intent.kv_cache_v or intent.kv_cache,
+                        n_prompt=BENCH_N_PROMPT,
+                        n_gen=BENCH_N_GEN,
+                    )
+                except FileNotFoundError as e:
+                    print(f"  [FAIL] llama-bench not found: {e}")
+                    res.status = "FAIL: llama-bench not found"
+                    return res
+                except subprocess.CalledProcessError as e:
+                    print(f"  [FAIL] llama-bench crashed: {e}")
+                    res.status = "FAIL: llama-bench crashed"
+                    return res
+                except Exception as e:
+                    print(f"  [FAIL] llama-bench error: {e}")
+                    res.status = f"FAIL: llama-bench error: {str(e)[:50]}"
+                    return res
 
-            if is_validation:
-                print(f"  [OK] Bench validation passed: tg {bench_tg:.1f} t/s >= {bench_tts_threshold:.1f}")
-                # Coerce to quick 2-task coding validation
-                task_limit_val = 2
-                lcb_limit_val = 2
-                bigcode_limit_val = 2
-                # fall through to coding eval
+                res.bench_tg_tps = bench_tg
+                print(f"  [bench] tg {BENCH_N_GEN}: {bench_tg:.1f} t/s")
+
+                if bench_tg < bench_tts_threshold:
+                    print(f"  [FAIL] llama-bench tg {bench_tg:.1f} t/s below threshold {bench_tts_threshold:.1f}")
+                    res.status = f"FAIL: bench tg {bench_tg:.1f} < threshold {bench_tts_threshold:.1f}"
+                    return res
+
+                if is_validation:
+                    print(f"  [OK] Bench validation passed: tg {bench_tg:.1f} t/s >= {bench_tts_threshold:.1f}")
+                    # Coerce to quick 2-task coding validation
+                    task_limit_val = 2
+                    lcb_limit_val = 2
+                    bigcode_limit_val = 2
+                    # fall through to coding eval
 
         # ── Full evaluation ──────────────────────────────────────────────
         server_log = BASE_DIR / "llama_server.log"
@@ -209,7 +236,8 @@ class ExperimentRunner:
         timeout_at = trial_start + trial_budget if trial_budget else None
 
         try:
-            with LlamaServerRunner(intent, log_path=server_log) as runner:
+            runner_cls = SGLangServerRunner if intent.model_path.is_dir() else LlamaServerRunner
+            with runner_cls(intent, log_path=server_log) as runner:
                 client = LlamaClient(runner.port)
 
                 # Coding (HumanEval + MBPP + LCB + BigCode)

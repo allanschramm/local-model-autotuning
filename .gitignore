@@ -15,6 +15,7 @@ grid_execution.log
 __pycache__/
 *.pyc
 venv/
+venv-sglang/
 .venv/
 .nexus_venv/
 .pytest_cache/
@@ -71,3 +72,6 @@ models/aliases/*/config.yaml
 # Local launcher artifacts
 .model-up.pid
 .model-up.log
+
+# SGLang / HuggingFace-downloaded models (safetensors)
+models/sglang/
