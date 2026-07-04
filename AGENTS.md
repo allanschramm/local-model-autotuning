@@ -28,7 +28,7 @@ Repository-wide agent guidelines are owned by the repository developers.
 - Maintain config single source of truth in [config.py](autoresearch/core/config.py).
 
 ## Verification
-- Test with `pytest`. Ensure all 101 tests pass.
+- Test with `pytest`. Ensure the full collected test suite passes.
 - Inspect `results.tsv` to ensure it is not polluted or modified by agent logic.
 
 ## Pre-Task Reading

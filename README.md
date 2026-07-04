@@ -74,8 +74,7 @@ Output verde = pronto pro autoloop.
 ### Val Score
 
 Métrica escalar única pra decisões de keep/discard:
-- Com Coding: `80% Coding + 10% Nexus + 10% Claw`
-- Sem Coding: `60% Nexus + 40% Claw`
+- Coding: `35% LiveCodeBench + 25% HumanEval+ + 25% MBPP+ + 15% BigCodeBench Hard`
 
 TPS Floor = 20 tok/s. Abixo disso -> score zerado.
 
@@ -163,7 +162,7 @@ Se preferir fazer na mão:
 
 | Profile | Benchmarks | Modelos Exemplo |
 |---|---|---|
-| **Coding** (default) | SWE-bench, Aider, HE+ | Qualquer modelo GGUF local |
+| **Coding** (default) | LiveCodeBench, HumanEval+, MBPP+, BigCodeBench Hard | Qualquer modelo GGUF local |
 | **Writing** | MMLU-Pro, Chatbot Arena | Qualquer modelo GGUF local |
 | **Vision** | MMMU-Pro, MMBench | Qualquer modelo GGUF local multimodal |
 

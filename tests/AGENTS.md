@@ -12,7 +12,7 @@ Repository developers.
 - Always mock `ctypes.CDLL` in VRAM/memory tracking tests to avoid querying host hardware directly.
 
 ## Work Guidance
-- Run `pytest` locally before committing. All tests must pass (currently 87 tests).
+- Run `pytest` locally before committing. All collected tests must pass.
 - Add tests for any new options, features, or regression bugs.
 
 ## Verification

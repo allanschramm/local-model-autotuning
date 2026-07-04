@@ -35,7 +35,6 @@ SEARCH_SPACE = {
     "BATCH_SIZE":        [256, 512, 1024],
     "UBATCH_SIZE":       [64, 128, 256, 512],
     "SPEC_DRAFT_N_MAX":  [0, 1, 2, 3, 4],
-    "CTX_SIZE":          [65536, 98304, 131072],
     "CONT_BATCHING":     [False, True],
     "FLASH_ATTN":        ["on"],
     "NO_MMAP":           [False, True],
@@ -49,7 +48,7 @@ SEARCH_SPACE = {
 
 # Params not in search space but needed for config persistence
 PASSTHROUGH_PARAMS = [
-    "KV_CACHE", "MODEL", "JINJA", "REASONING_BUDGET", "REASONING_BUDGET_MESSAGE",
+    "KV_CACHE", "MODEL", "CTX_SIZE", "JINJA", "REASONING_BUDGET", "REASONING_BUDGET_MESSAGE",
     "REASONING", "SPEC_TYPE", "FREQUENCY_PENALTY",
     "INCLUDE_CODING", "CODING_TASK_LIMIT",
     "INCLUDE_NEXUS", "INCLUDE_CLAW", "N_CPU_MOE",

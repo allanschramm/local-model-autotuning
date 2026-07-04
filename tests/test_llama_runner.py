@@ -24,7 +24,7 @@ class TestLlamaRunner(unittest.TestCase):
         
         with patch("autoresearch.core.llama_runner.LLAMA_SERVER_CANDIDATES", (mock_cuda,)):
             path = resolve_llama_server()
-            self.assertEqual(str(path), "/fake/cuda")
+            self.assertEqual(path, Path("/fake/cuda"))
 
     def test_resolve_llama_server_not_found(self):
         mock_fail = MagicMock(spec=Path)
@@ -39,7 +39,7 @@ class TestLlamaRunner(unittest.TestCase):
         mock_resolve.return_value = Path("/bin/llama-server")
         runner = LlamaServerRunner(self.intent)
         cmd = runner._build_cmd(18080)
-        self.assertEqual(cmd[0], "/bin/llama-server")
+        self.assertEqual(Path(cmd[0]), Path("/bin/llama-server"))
         self.assertIn("--port", cmd)
         self.assertIn("18080", cmd)
 

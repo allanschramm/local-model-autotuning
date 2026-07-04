@@ -39,6 +39,10 @@ class TestAutoLoop(unittest.TestCase):
             diffs = sum(1 for k in all_keys if config.get(k) != neighbor.config.get(k))
             self.assertEqual(diffs, 1)
 
+    def test_search_space_does_not_mutate_context(self):
+        self.assertNotIn("CTX_SIZE", autoloop.SEARCH_SPACE)
+        self.assertIn("CTX_SIZE", autoloop.PASSTHROUGH_PARAMS)
+
     @patch("autoloop.estimate_vram_mb")
     def test_preflight_vram_ok(self, mock_estimate):
         mock_estimate.return_value = 5000.0

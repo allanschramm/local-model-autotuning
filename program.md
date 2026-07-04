@@ -37,12 +37,15 @@ Basic algorithmic reasoning and Python proficiency.
 ### MBPP+
 Entry-level to medium complexity programming problems.
 
-### SWE-bench (Stub / WIP)
-Real-world repository issue resolution and complex debugging.
+### LiveCodeBench v6
+Contamination-resistant competitive programming tasks.
+
+### BigCodeBench Hard
+Library-call and API-heavy programming tasks.
 
 ### Val Score & Throughput
-The system computes the `Val Score` based on a fixed ratio representing coding proficiency:
-- `40% SWE-bench + 30% HumanEval + 30% MBPP` (For now, SWE is weighted 0 and the rest is averaged until fully integrated).
+The Coding benchmark computes the `Val Score` based on a fixed ratio representing coding proficiency:
+- `35% LiveCodeBench + 25% HumanEval+ + 25% MBPP+ + 15% BigCodeBench Hard`.
 
 If a Trial falls below the **TPS Floor** (default 20.0 TPS), the `Val Score` is aggressively zeroed to ensure runtime viability for interactive agent usage.
 
