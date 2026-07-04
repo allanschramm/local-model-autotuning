@@ -4,6 +4,7 @@ from pathlib import Path
 import os
 import subprocess
 from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent, resolve_llama_server
+from autoresearch.core import llama_runner
 
 class TestLlamaRunner(unittest.TestCase):
 
@@ -15,6 +16,14 @@ class TestLlamaRunner(unittest.TestCase):
             flash_attn="on",
             port=18080
         )
+
+    def test_candidate_binary_includes_windows_release_exe(self):
+        with patch.object(llama_runner, "IS_WINDOWS", True):
+            paths = llama_runner._candidate_binary(Path("root"), "llama-server")
+
+        self.assertIn(Path("root/build-cuda/bin/llama-server.exe"), paths)
+        self.assertIn(Path("root/build-cuda/bin/Release/llama-server.exe"), paths)
+        self.assertIn(Path("root/build/bin/Release/llama-server.exe"), paths)
 
     def test_resolve_llama_server_found(self):
         mock_cuda = MagicMock(spec=Path)

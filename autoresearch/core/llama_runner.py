@@ -11,6 +11,7 @@ Encapsulates the lifecycle of a llama.cpp server process, including:
 """
 
 import os
+import shutil
 import subprocess
 import tempfile
 import threading
@@ -24,12 +25,44 @@ _LLAMA_SERVER_HELP_CACHE = None
 
 ROOT_DIR = Path(__file__).resolve().parent
 LLAMA_CPP_ROOT = Path(os.environ.get("AUTORESEARCH_LLAMA_CPP_ROOT", "./llama.cpp"))
-LLAMA_SERVER_CANDIDATES = (
-    LLAMA_CPP_ROOT / "build-cuda" / "bin" / "llama-server",
-    LLAMA_CPP_ROOT / "build" / "bin" / "llama-server",
-    ROOT_DIR / "llama.cpp" / "build-cuda" / "bin" / "llama-server",
-    ROOT_DIR / "llama.cpp" / "build" / "bin" / "llama-server",
-)
+IS_WINDOWS = os.name == "nt"
+
+
+def _exe(name: str) -> str:
+    return f"{name}.exe" if IS_WINDOWS else name
+
+
+def _candidate_binary(root: Path, name: str) -> tuple[Path, ...]:
+    exe = _exe(name)
+    return (
+        root / "build-cuda" / "bin" / exe,
+        root / "build-cuda" / "bin" / "Release" / exe,
+        root / "build-cuda" / "bin" / "Debug" / exe,
+        root / "build" / "bin" / exe,
+        root / "build" / "bin" / "Release" / exe,
+        root / "build" / "bin" / "Debug" / exe,
+    )
+
+
+def _binary_candidates(name: str) -> tuple[Path, ...]:
+    roots = (
+        LLAMA_CPP_ROOT,
+        Path.cwd() / "llama.cpp",
+        ROOT_DIR.parent.parent / "llama.cpp",
+        ROOT_DIR.parent.parent.parent / "llama.cpp",
+    )
+    seen: list[Path] = []
+    for root in roots:
+        for candidate in _candidate_binary(root, name):
+            if candidate not in seen:
+                seen.append(candidate)
+    on_path = shutil.which(_exe(name)) or shutil.which(name)
+    if on_path:
+        seen.append(Path(on_path))
+    return tuple(seen)
+
+
+LLAMA_SERVER_CANDIDATES = _binary_candidates("llama-server")
 
 
 @dataclass(frozen=True)
@@ -161,12 +194,7 @@ def estimate_vram_mb(model_path: Path, ctx_size: int, kv_cache_k: str | None = N
 
 
 
-LLAMA_BENCH_CANDIDATES = (
-    LLAMA_CPP_ROOT / "build-cuda" / "bin" / "llama-bench",
-    LLAMA_CPP_ROOT / "build" / "bin" / "llama-bench",
-    ROOT_DIR / "llama.cpp" / "build-cuda" / "bin" / "llama-bench",
-    ROOT_DIR / "llama.cpp" / "build" / "bin" / "llama-bench",
-)
+LLAMA_BENCH_CANDIDATES = _binary_candidates("llama-bench")
 
 
 def resolve_llama_server() -> Path:
@@ -290,8 +318,11 @@ class LlamaServerRunner:
         
         server_env = os.environ.copy()
         llama_lib_dir = str(self.llama_server.parent)
-        existing = server_env.get("LD_LIBRARY_PATH", "")
-        server_env["LD_LIBRARY_PATH"] = f"{llama_lib_dir}:{existing}" if existing else llama_lib_dir
+        lib_path_var = "PATH" if IS_WINDOWS else "LD_LIBRARY_PATH"
+        existing = server_env.get(lib_path_var, "")
+        server_env[lib_path_var] = (
+            f"{llama_lib_dir}{os.pathsep}{existing}" if existing else llama_lib_dir
+        )
         
         startup_tail: list[str] = []
         for port in candidate_ports(self.intent.port):
@@ -371,7 +402,8 @@ class LlamaServerRunner:
             ]
 
         try:
-            nvml = ctypes.CDLL("libnvidia-ml.so.1")
+            nvml_name = "nvml.dll" if IS_WINDOWS else "libnvidia-ml.so.1"
+            nvml = ctypes.CDLL(nvml_name)
             nvml.nvmlInit_v2()
             device = ctypes.c_void_p()
             nvml.nvmlDeviceGetHandleByIndex_v2(0, ctypes.byref(device))

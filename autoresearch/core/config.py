@@ -5,7 +5,7 @@
 from typing import Any
 from pathlib import Path
 
-MODEL = 'gemma-4-12B-it-qat-UD-Q4_K_XL.gguf'
+MODEL = 'ornith-1.0-9b-Q4_K_M.gguf'
 CTX_SIZE = 131072
 KV_CACHE = 'q4_0'
 KV_CACHE_K = 'q4_0'

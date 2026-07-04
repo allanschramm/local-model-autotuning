@@ -9,6 +9,28 @@ from typing import Any
 
 from autoresearch.core.llama_runner import ServerIntent, ROOT_DIR
 
+IS_WINDOWS = os.name == "nt"
+REPO_ROOT = ROOT_DIR.parent.parent
+SGLANG_BIN = REPO_ROOT / "venv-sglang" / ("Scripts" if IS_WINDOWS else "bin")
+SGLANG_PYTHON = SGLANG_BIN / ("python.exe" if IS_WINDOWS else "python3")
+
+
+def _popen_group_kwargs() -> dict[str, Any]:
+    if IS_WINDOWS:
+        return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+    return {"preexec_fn": os.setsid}
+
+
+def _terminate_process_tree(proc: subprocess.Popen[str]) -> None:
+    if IS_WINDOWS:
+        subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True, text=True)
+        return
+    import signal
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+
 
 def candidate_ports(preferred: int) -> list[int]:
     return list(dict.fromkeys((preferred, preferred + 1, preferred + 2, 18080, 28080)))
@@ -58,7 +80,7 @@ def run_sglang_bench_validation(
 
     print(f"  [bench] Running sglang.bench_one_batch for {model_path.name}")
     cmd = [
-        str(ROOT_DIR.parent.parent / "venv-sglang" / "bin" / "python3"),
+        str(SGLANG_PYTHON),
         "-m", "sglang.bench_one_batch",
         "--model-path", str(model_path),
         "--batch-size", str(batch_size),
@@ -72,8 +94,8 @@ def run_sglang_bench_validation(
         cmd += ["--quantization", "awq"]
 
     server_env = os.environ.copy()
-    sglang_bin = str(ROOT_DIR.parent.parent / "venv-sglang" / "bin")
-    server_env["PATH"] = f"{sglang_bin}:{server_env.get('PATH', '')}"
+    sglang_bin = str(SGLANG_BIN)
+    server_env["PATH"] = f"{sglang_bin}{os.pathsep}{server_env.get('PATH', '')}"
     server_env["SGLANG_MAMBA_CONV_DTYPE"] = "float16"
     server_env["SGLANG_MAMBA_SSM_DTYPE"] = "float16"
 
@@ -115,7 +137,7 @@ class SGLangServerRunner:
     def _build_cmd(self, target_port: int) -> list[str]:
         print(f"  [SGLang] Directory detected. Using SGLang backend for {self.intent.model_path.name}")
         cmd = [
-            str(ROOT_DIR.parent.parent / "venv-sglang" / "bin" / "python3"),
+            str(SGLANG_PYTHON),
             "-m", "sglang.launch_server",
             "--model-path", str(self.intent.model_path),
             "--served-model-name", self.intent.model_path.name,
@@ -153,8 +175,8 @@ class SGLangServerRunner:
             self._server_log = subprocess.DEVNULL
 
         server_env = os.environ.copy()
-        sglang_bin = str(ROOT_DIR.parent.parent / "venv-sglang" / "bin")
-        server_env["PATH"] = f"{sglang_bin}:{server_env.get('PATH', '')}"
+        sglang_bin = str(SGLANG_BIN)
+        server_env["PATH"] = f"{sglang_bin}{os.pathsep}{server_env.get('PATH', '')}"
         server_env["SGLANG_MAMBA_CONV_DTYPE"] = "float16"
         server_env["SGLANG_MAMBA_SSM_DTYPE"] = "float16"
         
@@ -171,7 +193,7 @@ class SGLangServerRunner:
                 stderr=subprocess.STDOUT,
                 text=True,
                 env=server_env,
-                preexec_fn=os.setsid,
+                **_popen_group_kwargs(),
             )
 
             start_time = time.time()
@@ -221,11 +243,7 @@ class SGLangServerRunner:
             else:
                 if self._server_proc.poll() is None:
                     print(f"Failed to start on port {port}, trying next...")
-                    import signal
-                    try:
-                        os.killpg(os.getpgid(self._server_proc.pid), signal.SIGTERM)
-                    except ProcessLookupError:
-                        pass
+                    _terminate_process_tree(self._server_proc)
                     self._server_proc.wait(timeout=5)
                 else:
                     print("FAIL: Server crashed during startup.")
@@ -239,19 +257,12 @@ class SGLangServerRunner:
         self._stop_event.set()
         
         if self._server_proc and self._server_proc.poll() is None:
-            import signal
-            try:
-                os.killpg(os.getpgid(self._server_proc.pid), signal.SIGTERM)
-            except ProcessLookupError:
-                pass
+            _terminate_process_tree(self._server_proc)
             
             try:
                 self._server_proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
-                try:
-                    os.killpg(os.getpgid(self._server_proc.pid), signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
+                self._server_proc.kill()
                 
         if self._server_log and self._server_log != subprocess.DEVNULL:
             try:

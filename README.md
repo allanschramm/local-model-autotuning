@@ -110,6 +110,19 @@ Se clonou em outro lugar, exporte o path:
 export AUTORESEARCH_LLAMA_CPP_ROOT="/caminho/pra/llama.cpp"
 ```
 
+### Windows nativo
+
+Depois da migracao do WSL2, o harness tambem resolve builds nativos do Windows:
+
+```powershell
+$env:AUTORESEARCH_LLAMA_CPP_ROOT = "D:\Dev\Nexus-System\local-model-autotuning\llama.cpp"
+python benchmark_search.py --validation --desc "validar modelo no Windows"
+python scripts\serve-config.py print-cmd
+python scripts\serve-config.py serve
+```
+
+O resolver procura `llama-server.exe` e `llama-bench.exe` em `build-cuda\bin`, `build-cuda\bin\Release`, `build\bin`, `build\bin\Release` e no `PATH`. O diretorio `models\` deve apontar para modelos locais do Windows, nao para paths `/mnt/...` ou WSL.
+
 ### Forks (TurboQuant / MTP)
 
 Pra modos avançados de KV cache (`turbo2`, `turbo3`, `turbo4`, SPEC MTP):

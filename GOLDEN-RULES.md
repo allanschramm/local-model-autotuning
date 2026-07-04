@@ -24,9 +24,9 @@
 
 ## 3. llama-server binary resolution
 
-*   **Resolution order** (checked by `llama_runner.py`): `./llama.cpp/build-cuda/bin/llama-server`, `./llama.cpp/build/bin/llama-server`, parent dirs, then `AUTORESEARCH_LLAMA_CPP_ROOT` env var.
+*   **Resolution order** (checked by `llama_runner.py`): `AUTORESEARCH_LLAMA_CPP_ROOT`, repo-local `./llama.cpp`, parent/sibling `llama.cpp`, then `PATH`. The resolver supports POSIX `llama-server` / `llama-bench` and Windows `llama-server.exe` / `llama-bench.exe`, including CMake `bin/Release/` and `bin/Debug/` layouts.
 *   **Upstream `ggml-org/llama.cpp` and forks are not interchangeable** for advanced features. TurboQuant, MTP, QAT, and diffusion support require specific forks. If a flag (`--spec-type`, `--cache-type-k`, `--n-cpu-moe`) is silently rejected, the build lacks that feature — try a different fork.
-*   **Default install path is `./llama.cpp/` in the repo root.** Forks or custom builds must be cloned with the literal name `llama.cpp` to be auto-discovered, OR exported via `AUTORESEARCH_LLAMA_CPP_ROOT=/path/to/build`.
+*   **Default install path is `./llama.cpp/` in the repo root.** Forks or custom builds must be cloned with the literal name `llama.cpp` to be auto-discovered, OR exported via `AUTORESEARCH_LLAMA_CPP_ROOT=/path/to/llama.cpp`. On Windows, the same env var can point to a native Windows checkout/build root.
 *   **Directory model paths use SGLang**: when `MODEL` resolves to a directory under `models/`, the harness uses `autoresearch/core/sglang_runner.py` and `venv-sglang/`. Do not launch SGLang directly for evaluation.
 *   **`scripts/setup-check.sh` validates** that the build supports the expected flags (probes `--help`). Run it before the autoloop.
 

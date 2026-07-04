@@ -32,9 +32,18 @@ from pathlib import Path
 
 # Repo-rooted paths (relative — never absolute).
 REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from autoresearch.core.llama_runner import IS_WINDOWS, _binary_candidates
 CONFIG = REPO_ROOT / "autoresearch" / "core" / "config.py"
-LOG = Path.home() / ".local" / "share" / "serve-config.log"
-PIDFILE = Path.home() / ".local" / "share" / "serve-config.pid"
+STATE_DIR = (
+    Path(os.environ["LOCALAPPDATA"]) / "local-model-autoresearch"
+    if IS_WINDOWS and os.environ.get("LOCALAPPDATA")
+    else Path.home() / ".local" / "share"
+)
+LOG = STATE_DIR / "serve-config.log"
+PIDFILE = STATE_DIR / "serve-config.pid"
 
 # Defaults for llama-server-only fields not in config.py.
 DEFAULT_HOST = "127.0.0.1"
@@ -102,10 +111,14 @@ def build_args(cfg: dict) -> tuple[list[str], str, int, str]:
         sys.exit(2)
     model_path = Path(str(model))
     if not model_path.is_absolute():
-        if (REPO_ROOT / "models" / model_path).exists():
-            model_path = REPO_ROOT / "models" / model_path
+        models_candidate = REPO_ROOT / "models" / model_path
+        repo_candidate = REPO_ROOT / model_path
+        if models_candidate.exists():
+            model_path = models_candidate
+        elif repo_candidate.exists():
+            model_path = repo_candidate
         else:
-            model_path = REPO_ROOT / model_path
+            model_path = models_candidate
     args += ["--model", str(model_path)]
 
     alias = derive_alias(cfg)
@@ -170,36 +183,47 @@ def build_args(cfg: dict) -> tuple[list[str], str, int, str]:
 
 
 def find_llama_server() -> Path | None:
-    """Locate llama-server binary. Resolution order:
-
-    1. $AUTORESEARCH_LLAMA_CPP_ROOT/build-cuda/bin/llama-server
-    2. $AUTORESEARCH_LLAMA_CPP_ROOT/build/bin/llama-server
-    3. <repo>/llama.cpp/build-cuda/bin/llama-server
-    4. <repo>/llama.cpp/build/bin/llama-server
-    5. <repo_parent>/llama.cpp/build-cuda/bin/llama-server
-    6. PATH
-    """
-    candidates: list[Path] = []
-    env_root = os.environ.get("AUTORESEARCH_LLAMA_CPP_ROOT")
-    if env_root:
-        root = Path(env_root)
-        candidates.append(root / "build-cuda/bin/llama-server")
-        candidates.append(root / "build/bin/llama-server")
-    candidates.append(REPO_ROOT / "llama.cpp/build-cuda/bin/llama-server")
-    candidates.append(REPO_ROOT / "llama.cpp/build/bin/llama-server")
-    candidates.append(REPO_ROOT.parent / "llama.cpp/build-cuda/bin/llama-server")
-    candidates.append(REPO_ROOT.parent / "llama.cpp/build/bin/llama-server")
-    for p in os.environ.get("PATH", "").split(":"):
-        if p:
-            candidates.append(Path(p) / "llama-server")
-
-    for c in candidates:
+    """Locate llama-server binary through the shared cross-platform resolver."""
+    for candidate in _binary_candidates("llama-server"):
         try:
-            if c.is_file() and os.access(c, os.X_OK):
-                return c
+            if candidate.is_file() and (IS_WINDOWS or os.access(candidate, os.X_OK)):
+                return candidate.resolve()
         except OSError:
             continue
     return None
+
+
+def _pid_exists(pid: int) -> bool:
+    if IS_WINDOWS:
+        result = subprocess.run(
+            ["tasklist", "/FI", f"PID eq {pid}"],
+            capture_output=True,
+            text=True,
+        )
+        return str(pid) in result.stdout
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def _kill_process_tree(pid: int) -> None:
+    if IS_WINDOWS:
+        subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, text=True)
+        return
+    os.killpg(os.getpgid(pid), signal.SIGTERM)
+    time.sleep(2)
+    try:
+        os.killpg(os.getpgid(pid), signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+
+
+def _server_popen_kwargs() -> dict:
+    if IS_WINDOWS:
+        return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+    return {"start_new_session": True}
 
 
 def is_listening(host: str, port: int) -> bool:
@@ -228,9 +252,7 @@ def cmd_status() -> int:
         print("Not running (no PID file at", PIDFILE, ").")
         return 1
     pid = int(PIDFILE.read_text().strip())
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
+    if not _pid_exists(pid):
         print(f"PID {pid} not found, cleaning up stale PID file.")
         PIDFILE.unlink(missing_ok=True)
         return 1
@@ -256,15 +278,11 @@ def cmd_stop() -> int:
         return 1
     pid = int(PIDFILE.read_text().strip())
     try:
-        os.killpg(os.getpgid(pid), signal.SIGTERM)
-        time.sleep(2)
-        try:
-            os.killpg(os.getpgid(pid), signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        print(f"Killed PID {pid}")
-    except ProcessLookupError:
-        print(f"PID {pid} not found.")
+        if _pid_exists(pid):
+            _kill_process_tree(pid)
+            print(f"Killed PID {pid}")
+        else:
+            print(f"PID {pid} not found.")
     finally:
         PIDFILE.unlink(missing_ok=True)
     return 0
@@ -290,12 +308,12 @@ def cmd_serve() -> int:
         print("ERROR: llama-server binary not found.")
         print()
         print("Resolution order checked:")
-        print("  1. $AUTORESEARCH_LLAMA_CPP_ROOT/build-cuda/bin/llama-server")
-        print("  2. $AUTORESEARCH_LLAMA_CPP_ROOT/build/bin/llama-server")
-        print(f"  3. {REPO_ROOT}/llama.cpp/build-cuda/bin/llama-server")
-        print(f"  4. {REPO_ROOT}/llama.cpp/build/bin/llama-server")
-        print(f"  5. {REPO_ROOT.parent}/llama.cpp/build-cuda/bin/llama-server")
-        print("  6. $PATH/llama-server")
+        print("  1. $AUTORESEARCH_LLAMA_CPP_ROOT/build-cuda/bin[/Release]/llama-server[.exe]")
+        print("  2. $AUTORESEARCH_LLAMA_CPP_ROOT/build/bin[/Release]/llama-server[.exe]")
+        print(f"  3. {REPO_ROOT}/llama.cpp/build-cuda/bin[/Release]/llama-server[.exe]")
+        print(f"  4. {REPO_ROOT}/llama.cpp/build/bin[/Release]/llama-server[.exe]")
+        print(f"  5. {REPO_ROOT.parent}/llama.cpp/build-cuda/bin[/Release]/llama-server[.exe]")
+        print("  6. PATH llama-server[.exe]")
         print()
         print("Either clone llama.cpp (or a fork) into the repo root, or set")
         print("AUTORESEARCH_LLAMA_CPP_ROOT to the directory containing build-cuda/bin/.")
@@ -308,7 +326,7 @@ def cmd_serve() -> int:
         stdout=log,
         stderr=subprocess.STDOUT,
         stdin=subprocess.DEVNULL,
-        start_new_session=True,
+        **_server_popen_kwargs(),
         close_fds=True,
     )
     PIDFILE.write_text(str(proc.pid))
