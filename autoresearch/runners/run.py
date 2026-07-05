@@ -10,7 +10,7 @@ from typing import Dict, Any
 from autoresearch.core import config
 
 from autoresearch.runners.evaluation import ExperimentRunner, BENCH_TPS_THRESHOLD
-from autoresearch.benchmarks.agentic_benchmarks import format_agentic_benchmarks
+from autoresearch.benchmarks.agentic_benchmarks import format_agentic_benchmarks, format_claw_tiers
 
 BASE_DIR = Path(__file__).resolve().parent
 RESULTS_FILE = BASE_DIR.parent.parent / "results.tsv"
@@ -26,6 +26,10 @@ def determine_category(args) -> str:
     """Infer run category from CLI args."""
     if getattr(args, "validation", False):
         return CATEGORY_VALIDATION
+    if getattr(args, "agentic_quick", False):
+        return "agentic-quick"
+    if getattr(args, "agentic_full", False):
+        return "agentic-full"
     coding = getattr(args, "coding_task_limit", 10)
     lcb = getattr(args, "lcb_task_limit", 10)
     bigcode = getattr(args, "bigcode_task_limit", 10)
@@ -59,7 +63,10 @@ def parse_args():
     parser.add_argument("--no-coding", dest="include_coding", action="store_false", help="Disable Coding benchmark")
     parser.add_argument("--include-nexus", action="store_true", default=getattr(config, "INCLUDE_NEXUS", False), help="Include Nexus benchmark")
     parser.add_argument("--include-claw", action="store_true", default=getattr(config, "INCLUDE_CLAW", False), help="Include Claw benchmark")
+    parser.add_argument("--agentic-quick", action="store_true", default=getattr(config, "INCLUDE_AGENTIC_QUICK", False), help="Run Claw-Eval quick tier (5 tasks, ~5 min, rule-based scoring)")
+    parser.add_argument("--agentic-full", action="store_true", default=getattr(config, "INCLUDE_AGENTIC_FULL", False), help="Run Claw-Eval full tier (15 tasks, ~15 min, rule-based scoring)")
     parser.add_argument("--list-agentic-benchmarks", action="store_true", help="List long-horizon agentic benchmark targets and exit")
+    parser.add_argument("--list-claw-tiers", action="store_true", help="List Claw-Eval quick/full task tiers and exit")
     parser.add_argument("--coding-task-limit", type=int, default=getattr(config, "CODING_TASK_LIMIT", 30), help="Tasks per dataset (0=full dataset)")
     parser.add_argument("--lcb-task-limit", type=int, default=getattr(config, "LCB_TASK_LIMIT", 10), help="LiveCodeBench task limit")
     parser.add_argument("--bigcode-task-limit", type=int, default=getattr(config, "BIGCODE_TASK_LIMIT", 10), help="BigCodeBench task limit")
@@ -226,6 +233,9 @@ def run_evaluation(cfg: dict | Any, skip_bench: bool = False, **overrides) -> Di
         "mbpp_val": tr.mbpp_val,
         "bigcode_val": tr.bigcode_val,
         "swe_val": tr.swe_val,
+        "agentic_val": tr.agentic_val,
+        "agentic_tier": tr.agentic_tier,
+        "agentic_task_count": tr.agentic_task_count,
         "avg_tps": tr.avg_tps,
         "peak_vram_gb": tr.peak_vram_gb,
         "bench_tg_tps": tr.bench_tg_tps,
@@ -247,10 +257,13 @@ def handle_single_run(args):
     
     include_nexus_val = getattr(args, "include_nexus", False)
     include_claw_val = getattr(args, "include_claw", False)
+    agentic_quick = getattr(args, "agentic_quick", False)
+    agentic_full = getattr(args, "agentic_full", False)
 
     # Run evaluation
     res = run_evaluation(
-        args, include_nexus=include_nexus_val, include_claw=include_claw_val
+        args, include_nexus=include_nexus_val, include_claw=include_claw_val,
+        agentic_quick=agentic_quick, agentic_full=agentic_full,
     )
     
     if res["status"] != "OK":
@@ -268,6 +281,8 @@ def handle_single_run(args):
 
     details = f"{args.model} kv={args.kv} ctx={args.ctx_size} TPS={res['avg_tps']:.1f} VRAM={res['peak_vram_gb']:.1f}GB coding={res['coding_val']:.4f}"
     details += f" lcb={res.get('lcb_val', 0.0):.4f} he={res.get('he_val', 0.0):.4f} mbpp={res.get('mbpp_val', 0.0):.4f} bigcode={res.get('bigcode_val', 0.0):.4f}"
+    if res.get("agentic_tier"):
+        details += f" agentic_{res['agentic_tier']}={res.get('agentic_val', 0.0):.4f} (n={res.get('agentic_task_count', 0)})"
     details += f" bench_tg={res.get('bench_tg_tps', 0.0):.1f}"
     details += f" | {args.desc}"
     
@@ -386,6 +401,9 @@ def main():
     args = parse_args()
     if args.list_agentic_benchmarks:
         print(format_agentic_benchmarks())
+        return
+    if args.list_claw_tiers:
+        print(format_claw_tiers())
         return
     if args.grid:
         handle_grid_run(args)

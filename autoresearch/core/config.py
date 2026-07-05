@@ -39,9 +39,13 @@ FREQUENCY_PENALTY = None
 INCLUDE_CODING = True
 INCLUDE_NEXUS = False
 INCLUDE_CLAW = False
+INCLUDE_AGENTIC_QUICK = False   # 5-task Claw-Eval smoke test (~5 min), rule-based scoring
+INCLUDE_AGENTIC_FULL = False    # 15-task Claw-Eval quality gate (~15 min)
 CODING_TASK_LIMIT = 10      # tasks per dataset for HE+ / MBPP+
 LCB_TASK_LIMIT = 10         # LiveCodeBench v6 sample (contamination-free competitive prog)
 BIGCODE_TASK_LIMIT = 10     # BigCodeBench Hard sample (library-call tasks)
+AGENTIC_QUICK_TASK_LIMIT = 5    # Claw-Eval quick tier: 5 easy rule-based tasks
+AGENTIC_FULL_TASK_LIMIT = 15    # Claw-Eval full tier: 15 easy+medium tasks
 EVALPLUS_STRICT = True
 TRIAL_BUDGET = 300
 
@@ -100,9 +104,13 @@ def write_config(cfg: dict[str, Any], path: str | Path | None = None) -> None:
     lines.append(f"INCLUDE_CODING = {repr(cfg.get('INCLUDE_CODING', True))}")
     lines.append(f"INCLUDE_NEXUS = {repr(cfg.get('INCLUDE_NEXUS', False))}")
     lines.append(f"INCLUDE_CLAW = {repr(cfg.get('INCLUDE_CLAW', False))}")
+    lines.append(f"INCLUDE_AGENTIC_QUICK = {repr(cfg.get('INCLUDE_AGENTIC_QUICK', False))}  # 5-task Claw-Eval smoke test (~5 min)")
+    lines.append(f"INCLUDE_AGENTIC_FULL = {repr(cfg.get('INCLUDE_AGENTIC_FULL', False))}  # 15-task Claw-Eval quality gate (~15 min)")
     lines.append(f"CODING_TASK_LIMIT = {cfg.get('CODING_TASK_LIMIT', 10)}  # tasks per dataset for HE+ / MBPP+")
     lines.append(f"LCB_TASK_LIMIT = {cfg.get('LCB_TASK_LIMIT', 10)}  # LiveCodeBench v6 sample (contamination-free competitive prog)")
     lines.append(f"BIGCODE_TASK_LIMIT = {cfg.get('BIGCODE_TASK_LIMIT', 10)}  # BigCodeBench Hard sample (library-call tasks)")
+    lines.append(f"AGENTIC_QUICK_TASK_LIMIT = {cfg.get('AGENTIC_QUICK_TASK_LIMIT', 5)}  # Claw-Eval quick tier task count")
+    lines.append(f"AGENTIC_FULL_TASK_LIMIT = {cfg.get('AGENTIC_FULL_TASK_LIMIT', 15)}  # Claw-Eval full tier task count")
     lines.append(f"EVALPLUS_STRICT = {repr(cfg.get('EVALPLUS_STRICT', True))}")
     lines.append(f"TRIAL_BUDGET = {cfg.get('TRIAL_BUDGET', 300)}")
 

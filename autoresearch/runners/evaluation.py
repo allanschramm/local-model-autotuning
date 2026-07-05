@@ -15,6 +15,8 @@ from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent, reso
 from autoresearch.core.sglang_runner import SGLangServerRunner, run_sglang_bench_validation
 from autoresearch.core.llama_client import LlamaClient, GenerationParams
 from autoresearch.benchmarks.benchmark_coding import run_benchmark as run_coding
+from autoresearch.benchmarks.agentic_benchmarks import get_quick_tier_tasks, get_full_tier_tasks
+from autoresearch.benchmarks.agentic_runner import run_agentic_eval
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -39,6 +41,9 @@ class TrialResult:
     mbpp_val: float = 0.0
     bigcode_val: float = 0.0
     swe_val: float = 0.0
+    agentic_val: float = 0.0    # Claw-Eval quick/full tier score
+    agentic_tier: str = ""       # "quick" or "full"
+    agentic_task_count: int = 0  # number of tasks evaluated
     avg_tps: float = 0.0
     peak_vram_gb: float = 0.0
     bench_tg_tps: float = 0.0
@@ -141,6 +146,8 @@ class ExperimentRunner:
         trial_budget = norm.get("trial_budget")
         bench_tts_threshold = norm.get("bench_tts_threshold", BENCH_TPS_THRESHOLD)
         is_validation = norm.get("validation", False)
+        agentic_quick = norm.get("agentic_quick", False)
+        agentic_full = norm.get("agentic_full", False)
 
         res = TrialResult()
 
@@ -266,6 +273,31 @@ class ExperimentRunner:
                     res.bigcode_val = getattr(coding_res, "val_pass4", 0.0)
                     res.swe_val = 0.0  # legacy slot, unused
 
+                # Agentic (Claw-Eval quick/full tier)
+                if agentic_quick or agentic_full:
+                    tier = "quick" if agentic_quick else "full"
+                    task_ids = get_quick_tier_tasks() if agentic_quick else get_full_tier_tasks()
+                    n_tasks = len(task_ids)
+
+                    print(
+                        f"  [agentic:{tier}] {n_tasks} tasks selected "
+                        f"(rule-based scoring, no LLM judge)"
+                    )
+                    if n_tasks == 0:
+                        print(f"  [agentic:{tier}] WARNING: no tasks matched. "
+                              "Is claw-eval/ submodule populated?")
+                    else:
+                        print(f"  [agentic:{tier}] task IDs: {', '.join(task_ids)}")
+                        agentic_res = run_agentic_eval(
+                            client, task_ids, gen_params=gen_params, trials=1,
+                        )
+                        res.agentic_val = agentic_res["score"]
+                        res.agentic_task_count = agentic_res["total"]
+
+                    res.agentic_tier = tier
+                    if res.agentic_task_count == 0:
+                        res.agentic_task_count = n_tasks
+
                 # Compute combined metrics
                 tps_list = []
                 if include_coding and res.coding_tps > 0:
@@ -282,7 +314,12 @@ class ExperimentRunner:
                     res.avg_tps = 0.0
 
                 res.peak_vram_gb = max(runner.peak_vram_mb, 0.0) / 1024.0
-                res.val_score = res.coding_val
+
+                # Agentic takes priority as quality gate; falls back to coding
+                if res.agentic_tier and res.agentic_task_count > 0:
+                    res.val_score = res.agentic_val
+                else:
+                    res.val_score = res.coding_val
 
         except Exception as e:
             print(f"  [FAIL] Evaluation failed: {e}")

@@ -9,7 +9,7 @@ from pathlib import Path
 
 # Import search surface defaults from config.py (single source of truth)
 from autoresearch.core import config
-from autoresearch.benchmarks.agentic_benchmarks import format_agentic_benchmarks
+from autoresearch.benchmarks.agentic_benchmarks import format_agentic_benchmarks, format_claw_tiers
 
 MODEL = config.MODEL
 CTX_SIZE = config.CTX_SIZE
@@ -58,6 +58,9 @@ if __name__ == "__main__":
     args = parse_args()
     if args.list_agentic_benchmarks:
         print(format_agentic_benchmarks())
+        sys.exit(0)
+    if getattr(args, "list_claw_tiers", False):
+        print(format_claw_tiers())
         sys.exit(0)
     
     # Import the execution logic from run.py
