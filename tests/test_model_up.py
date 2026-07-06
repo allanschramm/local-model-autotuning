@@ -50,3 +50,12 @@ def test_model_up_parses_flags_and_builds_command(tmp_path, monkeypatch):
         "19090",
     ]
     assert cmd[8:] == ["--jinja", "--ctx-size", "131072", "--flash-attn", "on"]
+
+
+def test_model_up_adds_repo_root_to_sys_path(monkeypatch):
+    repo_root = str(model_up.REPO_ROOT)
+    monkeypatch.setattr(model_up.sys, "path", [p for p in model_up.sys.path if p != repo_root])
+
+    model_up._ensure_repo_root_on_sys_path()
+
+    assert model_up.sys.path[0] == repo_root

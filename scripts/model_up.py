@@ -11,9 +11,18 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-from autoresearch.core.llama_runner import IS_WINDOWS, resolve_llama_server
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _ensure_repo_root_on_sys_path() -> None:
+    repo_root = str(REPO_ROOT)
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
+
+
+_ensure_repo_root_on_sys_path()
+
+from autoresearch.core.llama_runner import IS_WINDOWS, resolve_llama_server
 ALIASES_DIR = REPO_ROOT / "models" / "aliases"
 STATE_DIR = (
     Path(os.environ["LOCALAPPDATA"]) / "local-model-autoresearch"
@@ -399,3 +408,4 @@ def main(argv: list[str]) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))
+

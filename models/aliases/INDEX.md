@@ -71,4 +71,6 @@ The autoloop rewrites `autoresearch/core/config.py` on every keep — useful for
 ## See also
 
 - [`../docs/discovery/discover-models.md`](../docs/discovery/discover-models.md) — full workflow including model selection.
-- `model-up` launcher — installed at `~/.local/bin/model-up`. Source not in this repo; copy from your local install or write your own.
+- `model-up` launcher lives in `models/aliases/`; add that folder to PATH on Windows.
+
+

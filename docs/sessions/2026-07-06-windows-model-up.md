@@ -10,15 +10,15 @@ Make the existing `models/aliases/<name>/config.yaml` entries callable from Wind
 ## Setup
 - Repo root: local checkout root
 - Alias configs already existed under `models/aliases/`
-- Launcher logic added in `scripts/model_up.py`
-- Windows shims added in `model-up.cmd` and `model-down.cmd`
+- Launcher logic added in `scripts/model_up.py` and now bootstraps the repo root into `sys.path`
+- Windows shims moved into `models/aliases/`
 
 ## Commands
 ```bat
-model-up.cmd
-model-up.cmd list
-model-up.cmd status
-model-down.cmd
+model-up qwythos
+model-up list
+model-up status
+model-down
 ```
 
 ## Findings
@@ -31,8 +31,7 @@ model-down.cmd
 - Direct sandbox commands against some Windows paths were flaky during the edit pass, so the implementation stayed in new files only.
 
 ## Decisions
-- Keep the change small: one Python launcher plus two shell shims.
+- Keep the change small: one Python launcher plus two shell shims in `models/aliases/`.
 - Preserve the existing alias config layout under `models/aliases/`.
-- Use the repo-root command name `model-up.cmd` so PowerShell and `cmd.exe` can both invoke it.
-
+- Use `models/aliases/` on PATH so PowerShell, `cmd.exe`, and Git Bash can invoke `model-up` from anywhere; the Python launcher resolves the repo root itself.
 
