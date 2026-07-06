@@ -31,29 +31,12 @@ import textwrap
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from autoresearch.core import config
 from autoresearch.core.llama_client import LlamaClient, GenerationParams
 from autoresearch.benchmarks.benchmark_harness import BenchmarkResult
+from autoresearch.benchmarks import bench_config
 
 ROOT_DIR = Path(__file__).resolve().parent
 DATA_DIR = ROOT_DIR.parent / "data" / "benchmark_cache"
-
-
-# ---------------------------------------------------------------------------
-# CLI args
-# ---------------------------------------------------------------------------
-
-def parse_args():
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--ctx-size", type=int, default=config.CTX_SIZE)
-    parser.add_argument("--model", type=str, default=config.MODEL)
-    parser.add_argument("--max-tokens", type=int, default=1024)
-    parser.add_argument("--coding-task-limit", type=int, default=config.CODING_TASK_LIMIT)
-    parser.add_argument("--lcb-task-limit", type=int, default=getattr(config, "LCB_TASK_LIMIT", 10))
-    parser.add_argument("--bigcode-task-limit", type=int, default=getattr(config, "BIGCODE_TASK_LIMIT", 10))
-    parser.add_argument("--port", type=int, default=18080)
-    return parser.parse_args()
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +153,7 @@ def _get_test_code(entry: dict, dataset: str) -> str:
     rigorous plus-tests. If absent, fall back to building asserts from
     base+plus input/output pairs.
     """
-    strict = bool(getattr(config, "EVALPLUS_STRICT", True))
+    strict = bool(getattr(bench_config, "EVALPLUS_STRICT", True))
     if dataset == "humaneval":
         test = entry.get("test", "")
         if not test:
@@ -534,8 +517,8 @@ def run_benchmark(client: LlamaClient, gen_params: GenerationParams | None = Non
     val_score = 0.35*LCB + 0.25*HE + 0.25*MBPP + 0.15*BigCode
     """
     task_limit = kwargs.get("task_limit", 30)
-    lcb_limit = kwargs.get("lcb_task_limit", getattr(config, "LCB_TASK_LIMIT", 10))
-    bigcode_limit = kwargs.get("bigcode_task_limit", getattr(config, "BIGCODE_TASK_LIMIT", 10))
+    lcb_limit = kwargs.get("lcb_task_limit", getattr(bench_config, "LCB_TASK_LIMIT", 10))
+    bigcode_limit = kwargs.get("bigcode_task_limit", getattr(bench_config, "BIGCODE_TASK_LIMIT", 10))
     timeout_at = kwargs.get("timeout_at", None)
 
     # ponytail: gen_params is a typed dataclass, not **kwargs passthrough.
@@ -592,50 +575,3 @@ def run_benchmark(client: LlamaClient, gen_params: GenerationParams | None = Non
     )
 
 
-# ---------------------------------------------------------------------------
-# CLI entry point
-# ---------------------------------------------------------------------------
-
-def main():
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, default=config.MODEL)
-    parser.add_argument("--max-tokens", type=int, default=1024)
-    parser.add_argument("--coding-task-limit", type=int, default=config.CODING_TASK_LIMIT)
-    parser.add_argument("--lcb-task-limit", type=int, default=getattr(config, "LCB_TASK_LIMIT", 10))
-    parser.add_argument("--bigcode-task-limit", type=int, default=getattr(config, "BIGCODE_TASK_LIMIT", 10))
-    parser.add_argument("--port", type=int, default=18080)
-    args = parser.parse_args()
-
-    from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent
-
-    models_dir = ROOT_DIR.parent.parent / "models"
-    model_path = models_dir / args.model
-
-    intent = ServerIntent(
-        model_path=model_path, ctx_size=config.CTX_SIZE,
-        kv_cache=config.KV_CACHE, flash_attn=config.FLASH_ATTN,
-        port=args.port, batch_size=config.BATCH_SIZE, ubatch_size=config.UBATCH_SIZE,
-        threads=config.THREADS, ngl=99, parallel=1,
-        kv_cache_k=config.KV_CACHE_K, kv_cache_v=config.KV_CACHE_V,
-        threads_batch=config.THREADS_BATCH, spec_draft_n_max=config.SPEC_DRAFT_N_MAX,
-    )
-
-    with LlamaServerRunner(intent) as runner:
-        client = LlamaClient(runner.port)
-        result = run_benchmark(
-            client,
-            task_limit=args.coding_task_limit,
-            lcb_task_limit=args.lcb_task_limit,
-            bigcode_task_limit=args.bigcode_task_limit,
-            max_tokens=args.max_tokens,
-        )
-        print(f"\nCoding Score: {result.val_score:.4f}")
-        print(f"LCB pass@1:     {result.val_pass1:.4f}")
-        print(f"HE pass@1:      {result.val_pass2:.4f}")
-        print(f"MBPP pass@1:    {result.val_pass3:.4f}")
-        print(f"BigCode pass@1: {result.val_pass4:.4f}")
-
-
-if __name__ == "__main__":
-    main()

@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch, MagicMock
 import benchmark_search
 from autoresearch.core import config
+from autoresearch.benchmarks import bench_config
 
 class TestBenchmarkSearch(unittest.TestCase):
 
@@ -12,7 +13,7 @@ class TestBenchmarkSearch(unittest.TestCase):
             self.assertEqual(args.ctx_size, config.CTX_SIZE)
             self.assertEqual(args.kv, config.KV_CACHE)
             self.assertEqual(args.threads, config.THREADS)
-            self.assertEqual(args.include_coding, config.INCLUDE_CODING)
+            self.assertEqual(args.include_coding, bench_config.INCLUDE_CODING)
 
     @patch("autoresearch.runners.run.handle_single_run")
     def test_main_execution(self, mock_handle):

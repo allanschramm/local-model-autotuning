@@ -8,17 +8,14 @@ runs again → if improved, saves as new baseline in config.py → loops forever
 Stop with Ctrl+C (SIGINT). State persists in config.py and results.tsv.
 """
 
-import os
 import sys
 import json
 import signal
-import random
-import time
 from pathlib import Path
 from typing import Any
 
 from autoresearch.core.llama_runner import estimate_vram_mb
-from autoresearch.core.config import load_config, write_config
+from autoresearch.core.config import load_config as _core_load_config, write_config as _core_write_config
 from autoresearch.runners.run import get_git_commit, write_row, RESULTS_FILE, MODELS_DIR, CATEGORY_10_TASK
 from autoresearch.runners.evaluation import ExperimentRunner
 from autoresearch.core.search import SearchStrategy
@@ -47,11 +44,15 @@ SEARCH_SPACE = {
 }
 
 # Params not in search space but needed for config persistence
-PASSTHROUGH_PARAMS = [
+# Core params (in autoresearch.core.config)
+CORE_PASSTHROUGH = [
     "KV_CACHE", "MODEL", "CTX_SIZE", "JINJA", "REASONING_BUDGET", "REASONING_BUDGET_MESSAGE",
-    "REASONING", "SPEC_TYPE", "FREQUENCY_PENALTY",
+    "REASONING", "SPEC_TYPE", "FREQUENCY_PENALTY", "N_CPU_MOE",
+]
+# Bench params (in autoresearch.benchmarks.bench_config)
+BENCH_PASSTHROUGH = [
     "INCLUDE_CODING", "CODING_TASK_LIMIT",
-    "INCLUDE_NEXUS", "INCLUDE_CLAW", "N_CPU_MOE",
+    "INCLUDE_NEXUS", "INCLUDE_CLAW",
 ]
 
 # ── Graceful shutdown ────────────────────────────────────────────────────
@@ -67,9 +68,21 @@ signal.signal(signal.SIGTERM, _signal_handler)
 
 
 def load_config() -> dict[str, Any]:
-    """Hot-reload config.py and return current values as dict."""
+    """Hot-reload core + bench configs and return merged dict."""
     from autoresearch.core import config as _cfg
-    return _cfg.load_config(list(SEARCH_SPACE.keys()) + PASSTHROUGH_PARAMS)
+    from autoresearch.benchmarks import bench_config as _bc
+    result = _core_load_config(list(SEARCH_SPACE.keys()) + CORE_PASSTHROUGH)
+    # Merge bench params
+    bench_vals = {p: getattr(_bc, p, None) for p in BENCH_PASSTHROUGH}
+    result.update({k: v for k, v in bench_vals.items() if v is not None})
+    return result
+
+
+def write_config(cfg: dict[str, Any]) -> None:
+    """Persist config to both core config.py and bench_config.py."""
+    _core_write_config(cfg)
+    from autoresearch.benchmarks.bench_config import write_config as _bench_write_config
+    _bench_write_config(cfg)
 
 
 def preflight_vram_ok(cfg: dict[str, Any], vram_limit: float | None) -> bool:
