@@ -1,8 +1,7 @@
 import unittest
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import patch, MagicMock
 from autoresearch.benchmarks import benchmark_coding
 from pathlib import Path
-import sys
 import json
 import base64
 import zlib
@@ -17,25 +16,14 @@ def _lcb_pickled_json(payload_str: str) -> str:
 
 class TestBenchmarkCoding(unittest.TestCase):
 
-    def test_parse_args(self):
-        test_args = ["prog", "--ctx-size", "2048", "--model", "test-model.gguf"]
-        with patch.object(sys, "argv", test_args):
-            args = benchmark_coding.parse_args()
-            self.assertEqual(args.ctx_size, 2048)
-            self.assertEqual(args.model, "test-model.gguf")
-
     # ------------------------------------------------------------------ weights
 
-    @patch("autoresearch.benchmarks.benchmark_coding._load_bigcodebench_hard")
-    @patch("autoresearch.benchmarks.benchmark_coding._load_livecodebench")
     @patch("autoresearch.benchmarks.benchmark_coding.run_coding_eval")
-    def test_run_benchmark_weights(self, mock_eval, mock_lcb_loader, mock_bigcode_loader):
+    def test_run_benchmark_weights(self, mock_eval):
         """
         val_score = 0.35*LCB + 0.25*HE + 0.25*MBPP + 0.15*BigCode
-        mock_eval returns (lcb, he, mbpp, bigcode) pass rates.
+        mock_eval returns (HE, MBPP, LCB, BigCode) pass rates.
         """
-        mock_lcb_loader.return_value = ["p1"] * 10  # 10 LCB problems
-        mock_bigcode_loader.return_value = ["p2"] * 10
         mock_eval.side_effect = [
             (0.6, 100, 10.0),  # HumanEval -> val_pass2
             (0.4, 200, 5.0),   # MBPP     -> val_pass3
@@ -61,13 +49,9 @@ class TestBenchmarkCoding(unittest.TestCase):
         # TPS = 650 tokens / 27.0 s
         self.assertAlmostEqual(result.avg_tps, round(650/27.0, 2), places=2)
 
-    @patch("autoresearch.benchmarks.benchmark_coding._load_bigcodebench_hard")
-    @patch("autoresearch.benchmarks.benchmark_coding._load_livecodebench")
     @patch("autoresearch.benchmarks.benchmark_coding.run_coding_eval")
-    def test_run_benchmark_passes_gen_params(self, mock_eval, mock_lcb_loader, mock_bigcode_loader):
+    def test_run_benchmark_passes_gen_params(self, mock_eval):
         """Verify gen_params are forwarded to all sub-eval calls."""
-        mock_lcb_loader.return_value = ["p1"] * 10
-        mock_bigcode_loader.return_value = ["p2"] * 10
         mock_eval.return_value = (0.5, 50, 5.0)
 
         from autoresearch.core.llama_client import LlamaClient, GenerationParams
@@ -110,7 +94,7 @@ class TestBenchmarkCoding(unittest.TestCase):
         }
 
         pass_rate, tokens, elapsed = benchmark_coding.run_coding_eval(
-            client, "humaneval", task_limit=4
+            client, benchmark_coding.HumanEvalTask(), task_limit=4
         )
         self.assertEqual(pass_rate, 0.5)
         self.assertGreater(tokens, 0)
@@ -136,7 +120,7 @@ class TestBenchmarkCoding(unittest.TestCase):
             "usage": {"total_tokens": 10},
         }
 
-        benchmark_coding.run_coding_eval(client, "humaneval", task_limit=1)
+        benchmark_coding.run_coding_eval(client, benchmark_coding.HumanEvalTask(), task_limit=1)
 
         # Inspect the code passed to _run_tests
         mock_run_tests.assert_called_once()
@@ -276,35 +260,31 @@ class TestBenchmarkCoding(unittest.TestCase):
         code = "def task_func(n): return n\n"
         self.assertFalse(benchmark_coding._run_bigcode_tests(code, {"entry_point": "task_func", "test": ""}))
 
-    @patch("autoresearch.benchmarks.benchmark_coding._load_bigcodebench_hard")
-    @patch("autoresearch.benchmarks.benchmark_coding._load_livecodebench")
     @patch("autoresearch.benchmarks.benchmark_coding.run_coding_eval")
-    def test_bigcode_via_run_benchmark(self, mock_eval, mock_lcb_loader, mock_bigcode_loader):
-        """BigCode tasks feed through run_coding_eval via the `problems` list."""
-        mock_lcb_loader.return_value = ["l"] * 5
-        mock_bigcode_loader.return_value = [{"task_id": f"BCB/{i}", "instruct_prompt": "noop", "test": ""} for i in range(3)]
+    def test_bigcode_via_run_benchmark(self, mock_eval):
+        """BigCode tasks feed through run_coding_eval as a BigCodeBenchTask instance."""
         mock_eval.side_effect = [
             (1.0, 0, 1.0),  # HE
             (1.0, 0, 1.0),  # MBPP
             (0.0, 0, 1.0),  # LCB
-            (0.0, 0, 1.0),  # BigCode (3 tasks, no test field -> all skip -> 0%)
+            (0.0, 0, 1.0),  # BigCode
         ]
         from autoresearch.core.llama_client import LlamaClient
         client = MagicMock(spec=LlamaClient)
         client.port = 1234
 
         result = benchmark_coding.run_benchmark(client, task_limit=5, lcb_task_limit=5, bigcode_task_limit=3)
-        # The bigcode call should have received the 3 problems as the `problems` arg
+        # The 4th sub-eval should receive a BigCodeBenchTask
         bigcode_call = mock_eval.call_args_list[3]
-        passed_problems = bigcode_call.kwargs.get("problems") or bigcode_call.args[2] if len(bigcode_call.args) > 2 else bigcode_call.kwargs.get("problems")
-        self.assertEqual(len(passed_problems), 3)
+        task_arg = bigcode_call.args[1]  # run_coding_eval(client, task, ...)
+        self.assertIsInstance(task_arg, benchmark_coding.BigCodeBenchTask)
 
     # ------------------------------------------------------------------ evalplus strict
 
-    @patch("autoresearch.benchmarks.benchmark_coding.config")
-    def test_strict_mode_prefers_test_field(self, mock_cfg):
+    @patch("autoresearch.benchmarks.benchmark_coding.bench_config")
+    def test_strict_mode_prefers_test_field(self, mock_bench_cfg):
         """When `test` field exists, strict mode should use it (don't fall back to I/O)."""
-        mock_cfg.EVALPLUS_STRICT = True
+        mock_bench_cfg.EVALPLUS_STRICT = True
         entry = {
             "test": "assert candidate([1,2,3]) == True",
             "base_input_output_tests": [([4,5], False)],
@@ -316,10 +296,10 @@ class TestBenchmarkCoding(unittest.TestCase):
         # In strict mode, do NOT generate extra asserts from base/plus pairs when test is present
         self.assertNotIn("[100, 200]", test_code)
 
-    @patch("autoresearch.benchmarks.benchmark_coding.config")
-    def test_non_strict_mode_falls_back_to_io_pairs(self, mock_cfg):
+    @patch("autoresearch.benchmarks.benchmark_coding.bench_config")
+    def test_non_strict_mode_falls_back_to_io_pairs(self, mock_bench_cfg):
         """When strict=False and test is absent, build from base+plus pairs."""
-        mock_cfg.EVALPLUS_STRICT = False
+        mock_bench_cfg.EVALPLUS_STRICT = False
         entry = {
             "base_input_output_tests": [([1,2], True)],
             "plus_input_output_tests": [([10,20], False)],
@@ -328,10 +308,10 @@ class TestBenchmarkCoding(unittest.TestCase):
         test_code = benchmark_coding._get_test_code(entry, "humaneval")
         self.assertIn("f(*[1, 2]) == True", test_code)
 
-    @patch("autoresearch.benchmarks.benchmark_coding.config")
-    def test_strict_mode_falls_back_to_io_pairs_when_no_test(self, mock_cfg):
+    @patch("autoresearch.benchmarks.benchmark_coding.bench_config")
+    def test_strict_mode_falls_back_to_io_pairs_when_no_test(self, mock_bench_cfg):
         """Strict mode but no `test` field: build asserts from plus then base pairs."""
-        mock_cfg.EVALPLUS_STRICT = True
+        mock_bench_cfg.EVALPLUS_STRICT = True
         entry = {
             "base_input_output_tests": [([1,2], True)],
             "plus_input_output_tests": [([10,20], False)],

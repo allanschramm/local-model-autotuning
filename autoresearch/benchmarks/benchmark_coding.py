@@ -30,6 +30,7 @@ import zlib
 import textwrap
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from abc import ABC, abstractmethod
 
 from autoresearch.core.llama_client import LlamaClient, GenerationParams
 from autoresearch.benchmarks.benchmark_harness import BenchmarkResult
@@ -368,68 +369,163 @@ def _run_bigcode_tests(code: str, entry: dict, timeout: float = 15.0) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# EvalTask protocol — one class per benchmark dataset
+# ---------------------------------------------------------------------------
+
+# Per-dataset max_tokens override (used by EvalTask.max_tokens). Default 1024
+# is too tight for thinking models on competitive-programming / library-call
+# tasks where the prompt eats context and the think block eats output budget
+# before any code is emitted.
+_MAX_TOKENS = 2048
+
+
+class EvalTask(ABC):
+    """Protocol for a coding benchmark dataset.
+
+    Each task knows how to load problems, build prompts, and run tests.
+    Each task also knows its own *weight* for the composite val_score.
+    Adding a fifth benchmark means implementing this protocol once and
+    adding one entry to the task list in run_benchmark().
+    """
+
+    name: str = ""
+    weight: float = 0.0        # contribution to val_score (sum across tasks == 1.0)
+    default_task_limit: int = 0  # 0 = load all
+
+    @property
+    def max_tokens(self) -> int:
+        return _MAX_TOKENS
+
+    @abstractmethod
+    def load_problems(self, task_limit: int) -> list[tuple]:
+        """Load up to *task_limit* problems. Returns list of (id, entry) tuples."""
+        ...
+
+    @abstractmethod
+    def build_prompt(self, entry: dict) -> str:
+        """Build a generation prompt from a problem entry."""
+        ...
+
+    @abstractmethod
+    def run_tests(self, code: str, entry: dict, timeout: float = 10.0) -> bool:
+        """Run tests against generated code. Returns True if all pass."""
+        ...
+
+
+class _EvalplusTask(EvalTask):
+    """Shared base for HumanEval+ and MBPP+ — same loader/prompt/test pattern.
+    Uses ``self.name`` as the dataset key for the evalplus helpers."""
+
+    def load_problems(self, task_limit: int) -> list[tuple]:
+        problems_dict = _load_problems(self.name)
+        if not problems_dict:
+            return []
+        task_ids = list(problems_dict.keys())
+        entries = [(tid, problems_dict[tid]) for tid in task_ids]
+        if task_limit > 0:
+            entries = entries[:task_limit]
+        return entries
+
+    def build_prompt(self, entry: dict) -> str:
+        return _build_prompt(entry, self.name)
+
+    def run_tests(self, code: str, entry: dict, timeout: float = 10.0) -> bool:
+        test_code = _get_test_code(entry, self.name)
+        if not test_code:
+            return False
+        # If the model didn't include the function signature, prepend it
+        entry_point = entry.get("entry_point", "")
+        if entry_point and f"def {entry_point}" not in code:
+            prompt_sig = entry.get("prompt", "")
+            code = textwrap.indent(code, "    ")
+            code = prompt_sig + "\n" + code
+        return _run_tests(code, test_code, timeout)
+
+
+class HumanEvalTask(_EvalplusTask):
+    """HumanEval+ (164 algorithmic problems, evalplus strict tests)."""
+    name = "humaneval"
+    weight = 0.25
+
+
+class MBPPTask(_EvalplusTask):
+    """MBPP+ (974 entry-level problems, evalplus strict tests)."""
+    name = "mbpp"
+    weight = 0.25
+
+
+class LiveCodeBenchTask(EvalTask):
+    """LiveCodeBench v6 — contamination-free competitive programming, sampled."""
+    name = "lcb"
+    weight = 0.35
+    default_task_limit = 10
+
+    def load_problems(self, task_limit: int) -> list[tuple]:
+        problems = _load_livecodebench(task_limit=task_limit)
+        return [(i, p) for i, p in enumerate(problems)]
+
+    def build_prompt(self, entry: dict) -> str:
+        return _build_lcb_prompt(entry)
+
+    def run_tests(self, code: str, entry: dict, timeout: float = 10.0) -> bool:
+        return _run_lcb_tests(code, entry, timeout)
+
+
+class BigCodeBenchTask(EvalTask):
+    """BigCodeBench Hard — 148 library-call tasks, sampled."""
+    name = "bigcode"
+    weight = 0.15
+    default_task_limit = 10
+
+    def load_problems(self, task_limit: int) -> list[tuple]:
+        problems = _load_bigcodebench_hard(task_limit=task_limit)
+        return [(i, p) for i, p in enumerate(problems)]
+
+    def build_prompt(self, entry: dict) -> str:
+        return _build_bigcode_prompt(entry)
+
+    def run_tests(self, code: str, entry: dict, timeout: float = 15.0) -> bool:
+        return _run_bigcode_tests(code, entry, timeout)
+
+
+# ---------------------------------------------------------------------------
 # Eval runner (single dataset, prompt -> code -> tests)
 # ---------------------------------------------------------------------------
 
 def run_coding_eval(
     client: LlamaClient,
-    dataset: str,
+    task: EvalTask,
     gen_params: GenerationParams | None = None,
-    task_limit: int = 0,
+    task_limit: int | None = None,
     timeout_at: float | None = None,
-    problems: list[dict] | None = None,
-    max_tokens: int | None = None,
 ) -> tuple[float, int, float]:
+    """Run coding evaluation on a task. Returns (pass_at_1, total_tokens, total_seconds).
+
+    The *task* parameter is any EvalTask implementation. Each task owns its
+    loading, prompting, and test-execution strategy — no per-dataset dispatch
+    inside this function.
     """
-    Run coding evaluation on a dataset. Returns (pass_at_1, total_tokens, total_seconds).
+    limit = task_limit if task_limit is not None else task.default_task_limit
+    entries = task.load_problems(limit)
+    if not entries:
+        return 0.0, 0, 0.0
 
-    If `problems` is provided, uses that preloaded list instead of re-loading
-    (used for non-evalplus datasets like LCB and BigCodeBench).
-    """
-    if problems is None:
-        problems_dict = _load_problems(dataset)
-        if not problems_dict:
-            return 0.0, 0, 0.0
-        task_ids = list(problems_dict.keys())
-        entries = [(tid, problems_dict[tid]) for tid in task_ids]
-    else:
-        entries = [(i, p) for i, p in enumerate(problems)]
-
-    if task_limit > 0:
-        entries = entries[:task_limit]
-
-    # Per-dataset max_tokens override via gen_params.with_overrides().
-    override = {}
-    if max_tokens is not None:
-        override["max_tokens"] = max_tokens
-    gen = (gen_params or GenerationParams()).with_overrides(**override)
+    # Per-task max_tokens override via gen_params.with_overrides().
+    gen = (gen_params or GenerationParams()).with_overrides(max_tokens=task.max_tokens)
 
     total = len(entries)
     passed = 0
     total_tokens = 0
     t_start = time.time()
-    dataset_label = dataset
 
-    print(f"  [CODING] {dataset_label}: {total} tasks", flush=True)
+    print(f"  [CODING] {task.name}: {total} tasks", flush=True)
 
     for i, (tid, entry) in enumerate(entries):
         if timeout_at and time.time() > timeout_at:
-            print(f"  [CODING] {dataset_label}: timeout at {i}/{total}", flush=True)
+            print(f"  [CODING] {task.name}: timeout at {i}/{total}", flush=True)
             break
 
-        # Build prompt + tests per dataset kind
-        if dataset in ("humaneval", "mbpp"):
-            prompt = _build_prompt(entry, dataset)
-            test_code = _get_test_code(entry, dataset)
-        elif dataset == "lcb":
-            prompt = _build_lcb_prompt(entry)
-            test_code = None  # LCB uses stdin/stdout, not appended
-        elif dataset == "bigcode":
-            prompt = _build_bigcode_prompt(entry)
-            test_code = None  # BigCode tests are pre-defined in entry["test"]
-        else:
-            continue
-
+        prompt = task.build_prompt(entry)
         if not prompt:
             continue
 
@@ -458,20 +554,7 @@ def run_coding_eval(
 
         code = textwrap.dedent(code)
 
-        ok = False
-        if dataset in ("humaneval", "mbpp"):
-            if not test_code:
-                continue
-            entry_point = entry.get("entry_point", "")
-            if entry_point and f"def {entry_point}" not in code:
-                prompt_sig = entry.get("prompt", "")
-                code = textwrap.indent(code, "    ")
-                code = prompt_sig + "\n" + code
-            ok = _run_tests(code, test_code)
-        elif dataset == "lcb":
-            ok = _run_lcb_tests(code, entry)
-        elif dataset == "bigcode":
-            ok = _run_bigcode_tests(code, entry)
+        ok = task.run_tests(code, entry)
 
         if ok:
             passed += 1
@@ -480,10 +563,9 @@ def run_coding_eval(
             print(f"    {tid} FAIL ({i+1}/{total})", flush=True)
 
     elapsed = time.time() - t_start
-    evaluated = total  # we ran through the full list unless timed out
     pass_at_1 = passed / total if total > 0 else 0.0
     print(
-        f"  [CODING] {dataset_label}: {passed}/{evaluated} passed "
+        f"  [CODING] {task.name}: {passed}/{total} passed "
         f"(pass@1={pass_at_1:.4f}) TPS={total_tokens/elapsed if elapsed > 0 else 0:.1f}",
         flush=True,
     )
@@ -494,74 +576,48 @@ def run_coding_eval(
 # Unified benchmark
 # ---------------------------------------------------------------------------
 
-# Val Score weights (sum to 1.0)
-WEIGHT_LCB = 0.35
-WEIGHT_HE = 0.25
-WEIGHT_MBPP = 0.25
-WEIGHT_BIGCODE = 0.15
-
-# Per-dataset max_tokens override. Default 1024 is too tight for thinking models
-# on competitive-programming / library-call tasks where the prompt already eats
-# context and the think block eats output budget before any code is emitted.
-HE_MAX_TOKENS = 2048
-MBPP_MAX_TOKENS = 2048
-LCB_MAX_TOKENS = 2048
-BIGCODE_MAX_TOKENS = 2048
-
-
 def run_benchmark(client: LlamaClient, gen_params: GenerationParams | None = None, **kwargs) -> BenchmarkResult:
     """
     Unified entry point. Runs LCB, HE+, MBPP+, BigCodeBench Hard.
 
     val_pass1 = LCB, val_pass2 = HE, val_pass3 = MBPP, val_pass4 = BigCode.
-    val_score = 0.35*LCB + 0.25*HE + 0.25*MBPP + 0.15*BigCode
+    val_score is a weighted sum — each task carries its own weight
+    (sum of weights == 1.0). Adding a fifth benchmark means implementing
+    EvalTask once and adding one entry to the specs list below.
     """
     task_limit = kwargs.get("task_limit", 30)
     lcb_limit = kwargs.get("lcb_task_limit", getattr(bench_config, "LCB_TASK_LIMIT", 10))
     bigcode_limit = kwargs.get("bigcode_task_limit", getattr(bench_config, "BIGCODE_TASK_LIMIT", 10))
     timeout_at = kwargs.get("timeout_at", None)
 
-    # ponytail: gen_params is a typed dataclass, not **kwargs passthrough.
-    # kwargs only has bookkeeping params (task_limit, timeout_at, model_name, is_test).
+    # ── Run each task ──────────────────────────────────────────────────
+    specs: list[tuple[EvalTask, int]] = [
+        (HumanEvalTask(), task_limit),
+        (MBPPTask(), task_limit),
+        (LiveCodeBenchTask(), lcb_limit),
+        (BigCodeBenchTask(), bigcode_limit),
+    ]
 
-    # Pre-load non-evalplus datasets once (they have no `test_limit` arg path)
-    lcb_problems = _load_livecodebench(task_limit=lcb_limit) if lcb_limit > 0 else []
-    bigcode_problems = _load_bigcodebench_hard(task_limit=bigcode_limit) if bigcode_limit > 0 else []
+    passes: dict[str, float] = {}
+    total_tokens = 0
+    total_seconds = 0.0
 
-    # 1) HumanEval+ (strict)
-    he_pass, he_tokens, he_time = run_coding_eval(
-        client, "humaneval", gen_params=gen_params, task_limit=task_limit, timeout_at=timeout_at,
-        max_tokens=HE_MAX_TOKENS,
-    )
+    for task, limit in specs:
+        pass1, tokens, elapsed = run_coding_eval(
+            client, task, gen_params=gen_params, task_limit=limit, timeout_at=timeout_at,
+        )
+        passes[task.name] = pass1
+        total_tokens += tokens
+        total_seconds += elapsed
 
-    # 2) MBPP+
-    mbpp_pass, mbpp_tokens, mbpp_time = run_coding_eval(
-        client, "mbpp", gen_params=gen_params, task_limit=task_limit, timeout_at=timeout_at,
-        max_tokens=MBPP_MAX_TOKENS,
-    )
+    # ── Weighted composite score ───────────────────────────────────────
+    val_score = round(sum(task.weight * passes.get(task.name, 0.0) for task, _ in specs), 6)
 
-    # 3) LiveCodeBench v6 (sampled). Thinking models need more headroom for think+code.
-    lcb_pass, lcb_tokens, lcb_time = run_coding_eval(
-        client, "lcb", gen_params=gen_params, problems=lcb_problems, timeout_at=timeout_at,
-        max_tokens=LCB_MAX_TOKENS,
-    )
+    lcb_pass = passes.get("lcb", 0.0)
+    he_pass = passes.get("humaneval", 0.0)
+    mbpp_pass = passes.get("mbpp", 0.0)
+    bigcode_pass = passes.get("bigcode", 0.0)
 
-    # 4) BigCodeBench Hard (sampled). Same headroom for thinking models.
-    bigcode_pass, bigcode_tokens, bigcode_time = run_coding_eval(
-        client, "bigcode", gen_params=gen_params, problems=bigcode_problems, timeout_at=timeout_at,
-        max_tokens=BIGCODE_MAX_TOKENS,
-    )
-
-    val_score = round(
-        WEIGHT_LCB * lcb_pass
-        + WEIGHT_HE * he_pass
-        + WEIGHT_MBPP * mbpp_pass
-        + WEIGHT_BIGCODE * bigcode_pass,
-        6,
-    )
-
-    total_tokens = he_tokens + mbpp_tokens + lcb_tokens + bigcode_tokens
-    total_seconds = he_time + mbpp_time + lcb_time + bigcode_time
     avg_tps = total_tokens / total_seconds if total_seconds > 0 else 0.0
 
     return BenchmarkResult(
