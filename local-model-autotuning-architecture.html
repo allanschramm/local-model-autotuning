@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>local-model-autotuning Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'JetBrains Mono', monospace; background: #020617; min-height: 100vh; padding: 2rem; color: white; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .header { margin-bottom: 2rem; }
+    .header-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
+    .pulse-dot { width: 12px; height: 12px; background: #22d3ee; border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.025em; }
+    .subtitle { color: #94a3b8; font-size: 0.8rem; margin-left: 1.75rem; }
+    .diagram-container { background: rgba(15, 23, 42, 0.5); border-radius: 1rem; border: 1px solid #1e293b; padding: 1.5rem; overflow-x: auto; }
+    svg { width: 100%; min-width: 920px; display: block; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-top: 2rem; }
+    .card { background: rgba(15, 23, 42, 0.5); border-radius: 0.75rem; border: 1px solid #1e293b; padding: 1rem; }
+    .card-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem; }
+    .card-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .card-dot.cyan { background: #22d3ee; }
+    .card-dot.emerald { background: #34d399; }
+    .card-dot.violet { background: #a78bfa; }
+    .card h3 { font-size: 0.8rem; font-weight: 600; }
+    .card ul { list-style: none; color: #94a3b8; font-size: 0.7rem; }
+    .card li { margin-bottom: 0.3rem; }
+    .footer { text-align: center; margin-top: 1.25rem; color: #475569; font-size: 0.7rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-row">
+        <div class="pulse-dot"></div>
+        <h1>local-model-autotuning Architecture</h1>
+      </div>
+      <p class="subtitle">Hill-climbing runtime optimization for local GGUF inference via llama.cpp on Windows/WSL2</p>
+    </div>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 1000 660">
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+          </marker>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+
+        <rect width="100%" height="100%" fill="url(#grid)" />
+
+        <!-- External -->
+        <rect x="34" y="48" width="96" height="54" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <rect x="34" y="50" width="96" height="54" rx="6" fill="#0f172a"/>
+        <text x="82" y="70" fill="white" font-size="11" font-weight="600" text-anchor="middle">Operator</text>
+        <text x="82" y="86" fill="#94a3b8" font-size="9" text-anchor="middle">Human / Desktop App</text>
+
+        <!-- Harness boundary -->
+        <rect x="184" y="28" width="620" height="224" rx="12" fill="rgba(251, 191, 36, 0.05)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="8,4"/>
+        <text x="198" y="46" fill="#fbbf24" font-size="10" font-weight="600">Optimization Harness</text>
+
+        <!-- Benchmarks -->
+        <rect x="204" y="60" width="180" height="64" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <rect x="204" y="60" width="180" height="64" rx="6" fill="#0f172a"/>
+        <text x="294" y="82" fill="white" font-size="11" font-weight="600" text-anchor="middle">Benchmark Runners</text>
+        <text x="294" y="100" fill="#94a3b8" font-size="9" text-anchor="middle">benchmark_search.py</text>
+        <text x="294" y="114" fill="#94a3b8" font-size="9" text-anchor="middle">autoloop.py</text>
+
+        <!-- Evaluations -->
+        <rect x="412" y="60" width="180" height="64" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <rect x="412" y="60" width="180" height="64" rx="6" fill="#0f172a"/>
+        <text x="502" y="82" fill="white" font-size="11" font-weight="600" text-anchor="middle">Evaluations</text>
+        <text x="502" y="100" fill="#94a3b8" font-size="9" text-anchor="middle">llama-bench / Claw-Eval</text>
+        <text x="502" y="114" fill="#94a3b8" font-size="9" text-anchor="middle">Coding bench preflight</text>
+
+        <!-- Config -->
+        <rect x="204" y="168" width="180" height="64" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <rect x="204" y="168" width="180" height="64" rx="6" fill="#0f172a"/>
+        <text x="294" y="190" fill="white" font-size="11" font-weight="600" text-anchor="middle">Single source of truth</text>
+        <text x="294" y="206" fill="#94a3b8" font-size="9" text-anchor="middle">autoresearch/core/config.py</text>
+        <text x="294" y="220" fill="#94a3b8" font-size="9" text-anchor="middle">Runtime flags only</text>
+
+        <!-- Search -->
+        <rect x="412" y="168" width="180" height="64" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <rect x="412" y="168" width="180" height="64" rx="6" fill="#0f172a"/>
+        <text x="502" y="190" fill="white" font-size="11" font-weight="600" text-anchor="middle">Search Strategy</text>
+        <text x="502" y="206" fill="#94a3b8" font-size="9" text-anchor="middle">Hill-climbing / mutation</text>
+        <text x="502" y="220" fill="#94a3b8" font-size="9" text-anchor="middle">Pareto tie-break</text>
+
+        <!-- Runtime boundary -->
+        <rect x="180" y="288" width="620" height="224" rx="12" fill="rgba(251, 191, 36, 0.05)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="8,4"/>
+        <text x="194" y="306" fill="#fbbf24" font-size="10" font-weight="600">llama.cpp Runtime</text>
+
+        <!-- llama.cpp / services -->
+        <rect x="200" y="320" width="180" height="64" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <rect x="200" y="320" width="180" height="64" rx="6" fill="#0f172a"/>
+        <text x="290" y="342" fill="white" font-size="11" font-weight="600" text-anchor="middle">llama.cpp Binaries</text>
+        <text x="290" y="358" fill="#94a3b8" font-size="9" text-anchor="middle">llama-server / llama-bench</text>
+        <text x="290" y="372" fill="#94a3b8" font-size="9" text-anchor="middle">CUDA build-cuda/bin/</text>
+
+        <!-- Model -->
+        <rect x="408" y="320" width="180" height="64" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <rect x="408" y="320" width="180" height="64" rx="6" fill="#0f172a"/>
+        <text x="498" y="342" fill="white" font-size="11" font-weight="600" text-anchor="middle">GGUF Model</text>
+        <text x="498" y="358" fill="#94a3b8" font-size="9" text-anchor="middle">Q4_K_M / KV types</text>
+        <text x="498" y="372" fill="#94a3b8" font-size="9" text-anchor="middle">Qwen / runtime target</text>
+
+        <!-- Runner wrapper -->
+        <rect x="616" y="320" width="160" height="64" rx="6" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1.5"/>
+        <rect x="616" y="320" width="160" height="64" rx="6" fill="#0f172a"/>
+        <text x="696" y="342" fill="white" font-size="11" font-weight="600" text-anchor="middle">Runner / Client</text>
+        <text x="696" y="358" fill="#94a3b8" font-size="9" text-anchor="middle">llama_runner / client</text>
+        <text x="696" y="372" fill="#94a3b8" font-size="9" text-anchor="middle">VRAM checks / lifecycle</text>
+
+        <!-- Hardware -->
+        <rect x="408" y="432" width="180" height="56" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <rect x="408" y="432" width="180" height="56" rx="6" fill="#0f172a"/>
+        <text x="498" y="454" fill="white" font-size="11" font-weight="600" text-anchor="middle">GPU / CUDA</text>
+        <text x="498" y="470" fill="#94a3b8" font-size="9" text-anchor="middle">RTX 4060 8GB</text>
+        <text x="498" y="484" fill="#94a3b8" font-size="9" text-anchor="middle">WSL2 / Windows</text>
+
+        <!-- Output -->
+        <rect x="616" y="432" width="160" height="56" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <rect x="616" y="432" width="160" height="56" rx="6" fill="#0f172a"/>
+        <text x="696" y="454" fill="white" font-size="11" font-weight="600" text-anchor="middle">results.tsv</text>
+        <text x="696" y="470" fill="#94a3b8" font-size="9" text-anchor="middle">Append-only logs</text>
+        <text x="696" y="484" fill="#94a3b8" font-size="9" text-anchor="middle">TPS / accuracy rows</text>
+
+        <!-- Dashed security group for runner -->
+        <rect x="606" y="314" width="180" height="76" rx="8" fill="transparent" stroke="#fb7185" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="614" y="328" fill="#fb7185" font-size="8">runner boundary</text>
+
+        <!-- Arrows -->
+        <line x1="130" y1="75" x2="202" y2="110" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="170" y="102" fill="#94a3b8" font-size="9">request / select</text>
+
+        <line x1="294" y1="124" x2="294" y2="166" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <line x1="502" y1="124" x2="502" y2="166" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <line x1="294" y1="232" x2="294" y2="286" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <line x1="502" y1="232" x2="502" y2="286" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+        <path d="M 290 352 L 406 352" fill="none" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="345" y="344" fill="#94a3b8" font-size="9" text-anchor="middle">runtime CLI</text>
+
+        <path d="M 588 352 L 614 352" fill="none" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="600" y="344" fill="#94a3b8" font-size="9" text-anchor="middle">lifecycle</text>
+
+        <path d="M 588 352 L 588 320" fill="none" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path d="M 588 384 L 588 432" fill="none" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+        <path d="M 498 384 L 498 430" fill="none" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="510" y="410" fill="#94a3b8" font-size="9">model</text>
+
+        <path d="M 696 384 L 696 430" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+        <!-- Output back to harness -->
+        <path d="M 696 488 L 696 530 Q 696 540 686 540 L 82 540 Q 72 540 72 530 L 72 102" fill="none" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="380" y="556" fill="#94a3b8" font-size="9" text-anchor="middle">TPS / score / stability output</text>
+
+        <!-- Legend -->
+        <text x="760" y="118" fill="white" font-size="10" font-weight="600">Legend</text>
+        <rect x="760" y="130" width="16" height="10" rx="2" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1"/>
+        <text x="782" y="138" fill="#94a3b8" font-size="8">Benchmark / backend</text>
+        <rect x="760" y="146" width="16" height="10" rx="2" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1"/>
+        <text x="782" y="154" fill="#94a3b8" font-size="8">Config / telemetry</text>
+        <rect x="760" y="162" width="16" height="10" rx="2" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1"/>
+        <text x="782" y="170" fill="#94a3b8" font-size="8">Strategy frontend</text>
+        <rect x="760" y="178" width="16" height="10" rx="2" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1"/>
+        <text x="782" y="186" fill="#94a3b8" font-size="8">llama.cpp / hardware</text>
+        <rect x="760" y="194" width="16" height="10" rx="2" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1"/>
+        <text x="782" y="202" fill="#94a3b8" font-size="8">Runner adapter</text>
+        <rect x="760" y="210" width="16" height="10" rx="2" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1"/>
+        <text x="782" y="218" fill="#94a3b8" font-size="8">External / model</text>
+        <line x1="760" y1="230" x2="776" y2="230" stroke="#fb7185" stroke-width="1" stroke-dasharray="3,3"/>
+        <text x="782" y="233" fill="#94a3b8" font-size="8">Security group</text>
+      </svg>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot cyan"></div>
+          <h3>Flow</h3>
+        </div>
+        <ul>
+          <li>• Operator triggers search</li>
+          <li>• Harness reads config / models</li>
+          <li>• Runners evaluate runtime flags</li>
+          <li>• Engine mutates neighbor configs</li>
+          <li>• Results append to TSV</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot emerald"></div>
+          <h3>Runtime</h3>
+        </div>
+        <ul>
+          <li>• llama-server for inference</li>
+          <li>• llama-bench for TPS measurement</li>
+          <li>• CUDA build outputs</li>
+          <li>• GGUF runtime model</li>
+          <li>• VRAM checks before launch</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot violet"></div>
+          <h3>Evaluation</h3>
+        </div>
+        <ul>
+          <li>• llama-bench</li>
+          <li>• Claw-Eval quick-tier</li>
+          <li>• 2-task coding preflight</li>
+          <li>• Separate TSV rows</li>
+          <li>• No merged combined score</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="footer">local-model-autotuning • Optimization harness + llama.cpp runtime</p>
+  </div>
+</body>
+</html>
