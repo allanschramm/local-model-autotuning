@@ -18,6 +18,7 @@ Repository-wide agent guidelines are owned by the repository developers.
 - Config frozen: Never change any config value without explicit user permission. Never touch ctx_size under any circumstance.
 - Min context 100k: All validation, tuning, recommendations, and ANY benchmark — even raw `llama-bench` — must use ctx >= 100k. Small-context tests (e.g., default 4096) produce meaningless TPS/VRAM numbers for this user. Never run below 100k. Reject any suggestion to lower ctx. This is a hard floor.
 - No timeouts: Never set execution timeouts on commands unless explicitly told to. Benchmarks and model tests run until completion.
+- No hardcoded machine paths: Do not commit absolute user or checkout paths in scripts, docs, configs, or durable notes. Resolve them dynamically or keep them repo-relative.
 - Ask first, ship never: When user asks "can we do X?", answer yes/no only. Do not implement unless user explicitly says "do it" / "implement" / "go ahead".
 - Never assume. When uncertain whether a file is scratch, a decision is right, or a path is safe — ask the user or yourself explicitly before acting.
 - NEVER commit and/or push without explicit user command. Wait for "commit", "commit and push", or equivalent. Do not infer intent.
@@ -134,3 +135,4 @@ When the user requests a durable behavior change, record it here or in the relev
   - [beellama.cpp/](beellama.cpp/) - Alternate llama.cpp runtime source.
   - [llama-cpp-turboquant/](llama-cpp-turboquant/) - TurboQuant llama.cpp fork source.
   - [claw-eval/](claw-eval/) - Claw-Eval autonomous-agent benchmark harness source.
+
