@@ -39,7 +39,8 @@ class TestSearchStrategy(unittest.TestCase):
             baseline_score=0.70, baseline_tps=30.0, baseline_vram=4.0,
             new_score=0.70, new_tps=29.0, new_vram=3.5
         )
-        self.assertFalse(is_imp)  # VRAM no longer used as tie-breaker
+        self.assertTrue(is_imp)
+        self.assertIn("VRAM improved", reason)
 
     def test_is_improvement_pareto_no_tps_no_vram(self):
         # Score tied, TPS regressed heavily, VRAM improved (not enough for TPS drop)
@@ -69,6 +70,19 @@ class TestSearchStrategy(unittest.TestCase):
         visited.add(strategy.get_config_key(new_cfg))
         final_cfg = strategy.random_restart(visited, current, max_attempts=50)
         self.assertIsNone(final_cfg)
+
+    def test_is_batch_consistent(self):
+        strategy = SearchStrategy({})
+        self.assertTrue(strategy.is_batch_consistent({"BATCH_SIZE": 512, "UBATCH_SIZE": 128}))
+        self.assertFalse(strategy.is_batch_consistent({"BATCH_SIZE": 256, "UBATCH_SIZE": 512}))
+
+    def test_get_neighbors_filters_invalid_batch(self):
+        space = {"BATCH_SIZE": [256, 512], "UBATCH_SIZE": [128, 256, 512]}
+        strategy = SearchStrategy(space)
+        neighbors = strategy.get_neighbors({"BATCH_SIZE": 256, "UBATCH_SIZE": 256})
+        for n in neighbors:
+            self.assertLessEqual(n.config["UBATCH_SIZE"], n.config["BATCH_SIZE"])
+
 
 if __name__ == "__main__":
     unittest.main()

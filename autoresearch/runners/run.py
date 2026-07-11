@@ -3,6 +3,9 @@ import csv
 import argparse
 import subprocess
 import itertools
+import json
+import uuid
+import shutil
 from pathlib import Path
 from typing import Dict, Any
 
@@ -26,10 +29,10 @@ def determine_category(args) -> str:
     """Infer run category from CLI args."""
     if getattr(args, "validation", False):
         return CATEGORY_VALIDATION
-    if getattr(args, "agentic_quick", False):
-        return "agentic-quick"
     if getattr(args, "agentic_full", False):
         return "agentic-full"
+    if getattr(args, "agentic_quick", False):
+        return "agentic-quick"
     coding = getattr(args, "coding_task_limit", 10)
     lcb = getattr(args, "lcb_task_limit", 10)
     bigcode = getattr(args, "bigcode_task_limit", 10)
@@ -58,24 +61,34 @@ def parse_args():
     parser.add_argument("--flash-attn", "-fa", nargs="?", const="on", default=config.FLASH_ATTN, choices=["on", "off", "auto"], help="Enable/disable/auto Flash Attention")
     parser.add_argument("--spec-type", type=str, default=config.SPEC_TYPE, help="Speculative decoding type (e.g. draft-mtp, mtp)")
     parser.add_argument("--spec-draft-n-max", type=int, default=config.SPEC_DRAFT_N_MAX, help="Speculative draft max tokens count for MTP")
-    parser.add_argument("--context-tokens", type=int, default=8192, help="Context tokens padding length")
-    parser.add_argument("--include-coding", action="store_true", default=True, help="Include Coding benchmark (Humaneval+ & MBPP+)")
+    parser.add_argument("--context-tokens", type=int, default=config.CTX_SIZE, help="Context tokens padding length (100k minimum)")
+    parser.add_argument("--include-coding", action="store_true", default=getattr(bench_config, "INCLUDE_CODING", False), help="Run the optional 10-task direct-coding preflight")
     parser.add_argument("--no-coding", dest="include_coding", action="store_false", help="Disable Coding benchmark")
     parser.add_argument("--include-nexus", action="store_true", default=getattr(bench_config, "INCLUDE_NEXUS", False), help="Include Nexus benchmark")
     parser.add_argument("--include-claw", action="store_true", default=getattr(bench_config, "INCLUDE_CLAW", False), help="Include Claw benchmark")
-    parser.add_argument("--agentic-quick", action="store_true", default=getattr(bench_config, "INCLUDE_AGENTIC_QUICK", False), help="Run Claw-Eval quick tier (5 tasks, ~5 min, rule-based scoring)")
-    parser.add_argument("--agentic-full", action="store_true", default=getattr(bench_config, "INCLUDE_AGENTIC_FULL", False), help="Run Claw-Eval full tier (15 tasks, ~15 min, rule-based scoring)")
+    parser.add_argument(
+        "--agentic-quick",
+        action=argparse.BooleanOptionalAction,
+        default=getattr(bench_config, "INCLUDE_AGENTIC_QUICK", False),
+        help="Run Claw-Eval quick tier smoke (5 tasks; use --no-agentic-quick to disable)",
+    )
+    parser.add_argument(
+        "--agentic-full",
+        action=argparse.BooleanOptionalAction,
+        default=getattr(bench_config, "INCLUDE_AGENTIC_FULL", False),
+        help="Run Claw-Eval full tier quality gate (15 tasks; use --no-agentic-full to disable)",
+    )
     parser.add_argument("--list-agentic-benchmarks", action="store_true", help="List long-horizon agentic benchmark targets and exit")
     parser.add_argument("--list-claw-tiers", action="store_true", help="List Claw-Eval quick/full task tiers and exit")
     parser.add_argument("--coding-task-limit", type=int, default=getattr(bench_config, "CODING_TASK_LIMIT", 30), help="Tasks per dataset (0=full dataset)")
     parser.add_argument("--lcb-task-limit", type=int, default=getattr(bench_config, "LCB_TASK_LIMIT", 10), help="LiveCodeBench task limit")
     parser.add_argument("--bigcode-task-limit", type=int, default=getattr(bench_config, "BIGCODE_TASK_LIMIT", 10), help="BigCodeBench task limit")
     parser.add_argument("--validation", action="store_true",
-        help="Validation mode: run llama-bench + 2-task coding eval then exit. "
-             "Validates model loads, tg t/s >= bench-tts-threshold, and basic codegen. "
+        help="Validation mode: run llama-bench + Claw quick smoke evaluation. "
+             "Validates model load, throughput, and basic agentic behavior. "
              "No extended eval, no keep/discard. Useful for quick config sanity checks.")
     parser.add_argument("--bench-tts-threshold", type=float, default=BENCH_TPS_THRESHOLD,
-        help="Minimum text generation t/s from llama-bench validation (default: 30)")
+        help=f"Minimum text generation t/s from llama-bench validation (default: {BENCH_TPS_THRESHOLD})")
     parser.add_argument("--no-mmap", action="store_true", default=config.NO_MMAP, help="Disable mmap")
     parser.add_argument("--jinja", action="store_true", default=config.JINJA, help="Enable Jinja chat template engine")
     parser.add_argument("--reasoning-budget", type=int, default=config.REASONING_BUDGET, help="Thinking budget tokens limit")
@@ -140,7 +153,8 @@ def get_previous_best(results_file: Path, model_name: str | None = None) -> floa
     return best_score
 
 CATEGORY_FIELDNAMES = [
-    "commit", "model", "category", "status",
+    "schema_version", "trial_id", "commit", "model", "model_id", "backend",
+    "category", "evaluation_profile", "scoring_benchmark", "outcome", "diagnostic", "status",
     "val_score", "swe_score", "lcb_score", "he_score",
     "mbpp_score", "bigcode_score", "memory_gb", "elapsed_sec",
     "tps", "bench_tg", "kv", "ctx",
@@ -148,7 +162,7 @@ CATEGORY_FIELDNAMES = [
     "n_cpu_moe", "temp", "top_p", "top_k", "min_p",
     "repeat_penalty", "presence_penalty", "cont_batching",
     "flash_attn", "no_mmap", "spec_draft_n_max",
-    "description",
+    "task_ids", "random_seed", "config_json", "binary_version", "tps_source", "description",
 ]
 
 
@@ -161,6 +175,9 @@ def _ensure_category_column(results_file: Path) -> None:
     cols = header.split("\t")
     if cols == CATEGORY_FIELDNAMES:
         return  # already migrated
+    backup = results_file.with_suffix(results_file.suffix + ".bak")
+    if results_file.is_file() and not backup.exists():
+        shutil.copy2(results_file, backup)
     rows = []
     with open(results_file, "r") as f:
         reader = csv.DictReader(f, delimiter="\t")
@@ -173,7 +190,7 @@ def _ensure_category_column(results_file: Path) -> None:
         writer.writerows(rows)
 
 
-def write_row(results_file: Path, commit: str, val_score: float, swe_score: float, he_score: float, mbpp_score: float, memory_gb: float, status: str, description: str, lcb_score: float = 0.0, bigcode_score: float = 0.0, category: str = "", elapsed_sec: float = 0.0, model: str = "", tps: float = 0.0, bench_tg: float = 0.0, kv: str = "", ctx: int = 0, threads: int = 0, threads_batch: int = 0, batch_size: int = 0, ubatch_size: int = 0, n_cpu_moe: int = 0, temp: float = 0.0, top_p: float = 0.0, top_k: int = 0, min_p: float = 0.0, repeat_penalty: float = 0.0, presence_penalty: float = 0.0, cont_batching: str = "", flash_attn: str = "", no_mmap: str = "", spec_draft_n_max: int = 0):
+def write_row(results_file: Path, commit: str, val_score: float, swe_score: float, he_score: float, mbpp_score: float, memory_gb: float, status: str, description: str, lcb_score: float = 0.0, bigcode_score: float = 0.0, category: str = "", elapsed_sec: float = 0.0, model: str = "", tps: float = 0.0, bench_tg: float = 0.0, kv: str = "", ctx: int = 0, threads: int = 0, threads_batch: int = 0, batch_size: int = 0, ubatch_size: int = 0, n_cpu_moe: int = 0, temp: float = 0.0, top_p: float = 0.0, top_k: int = 0, min_p: float = 0.0, repeat_penalty: float = 0.0, presence_penalty: float = 0.0, cont_batching: str = "", flash_attn: str = "", no_mmap: str = "", spec_draft_n_max: int = 0, outcome: str = "", diagnostic: str = "", evaluation_profile: str = "", scoring_benchmark: str = "", task_ids: str = "", config_json: str = "", tps_source: str = ""):
     _ensure_category_column(results_file)
     new_file = not results_file.exists() or results_file.stat().st_size == 0
     with open(results_file, "a", newline="") as f:
@@ -181,9 +198,17 @@ def write_row(results_file: Path, commit: str, val_score: float, swe_score: floa
         if new_file:
             writer.writeheader()
         row = {
+            "schema_version": "2",
+            "trial_id": str(uuid.uuid4()),
             "commit": commit,
             "model": model,
+            "model_id": model,
+            "backend": "sglang" if model and not model.lower().endswith(".gguf") else "llama.cpp",
             "category": category,
+            "evaluation_profile": evaluation_profile or category,
+            "scoring_benchmark": scoring_benchmark or ("claw-eval" if category.startswith("agentic") else "coding"),
+            "outcome": outcome or ("OK" if not status.lower().startswith("fail") else "MODEL_REJECTED"),
+            "diagnostic": diagnostic,
             "status": status,
             "val_score": f"{val_score:.6f}",
             "swe_score": f"{swe_score:.6f}",
@@ -212,6 +237,15 @@ def write_row(results_file: Path, commit: str, val_score: float, swe_score: floa
             "flash_attn": flash_attn,
             "no_mmap": str(no_mmap) if no_mmap else "",
             "spec_draft_n_max": str(spec_draft_n_max) if spec_draft_n_max else "",
+            "task_ids": task_ids,
+            "random_seed": "",
+            "config_json": config_json or json.dumps({
+                "kv": kv, "ctx": ctx, "threads": threads, "threads_batch": threads_batch,
+                "batch_size": batch_size, "ubatch_size": ubatch_size,
+                "flash_attn": flash_attn, "spec_draft_n_max": spec_draft_n_max,
+            }, separators=(",", ":"), sort_keys=True),
+            "binary_version": "",
+            "tps_source": tps_source,
             "description": description,
         }
         writer.writerow(row)
@@ -241,6 +275,10 @@ def run_evaluation(cfg: dict | Any, skip_bench: bool = False, **overrides) -> Di
         "bench_tg_tps": tr.bench_tg_tps,
         "bench_pp_tps": tr.bench_pp_tps,
         "elapsed_sec": tr.elapsed_sec,
+        "outcome": tr.outcome.value,
+        "diagnostic": tr.diagnostic,
+        "task_ids": list(tr.task_ids),
+        "tps_source": tr.tps_source,
     }
 
 def handle_single_run(args):
@@ -257,8 +295,8 @@ def handle_single_run(args):
     
     include_nexus_val = getattr(args, "include_nexus", False)
     include_claw_val = getattr(args, "include_claw", False)
-    agentic_quick = getattr(args, "agentic_quick", False)
-    agentic_full = getattr(args, "agentic_full", False)
+    agentic_quick = getattr(args, "agentic_quick", False) is True
+    agentic_full = getattr(args, "agentic_full", False) is True
 
     # Run evaluation
     res = run_evaluation(
@@ -268,7 +306,15 @@ def handle_single_run(args):
     
     if res["status"] != "OK":
         print(f"Evaluation failed: {res['status']}")
-        write_row(RESULTS_FILE, commit, 0.0, 0.0, 0.0, 0.0, res["peak_vram_gb"], "discard", f"FAIL: {res['status']} | {args.desc}", category=determine_category(args), elapsed_sec=res.get("elapsed_sec", 0.0), model=args.model)
+        write_row(
+            RESULTS_FILE, commit, 0.0, 0.0, 0.0, 0.0, res["peak_vram_gb"],
+            "discard", f"FAIL: {res['status']} | {args.desc}",
+            category=determine_category(args), elapsed_sec=res.get("elapsed_sec", 0.0),
+            model=args.model, outcome=res.get("outcome", ""),
+            diagnostic=res.get("diagnostic", ""),
+            task_ids=",".join(res.get("task_ids", [])),
+            tps_source=res.get("tps_source", ""),
+        )
         sys.exit(1)
         
     val_score = res["val_score"]
@@ -376,7 +422,7 @@ def handle_grid_run(args):
             batch_size=batch_size, ubatch_size=ubatch_size, spec_draft_n_max=spec_draft
         )
         
-        status = "keep"
+        status = "keep" if res["status"] == "OK" else "discard"
         details = (f"GRID Sweep: model={args.model} kv_k={k_lbl} kv_v={v_lbl} max_tokens={mt} "
                    f"ctx={args.ctx_size} threads={threads} threads_batch={threads_batch} "
                    f"batch={batch_size} ubatch={ubatch_size} spec_draft={spec_draft} "
@@ -394,6 +440,10 @@ def handle_grid_run(args):
             category=determine_category(args),
             elapsed_sec=res.get("elapsed_sec", 0.0),
             model=args.model,
+            outcome=res.get("outcome", ""),
+            diagnostic=res.get("diagnostic", ""),
+            task_ids=",".join(res.get("task_ids", [])),
+            tps_source=res.get("tps_source", ""),
         )
         print(f"Grid sweep entry logged: score={res['val_score']:.6f}")
 

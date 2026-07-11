@@ -6,18 +6,18 @@ from typing import Any
 from pathlib import Path
 
 # Benchmarks to run
-INCLUDE_CODING = True
+INCLUDE_CODING = False
 INCLUDE_NEXUS = False
 INCLUDE_CLAW = False
-INCLUDE_AGENTIC_QUICK = False   # 5-task Claw-Eval smoke test (~5 min), rule-based scoring
-INCLUDE_AGENTIC_FULL = False    # 15-task Claw-Eval quality gate (~15 min)
+INCLUDE_AGENTIC_QUICK = True    # smoke validation before the canonical Trial
+INCLUDE_AGENTIC_FULL = True     # canonical agentic-coding Val Score
 CODING_TASK_LIMIT = 10      # tasks per dataset for HE+ / MBPP+
 LCB_TASK_LIMIT = 10         # LiveCodeBench v6 sample (contamination-free competitive prog)
 BIGCODE_TASK_LIMIT = 10     # BigCodeBench Hard sample (library-call tasks)
 AGENTIC_QUICK_TASK_LIMIT = 5    # Claw-Eval quick tier: 5 easy rule-based tasks
 AGENTIC_FULL_TASK_LIMIT = 15    # Claw-Eval full tier: 15 easy+medium tasks
 EVALPLUS_STRICT = True
-TRIAL_BUDGET = 300
+TRIAL_BUDGET = None
 
 
 def load_config(params: list[str] | None = None) -> dict[str, Any]:

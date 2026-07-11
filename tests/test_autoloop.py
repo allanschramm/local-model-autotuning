@@ -3,11 +3,22 @@ from unittest.mock import patch, MagicMock
 from pathlib import Path
 from types import SimpleNamespace
 import json
+import tempfile
 import autoloop
+from autoresearch.core import config as core_config
 from autoresearch.core.search import SearchStrategy
 
 
 class TestAutoLoop(unittest.TestCase):
+
+    def setUp(self):
+        self._state_dir = tempfile.TemporaryDirectory()
+        self._state_patch = patch.object(core_config, "STATE_FILE", Path(self._state_dir.name) / "state.json")
+        self._state_patch.start()
+
+    def tearDown(self):
+        self._state_patch.stop()
+        self._state_dir.cleanup()
 
     def test_get_neighbors(self):
         config = {
@@ -18,7 +29,7 @@ class TestAutoLoop(unittest.TestCase):
             "BATCH_SIZE": 512,
             "UBATCH_SIZE": 128,
             "SPEC_DRAFT_N_MAX": 1,
-            "CTX_SIZE": 16384,
+            "CTX_SIZE": 131072,
             "CONT_BATCHING": False,
             "FLASH_ATTN": "on",
             "NO_MMAP": False,
@@ -46,7 +57,7 @@ class TestAutoLoop(unittest.TestCase):
     @patch("autoloop.estimate_vram_mb")
     def test_preflight_vram_ok(self, mock_estimate):
         mock_estimate.return_value = 5000.0
-        cfg = {"MODEL": "m.gguf", "CTX_SIZE": 4096, "KV_CACHE_K": "q4_0"}
+        cfg = {"MODEL": "m.gguf", "CTX_SIZE": 131072, "KV_CACHE_K": "q4_0"}
 
         self.assertTrue(autoloop.preflight_vram_ok(cfg, 6000.0))
         self.assertFalse(autoloop.preflight_vram_ok(cfg, 4000.0))
@@ -56,24 +67,17 @@ class TestAutoLoop(unittest.TestCase):
     def test_preflight_vram_ok_fallback(self, mock_estimate):
         """KV_CACHE_K/V not set → falls back to KV_CACHE then q4_0."""
         mock_estimate.return_value = 5000.0
-        cfg = {"MODEL": "m.gguf", "CTX_SIZE": 4096, "KV_CACHE": "q8_0"}
+        cfg = {"MODEL": "m.gguf", "CTX_SIZE": 131072, "KV_CACHE": "q8_0"}
         self.assertTrue(autoloop.preflight_vram_ok(cfg, 9999.0))
         mock_estimate.assert_called_once()
         # Should use KV_CACHE value
         self.assertIn("q8_0", str(mock_estimate.call_args))
 
         mock_estimate.reset_mock()
-        cfg2 = {"MODEL": "m.gguf", "CTX_SIZE": 4096}
+        cfg2 = {"MODEL": "m.gguf", "CTX_SIZE": 131072}
         self.assertTrue(autoloop.preflight_vram_ok(cfg2, 9999.0))
         # Should fall back to "q4_0" default
         self.assertIn("q4_0", str(mock_estimate.call_args))
-
-    def test_parse_budget_seconds(self):
-        self.assertEqual(autoloop.parse_budget_seconds("10m"), 600.0)
-        self.assertEqual(autoloop.parse_budget_seconds("30s"), 30.0)
-        self.assertEqual(autoloop.parse_budget_seconds("150"), 150.0)
-        self.assertEqual(autoloop.parse_budget_seconds("invalid"), 300.0)
-        self.assertEqual(autoloop.parse_budget_seconds(" 5m "), 300.0)
 
     def test_signal_handler(self):
         autoloop._stop_requested = False
@@ -89,35 +93,66 @@ class TestAutoLoop(unittest.TestCase):
         self.assertIn("MODEL", cfg)
         self.assertIn("CTX_SIZE", cfg)
 
-    def test_load_visited_no_file(self):
-        with patch("autoloop.VISITED_FILE") as mf:
-            mf.exists.return_value = False
-            self.assertEqual(autoloop.load_visited(), set())
+    def test_trial_config_maps_include_agentic_flags(self):
+        cfg = {
+            "MODEL": "m.gguf",
+            "INCLUDE_CODING": False,
+            "INCLUDE_AGENTIC_QUICK": True,
+            "INCLUDE_AGENTIC_FULL": True,
+        }
+        out = autoloop.trial_config(cfg, {"port": 18080})
+        self.assertFalse(out["include_coding"])
+        self.assertTrue(out["agentic_quick"])
+        self.assertTrue(out["agentic_full"])
+        self.assertEqual(out["port"], 18080)
+
+    def test_temp_baseline_in_search_space(self):
+        self.assertIn(0.4, autoloop.SEARCH_SPACE["TEMP"])
+
+    def test_get_neighbors_skips_ubatch_gt_batch(self):
+        config = {
+            "KV_CACHE_K": "q4_0",
+            "KV_CACHE_V": "q4_0",
+            "THREADS": 8,
+            "THREADS_BATCH": 8,
+            "BATCH_SIZE": 256,
+            "UBATCH_SIZE": 256,
+            "SPEC_DRAFT_N_MAX": 0,
+            "CONT_BATCHING": True,
+            "FLASH_ATTN": "on",
+            "NO_MMAP": False,
+            "TEMP": 0.4,
+            "TOP_P": 0.95,
+            "TOP_K": 20,
+            "MIN_P": 0.0,
+            "PRESENCE_PENALTY": 0.0,
+            "REPEAT_PENALTY": 1.05,
+        }
+        strategy = SearchStrategy(autoloop.SEARCH_SPACE, use_pareto_tiebreaker=True)
+        neighbors = strategy.get_neighbors(config)
+        for n in neighbors:
+            self.assertLessEqual(n.config["UBATCH_SIZE"], n.config["BATCH_SIZE"])
+
+    @patch("autoloop.load_state", return_value={"visited": []})
+    def test_load_visited_no_file(self, _mock_state):
+        self.assertEqual(autoloop.load_visited(), set())
 
     def test_load_visited_with_data(self):
-        with patch("autoloop.VISITED_FILE") as mf:
-            mf.exists.return_value = True
-            mf.read_text.return_value = '["cfg1","cfg2"]'
+        with patch("autoloop.load_state", return_value={"visited": ["cfg1", "cfg2"]}):
             self.assertEqual(autoloop.load_visited(), {"cfg1", "cfg2"})
 
-    def test_load_visited_invalid_json(self):
-        with patch("autoloop.VISITED_FILE") as mf:
-            mf.exists.return_value = True
-            mf.read_text.return_value = "not json"
-            self.assertEqual(autoloop.load_visited(), set())
+    @patch("autoloop.write_state")
+    @patch("autoloop.load_state", return_value={"baseline": {}, "visited": []})
+    def test_save_visited(self, _mock_load, mock_write):
+        autoloop.save_visited({"a", "b"})
+        saved = mock_write.call_args[0][0]
+        self.assertEqual(saved["visited"], ["a", "b"])
 
-    def test_save_visited(self):
-        with patch("autoloop.VISITED_FILE") as mf:
-            autoloop.save_visited({"a", "b"})
-            mf.write_text.assert_called_once()
-            saved = json.loads(mf.write_text.call_args[0][0])
-            self.assertCountEqual(saved, ["a", "b"])
-
-    def test_save_visited_empty(self):
-        with patch("autoloop.VISITED_FILE") as mf:
-            autoloop.save_visited(set())
-            mf.write_text.assert_called_once()
-            self.assertEqual(json.loads(mf.write_text.call_args[0][0]), [])
+    @patch("autoloop.write_state")
+    @patch("autoloop.load_state", return_value={"baseline": {}, "visited": ["x"]})
+    def test_save_visited_empty(self, _mock_load, mock_write):
+        autoloop.save_visited(set())
+        self.assertEqual(mock_write.call_args[0][0]["visited"], [])
 
     # ── main() tests ───────────────────────────────────────────────
 
@@ -143,12 +178,14 @@ class TestAutoLoop(unittest.TestCase):
             "REASONING_BUDGET": None, "REASONING_BUDGET_MESSAGE": None,
             "REASONING": None, "SPEC_TYPE": None, "FREQUENCY_PENALTY": None,
             "INCLUDE_CODING": True, "CODING_TASK_LIMIT": 10,
-            "INCLUDE_NEXUS": False, "INCLUDE_CLAW": False, "N_CPU_MOE": 32,
+            "INCLUDE_NEXUS": False, "INCLUDE_CLAW": False,
+            "INCLUDE_AGENTIC_QUICK": True, "INCLUDE_AGENTIC_FULL": True,
+            "N_CPU_MOE": 32,
         }
         cfg.update(overrides)
         return cfg
 
-    @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--vram-limit-mb", "99999"])
+    @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--vram-limit-mb", "99999", "--models", "test.gguf"])
     @patch("autoloop.MODELS_DIR")
     @patch("autoloop.ExperimentRunner")
     @patch("autoloop.load_config")
@@ -226,8 +263,9 @@ class TestAutoLoop(unittest.TestCase):
                             with patch.object(SearchStrategy, "random_restart", return_value=None):
                                 autoloop.main()
 
-    @patch("sys.argv", ["autoloop.py", "--reset-visited"])
-    @patch("autoloop.VISITED_FILE")
+    @patch("sys.argv", ["autoloop.py", "--reset-visited", "--max-rounds", "1", "--models", "test.gguf"])
+    @patch("autoloop.write_state")
+    @patch("autoloop.load_state", return_value={"baseline": {}, "visited": ["old"]})
     @patch("autoloop.MODELS_DIR")
     @patch("autoloop.ExperimentRunner")
     @patch("autoloop.load_config")
@@ -236,10 +274,9 @@ class TestAutoLoop(unittest.TestCase):
     @patch("autoloop.write_row")
     def test_main_reset_visited(
         self, mock_write_row, mock_git, mock_wcfg, mock_lcfg,
-        mock_runner_cls, mock_models_dir, mock_vfile
+        mock_runner_cls, mock_models_dir, mock_load_state, mock_write_state
     ):
-        """--reset-visited flag clears VISITED_FILE then runs."""
-        mock_vfile.exists.return_value = True
+        """--reset-visited clears visited keys in local state."""
         mock_models_dir.glob.return_value = [Path("test.gguf")]
         mock_lcfg.return_value = self._full_config(MODEL="test.gguf")
         mock_runner = MagicMock()
@@ -250,7 +287,7 @@ class TestAutoLoop(unittest.TestCase):
             with patch.object(SearchStrategy, "random_restart", return_value=None):
                 autoloop.main()
 
-        mock_vfile.unlink.assert_called_once()
+        self.assertEqual(mock_write_state.call_args_list[0].args[0]["visited"], [])
         mock_write_row.assert_called()
 
     @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--models", "test.gguf"])
@@ -288,18 +325,18 @@ class TestAutoLoop(unittest.TestCase):
 
         mock_wcfg.assert_called()
 
-    @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--trial-budget", "10m"])
+    @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--models", "test.gguf"])
     @patch("autoloop.MODELS_DIR")
     @patch("autoloop.ExperimentRunner")
     @patch("autoloop.load_config")
     @patch("autoloop.write_config")
     @patch("autoloop.get_git_commit", return_value="abc")
     @patch("autoloop.write_row")
-    def test_main_trial_budget(
+    def test_main_has_no_trial_budget(
         self, mock_write_row, mock_git, mock_wcfg, mock_lcfg,
         mock_runner_cls, mock_models_dir
     ):
-        """--trial-budget 10m parsed correctly."""
+        """Trials run to completion without a budget override."""
         mock_models_dir.glob.return_value = [Path("test.gguf")]
         mock_lcfg.return_value = self._full_config(MODEL="test.gguf")
         mock_runner = MagicMock()
@@ -310,9 +347,8 @@ class TestAutoLoop(unittest.TestCase):
             with patch.object(SearchStrategy, "random_restart", return_value=None):
                 autoloop.main()
 
-        # verify trial_budget=600 passed to run_trial
         args, kwargs = mock_runner.run_trial.call_args
-        self.assertEqual(kwargs, {"trial_budget": 600.0})
+        self.assertEqual(kwargs, {})
 
     @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--models", "test.gguf",
                          "--vram-limit-mb", "1"])

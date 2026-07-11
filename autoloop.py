@@ -2,10 +2,11 @@
 """
 Autonomous Hill-Climbing Evaluation Loop.
 
-Reads config.py as baseline → runs ALL benchmarks → perturbs one flag →
-runs again → if improved, saves as new baseline in config.py → loops forever.
+Reads Baseline from .autoresearch_state.json (defaults from config.py) →
+runs active benchmarks → perturbs one flag → if improved, saves Baseline
+to .autoresearch_state.json → loops forever.
 
-Stop with Ctrl+C (SIGINT). State persists in config.py and results.tsv.
+Stop with Ctrl+C (SIGINT). State persists in .autoresearch_state.json and results.tsv.
 """
 
 import sys
@@ -15,13 +16,19 @@ from pathlib import Path
 from typing import Any
 
 from autoresearch.core.llama_runner import estimate_vram_mb
-from autoresearch.core.config import load_config as _core_load_config, write_config as _core_write_config
-from autoresearch.runners.run import get_git_commit, write_row, RESULTS_FILE, MODELS_DIR, CATEGORY_10_TASK
+from autoresearch.core.config import (
+    CONFIG_KEYS,
+    load_config as _core_load_config,
+    load_state,
+    write_state,
+    validate_config,
+)
+from autoresearch.runners.run import get_git_commit, write_row, RESULTS_FILE, MODELS_DIR
 from autoresearch.runners.evaluation import ExperimentRunner
+from autoresearch.runners.evaluation import TrialOutcome
 from autoresearch.core.search import SearchStrategy
 
 BASE_DIR = Path(__file__).resolve().parent
-VISITED_FILE = BASE_DIR / ".autoloop_visited.json"
 
 # ── Search space: param_name → list of candidate values ──────────────────
 SEARCH_SPACE = {
@@ -35,7 +42,7 @@ SEARCH_SPACE = {
     "CONT_BATCHING":     [False, True],
     "FLASH_ATTN":        ["on"],
     "NO_MMAP":           [False, True],
-    "TEMP":              [0.0, 0.2, 0.6, 0.7, 1.0],
+    "TEMP":              [0.0, 0.2, 0.4, 0.6, 0.7, 1.0],
     "TOP_P":             [None, 0.8, 0.9, 0.95],
     "TOP_K":             [None, 20, 40, 64],
     "MIN_P":             [None, 0.0, 0.02, 0.05],
@@ -52,8 +59,9 @@ CORE_PASSTHROUGH = [
 # Bench params (in autoresearch.benchmarks.bench_config)
 BENCH_PASSTHROUGH = [
     "INCLUDE_CODING", "CODING_TASK_LIMIT",
-    "INCLUDE_NEXUS", "INCLUDE_CLAW",
+    "INCLUDE_NEXUS", "INCLUDE_CLAW", "INCLUDE_AGENTIC_QUICK", "INCLUDE_AGENTIC_FULL",
 ]
+PASSTHROUGH_PARAMS = CORE_PASSTHROUGH + BENCH_PASSTHROUGH
 
 # ── Graceful shutdown ────────────────────────────────────────────────────
 _stop_requested = False
@@ -68,10 +76,10 @@ signal.signal(signal.SIGTERM, _signal_handler)
 
 
 def load_config() -> dict[str, Any]:
-    """Hot-reload core + bench configs and return merged dict."""
-    from autoresearch.core import config as _cfg
+    """Load immutable defaults overlaid by the local Baseline state."""
     from autoresearch.benchmarks import bench_config as _bc
     result = _core_load_config(list(SEARCH_SPACE.keys()) + CORE_PASSTHROUGH)
+    result.update(load_state()["baseline"])
     # Merge bench params
     bench_vals = {p: getattr(_bc, p, None) for p in BENCH_PASSTHROUGH}
     result.update({k: v for k, v in bench_vals.items() if v is not None})
@@ -79,10 +87,22 @@ def load_config() -> dict[str, Any]:
 
 
 def write_config(cfg: dict[str, Any]) -> None:
-    """Persist config to both core config.py and bench_config.py."""
-    _core_write_config(cfg)
-    from autoresearch.benchmarks.bench_config import write_config as _bench_write_config
-    _bench_write_config(cfg)
+    """Persist the Baseline to ignored local state, never Python source."""
+    state = load_state()
+    filtered = {k: cfg[k] for k in CONFIG_KEYS if k in cfg}
+    state["baseline"] = validate_config(filtered)
+    write_state(state)
+
+
+def trial_config(cfg: dict[str, Any], defaults: dict[str, Any]) -> dict[str, Any]:
+    """Map bench_config INCLUDE_* flags onto evaluation.py agentic_*/include_coding keys."""
+    return {
+        **defaults,
+        **cfg,
+        "include_coding": bool(cfg.get("INCLUDE_CODING", False)),
+        "agentic_quick": bool(cfg.get("INCLUDE_AGENTIC_QUICK", False)),
+        "agentic_full": bool(cfg.get("INCLUDE_AGENTIC_FULL", False)),
+    }
 
 
 def preflight_vram_ok(cfg: dict[str, Any], vram_limit: float | None) -> bool:
@@ -91,7 +111,7 @@ def preflight_vram_ok(cfg: dict[str, Any], vram_limit: float | None) -> bool:
         return True
     
     model = cfg.get("MODEL", "g4-opt-it-Q4_K_M.gguf")
-    ctx = cfg.get("CTX_SIZE", 16384)
+    ctx = cfg.get("CTX_SIZE", 131072)
     kv_k = cfg.get("KV_CACHE_K") or cfg.get("KV_CACHE", "q4_0")
     kv_v = cfg.get("KV_CACHE_V") or cfg.get("KV_CACHE", "q4_0")
     
@@ -105,32 +125,13 @@ def preflight_vram_ok(cfg: dict[str, Any], vram_limit: float | None) -> bool:
 
 
 def load_visited() -> set[str]:
-    """Load previously visited configs from disk."""
-    if VISITED_FILE.exists():
-        try:
-            data = json.loads(VISITED_FILE.read_text(encoding="utf-8"))
-            return set(data)
-        except Exception:
-            pass
-    return set()
+    return set(load_state().get("visited", []))
 
 
 def save_visited(visited: set[str]) -> None:
-    """Persist visited configs to disk."""
-    VISITED_FILE.write_text(json.dumps(list(visited)), encoding="utf-8")
-
-
-def parse_budget_seconds(budget_str: str) -> float:
-    budget_str = budget_str.strip().lower()
-    if budget_str.endswith("m"):
-        return float(budget_str[:-1]) * 60
-    if budget_str.endswith("s"):
-        return float(budget_str[:-1])
-    try:
-        return float(budget_str)
-    except ValueError:
-        print(f"[AUTOLOOP] Invalid budget format: {budget_str}. Defaulting to 5 minutes.")
-        return 300.0
+    state = load_state()
+    state["visited"] = sorted(visited)
+    write_state(state)
 
 
 def main():
@@ -138,17 +139,16 @@ def main():
     parser = argparse.ArgumentParser(description="Autonomous Hill-Climbing Evaluation Loop")
     parser.add_argument("--vram-limit-mb", type=float, default=7900.0, help="Max safe VRAM in MB")
     parser.add_argument("--max-rounds", type=int, default=0, help="Max rounds (0=infinite)")
-    parser.add_argument("--reset-visited", action="store_true", help="Clear visited config history")
+    parser.add_argument("--reset-visited", action="store_true", help="Reset local Search state to immutable defaults")
     parser.add_argument("--models", nargs="+", help="Space-separated list of model filenames to optimize (1 or more)")
-    parser.add_argument("--trial-budget", type=str, help="Max time trial budget (e.g. 5m, 300s, 15m)")
     cli_args = parser.parse_args()
 
     vram_limit = cli_args.vram_limit_mb
     max_rounds = cli_args.max_rounds
 
-    if cli_args.reset_visited and VISITED_FILE.exists():
-        VISITED_FILE.unlink()
-        print("[AUTOLOOP] Cleared visited config history.")
+    if cli_args.reset_visited:
+        write_state({"baseline": _core_load_config(), "visited": []})
+        print("[AUTOLOOP] Reset local Search state to immutable defaults.")
 
     # 1. Resolve selected models
     available_models = sorted([f.name for f in MODELS_DIR.glob("*.gguf")])
@@ -192,16 +192,11 @@ def main():
         baseline_cfg = load_config()
         selected_models = [baseline_cfg.get("MODEL", "g4-opt-it-Q4_K_M.gguf")]
 
-    # 2. Resolve trial budget
-    trial_budget_sec = 300.0  # Fixed 5-minute window
-    if cli_args.trial_budget:
-        trial_budget_sec = parse_budget_seconds(cli_args.trial_budget)
-
     print("=" * 60)
     print("  AUTONOMOUS HILL-CLIMBING LOOP")
     print(f"  Target models: {', '.join(selected_models)}")
-    print(f"  Trial budget: {trial_budget_sec / 60:.1f} minutes ({trial_budget_sec:.0f} seconds)")
-    print("  Stop with Ctrl+C. State persists in config.py + results.tsv")
+    print("  Trial budget: none (runs to completion)")
+    print("  Stop with Ctrl+C. State persists in .autoresearch_state.json + results.tsv")
     print("=" * 60)
 
     visited = load_visited()
@@ -214,7 +209,7 @@ def main():
         "parallel": 1,
         "ngl": 99,
         "max_tokens": 1024,
-        "context_tokens": 8192,
+        "context_tokens": 131072,
     }
     search_strategy = SearchStrategy(SEARCH_SPACE, use_pareto_tiebreaker=True)
 
@@ -242,7 +237,7 @@ def main():
             print(f"  ROUND {round_num} ({model_name})")
             print(f"{'=' * 60}")
 
-            # ── Step 1: Load current baseline from config.py ─────────────
+            # ── Step 1: Load current baseline from local state ───────────
             baseline_cfg = load_config()
             baseline_key = search_strategy.get_config_key(baseline_cfg)
             visited.add(baseline_key)
@@ -251,25 +246,45 @@ def main():
 
             # ── Step 2: Evaluate baseline ────────────────────────────────
             print("\n[EVAL] Running baseline benchmarks...")
-            baseline_res = runner.run_trial({**_defaults, **baseline_cfg}, trial_budget=trial_budget_sec)
+            baseline_res = runner.run_trial(trial_config(baseline_cfg, _defaults))
+            if getattr(baseline_res, "outcome", TrialOutcome.OK) in (TrialOutcome.INFRA_ERROR, TrialOutcome.CODE_ERROR):
+                raise RuntimeError(f"Search stopped: {baseline_res.status}")
             baseline_score = baseline_res.val_score
             baseline_tps = baseline_res.avg_tps
             baseline_vram = baseline_res.peak_vram_gb
+            baseline_outcome = getattr(baseline_res, "outcome", TrialOutcome.OK)
+            baseline_status = "discard" if baseline_outcome in (TrialOutcome.INVALID_CONFIG, TrialOutcome.MODEL_REJECTED) else "keep"
 
             commit = get_git_commit()
             write_row(
                 RESULTS_FILE, commit, baseline_score,
                 baseline_res.swe_val, baseline_res.he_val, baseline_res.mbpp_val,
                 baseline_vram,
-                "keep",
+                baseline_status,
                 f"AutoLoop R{round_num} baseline for {model_name}: {search_strategy.format_config_summary(baseline_cfg)} "
                 f"TPS={baseline_tps:.1f}",
                 lcb_score=baseline_res.lcb_val, bigcode_score=baseline_res.bigcode_val,
-                category=CATEGORY_10_TASK,
+                category="agentic-full",
                 model=model_name,
+                outcome=getattr(getattr(baseline_res, "outcome", TrialOutcome.OK), "value", "OK"),
+                diagnostic=getattr(baseline_res, "diagnostic", ""),
+                evaluation_profile="agentic-full",
+                scoring_benchmark="claw-eval",
+                task_ids=",".join(getattr(baseline_res, "task_ids", ())),
+                config_json=json.dumps(baseline_cfg, sort_keys=True, default=repr),
+                tps_source=getattr(baseline_res, "tps_source", ""),
             )
 
             print(f"[BASELINE] Score={baseline_score:.6f} TPS={baseline_tps:.1f} VRAM={baseline_vram:.1f}GB")
+
+            if baseline_status == "discard":
+                print(f"[BASELINE] Rejected ({baseline_res.status}); attempting Random Restart.")
+                new_baseline = search_strategy.random_restart(visited, baseline_cfg)
+                if new_baseline and preflight_vram_ok(new_baseline, vram_limit):
+                    write_config(new_baseline)
+                    continue
+                print("[AUTOLOOP] No unvisited VRAM-safe restart available. Stopping.")
+                break
 
             if _stop_requested:
                 break
@@ -294,11 +309,13 @@ def main():
 
                 # Pre-flight VRAM check
                 if not preflight_vram_ok(neighbor.config, vram_limit):
-                    print(f"  [SKIP] {changed}: {old_val} → {new_val} (VRAM over budget)")
+                    print(f"  [SKIP] {changed}: {old_val} -> {new_val} (VRAM over budget)")
                     continue
 
-                print(f"\n  [EVAL] Trying {changed}: {old_val} → {new_val}")
-                res = runner.run_trial({**_defaults, **neighbor.config}, trial_budget=trial_budget_sec)
+                print(f"\n  [EVAL] Trying {changed}: {old_val} -> {new_val}")
+                res = runner.run_trial(trial_config(neighbor.config, _defaults))
+                if getattr(res, "outcome", TrialOutcome.OK) in (TrialOutcome.INFRA_ERROR, TrialOutcome.CODE_ERROR):
+                    raise RuntimeError(f"Search stopped: {res.status}")
                 score = res.val_score
                 tps = res.avg_tps
                 vram = res.peak_vram_gb
@@ -320,19 +337,26 @@ def main():
                     f"AutoLoop R{round_num} {changed}={new_val}: "
                     f"{search_strategy.format_config_summary(neighbor.config)} TPS={tps:.1f} Δ={delta:+.6f}",
                     lcb_score=res.lcb_val, bigcode_score=res.bigcode_val,
-                    category=CATEGORY_10_TASK,
+                    category="agentic-full",
                     model=model_name,
+                    outcome=getattr(getattr(res, "outcome", TrialOutcome.OK), "value", "OK"),
+                    diagnostic=getattr(res, "diagnostic", ""),
+                    evaluation_profile="agentic-full",
+                    scoring_benchmark="claw-eval",
+                    task_ids=",".join(getattr(res, "task_ids", ())),
+                    config_json=json.dumps(neighbor.config, sort_keys=True, default=repr),
+                    tps_source=getattr(res, "tps_source", ""),
                 )
 
                 if is_improvement:
-                    print(f"  >>> IMPROVEMENT! {changed}: {old_val} → {new_val} "
+                    print(f"  >>> IMPROVEMENT! {changed}: {old_val} -> {new_val} "
                           f"({reason})")
-                    # Persist new baseline to config.py
+                    # Persist new baseline to local state
                     write_config(neighbor.config)
                     improved = True
                     break
                 else:
-                    print(f"  [DISCARD] {changed}: {old_val} → {new_val} "
+                    print(f"  [DISCARD] {changed}: {old_val} -> {new_val} "
                           f"(Score={score:.6f}, Δ={delta:+.6f})")
 
             if not improved and not _stop_requested:

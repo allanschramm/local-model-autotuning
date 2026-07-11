@@ -122,9 +122,8 @@ def run_sglang_bench_validation(
 
 
 class SGLangServerRunner:
-    def __init__(self, intent: ServerIntent, timeout: int = 300, log_path: Path | None = None):
+    def __init__(self, intent: ServerIntent, log_path: Path | None = None):
         self.intent = intent
-        self.timeout = timeout
         self.log_path = log_path
         
         self.port: int | None = None
@@ -162,7 +161,7 @@ class SGLangServerRunner:
 
     def is_server_ready(self, port: int) -> bool:
         try:
-            r = requests.get(f"http://{self.intent.host}:{port}/v1/models", timeout=1.0)
+            r = requests.get(f"http://{self.intent.host}:{port}/v1/models")
             return r.status_code == 200
         except requests.RequestException:
             return False
@@ -196,10 +195,9 @@ class SGLangServerRunner:
                 **_popen_group_kwargs(),
             )
 
-            start_time = time.time()
             ready = False
             
-            while time.time() - start_time < self.timeout:
+            while True:
                 if self._server_proc.poll() is not None:
                     break
                 
@@ -244,7 +242,7 @@ class SGLangServerRunner:
                 if self._server_proc.poll() is None:
                     print(f"Failed to start on port {port}, trying next...")
                     _terminate_process_tree(self._server_proc)
-                    self._server_proc.wait(timeout=5)
+                    self._server_proc.wait()
                 else:
                     print("FAIL: Server crashed during startup.")
                     print("Tail of startup log:")
@@ -260,7 +258,7 @@ class SGLangServerRunner:
             _terminate_process_tree(self._server_proc)
             
             try:
-                self._server_proc.wait(timeout=5)
+                self._server_proc.wait()
             except subprocess.TimeoutExpired:
                 self._server_proc.kill()
                 

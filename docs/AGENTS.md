@@ -40,6 +40,7 @@ Durable documentation for this repo: model cards, technique notes, architecture 
   - 0001 — Deepen llama-server runner.
   - 0002 — Consolidated evaluation harness.
   - 0003 — In-process benchmark orchestration.
+  - 0004 — Agentic-first Search and local state.
 - [docs/discovery/AGENTS.md](discovery/AGENTS.md) — user-facing guides (whichllm, Pareto frontier, model selection workflow, quantization selection).
 - [docs/sessions/AGENTS.md](sessions/AGENTS.md) — single-day empirical session logs.
 - [docs/llamacpp-toolset.md](llamacpp-toolset.md) — llama.cpp toolset reference: build, binaries, flags, bench/server/quantize/perplexity/imatrix commands.

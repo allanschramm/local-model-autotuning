@@ -19,10 +19,10 @@ O agente vai:
 2. Rodar `whichllm` pra listar candidatos
 3. Cruzar com SWE-bench / Aider / LiveCodeBench
 4. Plotar Pareto frontier (tok/s vs qualidade)
-5. Editar `autoresearch/core/config.py` com o melhor modelo
+5. Definir o modelo alvo (defaults em `config.py`; Baseline mutável em `.autoresearch_state.json`)
 6. Rodar `python3 autoloop.py --vram-limit-mb=<budget>` overnight
 
-**Resultado de manhã:** `results.tsv` com todos os trials + `config.py` na melhor config encontrada.
+**Resultado de manhã:** `results.tsv` com todos os Trials + `.autoresearch_state.json` com a melhor configuração local encontrada.
 
 ---
 
@@ -54,9 +54,9 @@ Output verde = pronto pro autoloop.
 
 ### O Loop
 
-1. Lê a config atual melhor de `autoresearch/core/config.py`
-2. Roda todos os benchmarks habilitados (Coding atual: HE+, MBPP+, LCB, BigCodeBench)
-3. Calcula Val Score (acurácia ponderada + TPS floor)
+1. Lê o Baseline atual de `.autoresearch_state.json` (defaults de `config.py`)
+2. Valida throughput e roda o smoke test Claw-Eval quick
+3. Roda Claw-Eval full e calcula o Val Score agentic (+ TPS floor)
 4. Muta um param -> gera config Neighbor
 5. Avalia Neighbor -> keep se melhorou (ou Pareto tie-break)
 6. Se local maxima -> random restart
@@ -66,26 +66,26 @@ Output verde = pronto pro autoloop.
 
 | Arquivo | O quê | Agente/loop pode editar? |
 |---|---|---|
-| `autoresearch/core/config.py` | Config de runtime | **Sim** (só constantes) |
+| `.autoresearch_state.json` | Baseline + visited (local) | **Sim** (via autoloop) |
+| `autoresearch/core/config.py` | Defaults imutáveis | **Não** (só com permissão explícita) |
+| `autoresearch/benchmarks/bench_config.py` | Quais benches rodam | **Não** (só com permissão explícita) |
 | `benchmark_search.py` | CLI runner | **Não** |
 | `autoresearch/benchmarks/*` | Lógica de avaliação | **Não** |
 | `results.tsv` | Métricas dos trials | **Só append** |
 
 ### Val Score
 
-Métrica escalar única pra decisões de keep/discard:
-- Coding: `35% LiveCodeBench + 25% HumanEval+ + 25% MBPP+ + 15% BigCodeBench Hard`
+O Claw-Eval full é a métrica canônica para decisões de keep/discard. HE+, MBPP+, LCB e BigCodeBench são preflight opcional e, quando ativados, sempre usam 10 tarefas por dataset.
 
-TPS Floor = 20 tok/s. Abixo disso -> score zerado.
-### Roadmap Agentic
+TPS Floor = 20 tok/s. Abaixo disso -> score zerado.
 
-O score atual ainda é direct-coding. Para coding agents reais, o caminho é migrar para benchmarks long-horizon:
+### Preflight coding
+
+HE+/MBPP+/LCB/BigCode ficam como preflight rápido opcional, não como medida final de agente:
 
 ```bash
 python benchmark_search.py --list-agentic-benchmarks
 ```
-
-HE+/MBPP+/LCB/BigCode ficam como preflight rápido, não como medida final de agente.
 
 ### Segurança
 
@@ -173,10 +173,10 @@ model:    <nome-do-modelo-do-config>
 Se preferir fazer na mão:
 
 1. Leia `program.md` pra regras
-2. Edite `autoresearch/core/config.py` com uma hipótese
+2. Ajuste o Baseline em `.autoresearch_state.json` (ou defaults em `config.py` + reset de state)
 3. Rode `python3 benchmark_search.py --desc "sua hipótese"`
 4. Cheque `results.tsv` pelos resultados
-5. Keep se o Val Score melhorou, reverte caso contrário
+5. Keep se o Val Score melhorou, reverte o Baseline caso contrário
 
 ---
 
@@ -184,17 +184,17 @@ Se preferir fazer na mão:
 
 | Profile | Benchmarks | Modelos Exemplo |
 |---|---|---|
-| **Coding** (default) | LiveCodeBench, HumanEval+, MBPP+, BigCodeBench Hard | Qualquer modelo GGUF local |
-| **Agentic Coding** (roadmap) | Benchmarks aprovados via catálogo local | Modelos locais servidos via endpoint OpenAI-compatible |
+| **Agentic Coding** (default) | Claw-Eval full (Val Score) + quick smoke | Modelos locais via endpoint OpenAI-compatible |
+| **Coding** (preflight opcional) | LiveCodeBench, HumanEval+, MBPP+, BigCodeBench Hard (10 tasks cada) | Qualquer modelo GGUF local |
 | **Writing** | MMLU-Pro, Chatbot Arena | Qualquer modelo GGUF local |
 | **Vision** | MMMU-Pro, MMBench | Qualquer modelo GGUF local multimodal |
 
-Troque em `autoresearch/core/config.py`:
+Troque em `autoresearch/benchmarks/bench_config.py`:
 
 ```python
-INCLUDE_CODING = True
-INCLUDE_NEXUS = False
-INCLUDE_CLAW = False
+INCLUDE_CODING = False
+INCLUDE_AGENTIC_QUICK = True
+INCLUDE_AGENTIC_FULL = True
 ```
 
 ---

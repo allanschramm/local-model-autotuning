@@ -8,10 +8,12 @@ import json
 import subprocess
 import time
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent, resolve_llama_bench
+from autoresearch.core.config import ConfigError
 from autoresearch.core.sglang_runner import SGLangServerRunner, run_sglang_bench_validation
 from autoresearch.core.llama_client import LlamaClient, GenerationParams
 from autoresearch.benchmarks.benchmark_coding import run_benchmark as run_coding
@@ -24,6 +26,29 @@ BASE_DIR = Path(__file__).resolve().parent
 BENCH_TPS_THRESHOLD = 20.0  # min tg t/s from llama-bench
 BENCH_N_PROMPT = 512
 BENCH_N_GEN = 128
+
+
+class TrialOutcome(str, Enum):
+    OK = "OK"
+    INVALID_CONFIG = "INVALID_CONFIG"
+    MODEL_REJECTED = "MODEL_REJECTED"
+    INFRA_ERROR = "INFRA_ERROR"
+    CODE_ERROR = "CODE_ERROR"
+
+
+class AgenticBenchmarkAdapter(Protocol):
+    def task_ids(self, tier: str) -> list[str]: ...
+    def run(self, client: LlamaClient, task_ids: list[str], gen_params: GenerationParams) -> dict: ...
+
+
+class ClawEvalAdapter:
+    """Docker-free Claw-Eval adapter with deterministic local grading."""
+
+    def task_ids(self, tier: str) -> list[str]:
+        return get_quick_tier_tasks() if tier == "quick" else get_full_tier_tasks()
+
+    def run(self, client: LlamaClient, task_ids: list[str], gen_params: GenerationParams) -> dict:
+        return run_agentic_eval(client, task_ids, gen_params=gen_params, trials=1)
 
 
 @dataclass
@@ -49,6 +74,10 @@ class TrialResult:
     bench_tg_tps: float = 0.0
     bench_pp_tps: float = 0.0
     elapsed_sec: float = 0.0
+    outcome: TrialOutcome = TrialOutcome.OK
+    diagnostic: str = ""
+    task_ids: tuple[str, ...] = ()
+    tps_source: str = ""
 
 
 def run_llama_bench_validation(
@@ -60,6 +89,7 @@ def run_llama_bench_validation(
     flash_attn: str = "on",
     cache_type_k: str = "q4_0",
     cache_type_v: str = "q4_0",
+    ctx_size: int = 131072,
     n_prompt: int = BENCH_N_PROMPT,
     n_gen: int = BENCH_N_GEN,
 ) -> float:
@@ -69,6 +99,7 @@ def run_llama_bench_validation(
     cmd = [
         str(llama_bench),
         "-m", str(model_path),
+        "-c", str(ctx_size),
         "-p", str(n_prompt),
         "-n", str(n_gen),
         "-t", str(threads),
@@ -83,7 +114,7 @@ def run_llama_bench_validation(
     ]
 
     print(f"  [bench] {' '.join(str(a) for a in cmd)}")
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
 
@@ -117,8 +148,9 @@ class ExperimentRunner:
     Locality: trial orchestration logic and bugs concentrate in one module.
     """
 
-    def __init__(self, models_dir: Path):
+    def __init__(self, models_dir: Path, agentic_adapter: AgenticBenchmarkAdapter | None = None):
         self.models_dir = Path(models_dir)
+        self.agentic_adapter = agentic_adapter or ClawEvalAdapter()
 
     def run_trial(
         self,
@@ -135,21 +167,49 @@ class ExperimentRunner:
                 cfg_dict = dict(vars(config))
             except Exception:
                 cfg_dict = {}
-        intent, norm = ServerIntent.from_config(cfg_dict, self.models_dir, **overrides)
+        res = TrialResult()
+        try:
+            intent, norm = ServerIntent.from_config(cfg_dict, self.models_dir, **overrides)
+        except ConfigError as exc:
+            res.status = f"FAIL: {exc}"
+            res.outcome = TrialOutcome.INVALID_CONFIG
+            res.diagnostic = str(exc)
+            return res
         model_filename = intent.model_path.name
 
         max_tokens = norm.get("max_tokens", 1024)
-        include_coding = norm.get("include_coding", True)
+        include_coding = bool(norm.get("include_coding", False))
         task_limit_val = norm.get("coding_task_limit", 10)
         lcb_limit_val = norm.get("lcb_task_limit", 10)
         bigcode_limit_val = norm.get("bigcode_task_limit", 10)
-        trial_budget = norm.get("trial_budget")
         bench_tts_threshold = norm.get("bench_tts_threshold", BENCH_TPS_THRESHOLD)
         is_validation = norm.get("validation", False)
-        agentic_quick = norm.get("agentic_quick", False)
-        agentic_full = norm.get("agentic_full", False)
-
-        res = TrialResult()
+        # Accept both CLI keys (agentic_*) and bench_config keys (include_agentic_*).
+        agentic_quick = bool(
+            norm.get("agentic_quick", False) or norm.get("include_agentic_quick", False)
+        )
+        agentic_full = bool(
+            norm.get("agentic_full", False) or norm.get("include_agentic_full", False)
+        )
+        if is_validation:
+            agentic_quick = True
+            agentic_full = False
+        if include_coding and (task_limit_val, lcb_limit_val, bigcode_limit_val) != (10, 10, 10):
+            res.status = "FAIL: Coding preflight requires exactly 10 tasks per dataset"
+            res.outcome = TrialOutcome.INVALID_CONFIG
+            res.diagnostic = res.status[6:]
+            return res
+        agentic_tiers: list[tuple[str, list[str]]] = []
+        if agentic_quick:
+            agentic_tiers.append(("quick", self.agentic_adapter.task_ids("quick")))
+        if agentic_full:
+            agentic_tiers.append(("full", self.agentic_adapter.task_ids("full")))
+        if any(not task_ids for _, task_ids in agentic_tiers):
+            missing = next(tier for tier, task_ids in agentic_tiers if not task_ids)
+            res.status = f"FAIL: No agentic {missing} tasks found"
+            res.outcome = TrialOutcome.INFRA_ERROR
+            res.diagnostic = res.status[6:]
+            return res
 
         # ── Pre-check: llama-bench validation ────────────────────────────
         if not skip_bench:
@@ -167,16 +227,16 @@ class ExperimentRunner:
                     if bench_tg < bench_tts_threshold:
                         print(f"  [FAIL] sglang bench tg {bench_tg:.1f} t/s below threshold {bench_tts_threshold:.1f}")
                         res.status = f"FAIL: sglang bench tg {bench_tg:.1f} < threshold {bench_tts_threshold:.1f}"
+                        res.outcome = TrialOutcome.MODEL_REJECTED
                         return res
 
                     if is_validation:
                         print(f"  [OK] SGLang bench validation passed: tg {bench_tg:.1f} t/s >= {bench_tts_threshold:.1f}")
-                        task_limit_val = 2
-                        lcb_limit_val = 2
-                        bigcode_limit_val = 2
                 except Exception as e:
                     print(f"  [FAIL] sglang bench error: {e}")
                     res.status = f"FAIL: sglang bench error: {str(e)[:50]}"
+                    res.outcome = TrialOutcome.INFRA_ERROR
+                    res.diagnostic = str(e)
                     return res
             else:
                 try:
@@ -189,20 +249,26 @@ class ExperimentRunner:
                         flash_attn=intent.flash_attn,
                         cache_type_k=intent.kv_cache_k or intent.kv_cache,
                         cache_type_v=intent.kv_cache_v or intent.kv_cache,
+                        ctx_size=intent.ctx_size,
                         n_prompt=BENCH_N_PROMPT,
                         n_gen=BENCH_N_GEN,
                     )
                 except FileNotFoundError as e:
                     print(f"  [FAIL] llama-bench not found: {e}")
                     res.status = "FAIL: llama-bench not found"
+                    res.outcome = TrialOutcome.INFRA_ERROR
+                    res.diagnostic = str(e)
                     return res
                 except subprocess.CalledProcessError as e:
                     print(f"  [FAIL] llama-bench crashed: {e}")
                     res.status = "FAIL: llama-bench crashed"
+                    res.outcome = TrialOutcome.MODEL_REJECTED
                     return res
                 except Exception as e:
                     print(f"  [FAIL] llama-bench error: {e}")
                     res.status = f"FAIL: llama-bench error: {str(e)[:50]}"
+                    res.outcome = TrialOutcome.INFRA_ERROR
+                    res.diagnostic = str(e)
                     return res
 
                 res.bench_tg_tps = bench_tg
@@ -211,15 +277,12 @@ class ExperimentRunner:
                 if bench_tg < bench_tts_threshold:
                     print(f"  [FAIL] llama-bench tg {bench_tg:.1f} t/s below threshold {bench_tts_threshold:.1f}")
                     res.status = f"FAIL: bench tg {bench_tg:.1f} < threshold {bench_tts_threshold:.1f}"
+                    res.outcome = TrialOutcome.MODEL_REJECTED
                     return res
 
                 if is_validation:
                     print(f"  [OK] Bench validation passed: tg {bench_tg:.1f} t/s >= {bench_tts_threshold:.1f}")
-                    # Coerce to quick 2-task coding validation
-                    task_limit_val = 2
-                    lcb_limit_val = 2
-                    bigcode_limit_val = 2
-                    # fall through to coding eval
+                    # Fall through to the configured agentic smoke validation.
 
         # ── Full evaluation ──────────────────────────────────────────────
         server_log = BASE_DIR / "llama_server.log"
@@ -240,8 +303,7 @@ class ExperimentRunner:
         )
 
         trial_start = time.time()
-        timeout_at = trial_start + trial_budget if trial_budget else None
-
+        runner = None
         try:
             runner_cls = SGLangServerRunner if intent.model_path.is_dir() else LlamaServerRunner
             with runner_cls(intent, log_path=server_log) as runner:
@@ -261,7 +323,6 @@ class ExperimentRunner:
                         task_limit=task_limit_val,
                         lcb_task_limit=lcb_limit_val,
                         bigcode_task_limit=bigcode_limit_val,
-                        timeout_at=timeout_at,
                         max_tokens=max_tokens,
                     )
                     res.coding_val = coding_res.val_score
@@ -272,32 +333,28 @@ class ExperimentRunner:
                     res.mbpp_val = getattr(coding_res, "val_pass3", 0.0)
                     res.bigcode_val = getattr(coding_res, "val_pass4", 0.0)
                     res.swe_val = 0.0  # legacy slot, unused
+                    if res.coding_val <= 0.0:
+                        res.status = "FAIL: Coding preflight failed"
+                        res.outcome = TrialOutcome.MODEL_REJECTED
+                        return res
 
                 # Agentic (Claw-Eval quick/full tier)
                 if agentic_quick or agentic_full:
-                    tier = "quick" if agentic_quick else "full"
-                    task_ids = get_quick_tier_tasks() if agentic_quick else get_full_tier_tasks()
-                    n_tasks = len(task_ids)
-
-                    print(
-                        f"  [agentic:{tier}] {n_tasks} tasks selected "
-                        f"(rule-based scoring, no LLM judge)"
-                    )
-                    if n_tasks == 0:
-                        print(f"  [agentic:{tier}] WARNING: no tasks matched. "
-                              "Is claw-eval/ submodule populated?")
-                    else:
-                        print(f"  [agentic:{tier}] task IDs: {', '.join(task_ids)}")
-                        agentic_res = run_agentic_eval(
-                            client, task_ids, gen_params=gen_params, trials=1,
-                        )
-                        res.agentic_val = agentic_res["score"]
-                        res.agentic_task_count = agentic_res["total"]
-
-                    res.agentic_tier = tier
-                    if res.agentic_task_count == 0:
-                        res.agentic_task_count = n_tasks
-
+                    for tier, task_ids in agentic_tiers:
+                        n_tasks = len(task_ids)
+                        print(f"  [agentic:{tier}] {n_tasks} tasks selected (rule-based scoring, no LLM judge)")
+                        if n_tasks == 0:
+                            raise FileNotFoundError(f"No Claw-Eval {tier} tasks found")
+                        agentic_res = self.agentic_adapter.run(client, task_ids, gen_params)
+                        res.task_ids = tuple(task_ids)
+                        if tier == "quick" and agentic_res["score"] < 0.5:
+                            res.status = f"FAIL: Agentic quick smoke failed ({agentic_res['score']:.4f})"
+                            res.outcome = TrialOutcome.MODEL_REJECTED
+                            return res
+                        if tier == "full" or not agentic_full:
+                            res.agentic_val = agentic_res["score"]
+                            res.agentic_task_count = agentic_res["total"]
+                            res.agentic_tier = tier
                 # Compute combined metrics
                 tps_list = []
                 if include_coding and res.coding_tps > 0:
@@ -306,14 +363,23 @@ class ExperimentRunner:
                 if tps_list:
                     avg_tps = sum(tps_list) / len(tps_list)
                     res.avg_tps = avg_tps
+                    res.tps_source = "coding-generation"
                     if avg_tps < 20.0:
                         print(f"  [WARNING] Combined TPS {avg_tps:.2f} is below 20.0! Score set to 0.0.")
                         res.val_score = 0.0
+                        res.outcome = TrialOutcome.MODEL_REJECTED
+                        return res
+                elif not skip_bench:
+                    res.avg_tps = res.bench_tg_tps
+                    res.tps_source = "backend-bench"
+                    if res.avg_tps < 20.0:
+                        res.val_score = 0.0
+                        res.outcome = TrialOutcome.MODEL_REJECTED
                         return res
                 else:
+                    # Bench skipped and no coding TPS — do not invent a zero floor reject.
                     res.avg_tps = 0.0
-
-                res.peak_vram_gb = max(runner.peak_vram_mb, 0.0) / 1024.0
+                    res.tps_source = "skipped"
 
                 # Agentic takes priority as quality gate; falls back to coding
                 if res.agentic_tier and res.agentic_task_count > 0:
@@ -324,7 +390,12 @@ class ExperimentRunner:
         except Exception as e:
             print(f"  [FAIL] Evaluation failed: {e}")
             res.status = f"FAIL: {str(e)[:50]}"
+            res.outcome = TrialOutcome.INFRA_ERROR if isinstance(e, (FileNotFoundError, OSError)) else TrialOutcome.CODE_ERROR
+            res.diagnostic = str(e)
             res.val_score = 0.0
+        finally:
+            if runner is not None:
+                res.peak_vram_gb = max(runner.peak_vram_mb, 0.0) / 1024.0
 
         res.elapsed_sec = time.time() - trial_start
         return res

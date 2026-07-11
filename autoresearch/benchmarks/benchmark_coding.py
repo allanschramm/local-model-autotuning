@@ -80,25 +80,23 @@ def _strip_code(text: str) -> str:
     return text
 
 
-def _run_subprocess(script: str, stdin_input: str | None = None, timeout: float = 10.0) -> tuple[int, str, str]:
+def _run_subprocess(script: str, stdin_input: str | None = None) -> tuple[int, str, str]:
     """Run a Python script in a sandboxed subprocess. Returns (returncode, stdout, stderr)."""
     try:
         result = subprocess.run(
             [sys.executable, "-c", script],
             input=stdin_input,
-            capture_output=True, text=True, timeout=timeout,
+            capture_output=True, text=True,
             env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         )
         return result.returncode, result.stdout, result.stderr
-    except subprocess.TimeoutExpired:
-        return -1, "", "TIMEOUT"
     except Exception as e:
         return -1, "", str(e)
 
 
-def _run_tests(code: str, test_code: str, timeout: float = 10.0) -> bool:
+def _run_tests(code: str, test_code: str) -> bool:
     """Run generated code + test code in a sandboxed subprocess. Returns True if all tests pass."""
-    rc, _, _ = _run_subprocess(f"{code}\n\n{test_code}\n", timeout=timeout)
+    rc, _, _ = _run_subprocess(f"{code}\n\n{test_code}\n")
     return rc == 0
 
 
@@ -280,7 +278,7 @@ def _build_lcb_prompt(entry: dict) -> str:
     return "\n".join(p for p in parts if p).strip()
 
 
-def _run_lcb_tests(code: str, entry: dict, timeout: float = 10.0) -> bool:
+def _run_lcb_tests(code: str, entry: dict) -> bool:
     """
     Run a LiveCodeBench problem: feed each test case's `input` to stdin,
     compare stdout to expected `output` (whitespace-stripped tolerance).
@@ -293,7 +291,7 @@ def _run_lcb_tests(code: str, entry: dict, timeout: float = 10.0) -> bool:
         expected = tc.get("output", "").rstrip("\n")
         if "input" not in tc:
             continue
-        rc, stdout, _ = _run_subprocess(code, stdin_input=inp, timeout=timeout)
+        rc, stdout, _ = _run_subprocess(code, stdin_input=inp)
         if rc != 0:
             return False
         if stdout.rstrip("\n") != expected:
@@ -341,7 +339,7 @@ def _build_bigcode_prompt(entry: dict) -> str:
     )
 
 
-def _run_bigcode_tests(code: str, entry: dict, timeout: float = 15.0) -> bool:
+def _run_bigcode_tests(code: str, entry: dict) -> bool:
     """
     Run BigCodeBench unittest suite. The dataset ships a full unittest.TestCase
     class as the `test` field. We prepend the model's code (defines `task_func`)
@@ -364,7 +362,7 @@ def _run_bigcode_tests(code: str, entry: dict, timeout: float = 15.0) -> bool:
         f"result = runner.run(suite)\n"
         f"sys.exit(0 if result.wasSuccessful() else 1)\n"
     )
-    rc, _, _ = _run_subprocess(script, timeout=timeout)
+    rc, _, _ = _run_subprocess(script)
     return rc == 0
 
 
@@ -407,7 +405,7 @@ class EvalTask(ABC):
         ...
 
     @abstractmethod
-    def run_tests(self, code: str, entry: dict, timeout: float = 10.0) -> bool:
+    def run_tests(self, code: str, entry: dict) -> bool:
         """Run tests against generated code. Returns True if all pass."""
         ...
 
@@ -429,7 +427,7 @@ class _EvalplusTask(EvalTask):
     def build_prompt(self, entry: dict) -> str:
         return _build_prompt(entry, self.name)
 
-    def run_tests(self, code: str, entry: dict, timeout: float = 10.0) -> bool:
+    def run_tests(self, code: str, entry: dict) -> bool:
         test_code = _get_test_code(entry, self.name)
         if not test_code:
             return False
@@ -439,7 +437,7 @@ class _EvalplusTask(EvalTask):
             prompt_sig = entry.get("prompt", "")
             code = textwrap.indent(code, "    ")
             code = prompt_sig + "\n" + code
-        return _run_tests(code, test_code, timeout)
+        return _run_tests(code, test_code)
 
 
 class HumanEvalTask(_EvalplusTask):
@@ -467,8 +465,8 @@ class LiveCodeBenchTask(EvalTask):
     def build_prompt(self, entry: dict) -> str:
         return _build_lcb_prompt(entry)
 
-    def run_tests(self, code: str, entry: dict, timeout: float = 10.0) -> bool:
-        return _run_lcb_tests(code, entry, timeout)
+    def run_tests(self, code: str, entry: dict) -> bool:
+        return _run_lcb_tests(code, entry)
 
 
 class BigCodeBenchTask(EvalTask):
@@ -484,8 +482,8 @@ class BigCodeBenchTask(EvalTask):
     def build_prompt(self, entry: dict) -> str:
         return _build_bigcode_prompt(entry)
 
-    def run_tests(self, code: str, entry: dict, timeout: float = 15.0) -> bool:
-        return _run_bigcode_tests(code, entry, timeout)
+    def run_tests(self, code: str, entry: dict) -> bool:
+        return _run_bigcode_tests(code, entry)
 
 
 # ---------------------------------------------------------------------------
@@ -497,7 +495,6 @@ def run_coding_eval(
     task: EvalTask,
     gen_params: GenerationParams | None = None,
     task_limit: int | None = None,
-    timeout_at: float | None = None,
 ) -> tuple[float, int, float]:
     """Run coding evaluation on a task. Returns (pass_at_1, total_tokens, total_seconds).
 
@@ -521,10 +518,6 @@ def run_coding_eval(
     print(f"  [CODING] {task.name}: {total} tasks", flush=True)
 
     for i, (tid, entry) in enumerate(entries):
-        if timeout_at and time.time() > timeout_at:
-            print(f"  [CODING] {task.name}: timeout at {i}/{total}", flush=True)
-            break
-
         prompt = task.build_prompt(entry)
         if not prompt:
             continue
@@ -588,7 +581,6 @@ def run_benchmark(client: LlamaClient, gen_params: GenerationParams | None = Non
     task_limit = kwargs.get("task_limit", 30)
     lcb_limit = kwargs.get("lcb_task_limit", getattr(bench_config, "LCB_TASK_LIMIT", 10))
     bigcode_limit = kwargs.get("bigcode_task_limit", getattr(bench_config, "BIGCODE_TASK_LIMIT", 10))
-    timeout_at = kwargs.get("timeout_at", None)
 
     # ── Run each task ──────────────────────────────────────────────────
     specs: list[tuple[EvalTask, int]] = [
@@ -604,7 +596,7 @@ def run_benchmark(client: LlamaClient, gen_params: GenerationParams | None = Non
 
     for task, limit in specs:
         pass1, tokens, elapsed = run_coding_eval(
-            client, task, gen_params=gen_params, task_limit=limit, timeout_at=timeout_at,
+            client, task, gen_params=gen_params, task_limit=limit,
         )
         passes[task.name] = pass1
         total_tokens += tokens
@@ -629,5 +621,4 @@ def run_benchmark(client: LlamaClient, gen_params: GenerationParams | None = Non
         avg_tps=round(avg_tps, 2),
         total_seconds=round(total_seconds, 2),
     )
-
 

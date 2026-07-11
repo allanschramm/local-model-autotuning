@@ -37,7 +37,7 @@ _Avoid_: heuristic loop, search script
 ### Configuration
 
 **Baseline**:
-The current best-known configuration. Persisted in `autoresearch/core/config.py`. A Trial must strictly beat the Baseline score to replace it.
+The current best-known configuration. Persisted in `.autoresearch_state.json`. A Trial must strictly beat the Baseline score to replace it. `config.py` holds immutable defaults only.
 _Avoid_: default, current config
 
 **Neighbor**:
@@ -51,22 +51,18 @@ _Avoid_: grid, parameter space
 ### Evaluation
 
 **Validation**:
-The 2-step pre-check that runs before every full Trial: (1) `llama-bench` speed test (tg_tps >= threshold), (2) quick coding eval with 2 tasks per dataset (HE+, MBPP+, LCB, BigCodeBench — 8 tasks total). If either step fails, the Trial is logged as FAIL and no extended evaluation runs. The `--validation` flag runs this check alone and exits.
+The pre-check before a full Trial: (1) local backend throughput validation, then (2) Claw-Eval quick. Optional direct-coding preflight always uses exactly 10 tasks per dataset. The `--validation` flag runs throughput plus Claw-Eval quick and exits.
 
-**To validate a single model**: (1) set `MODEL` in `autoresearch/core/config.py`, (2) run `python3 benchmark_search.py --validation --desc "validate <model>"`. One model at a time — never parallel. See GOLDEN-RULES.md §5 for the full step-by-step.
+**To validate a single model**: (1) set `MODEL` in defaults or Baseline state, (2) run `python3 benchmark_search.py --validation --desc "validate <model>"`. One model at a time — never parallel. See GOLDEN-RULES.md §5 for the full step-by-step.
 _Avoid_: bench-only, speed check, smoke test
 
 **Val Score**:
-The single scalar metric used for keep/discard decisions. Current Coding-only Trials use the Coding composite directly. Coding weights are **35% LiveCodeBench + 25% HumanEval+ + 25% MBPP+ + 15% BigCodeBench Hard**. Zeroed if TPS falls below the TPS Floor.
+The single scalar metric used for keep/discard decisions. Claw-Eval full is canonical. Direct-coding is an optional preflight and never replaces the agentic Val Score. Zeroed if TPS falls below the TPS Floor.
 _Avoid_: score, result, metric
 
 **TPS Floor**:
 The minimum throughput (tokens per second) a Trial must achieve. Below this, Val Score is forced to zero regardless of accuracy.
 _Avoid_: threshold, minimum TPS
-
-**Speed Factor**:
-A soft penalty multiplier applied to accuracy scores based on throughput. Ranges from 0.5 (at 0 TPS) to 1.0 (at or above target TPS).
-_Avoid_: TPS penalty, speed penalty
 
 ### Benchmarks
 

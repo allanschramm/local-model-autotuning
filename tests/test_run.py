@@ -29,7 +29,7 @@ class TestRun(unittest.TestCase):
             args.model = "g4-opt-it-Q4_K_M.gguf"
             args.kv = "q4_0"
             args.max_tokens = 512
-            args.ctx_size = 16384
+            args.ctx_size = 131072
             args.port = 18080
             args.threads = 12
             args.ngl = 99
@@ -58,7 +58,7 @@ class TestRun(unittest.TestCase):
         
         args = MagicMock()
         args.model = "g4-opt-it-Q4_K_M.gguf"
-        args.ctx_size = 16384
+        args.ctx_size = 131072
         args.port = 18080
         args.threads = 12
         args.ngl = 99
@@ -75,12 +75,45 @@ class TestRun(unittest.TestCase):
     @patch("autoresearch.runners.run.run_evaluation")
     @patch("autoresearch.runners.run.get_git_commit")
     @patch("autoresearch.runners.run.open", new_callable=mock_open)
+    def test_grid_run_discards_failed_trial(self, mock_file, mock_commit, mock_eval):
+        mock_commit.return_value = "abcdefg"
+        mock_eval.return_value = {
+            "status": "FAIL: bench tg 10.0 < threshold 20.0",
+            "val_score": 0.0, "peak_vram_gb": 0.0, "avg_tps": 0.0,
+            "outcome": "MODEL_REJECTED", "diagnostic": "slow",
+        }
+        args = MagicMock()
+        args.model = "g4-opt-it-Q4_K_M.gguf"
+        args.ctx_size = 131072
+        args.grid_kvs = "q4_0"
+        args.grid_max_tokens = "512"
+        args.grid_kvs_k = args.grid_kvs_v = args.grid_threads = None
+        args.grid_threads_batch = args.grid_batch_sizes = args.grid_ubatch_sizes = None
+        args.grid_spec_draft_n_max = None
+        args.kv = "q4_0"
+        args.threads = 8
+        args.threads_batch = None
+        args.batch_size = 512
+        args.ubatch_size = 128
+        args.spec_draft_n_max = 0
+        args.agentic_full = False
+        args.agentic_quick = False
+
+        with patch("autoresearch.runners.run.write_row") as mock_write:
+            run.handle_grid_run(args)
+
+        self.assertEqual(mock_write.call_args.args[7], "discard")
+        self.assertEqual(mock_write.call_args.kwargs["outcome"], "MODEL_REJECTED")
+
+    @patch("autoresearch.runners.run.run_evaluation")
+    @patch("autoresearch.runners.run.get_git_commit")
+    @patch("autoresearch.runners.run.open", new_callable=mock_open)
     def test_multidimensional_grid_run(self, mock_file, mock_commit, mock_eval):
         mock_commit.return_value = "abcdefg"
         
         args = MagicMock()
         args.model = "g4-opt-it-Q4_K_M.gguf"
-        args.ctx_size = 16384
+        args.ctx_size = 131072
         args.port = 18080
         args.threads = 12
         args.threads_batch = 16
@@ -137,6 +170,22 @@ class TestRun(unittest.TestCase):
         
         # Check val_score is 0 when coding disabled
         self.assertEqual(res["coding_val"], 0.0)
+
+    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
+    @patch("autoresearch.runners.evaluation.run_coding")
+    def test_rejected_coding_preflight_keeps_peak_vram(self, mock_coding, mock_runner):
+        mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4096)
+        mock_coding.return_value = BenchmarkResult(
+            val_score=0.0, val_pass1=0.0, val_pass2=0.0, avg_tps=40.0
+        )
+        res = run.run_evaluation(
+            {"MODEL": "test.gguf", "CTX_SIZE": 131072, "FLASH_ATTN": "on"},
+            skip_bench=True, include_coding=True,
+            coding_task_limit=10, lcb_task_limit=10, bigcode_task_limit=10,
+        )
+
+        self.assertEqual(res["outcome"], "MODEL_REJECTED")
+        self.assertEqual(res["peak_vram_gb"], 4.0)
     @patch("autoresearch.runners.evaluation.run_llama_bench_validation", return_value=42.0)
     @patch("autoresearch.runners.evaluation.LlamaServerRunner")
     @patch("autoresearch.runners.evaluation.run_coding")
@@ -158,22 +207,66 @@ class TestRun(unittest.TestCase):
         mock_coding.return_value = BenchmarkResult(
             val_score=0.75, val_pass1=0.6, val_pass2=0.8, val_pass3=0.7, val_pass4=0.5, avg_tps=40.0
         )
-        res = run.run_evaluation(
-            args, model="g4-opt-it-Q4_K_M.gguf", kv="q4_0", max_tokens=1024,
-            include_coding=True, validation=True
-        )
+        with patch("autoresearch.runners.evaluation.get_quick_tier_tasks", return_value=["task-1"]):
+            with patch("autoresearch.runners.evaluation.run_agentic_eval", return_value={"score": 0.6, "total": 1}):
+                res = run.run_evaluation(
+                    args, model="g4-opt-it-Q4_K_M.gguf", kv="q4_0", max_tokens=1024,
+                    include_coding=False, validation=True
+                )
         
-        # Validation mode now runs quick 2-task coding
-        mock_coding.assert_called_once()
-        self.assertEqual(res["coding_val"], 0.75)
+        # Validation mode: coding off, Claw quick smoke on
+        mock_coding.assert_not_called()
         self.assertEqual(res["bench_tg_tps"], 42.0)
+        self.assertEqual(res["agentic_val"], 0.6)
+        self.assertEqual(res["val_score"], 0.6)
+        self.assertEqual(res["agentic_tier"], "quick")
+
+    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
+    @patch("autoresearch.runners.evaluation.run_coding")
+    def test_include_agentic_full_key_enables_claw(self, mock_coding, mock_runner):
+        """bench_config INCLUDE_AGENTIC_FULL lowercases to include_agentic_full — must enable."""
+        mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
+        with patch("autoresearch.runners.evaluation.get_full_tier_tasks", return_value=["T002"]):
+            with patch("autoresearch.runners.evaluation.run_agentic_eval", return_value={"score": 0.8, "total": 1}) as mock_agentic:
+                res = run.run_evaluation(
+                    {
+                        "MODEL": "test.gguf",
+                        "CTX_SIZE": 131072,
+                        "FLASH_ATTN": "on",
+                        "INCLUDE_CODING": False,
+                        "INCLUDE_AGENTIC_QUICK": False,
+                        "INCLUDE_AGENTIC_FULL": True,
+                    },
+                    skip_bench=True,
+                )
+        mock_coding.assert_not_called()
+        mock_agentic.assert_called_once()
+        self.assertEqual(res["agentic_val"], 0.8)
+        self.assertEqual(res["val_score"], 0.8)
+        self.assertEqual(res["tps_source"], "skipped")
+        self.assertEqual(res["outcome"], "OK")
+
+    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
+    def test_skip_bench_without_coding_does_not_floor_reject(self, mock_runner):
+        mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
+        with patch("autoresearch.runners.evaluation.get_full_tier_tasks", return_value=["T002"]):
+            with patch("autoresearch.runners.evaluation.run_agentic_eval", return_value={"score": 0.7, "total": 1}):
+                res = run.run_evaluation(
+                    {"MODEL": "test.gguf", "CTX_SIZE": 131072, "FLASH_ATTN": "on"},
+                    skip_bench=True,
+                    include_coding=False,
+                    agentic_full=True,
+                )
+        self.assertEqual(res["status"], "OK")
+        self.assertEqual(res["val_score"], 0.7)
+        self.assertNotEqual(res["outcome"], "MODEL_REJECTED")
 
     @patch("autoresearch.runners.run.run_evaluation")
     @patch("autoresearch.runners.run.get_git_commit")
     @patch("autoresearch.runners.run.open", new_callable=mock_open)
     def test_single_run_validation_passes(self, mock_file, mock_commit, mock_eval):
         mock_commit.return_value = "abcdefg"
-        # Validation passes bench check + 2-task coding
+        # Validation passes bench check + agentic smoke
         mock_eval.return_value = {
             "status": "OK",
             "coding_val": 0.75,

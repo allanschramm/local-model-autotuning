@@ -8,7 +8,7 @@ Repository developers.
 
 ## Local Contracts
 - Do not modify internal evaluation logic or benchmarks under `autoresearch/benchmarks/` without authorization.
-- The `config.py` in `autoresearch/core/` is the only mutable surface for runtime configuration adjustments.
+- `autoresearch/core/config.py` owns immutable defaults and validation. The ignored `.autoresearch_state.json` is the only mutable Search state.
 - Do not add hardcoded user or absolute directory paths in the source files.
 - **Use the harness, not raw binaries**: Run `benchmark_search.py` or `autoloop.py` for evaluation. Do not invoke `llama-server` or `llama-bench` directly — the harness resolves paths, translates config flags to CLI args, manages server lifecycle, monitors VRAM, and logs results.
 

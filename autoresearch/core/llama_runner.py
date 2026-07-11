@@ -99,8 +99,12 @@ class ServerIntent:
         Returns (intent, norm_dict) where norm_dict holds all config fields
         (server + non-server) for callers that need remaining params.
         """
-        norm = {str(k).lower(): v for k, v in cfg.items() if v is not None and isinstance(k, (str, bytes))}
-        norm.update({k.lower(): v for k, v in overrides.items() if v is not None})
+        from autoresearch.core.config import validate_config
+
+        merged = dict(cfg)
+        merged.update({k: v for k, v in overrides.items() if v is not None})
+        merged = validate_config(merged)
+        norm = {str(k).lower(): v for k, v in merged.items() if v is not None and isinstance(k, (str, bytes))}
 
         model_fn = norm.get("model", "g4-opt-it-Q4_K_M.gguf")
         kv_cache = norm.get("kv", "q4_0")
@@ -109,7 +113,7 @@ class ServerIntent:
 
         intent = cls(
             model_path=models_dir / model_fn,
-            ctx_size=norm.get("ctx_size", 16384),
+            ctx_size=norm.get("ctx_size", 131072),
             kv_cache=kv_cache,
             flash_attn=norm.get("flash_attn", "on"),
             port=norm.get("port", 18080),
@@ -222,9 +226,8 @@ def candidate_ports(preferred: int) -> list[int]:
 
 
 class LlamaServerRunner:
-    def __init__(self, intent: ServerIntent, timeout: int = 300, log_path: Path | None = None):
+    def __init__(self, intent: ServerIntent, log_path: Path | None = None):
         self.intent = intent
-        self.timeout = timeout
         self.log_path = log_path
         
         self.port: int | None = None
@@ -373,20 +376,18 @@ class LlamaServerRunner:
 
 
     def _wait_for_server(self, port: int) -> bool:
-        deadline = time.time() + self.timeout
         delay = 0.05
-        while time.time() < deadline:
+        while True:
             if self._server_proc.poll() is not None:
                 return False
             try:
                 req = urllib.request.Request(f"http://127.0.0.1:{port}/health")
-                with urllib.request.urlopen(req, timeout=0.5) as response:
+                with urllib.request.urlopen(req) as response:
                     if response.status == 200:
                         return True
             except Exception:
                 time.sleep(delay)
                 delay = min(delay * 2, 0.4)
-        return False
 
     def _start_vram_sampler(self) -> None:
         import ctypes
@@ -462,5 +463,5 @@ class LlamaServerRunner:
     def _cleanup_all(self):
         self._stop_event.set()
         if self._vram_thread:
-            self._vram_thread.join(timeout=1.0)
+            self._vram_thread.join()
         self._cleanup_process()

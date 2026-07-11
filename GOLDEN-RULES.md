@@ -16,7 +16,7 @@
 ## 2. VRAM Safety & Hardware Failsafes
 
 *   **Pre-flight Estimation**: Check `estimate_vram_mb` before starting `llama-server`. Skip any configuration predicted to exceed hardware limit (e.g., 7.9 GB on a 8GB GPU) to prevent system hangs or hard OOMs. Partial CPU offload is preferred over skipping entirely.
-*   **TPS Floor**: Hard floor is 20 TPS. Below this, `val_score` is zeroed. Between 20-40 TPS, a soft penalty curve applies via `speed_factor`.
+*   **TPS Floor**: Hard floor is 20 TPS. Below this, `val_score` is zeroed.
 *   **Shared Memory Mitigation**: Driver fallback to shared system memory drops processing speeds. The 20 TPS floor serves as the primary guardrail to automatically discard configurations relying on shared RAM.
 *   **Loop Resilience**: All model server startup failures, bad configurations, or exceptions are caught at the Trial level. They log a `FAIL` status to `results.tsv` and proceed to the next candidate configuration instead of crashing the search loop.
 *   **NVML Failsafe**: If NVML query fails mid-run, set `nvml = None` in the exception block immediately to avoid repetitive CDLL calling overhead.
@@ -32,9 +32,9 @@
 
 ## 4. Loop Agent Constraints
 
-*   **Single Changeable Surface**: The looping agent must only modify constants in `autoresearch/core/config.py`.
+*   **Mutable Search state**: Baseline + visited live in ignored `.autoresearch_state.json`. `config.py` holds immutable defaults only — the Search loop must never rewrite it.
 *   **No Code Edits**: The looping agent is strictly forbidden from editing codebase source code (e.g., `run.py`, benchmarks, tests) under any circumstances. If any error, bug, or exception occurs during the Search, the agent MUST NOT attempt to edit code to fix it. Instead, the agent MUST immediately stop execution, print the full traceback/error, and warn the user.
-*   **Unified Evaluation**: Every round must execute all active benchmarks (Nexus Retrieval + Claw Agency + optionally Coding) rather than testing a single domain.
+*   **Unified Evaluation**: Every round runs the active agentic gate (Claw-Eval full Val Score; quick as smoke). Optional Coding preflight uses exactly 10 tasks per dataset when enabled.
 *   **Canonical Results File**: All runs must log results exclusively to the single canonical tab-separated file `results.tsv`. No other results CSV, TSV, or log files should be committed or left in the workspace.
 *   **Offline Results**: Benchmark results and search tweak branches must be kept offline and local-only. Never push result/tweak branches or local benchmark scores to the remote public repository to avoid polluting the public history or messing up other users' results.
 *   **Hardware-Aware Path Resolution**: Path constants in `config.py` (e.g., `MODEL`) must use portable references — never absolute system paths (`/home/user/...`). Use `models/` (relative) or environment variables.
@@ -43,8 +43,8 @@
 
 Every Trial runs a **2-step validation** before the full eval:
 
-1. **llama-bench speed check** (`prompt=512`, `gen=128`, 3 repeats). If `tg_tps < TPS Floor` (20.0), Trial FAILs immediately — no server spin-up, no coding eval.
-2. **Quick coding eval** (2 tasks per dataset: HE+, MBPP+, LCB, BigCodeBench). Validates the model generates coherent code under the config — not just fast garbage.
+1. **llama-bench speed check** (`prompt=512`, `gen=128`, 3 repeats, ctx >= 100k). If `tg_tps < TPS Floor` (20.0), Trial FAILs immediately — no server spin-up, no agentic eval.
+2. **Claw-Eval quick smoke**. Validates local tool-use under the config — not just fast garbage.
 
 **Validation mode** (`python3 benchmark_search.py --validation`): runs steps 1-2 and exits. No extended eval, no keep/discard. For quick config sanity checks.
 
@@ -56,22 +56,22 @@ See `autoresearch/runners/evaluation.py` → `run_llama_bench_validation()` + `r
 
 When asked to "validate a model", follow this exact procedure:
 
-1. **Set MODEL in config.py** — Change `MODEL` in `autoresearch/core/config.py` to the target GGUF filename (e.g., `'my-model-Q4_K_M.gguf'`). Only change MODEL; leave all other constants at their current values unless the task explicitly says otherwise.
+1. **Set MODEL** — Put the target GGUF filename in `config.py` defaults (or the Baseline in `.autoresearch_state.json`). Leave other constants alone unless the task says otherwise.
 
 2. **Run validation** — Execute directly, no wrapper scripts:
    ```
    python3 benchmark_search.py --validation --desc "validate <model-filename>"
    ```
    This runs the unified harness (not raw binaries). The harness:
-   - Resolves the model path from config.py's MODEL constant
+   - Resolves the model path from Baseline / config defaults
    - Translates config flags to llama-server CLI args
    - Manages server lifecycle (start, health-check, teardown)
    - Monitors VRAM via NVML sampling
    - Logs results to results.tsv
 
 3. **What the --validation flag does** — Two steps, always both:
-   - **Step 1 (speed check)**: `llama-bench` with `prompt=512`, `gen=128`, 3 repeats. If `tg_tps < 20.0`, FAILs immediately — no coding eval runs.
-   - **Step 2 (2-task coding eval)**: 2 tasks per dataset — HumanEval+, MBPP+, LiveCodeBench v6, BigCodeBench Hard — 8 coding tasks total. Validates the model generates coherent code, not just fast garbage.
+   - **Step 1 (speed check)**: `llama-bench` with `prompt=512`, `gen=128`, 3 repeats. If `tg_tps < 20.0`, FAILs immediately — no agentic eval runs.
+   - **Step 2 (agentic smoke)**: Claw-Eval quick validates local tool use with deterministic rule-based grading. Optional direct-coding preflight always uses exactly 10 tasks per dataset.
 
 4. **One model at a time** — Never run multiple validations in parallel. All models share the same GPU (CUDA device 0) and default port 18080. Each validation must finish (PASS or FAIL) before the next starts.
 
@@ -79,14 +79,14 @@ When asked to "validate a model", follow this exact procedure:
 
 **RULES**:
 - Do NOT run `llama-server` or `llama-bench` directly. The harness handles everything.
-- Do NOT write wrapper scripts or bash loops. Change config.py and invoke benchmark_search.py directly.
+- Do NOT write wrapper scripts or bash loops. Change Baseline/state and invoke benchmark_search.py directly.
 - Do NOT batch models into a single command chain. One validation per invocation.
 
 ## 6. Use the Harness, Not Raw Binaries
 
 *   **Do NOT run `llama-server` or `llama-bench` directly** for evaluation. The harness (`benchmark_search.py`, `autoloop.py`) resolves paths, translates config flags to CLI args, manages server lifecycle, monitors VRAM, and logs results. Bypassing it produces unlogged, unreproducible trials.
-*   **Do NOT override flags via raw `llama-server` CLI arguments**. All tuning goes through `autoresearch/core/config.py` constants. The harness reads config.py and generates the correct `llama-server` command.
-*   **The only mutation surface is `autoresearch/core/config.py`**. Change a constant there, then run `python3 benchmark_search.py --desc "what you changed"`. The harness translates config constants to `llama-server` flags automatically.
+*   **Do NOT override flags via raw `llama-server` CLI arguments**. All tuning goes through Baseline state / config defaults. The harness generates the correct `llama-server` command.
+*   **Mutable Search surface is `.autoresearch_state.json`**. `config.py` is immutable defaults. Run `python3 autoloop.py` or `python3 benchmark_search.py --desc "what you changed"`.
 
 ## 7. Codebase Architecture
 

@@ -25,6 +25,18 @@ class SearchStrategy:
         """Deterministically serialize the search-space parameters of a config."""
         return str(sorted((k, v) for k, v in cfg.items() if k in self.search_space))
 
+    @staticmethod
+    def is_batch_consistent(cfg: Config) -> bool:
+        """Reject neighbors where UBATCH_SIZE > BATCH_SIZE."""
+        batch = cfg.get("BATCH_SIZE", cfg.get("batch_size"))
+        ubatch = cfg.get("UBATCH_SIZE", cfg.get("ubatch_size"))
+        if batch is None or ubatch is None:
+            return True
+        try:
+            return int(ubatch) <= int(batch)
+        except (TypeError, ValueError):
+            return True
+
     def get_neighbors(self, current_cfg: Config) -> List[Neighbor]:
         """Generate single-parameter perturbations of current config."""
         neighbors = []
@@ -38,39 +50,42 @@ class SearchStrategy:
                     if val != current:
                         n = current_cfg.copy()
                         n[param] = val
-                        neighbors.append(
-                            Neighbor(
-                                config=n,
-                                changed=param,
-                                old=current,
-                                new=val
+                        if self.is_batch_consistent(n):
+                            neighbors.append(
+                                Neighbor(
+                                    config=n,
+                                    changed=param,
+                                    old=current,
+                                    new=val
+                                )
                             )
-                        )
                 continue
 
             # Adjacent neighbors in the ordered list
             if idx > 0:
                 n = current_cfg.copy()
                 n[param] = candidates[idx - 1]
-                neighbors.append(
-                    Neighbor(
-                        config=n,
-                        changed=param,
-                        old=current,
-                        new=candidates[idx - 1]
+                if self.is_batch_consistent(n):
+                    neighbors.append(
+                        Neighbor(
+                            config=n,
+                            changed=param,
+                            old=current,
+                            new=candidates[idx - 1]
+                        )
                     )
-                )
             if idx < len(candidates) - 1:
                 n = current_cfg.copy()
                 n[param] = candidates[idx + 1]
-                neighbors.append(
-                    Neighbor(
-                        config=n,
-                        changed=param,
-                        old=current,
-                        new=candidates[idx + 1]
+                if self.is_batch_consistent(n):
+                    neighbors.append(
+                        Neighbor(
+                            config=n,
+                            changed=param,
+                            old=current,
+                            new=candidates[idx + 1]
+                        )
                     )
-                )
 
         random.shuffle(neighbors)
         return neighbors
@@ -81,7 +96,8 @@ class SearchStrategy:
             new_cfg = current_cfg.copy()
             for param, values in self.search_space.items():
                 new_cfg[param] = random.choice(values)
-            
+            if not self.is_batch_consistent(new_cfg):
+                continue
             n_key = self.get_config_key(new_cfg)
             if n_key not in visited:
                 return new_cfg
@@ -114,6 +130,9 @@ class SearchStrategy:
         if self.use_pareto_tiebreaker and abs(new_score - baseline_score) <= 0.0001:
             if new_tps > baseline_tps * 1.05:
                 return True, f"Score tied, TPS improved (+{new_tps - baseline_tps:.1f})"
+            tps_tied = abs(new_tps - baseline_tps) <= abs(baseline_tps) * 0.05
+            if tps_tied and baseline_vram > 0 and new_vram < baseline_vram * 0.95:
+                return True, f"Score and TPS tied, VRAM improved (-{baseline_vram - new_vram:.2f}GB)"
 
         return False, ""
 

@@ -44,9 +44,8 @@ class GenerationParams:
 
 class LlamaClient:
     """Deep module for llama-server communication."""
-    def __init__(self, port: int, timeout: int = 600):
+    def __init__(self, port: int):
         self.port = port
-        self.timeout = timeout
         self.base_url = f"http://127.0.0.1:{port}"
 
     def complete(self, prompt: str, gen: GenerationParams | None = None, **kwargs) -> Dict[str, Any]:
@@ -82,7 +81,7 @@ class LlamaClient:
         )
         
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as res:
+            with urllib.request.urlopen(req) as res:
                 raw_res = json.loads(res.read().decode())
                 choices = raw_res.get("choices", [])
                 choice = choices[0] if (choices and isinstance(choices[0], dict)) else {}

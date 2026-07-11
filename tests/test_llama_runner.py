@@ -101,15 +101,13 @@ class TestLlamaRunner(unittest.TestCase):
     @patch("urllib.request.urlopen")
     @patch("time.time")
     @patch("time.sleep")
-    def test_wait_for_server_timeout(self, _mock_sleep, mock_time, mock_urlopen, mock_resolve):
+    def test_wait_for_server_crash(self, _mock_sleep, mock_time, mock_urlopen, mock_resolve):
         mock_resolve.return_value = Path("/bin/llama-server")
-        # 0, 1, 2, ... 301
-        mock_time.side_effect = range(310)
         mock_urlopen.side_effect = Exception("Not ready")
         
         runner = LlamaServerRunner(self.intent)
         runner._server_proc = MagicMock()
-        runner._server_proc.poll.return_value = None
+        runner._server_proc.poll.side_effect = [None, 1]
         
         self.assertFalse(runner._wait_for_server(18080))
 
@@ -119,18 +117,17 @@ class TestLlamaRunner(unittest.TestCase):
     @patch("time.sleep")
     def test_wait_for_server_backoff(self, mock_sleep, mock_time, mock_urlopen, mock_resolve):
         mock_resolve.return_value = Path("/bin/llama-server")
-        mock_time.side_effect = [0, 0.5, 1.0, 1.5, 2.0, 2.5, 305.0]
         mock_urlopen.side_effect = Exception("Not ready")
         
         runner = LlamaServerRunner(self.intent)
         runner._server_proc = MagicMock()
-        runner._server_proc.poll.return_value = None
+        runner._server_proc.poll.side_effect = [None, None, None, 1]
         
         self.assertFalse(runner._wait_for_server(18080))
         
         # Verify backoff values
         sleep_args = [args[0] for args, kwargs in mock_sleep.call_args_list]
-        self.assertEqual(sleep_args, [0.05, 0.1, 0.2, 0.4, 0.4])
+        self.assertEqual(sleep_args, [0.05, 0.1, 0.2])
 
     @patch("autoresearch.core.llama_runner.resolve_llama_server")
     @patch("subprocess.check_output")

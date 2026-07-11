@@ -1,6 +1,9 @@
 import unittest
+import tempfile
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 from autoresearch.runners import run
+from autoresearch.core.config import ConfigError, load_config, load_state, validate_config, write_state
 
 class TestConfigParsing(unittest.TestCase):
 
@@ -52,6 +55,38 @@ class TestConfigParsing(unittest.TestCase):
         self.assertEqual(intent.model_path.name, "obj-model.gguf")
         self.assertEqual(intent.kv_cache, "q8_0")
         self.assertEqual(intent.threads, 8)
+
+class TestRuntimeInvariants(unittest.TestCase):
+    def test_rejects_context_below_100k(self):
+        cfg = load_config()
+        cfg["CTX_SIZE"] = 99_999
+        with self.assertRaises(ConfigError):
+            validate_config(cfg)
+
+    def test_rejects_flash_attention_off(self):
+        cfg = load_config()
+        cfg["FLASH_ATTN"] = "off"
+        with self.assertRaises(ConfigError):
+            validate_config(cfg)
+
+    def test_rejects_invalid_lowercase_override(self):
+        cfg = load_config()
+        cfg["ctx_size"] = 4096
+        with self.assertRaises(ConfigError):
+            validate_config(cfg)
+
+    def test_state_round_trip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "state.json"
+            write_state({"baseline": load_config(), "visited": ["abc"]}, path)
+            self.assertEqual(load_state(path)["visited"], ["abc"])
+
+    @patch("sys.argv", ["benchmark_search.py", "--no-agentic-quick", "--no-agentic-full", "--desc", "x"])
+    def test_parse_args_can_disable_agentic_flags(self):
+        args = run.parse_args()
+        self.assertFalse(args.agentic_quick)
+        self.assertFalse(args.agentic_full)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -75,3 +75,6 @@ models/aliases/*/config.yaml
 
 # SGLang / HuggingFace-downloaded models (safetensors)
 models/sglang/
+.autoresearch_state.json
+.autoresearch_state.json.*
+results.tsv.bak

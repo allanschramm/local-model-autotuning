@@ -6,7 +6,7 @@ The contract is strict:
 
 - `program.md` is fixed (unless explicitly requested by user).
 - `autoresearch/benchmarks/*` harnesses are fixed.
-- `autoresearch/core/config.py` is the **only** mutable tuning surface for generating Neighbors.
+- `autoresearch/core/config.py` owns immutable defaults and invariants. `.autoresearch_state.json` stores the local mutable Baseline and visited configurations.
 
 The goal is to push any model as far as possible on any hardware using optimized KV cache configurations and runtime parameters.
 
@@ -18,7 +18,8 @@ To start a fresh Search:
 2. **Create the branch**: `git checkout -b autoresearch/<tag>` from `main`.
 3. **Read the in-scope files**:
    - `program.md` — the rules for the Search (this file)
-   - `autoresearch/core/config.py` — tuning surface for the Baseline and Neighbors
+   - `autoresearch/core/config.py` — immutable defaults / invariants
+   - `.autoresearch_state.json` — local mutable Baseline + visited (created on first run)
 4. **Verify local assets exist**:
    - GGUF models in `models/`
    - `llama-server` (accessible via `autoresearch/core/llama_runner.py`)
@@ -29,7 +30,7 @@ Once the setup is clean, begin the Search.
 
 ## Evaluation Suite
 
-The runner executes a unified Trial and reports a single Val Score purely based on coding capability:
+The runner executes a unified Trial and reports a single Val Score based on agentic coding capability. Claw-Eval quick is smoke validation; Claw-Eval full is the canonical Search quality gate. Both use local rule-based grading without Docker, remote APIs, or an LLM judge.
 
 ### HumanEval+
 Basic algorithmic reasoning and Python proficiency.
@@ -44,8 +45,7 @@ Contamination-resistant competitive programming tasks.
 Library-call and API-heavy programming tasks.
 
 ### Val Score & Throughput
-The Coding benchmark computes the `Val Score` based on a fixed ratio representing coding proficiency:
-- `35% LiveCodeBench + 25% HumanEval+ + 25% MBPP+ + 15% BigCodeBench Hard`.
+Claw-Eval full supplies the canonical `Val Score`. HumanEval+, MBPP+, LiveCodeBench, and BigCodeBench Hard are optional preflight checks; when enabled, each runs exactly 10 tasks and does not replace the agentic Val Score.
 
 If a Trial falls below the **TPS Floor** (default 20.0 TPS), the `Val Score` is aggressively zeroed to ensure runtime viability for interactive agent usage.
 
@@ -56,12 +56,14 @@ If a Trial falls below the **TPS Floor** (default 20.0 TPS), the `Val Score` is 
 - **Flash Attention:** Must always be `on` (`-fa on`).
 
 ## What you CAN do
-- Modify `autoresearch/core/config.py` constants to generate a new Neighbor.
+- Mutate the local Baseline in `.autoresearch_state.json` (via `autoloop.py` / `write_state`) to generate a new Neighbor.
 - Modify the `Search Space` for autonomous exploration in `autoloop.py` (only if requested).
+- Change immutable defaults in `autoresearch/core/config.py` only with explicit user permission (never from the Search loop).
 
 ## What you CANNOT do
 - Modify the fixed evaluation logic in any `autoresearch/benchmarks/*` files.
 - Add new dependencies.
+- Rewrite `config.py` from the Search loop.
 
 ## Output format
 Each Trial logs exclusively to the canonical results file `results.tsv`. No other log files should be committed. The output format in `results.tsv` is tab-separated:
@@ -71,18 +73,18 @@ Each Trial logs exclusively to the canonical results file `results.tsv`. No othe
 
 ### Autonomous mode (preferred)
 Run `python autoloop.py` to start the SearchStrategy loop:
-1. Reads current Baseline from `autoresearch/core/config.py`.
-2. Runs all active benchmarks in a unified Trial.
+1. Reads current Baseline from `.autoresearch_state.json` (seeded from `config.py` defaults).
+2. Runs all active benchmarks in a unified Trial (Claw-Eval full = Val Score; quick = smoke).
 3. Generates Neighbors by mutating a single parameter within the Search Space.
-4. Evaluates each Neighbor via a new Trial. If improved (or won via Pareto Tie-Breaker) → writes new Baseline to `autoresearch/core/config.py`.
+4. Evaluates each Neighbor via a new Trial. If improved (or won via Pareto Tie-Breaker) → writes new Baseline to `.autoresearch_state.json`.
 5. If at a Local Maxima → triggers a Random Restart.
-6. Loops forever until `Ctrl+C` (SIGINT). State persists in `autoresearch/core/config.py` + `results.tsv`.
+6. Loops forever until `Ctrl+C` (SIGINT). State persists in `.autoresearch_state.json` + `results.tsv`.
 
 ### Manual mode
-1. Edit `autoresearch/core/config.py` with a hypothesis to test a new Neighbor.
+1. Edit `.autoresearch_state.json` Baseline (or seed defaults in `config.py` then reset state) with a hypothesis.
 2. Run: `python benchmark_search.py --desc "your hypothesis"`
 3. Analyze `results.tsv`.
-4. If improved, keep as the new Baseline. Otherwise revert `autoresearch/core/config.py`.
+4. If improved, keep as the new Baseline in local state. Otherwise revert the state Baseline.
 
 ## Autonomy rule
 Once the Search has started, continue autonomously until manually interrupted.
@@ -95,7 +97,7 @@ Use these exact terms in your reasoning and commit messages:
 - **Search**: The overall optimization process.
 - **Round**: One iteration of the Search.
 - **Trial**: One complete execution of all benchmarks against a single configuration.
-- **Baseline**: The current best-known configuration in `config.py`.
+- **Baseline**: The current best-known configuration in `.autoresearch_state.json`.
 - **Neighbor**: A configuration derived from the Baseline by changing exactly one parameter.
 - **Val Score**: The scalar metric used for keep/discard decisions.
 - **Pareto Tie-Breaker**: Keep a Neighbor if it matches Baseline score but improves TPS by >5% or reduces VRAM by >5%.
@@ -105,7 +107,7 @@ Use these exact terms in your reasoning and commit messages:
 ## Model Acquisition & Troubleshooting
 
 ### Supported Formats & Models
-- **GGUF format only**: `llama.cpp` strictly requires GGUF models (ends with `.gguf`).
+- **GGUF** via `llama-server`; **directory models** under `models/` via SGLang.
 - **Supported Architectures**: Llama (Llama-3/3.1/3.2), Qwen (Qwen-3.5/3.6/3.7), Gemma (Gemma-2/4), Mistral/Mixtral, and derivatives.
 - **Recommended Models**: `Qwen3.5-9B-Coder-MTP-Q4_K_M.gguf`, `gemma-4-e2b-it-Q4_K_M.gguf`, or similar.
 

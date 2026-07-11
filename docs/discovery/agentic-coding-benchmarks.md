@@ -3,22 +3,22 @@
 This repo evaluates local models across two tiers:
 
 * **Preflight (direct code gen):** HumanEval+, MBPP+, LiveCodeBench, BigCodeBench.
-  Fast single-turn smoke tests. Already integrated.
-* **Agentic (multi-turn, tool use):** Claw-Eval quick/full tiers. Long-horizon
-  autonomous-agent evaluation. Adapter under construction.
+  Optional single-turn checks. Exactly 10 tasks per dataset when enabled.
+* **Agentic (multi-turn, tool use):** Claw-Eval quick/full tiers via `ClawEvalAdapter`
+  in `autoresearch/runners/evaluation.py`. Canonical Val Score for Search.
 
 ## Tier Structure
 
 | Tier | Tasks | Est. Time | Scoring | CLI Flag |
 |------|-------|-----------|---------|----------|
-| quick | 5 | ~5 min | Rule-based (tool_called, keywords, categories) | `--agentic-quick` |
-| full | 15 | ~15 min | Rule-based (same) | `--agentic-full` |
+| quick | 5 | ~5 min | Rule-based (tool_called, keywords, categories) | `--agentic-quick` / `--no-agentic-quick` |
+| full | 15 | ~15 min | Rule-based (same) | `--agentic-full` / `--no-agentic-full` |
 
 **Task selection policy:**
 - English-only tasks (no zh variants)
 - Rule-based scoring only (no `llm_judge` — fully local, no API keys)
-- Quick tier: `difficulty=easy`, ≤2 mock services
-- Full tier: `difficulty=easy` first, then fills with `medium`
+- Quick tier: `difficulty=easy`, ≤2 mock services — smoke gate, not fair cross-model score
+- Full tier: `difficulty=easy` first, then fills with `medium` — canonical Val Score
 - Discovered at runtime from `claw-eval/tasks/` submodule
 
 ## Current Code Hook
@@ -33,7 +33,7 @@ List Claw-Eval tier task IDs:
 python benchmark_search.py --list-claw-tiers
 ```
 
-Run quick agentic smoke test (adapter placeholder — prints task IDs, scores 0.0):
+Run quick agentic smoke test:
 ```bash
 python benchmark_search.py --agentic-quick --desc "agentic smoke test"
 ```
@@ -43,26 +43,16 @@ Run full agentic quality gate:
 python benchmark_search.py --agentic-full --desc "agentic quality gate"
 ```
 
-## What's Missing (Adapter)
-
-The agentic eval block in `evaluation.py` prints selected task IDs but does not
-execute them yet. The local-model adapter needs:
-
-1. **Mock service launcher** — start `python mock_services/<name>/server.py` per task
-2. **Agent loop** — model generates tool calls, mock services respond, repeat
-3. **Rule-based scorer** — apply `scoring_components` (tool_called, keywords_present,
-   categories_present, min_length) from each task's `task.yaml`
-4. **Result collector** — pass/fail per task, aggregate into `agentic_val`
-
-Until the adapter exists, `agentic_val` defaults to 0.0 and the tier is logged
-as `agentic-quick` / `agentic-full` in `results.tsv`.
+Adapter (`ClawEvalAdapter`) starts mock services, runs the agent loop against the
+local OpenAI-compatible endpoint, and scores with deterministic `task.yaml` rules.
+No Docker, remote judges, or external APIs.
 
 ## Scoring Rule
 
 * Preflight coding score = `0.35*LCB + 0.25*HE + 0.25*MBPP + 0.15*BigCode`
 * Agentic score = `passed / total` (simple pass@1, single trial for quick/full)
 * Use exactly 10 tasks per dataset for preflight comparisons
-* Agentic benchmarks become the main quality gate once the adapter exists
+* Claw-Eval full is the main quality gate; quick is smoke only
 * Never run local benchmark validation below 100k context
 
 ## Approved Targets
