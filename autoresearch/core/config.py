@@ -11,7 +11,7 @@ import math
 import os
 import tempfile
 
-MODEL = 'ornith-1.0-9b-Q4_K_M.gguf'
+MODEL = 'Qwythos-9B-v2-MTP-Q4_K_M.gguf'
 CTX_SIZE = 131072
 KV_CACHE = 'q4_0'
 KV_CACHE_K = 'q4_0'
@@ -117,3 +117,4 @@ def load_config(params: list[str] | None = None) -> dict[str, Any]:
     if params is not None:
         return {p: getattr(mod, p, None) for p in params}
     return {k: getattr(mod, k) for k in CONFIG_KEYS}
+

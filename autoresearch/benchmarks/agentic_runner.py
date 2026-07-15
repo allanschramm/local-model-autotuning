@@ -15,6 +15,7 @@ import signal
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -76,7 +77,7 @@ class ServiceManager:
         """Poll health check endpoint until ready or the service exits."""
         url = svc.get("health_check", "")
         method = svc.get("health_check_method", "GET")
-        while True:
+        for _ in range(100):
             if any(proc.poll() is not None for proc in self._procs):
                 raise RuntimeError(f"Mock service exited before readiness on :{svc['port']}")
             try:
@@ -85,9 +86,13 @@ class ServiceManager:
                 with urllib.request.urlopen(req) as resp:
                     if resp.status < 500:
                         return
+            except urllib.error.HTTPError as e:
+                if e.code < 500:
+                    return
             except Exception:
                 pass
             time.sleep(0.3)
+        raise RuntimeError(f"Mock service health check timed out on :{svc['port']}")
 
     def reset_all(self) -> None:
         """Reset all service states between trials."""
@@ -105,13 +110,13 @@ class ServiceManager:
         """Kill all mock service processes."""
         for proc in self._procs:
             try:
-                proc.terminate()
-                proc.wait()
+                proc.kill()
             except Exception:
-                try:
-                    proc.kill()
-                except Exception:
-                    pass
+                pass
+            try:
+                proc.wait(timeout=1.0)
+            except Exception:
+                pass
 
     def __enter__(self):
         self.start()

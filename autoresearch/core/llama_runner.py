@@ -462,6 +462,4 @@ class LlamaServerRunner:
 
     def _cleanup_all(self):
         self._stop_event.set()
-        if self._vram_thread:
-            self._vram_thread.join()
         self._cleanup_process()
