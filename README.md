@@ -132,14 +132,7 @@ python scripts\serve-config.py serve
 
 O resolver procura `llama-server.exe` e `llama-bench.exe` em `build-cuda\bin`, `build-cuda\bin\Release`, `build\bin`, `build\bin\Release` e no `PATH`. O diretorio `models\` deve apontar para modelos locais do Windows, nao para paths `/mnt/...` ou WSL.
 
-### Forks (TurboQuant / MTP)
-
-Pra modos avançados de KV cache (`turbo2`, `turbo3`, `turbo4`, SPEC MTP):
-
-- **TurboQuant**: `https://github.com/TheTom/llama-cpp-turboquant`
-- **MTP & TurboQuant**: `https://github.com/BoFan-tunning/llama.cpp-MTP-TurboQuant`
-
-Clone como `llama.cpp` na raiz do repo. Comandos de build idênticos.
+Runtime canônico: submodule `llama.cpp/` (upstream). Forks externos (TurboQuant/MTP) não ficam no repo — se precisar, clone à parte e aponte `AUTORESEARCH_LLAMA_CPP_ROOT`.
 
 ---
 

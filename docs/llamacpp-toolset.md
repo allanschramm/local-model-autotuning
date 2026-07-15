@@ -35,7 +35,7 @@ All binaries → `$LLAMA_CPP/build-cuda/bin/` (or `./llama.cpp/build-cuda/bin/` 
 ## Hardware
 
 - GPU: RTX 4060 (8 GB VRAM, CUDA 8.9) — adapt paths and flags for your hardware
-- Forks: `llama-cpp-turboquant/` (MTP/TurboQuant), or any fork cloned as `llama.cpp` in repo root
+- Optional external forks: clone elsewhere and set `AUTORESEARCH_LLAMA_CPP_ROOT` (not vendored in this repo)
 
 ---
 

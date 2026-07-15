@@ -43,9 +43,6 @@ flags:
   - --ctx-size 131072
   - --n-gpu-layers 99
   - --n-cpu-moe <N>      # ~80% das camadas MoE no CPU. Dica: 20% na VRAM. Ex: 40 MoE layers → n-cpu-moe 32.
-  # BeeLlama flags p/ draft/MTP model:
-  # --spec-draft-n-cpu-moe <N>  (--n-cpu-moe-draft) — análogo pro draft model
-  # --spec-draft-cpu-moe        (--cpu-moe-draft) — todo MoE do draft no CPU
   # ... flags validadas no teste
 metrics:
   tps: <number>

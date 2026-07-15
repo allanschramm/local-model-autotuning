@@ -135,7 +135,5 @@ When the user requests a durable behavior change, record it here or in the relev
 - [tests/AGENTS.md](tests/AGENTS.md) — Unit and integration test suite.
 - External source submodules:
   - [llama.cpp/](llama.cpp/) - Upstream llama.cpp runtime source.
-  - [beellama.cpp/](beellama.cpp/) - Alternate llama.cpp runtime source.
-  - [llama-cpp-turboquant/](llama-cpp-turboquant/) - TurboQuant llama.cpp fork source.
   - [claw-eval/](claw-eval/) - Claw-Eval autonomous-agent benchmark harness source.
 

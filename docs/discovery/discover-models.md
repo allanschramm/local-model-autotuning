@@ -83,8 +83,8 @@ MODEL = '<your-chosen-model-filename>.gguf'
 Then run the autoloop overnight:
 
 ```bash
-# Critical: point llama_runner.py at your turboquant build if you have one
-export AUTORESEARCH_LLAMA_CPP_ROOT=/path/to/your/llama.cpp-fork
+# Optional: point at a non-default llama.cpp tree (upstream submodule is default)
+export AUTORESEARCH_LLAMA_CPP_ROOT=/path/to/your/llama.cpp
 
 cd local-model-autotuning
 python3 autoloop.py --vram-limit-mb=<your-VRAM-budget-in-MB>
@@ -115,7 +115,7 @@ The autoloop hill-climbs around the baseline, saves the best `config.py`, and ap
 1. **Picking by whichllm score alone** — Gemma-4-26B-A4B ranks top but is bad at coding agents.
 2. **Picking the densest model that fits** — Qwen3.6-27B fits partial but is slower than the MoE alternative.
 3. **Trying to autotune every candidate** — 24h × 1 model beats 8h × 3 models (each gets a full search).
-4. **Forgetting the turboquant path env var** — autoloop silently fails to find llama-server.
+4. **Wrong `AUTORESEARCH_LLAMA_CPP_ROOT`** — autoloop silently fails to find llama-server.
 5. **Not watching VRAM at startup** — use `--vram-limit-mb=7500` (or whatever your budget) to skip configs that would OOM.
 
 ## Related docs
