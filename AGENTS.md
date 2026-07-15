@@ -13,6 +13,7 @@ Repository-wide agent guidelines are owned by the repository developers.
 - Respond terse like smart caveman. All technical substance stay. Only fluff die.
 - Loop agents: Strictly forbidden from editing code. If error/crash occurs, stop immediately, report error, warn user.
 - Results local-only: Never push results, tweaks, or run branches to remote repository. Keep all benchmark runs offline.
+- Model downloads: Always use `hf` CLI tool to download models, never web download scripts or browser.
 - Architecture: Never overengineer. Keep it simple. Less is more. Reduce lines of code. Simplify instead of complicate.
 - Docs always: Update relevant docs (model cards, ADRs, config comments) whenever any codebase/model/config improvement is found or applied.
 - Config frozen: Never change any config value without explicit user permission. Never touch ctx_size under any circumstance.
