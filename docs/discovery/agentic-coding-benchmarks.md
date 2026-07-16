@@ -17,7 +17,7 @@ This repo evaluates local models across two tiers:
 **Task selection policy:**
 - English-only tasks (no zh variants)
 - Rule-based scoring only (no `llm_judge` — fully local, no API keys)
-- Quick tier: `difficulty=easy`, ≤2 mock services — smoke gate, not fair cross-model score
+- Quick tier: `difficulty=easy`, ≤2 mock services — observational smoke (no score-floor reject), not fair cross-model score
 - Full tier: `difficulty=easy` first, then fills with `medium` — canonical Val Score
 - Discovered at runtime from `claw-eval/tasks/` submodule
 

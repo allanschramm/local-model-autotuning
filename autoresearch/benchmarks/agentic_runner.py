@@ -321,15 +321,15 @@ def score_task(
             details_parts.append(f"{name}: {'PASS' if passed else 'FAIL'} ({target_tool} called {calls}/{min_calls})")
 
         elif check_type == "keywords_present":
-            keywords = check.get("keywords", [])
-            text_lower = final_text.lower()
+            keywords = [str(kw) for kw in check.get("keywords", [])]
+            text_lower = str(final_text or "").lower()
             found = [kw for kw in keywords if kw.lower() in text_lower]
             passed = len(found) > 0
             details_parts.append(f"{name}: {'PASS' if passed else 'FAIL'} (keywords found: {found})")
 
         elif check_type == "categories_present":
-            categories = check.get("categories", [])
-            text_lower = final_text.lower()
+            categories = [str(cat) for cat in check.get("categories", [])]
+            text_lower = str(final_text or "").lower()
             found = [cat for cat in categories if cat.lower() in text_lower]
             passed = len(found) >= len(categories) * 0.5  # at least half
             details_parts.append(f"{name}: {'PASS' if passed else 'FAIL'} (categories: {found}/{categories})")
@@ -337,7 +337,7 @@ def score_task(
         elif check_type == "min_length":
             field = check.get("field", "final_text")
             min_len = check.get("min_length", 0)
-            text = final_text if field == "final_text" else ""
+            text = str(final_text or "") if field == "final_text" else ""
             passed = len(text) >= min_len
             details_parts.append(f"{name}: {'PASS' if passed else 'FAIL'} (len={len(text)}/{min_len})")
 

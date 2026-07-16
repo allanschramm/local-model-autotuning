@@ -14,3 +14,4 @@ Claw-Eval full is the canonical Val Score and Claw-Eval quick is smoke validatio
 - Local state no longer dirties tracked Python source.
 - Invalid model configurations can be rejected while infrastructure and code failures stop the Search.
 - Existing TSV columns remain readable while new rows carry reproducibility metadata.
+- Claw-Eval quick is observational smoke: it records score but does not reject on low quality. Only the TPS Floor (and invalid/infra/code failures) rejects a Trial.

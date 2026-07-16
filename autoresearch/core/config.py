@@ -11,7 +11,7 @@ import math
 import os
 import tempfile
 
-MODEL = 'Qwythos-9B-v2-MTP-Q4_K_M.gguf'
+MODEL = 'Qwythos-9B-v2-Q4_K_M.gguf'
 CTX_SIZE = 131072
 KV_CACHE = 'q4_0'
 KV_CACHE_K = 'q4_0'

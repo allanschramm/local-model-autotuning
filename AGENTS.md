@@ -118,10 +118,11 @@ Default section order:
 
 When the user requests a durable behavior change, record it here or in the relevant child AGENTS.md
 
-- **Fair testing across models**: Always keep exactly 10 tasks per dataset for direct-coding evaluations (never 5 tasks) to guarantee fair model comparisons. Claw-Eval quick smoke (5 tasks) is exempt — it is a gate, not a cross-model score.
+- **Fair testing across models**: Always keep exactly 10 tasks per dataset for direct-coding evaluations (never 5 tasks) to guarantee fair model comparisons. Claw-Eval quick smoke (5 tasks) is exempt — it is observational smoke, not a cross-model score.
 - **README language**: README.md must always be in pt-BR. Agent-facing docs (docs/, AGENTS.md, GOLDEN-RULES.md, CONTEXT.md, program.md) stay in English.
 - **Agentic coding migration**: Treat HumanEval+/MBPP+/LiveCodeBench/BigCodeBench as direct-coding preflight benchmarks. Prefer long-horizon agentic targets for future coding-agent quality decisions once adapters exist.
 - **Agentic-first Search**: Claw-Eval full is the canonical Val Score; Claw-Eval quick is smoke validation. Direct-coding is optional and, when enabled, uses exactly 10 tasks per dataset.
+- **No eval-score floor**: Only the TPS Floor rejects a Trial. Claw-Eval quick/full scores are recorded for keep/discard comparison; low smoke scores must not short-circuit as `MODEL_REJECTED`.
 
 ## Child DOX Index
 - [autoresearch/AGENTS.md](autoresearch/AGENTS.md) — Core autotuning package (config, runners, benchmarks).

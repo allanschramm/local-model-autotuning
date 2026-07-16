@@ -44,11 +44,11 @@
 Every Trial runs a **2-step validation** before the full eval:
 
 1. **llama-bench speed check** (`prompt=512`, `gen=128`, 3 repeats, ctx >= 100k). If `tg_tps < TPS Floor` (20.0), Trial FAILs immediately — no server spin-up, no agentic eval.
-2. **Claw-Eval quick smoke**. Validates local tool-use under the config — not just fast garbage.
+2. **Claw-Eval quick smoke**. Reports local tool-use score under the config — not just fast garbage. **No score floor**: low smoke scores are recorded, not rejected. Only the TPS Floor rejects.
 
 **Validation mode** (`python3 benchmark_search.py --validation`): runs steps 1-2 and exits. No extended eval, no keep/discard. For quick config sanity checks.
 
-**Short-circuit**: Step 1 failure → logged as `FAIL` with bench TPS. The loop never wastes time on unusably slow configs.
+**Short-circuit**: Step 1 failure → logged as `FAIL` with bench TPS. The loop never wastes time on unusably slow configs. Smoke score never short-circuits.
 
 See `autoresearch/runners/evaluation.py` → `run_llama_bench_validation()` + `run_trial()` for implementation.
 
@@ -71,7 +71,7 @@ When asked to "validate a model", follow this exact procedure:
 
 3. **What the --validation flag does** — Two steps, always both:
    - **Step 1 (speed check)**: `llama-bench` with `prompt=512`, `gen=128`, 3 repeats. If `tg_tps < 20.0`, FAILs immediately — no agentic eval runs.
-   - **Step 2 (agentic smoke)**: Claw-Eval quick validates local tool use with deterministic rule-based grading. Optional direct-coding preflight always uses exactly 10 tasks per dataset.
+   - **Step 2 (agentic smoke)**: Claw-Eval quick scores local tool use with deterministic rule-based grading (no pass/fail cut on that score). Optional direct-coding preflight always uses exactly 10 tasks per dataset.
 
 4. **One model at a time** — Never run multiple validations in parallel. All models share the same GPU (CUDA device 0) and default port 18080. Each validation must finish (PASS or FAIL) before the next starts.
 

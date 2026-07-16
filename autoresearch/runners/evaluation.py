@@ -346,10 +346,6 @@ class ExperimentRunner:
                             raise FileNotFoundError(f"No Claw-Eval {tier} tasks found")
                         agentic_res = self.agentic_adapter.run(client, task_ids, gen_params)
                         res.task_ids = tuple(task_ids)
-                        if tier == "quick" and agentic_res["score"] < 0.5:
-                            res.status = f"FAIL: Agentic quick smoke failed ({agentic_res['score']:.4f})"
-                            res.outcome = TrialOutcome.MODEL_REJECTED
-                            return res
                         if tier == "full" or not agentic_full:
                             res.agentic_val = agentic_res["score"]
                             res.agentic_task_count = agentic_res["total"]

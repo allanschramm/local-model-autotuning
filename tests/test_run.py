@@ -261,6 +261,27 @@ class TestRun(unittest.TestCase):
         self.assertEqual(res["val_score"], 0.7)
         self.assertNotEqual(res["outcome"], "MODEL_REJECTED")
 
+    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
+    def test_agentic_quick_low_score_does_not_reject(self, mock_runner):
+        """Quick smoke reports score; only TPS Floor rejects — no score cut."""
+        mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
+        with patch("autoresearch.runners.evaluation.get_quick_tier_tasks", return_value=["T002"]):
+            with patch(
+                "autoresearch.runners.evaluation.run_agentic_eval",
+                return_value={"score": 0.4, "total": 1},
+            ):
+                res = run.run_evaluation(
+                    {"MODEL": "test.gguf", "CTX_SIZE": 131072, "FLASH_ATTN": "on"},
+                    skip_bench=True,
+                    include_coding=False,
+                    agentic_quick=True,
+                    agentic_full=False,
+                )
+        self.assertEqual(res["status"], "OK")
+        self.assertEqual(res["agentic_val"], 0.4)
+        self.assertEqual(res["val_score"], 0.4)
+        self.assertNotEqual(res["outcome"], "MODEL_REJECTED")
+
     @patch("autoresearch.runners.run.run_evaluation")
     @patch("autoresearch.runners.run.get_git_commit")
     @patch("autoresearch.runners.run.open", new_callable=mock_open)
