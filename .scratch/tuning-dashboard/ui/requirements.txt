@@ -1,0 +1,1 @@
+# UI-only dependencies — do not install here yet
