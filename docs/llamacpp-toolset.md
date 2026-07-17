@@ -6,14 +6,15 @@ Vendored runtime at `./llama.cpp/` (repo root). Built with CUDA in `build-cuda/`
 
 ## Build
 
+Windows toolchain (installed 2026-07-17): VS 2022 Build Tools (MSVC 14.44, VCTools workload), NVIDIA CUDA Toolkit 13.3, Ninja. nvcc on Windows requires MSVC host compiler; configure must run inside `vcvars64.bat` env. Helper `llama.cpp/rebuild-cuda.bat` (untracked, machine-specific) wraps this: `rebuild-cuda.bat configure` = full configure+build, `rebuild-cuda.bat` = incremental build. `build-cuda/` is a symlink to `C:\builds\...`.
+
 ```bash
-# Full build (all tools)
-LLAMA_CPP="${AUTORESEARCH_LLAMA_CPP_ROOT:-./llama.cpp}"
-cmake -S "$LLAMA_CPP" -B "$LLAMA_CPP/build-cuda" -DGGML_CUDA=ON
-cmake --build "$LLAMA_CPP/build-cuda" --config Release -j$(nproc)
+# Full build (all tools) — inside vcvars64 env, CUDA bin on PATH
+cmake -S ./llama.cpp -B ./llama.cpp/build-cuda -G Ninja -DGGML_CUDA=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build ./llama.cpp/build-cuda --config Release
 
 # Build single target
-cmake --build "$LLAMA_CPP/build-cuda" --target llama-bench -j$(nproc)
+cmake --build ./llama.cpp/build-cuda --target llama-bench
 ```
 
 Targets are prefixed `llama-` (e.g. `llama-quantize`, `llama-perplexity`).
@@ -371,11 +372,10 @@ Default: `./llama.cpp/build-cuda/bin/`
 # Set this once per session (or add to .bashrc)
 LLAMA_CPP="${AUTORESEARCH_LLAMA_CPP_ROOT:-./llama.cpp}"
 
-# Build all tools (CUDA)
-alias lc-build="cmake -S $LLAMA_CPP -B $LLAMA_CPP/build-cuda -DGGML_CUDA=ON && cmake --build $LLAMA_CPP/build-cuda --config Release -j\$(nproc)"
+# Build all tools (CUDA) — incremental, wraps vcvars64 env
+alias lc-build="cmd //c $LLAMA_CPP/rebuild-cuda.bat"
 
-# Build single tool
-alias lc-bench="cmake --build $LLAMA_CPP/build-cuda --target llama-bench -j\$(nproc)"
+# Build single tool (edit target name into rebuild-cuda.bat call if needed, or run full lc-build)
 
 # Quick bench
 alias lbench="$LLAMA_CPP/build-cuda/bin/llama-bench"
