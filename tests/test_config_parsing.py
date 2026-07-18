@@ -57,9 +57,9 @@ class TestConfigParsing(unittest.TestCase):
         self.assertEqual(intent.threads, 8)
 
 class TestRuntimeInvariants(unittest.TestCase):
-    def test_rejects_context_below_100k(self):
+    def test_rejects_context_below_minimum(self):
         cfg = load_config()
-        cfg["CTX_SIZE"] = 99_999
+        cfg["CTX_SIZE"] = 1024
         with self.assertRaises(ConfigError):
             validate_config(cfg)
 
@@ -71,7 +71,7 @@ class TestRuntimeInvariants(unittest.TestCase):
 
     def test_rejects_invalid_lowercase_override(self):
         cfg = load_config()
-        cfg["ctx_size"] = 4096
+        cfg["ctx_size"] = 1024
         with self.assertRaises(ConfigError):
             validate_config(cfg)
 

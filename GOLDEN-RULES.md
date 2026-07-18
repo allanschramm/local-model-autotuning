@@ -43,7 +43,7 @@
 
 Every Trial runs a **2-step validation** before the full eval:
 
-1. **llama-bench speed check** (`prompt=512`, `gen=128`, 3 repeats, ctx >= 100k). If `tg_tps < TPS Floor` (20.0), Trial FAILs immediately — no server spin-up, no agentic eval.
+1. **llama-bench speed check** (`prompt=512`, `gen=128`, 3 repeats). If `tg_tps < TPS Floor` (20.0), Trial FAILs immediately — no server spin-up, no agentic eval.
 2. **Claw-Eval quick smoke**. Reports local tool-use score under the config — not just fast garbage. **No score floor**: low smoke scores are recorded, not rejected. Only the TPS Floor rejects.
 
 **Validation mode** (`python3 benchmark_search.py --validation`): runs steps 1-2 and exits. No extended eval, no keep/discard. For quick config sanity checks.

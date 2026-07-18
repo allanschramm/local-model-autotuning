@@ -85,7 +85,7 @@ A pure data object describing the full configuration for a Trial — model path,
 _Avoid_: config object, server config
 
 **SGLang Backend**:
-Directory model paths under `models/` are served through SGLang instead of `llama-server`. SGLang Trials still flow through the harness, run the same Coding benchmark, and must obey the same 100k+ context floor.
+Directory model paths under `models/` are served through SGLang instead of `llama-server`. SGLang Trials still flow through the harness, run the same Coding benchmark, and use the configured CTX_SIZE.
 _Avoid_: raw SGLang run, direct server launch
 
 **TurboQuant**:

@@ -2,7 +2,8 @@
 # Immutable runtime defaults + invariants. Mutable Baseline lives in
 # .autoresearch_state.json (see load_state / write_state). Never rewrite this
 # file from the Search loop.
-# NOTE: CTX_SIZE is frozen at 131072. Min ctx floor = 100k. Never lower it.
+# NOTE: CTX_SIZE default is 131072. User may lower it to trade context for speed.
+# Minimum floor is 2048 (llama.cpp practical minimum).
 
 from typing import Any
 from pathlib import Path
@@ -41,7 +42,7 @@ REPEAT_PENALTY = 1.05
 PRESENCE_PENALTY = 0.0
 FREQUENCY_PENALTY = None
 
-MIN_CTX_SIZE = 100_000
+MIN_CTX_SIZE = 2048
 STATE_SCHEMA_VERSION = 1
 STATE_FILE = Path(__file__).resolve().parents[2] / ".autoresearch_state.json"
 CONFIG_KEYS = (

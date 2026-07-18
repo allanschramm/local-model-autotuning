@@ -11,7 +11,7 @@ Autonomous hill-climbing optimizer for local LLM runtime flags (KV cache quant, 
 ## Rules
 
 - config.py is the ONLY mutable surface for agent tweaks
-- CTX_SIZE frozen at 131072. Min ctx floor = 100k. Never lower.
+- CTX_SIZE default is 131072. User may lower it to trade context for speed. Code minimum is 2048.
 - Flash attention always on
 - Never push results, tweaks, or run branches to remote (local-only)
 - Loop agents: never edit code; on error → stop, report, warn user
