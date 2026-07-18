@@ -38,7 +38,7 @@ def test_model_up_parses_flags_and_builds_command(tmp_path, monkeypatch):
     assert cfg.name == "demo"
     assert cfg.alias == "demo-model"
     assert model_path == model_file
-    assert cmd[:8] == [
+    assert cmd[:9] == [
         "llama-server.exe",
         "--model",
         str(model_file),
@@ -49,7 +49,7 @@ def test_model_up_parses_flags_and_builds_command(tmp_path, monkeypatch):
         "--port",
         "19090",
     ]
-    assert cmd[8:] == ["--jinja", "--ctx-size", "131072", "--flash-attn", "on"]
+    assert cmd[9:] == ["--jinja", "--ctx-size", "131072", "--flash-attn", "on"]
 
 
 def test_model_up_adds_repo_root_to_sys_path(monkeypatch):
