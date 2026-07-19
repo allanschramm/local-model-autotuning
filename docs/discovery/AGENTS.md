@@ -28,3 +28,4 @@ User-facing guides for **discovering, evaluating, and selecting** local LLMs tha
 - [`quantization-cascade-agent.md`](./quantization-cascade-agent.md) — agent quick reference for quant selection (terse, grog-readable).
 - [`agent-onboarding.md`](./agent-onboarding.md) — onboarding guide for future agents.
 - [`agentic-coding-benchmarks.md`](./agentic-coding-benchmarks.md) — migration guide from direct coding tasks to long-horizon agentic coding benchmarks.
+- [`mtp-baseline-guide.md`](./mtp-baseline-guide.md) — guide on verifying and benchmarking MTP speculative decoding with llama-bench/llama-cli.
