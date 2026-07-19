@@ -1,6 +1,7 @@
 # VITRIOL — MoE-on-small-VRAM technique
 
-Source: https://www.youtube.com/watch?v=ZwNCsUTNWOA (Codacus on Qwen 3.6 35B-A3B on i5-12th + 16GB RAM + GTX 1070 8GB → 18 tok/s, 132k ctx).
+- **YouTube Video:** https://www.youtube.com/watch?v=ZwNCsUTNWOA (Codacus on Qwen 3.6 35B-A3B on i5-12th + 16GB RAM + GTX 1070 8GB → 18 tok/s, 132k ctx).
+- **GitHub Repository:** https://github.com/Randozart/VITRIOL (Codacus/Randozart official repository).
 
 ## Core insight
 For MoE models, you don't put the whole model on the GPU. You put **attention + shared expert + routing** on the GPU, and the **256 routed experts stay in CPU/RAM**. Per-token active compute is small (3-4B), so the CPU bottleneck is acceptable.
@@ -32,13 +33,13 @@ For a 40-layer MoE, `--n-cpu-moe 40` keeps all experts on CPU. Lower N = move so
 | CPU | i5-12th gen | i5/i7 12th+ (WSL) |
 | RAM | 16 GB | 16 GB |
 | GPU | GTX 1070 8GB | RTX 4060 8GB |
-| Result | 18 tok/s @ 132k ctx | Validar — esperado 25-35 tok/s @ 132k ctx (2× CUDA cores), mas commit `2bd795b` em Gemma 4 26B-A4B deu só 13-18 tok/s (ainda abaixo do floor 20 do autoresearch) |
-| Floor | nosso TPS Floor é 20 (autoresearch) | Validar se Qwen3.6 35B-A3B com 3B active consegue passar |
+| Result | 18 tok/s @ 132k ctx | Qwen3.6 35B: **22.15 t/s** @ 65k ctx (`--n-cpu-moe 40`). Gemma-4 26B: **19.00 t/s** @ 65k ctx (`--n-cpu-moe 30`). |
+| Floor | nosso TPS Floor é 20 (autoresearch) | Qwen3.6 35B passa o floor (22.15 t/s). Gemma-4 26B chega muito perto (19.00 t/s). |
 
-## Related flags (from our llama-server turboquant build)
+## Related flags (from our llama-server build)
 - `--n-cpu-moe-draft N` / `-ncmoed` — same for MTP draft model
 - `--no-mmap` — force full model into RAM (Codacus skipped, we have 16GB so would OOM)
-- `--spec-type mtp` — MTP speculative decoding (NOT `draft-mtp` — see model cards)
+- `--spec-type draft-mtp` — MTP speculative decoding (standard/upstream llama.cpp)
 
 ## See also
 - [Qwen3.6-35B-A3B model card](qwen3.6-35b-a3b.md) — o modelo que Codacus testou (35B total / 3B active)
