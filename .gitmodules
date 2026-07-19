@@ -4,3 +4,6 @@
 [submodule "claw-eval"]
 	path = claw-eval
 	url = https://github.com/claw-eval/claw-eval.git
+[submodule "llama.cpp-prismml"]
+	path = llama.cpp-prismml
+	url = https://github.com/PrismML-Eng/llama.cpp.git
