@@ -29,6 +29,7 @@ In `llama.cpp`, the format is specified using the `--spec-type` flag. These form
 *   **In llama.cpp:** 
     - Qwen models (like Qwen3.5-9B and Qwen3.6-35B) have the MTP draft head **embedded directly in the main GGUF file** (no separate `-md` file needed).
     - Gemma-4 models have the MTP draft head in a **separate file** (e.g. `models/draft/mtp-gemma-4-E4B-it.gguf`). You must pass `--spec-draft-model <path>`.
+    - **Ornith-1.0 models:** As they are built on top of Gemma-4/Qwen, they support MTP. However, the standard Unsloth UD files we use do **not** have MTP heads. To run MTP on Ornith-1.0, you must download community GGUFs with MTP heads grafted onto them (e.g. repositories by `satgeze/ornith-35b-1m`, `wang-yang`, or `SC117`).
 
 ### B. Eagle 3 — `draft-eagle3`
 *   **How it works:** A tree-based speculative decoder that trains a small recurrent neural network head directly on top of the target model's hidden states.
