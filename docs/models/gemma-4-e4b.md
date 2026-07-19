@@ -21,12 +21,16 @@
 
 ## Config Baseline (2026-07-19)
 - `MODEL = 'gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf'`
-- `CTX_SIZE = 131072` (Maximum context)
+- `CTX_SIZE = 65536` (Optimized context)
 - `KV_CACHE = 'q4_0'`
 - `NGL = 99` (GPU Offloaded)
 - `THREADS = 8`
 - `THREADS_BATCH = 8`
 - `FLASH_ATTN = 'on'`
+- `SPEC_TYPE = 'draft-mtp'`
+- `SPEC_DRAFT_MODEL = 'models/draft/mtp-gemma-4-E4B-it.gguf'`
+- `SPEC_DRAFT_N_MAX = 2`
+- `N_GPU_LAYERS_DRAFT = 99`
 
 ### Status
-- **UNTESTED.** Upgraded to Unsloth QAT Dynamic Q4_K_XL.
+- **MTP Verified (2026-07-19):** Tested with MTP active via `models/draft/mtp-gemma-4-E4B-it.gguf` using `llama-cli`. Achieved **103.7 t/s** (compared to 61.6 t/s baseline), demonstrating a **+68.3% speedup**. Stable and fully offloaded.

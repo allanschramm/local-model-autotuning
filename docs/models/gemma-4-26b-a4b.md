@@ -126,7 +126,8 @@ MTP: `--spec-type mtp` (corrected flag, not `draft-mtp` — see Qwen3.6 card for
 ### 2026-07-19 Update (Unsloth QAT Dynamic 4-bit XL Quant)
 - Upgraded model file to `gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf` (14.25 GB) from Unsloth.
 - Created local alias `gemma-4-26b-a4b`.
-- Benchmarked: **19.00 TPS** at 65k depth with `--n-cpu-moe 30` (MTP speedup pending).
+- Benchmarked: **19.00 TPS** at 65k depth with `--n-cpu-moe 30` (raw llama-bench base speed).
+- Benchmarked: **17.00 TPS** (interactive llama-cli) with MTP active via `mtp-gemma-4-26B-A4B-it.gguf` vs **15.3 TPS** base speed (+11% speedup).
 - Note: `--n-cpu-moe 15` was retired because it exceeded 8 GB VRAM at 65k context, causing severe memory swapping.
 
 ## Sources / Verification
@@ -135,8 +136,8 @@ MTP: `--spec-type mtp` (corrected flag, not `draft-mtp` — see Qwen3.6 card for
 - Unsloth MTP guide (https://unsloth.ai/docs/models/mtp.md, extracted same day, truncated at 5k chars)
 
 ## Open questions
-1. **[Resolvido]** `--spec-type draft-mtp` é inválido no turboquant build — usar `--spec-type mtp`. Verificado por inspeção de `common/arg.cpp`.
-2. Validar: o GGUF local realmente NÃO tem tensores MTP (verificado por `GGUFReader`), ou seja, MTP para Gemma 4 requer re-download da sub-pasta do HF (Unsloth menciona que MTP fica em "sub-folder within the GGUF package").
+1. **[Resolvido]** `--spec-type draft-mtp` é o flag correto e aceito no executável standard/upstream do llama.cpp (o valor `--spec-type mtp` é rejeitado).
+2. **[Resolvido]** O GGUF principal do Gemma-4 não possui tensores MTP internos (verificado via `GGUFReader`). O MTP requer baixar o rascunho separado (como `mtp-gemma-4-26B-A4B-it.gguf` no repo HF), colocar em `models/draft` e usar a flag `--spec-draft-model`.
 3. Validar: exato valor de `--n-gpu-layers` para 4B-active MoE em 8 GB VRAM. Commit `2bd795b` rodou Gemma 4 só com `--n-cpu-moe 15`, sem anotar o `--n-gpu-layers` exato.
 4. Validar: re-extrair seção "🦙 llama.cpp Guide" e "Recommended Settings" do Unsloth doc (estava truncado em 5k chars no extrato original).
 5. Validar: sampling params exatos para Gemma 4 (doc truncado antes da seção).
