@@ -59,6 +59,12 @@ class TestConfigParsing(unittest.TestCase):
         self.assertEqual(intent.threads, 8)
 
 class TestRuntimeInvariants(unittest.TestCase):
+    def test_config_segregation(self):
+        from autoresearch.core.config import ENGINE_DEFAULTS, SAMPLER_DEFAULTS, DEFAULTS
+        self.assertIn("THREADS", ENGINE_DEFAULTS)
+        self.assertIn("TEMP", SAMPLER_DEFAULTS)
+        self.assertEqual(len(DEFAULTS), len(ENGINE_DEFAULTS) + len(SAMPLER_DEFAULTS))
+
     def test_rejects_context_below_minimum(self):
         cfg = load_config()
         cfg["CTX_SIZE"] = 1024

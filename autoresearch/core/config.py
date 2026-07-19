@@ -12,8 +12,8 @@ import math
 import os
 import tempfile
 
-# Centralized defaults registry
-DEFAULTS = {
+# Hardware/Engine/Inference configuration parameters (affect speed and VRAM usage)
+ENGINE_DEFAULTS = {
     "MODEL": 'Qwythos-9B-v2-Q4_K_M.gguf',
     "CTX_SIZE": 131072,
     "KV_CACHE": 'q4_0',
@@ -34,7 +34,10 @@ DEFAULTS = {
     "REASONING": None,
     "CONT_BATCHING": True,
     "N_CPU_MOE": 32,
-    # Generation options (Unsloth-corrected for Qwen3.5 thinking mode)
+}
+
+# Generation/Sampling configuration parameters (affect quality and token selection)
+SAMPLER_DEFAULTS = {
     "TEMP": 0.4,
     "TOP_P": 0.95,
     "TOP_K": 20,
@@ -43,6 +46,9 @@ DEFAULTS = {
     "PRESENCE_PENALTY": 0.0,
     "FREQUENCY_PENALTY": None,
 }
+
+# Centralized defaults registry (merged for backwards compatibility)
+DEFAULTS = {**ENGINE_DEFAULTS, **SAMPLER_DEFAULTS}
 
 MIN_CTX_SIZE = 2048
 STATE_SCHEMA_VERSION = 1

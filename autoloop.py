@@ -19,6 +19,8 @@ from autoresearch.core.llama_runner import estimate_vram_mb, validate_config, Co
 from autoresearch.core.config import (
     CONFIG_KEYS,
     load_config as _core_load_config,
+    ENGINE_DEFAULTS,
+    SAMPLER_DEFAULTS,
 )
 from autoresearch.runners.run import get_git_commit, write_row, RESULTS_FILE, MODELS_DIR
 from autoresearch.runners.evaluation import ExperimentRunner
@@ -332,8 +334,8 @@ def main():
         "max_tokens": 1024,
         "context_tokens": 131072,
     }
-    ENGINE_KEYS = {"THREADS", "THREADS_BATCH", "BATCH_SIZE", "UBATCH_SIZE", "KV_CACHE_K", "KV_CACHE_V", "SPEC_DRAFT_N_MAX", "CONT_BATCHING", "NO_MMAP"}
-    SAMPLER_KEYS = {"TEMP", "TOP_P", "TOP_K", "MIN_P", "REPEAT_PENALTY", "PRESENCE_PENALTY"}
+    ENGINE_KEYS = set(ENGINE_DEFAULTS.keys())
+    SAMPLER_KEYS = set(SAMPLER_DEFAULTS.keys())
 
     active_search_space = dict(SEARCH_SPACE)
     if cli_args.mode == "tps":
