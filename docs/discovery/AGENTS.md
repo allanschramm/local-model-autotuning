@@ -31,3 +31,4 @@ User-facing guides for **discovering, evaluating, and selecting** local LLMs tha
 - [`mtp-baseline-guide.md`](./mtp-baseline-guide.md) — guide on verifying and benchmarking MTP speculative decoding with llama-bench/llama-cli.
 - [`speculative-decoding-formats.md`](./speculative-decoding-formats.md) — architectural and performance comparison of speculative formats (MTP vs Eagle vs DFlash vs N-gram).
 - [`advanced-inference-optimizations.md`](./advanced-inference-optimizations.md) — high-performance techniques: CUDA graphs, tcmalloc/jemalloc, KV cache optimizations, and offload bottlenecks (Fast Gemma Challenge lessons).
+- [`low-vram-optimizations.md`](./low-vram-optimizations.md) — strategies for VRAM-constrained GPUs: GGUF/EXL2/HQQ quants, KV cache compression, MoE offloading, and preventing system paging.
