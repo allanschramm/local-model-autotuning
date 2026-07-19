@@ -2,6 +2,10 @@
 
 Vendored runtime at `./llama.cpp/` (repo root). Built with CUDA in `build-cuda/`.
 
+**PrismML fork (Bonsai Q2_0):** `./llama.cpp-prismml/` (git submodule, branch `prism`).
+Adds `Q2_0` 2-bit ternary quantization for [Bonsai models](https://huggingface.co/collections/prism-ml/bonsai).
+Built with CUDA in `build-cuda/` matching the stock config.
+
 **Path resolution:** The autoloop resolves `llama-server` via `autoresearch/core/llama_runner.py`. If your build is elsewhere, set `export AUTORESEARCH_LLAMA_CPP_ROOT=/path/to/llama.cpp`.
 
 ## Build
@@ -37,6 +41,34 @@ All binaries → `$LLAMA_CPP/build-cuda/bin/` (or `./llama.cpp/build-cuda/bin/` 
 
 - GPU: RTX 4060 (8 GB VRAM, CUDA 8.9) — adapt paths and flags for your hardware
 - Optional external forks: clone elsewhere and set `AUTORESEARCH_LLAMA_CPP_ROOT` (not vendored in this repo)
+
+### PrismML fork (Bonsai Q2_0)
+
+Submodule at `./llama.cpp-prismml/` (branch `prism`). Adds `Q2_0` 2-bit ternary quant for Bonsai models.
+
+**Build** (same toolchain as stock):
+```bash
+# From repo root, inside vcvars64 env, CUDA bin on PATH
+cmake -S ./llama.cpp-prismml -B ./llama.cpp-prismml/build-cuda -G Ninja -DGGML_CUDA=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build ./llama.cpp-prismml/build-cuda --config Release
+
+# Or use the local helper
+llama.cpp-prismml\rebuild-cuda.bat configure  # configure only
+llama.cpp-prismml\rebuild-cuda.bat            # incremental build
+```
+
+**Usage:** set `AUTORESEARCH_LLAMA_CPP_ROOT` to point at this fork:
+```bash
+export AUTORESEARCH_LLAMA_CPP_ROOT=./llama.cpp-prismml
+# or on Windows:
+set AUTORESEARCH_LLAMA_CPP_ROOT=.\llama.cpp-prismml
+```
+
+**Important:** This fork uses `*-Q2_0.gguf` format (group size 128). Stock llama.cpp cannot load these. Use matching build + model files. See [Bonsai-demo](https://github.com/PrismML-Eng/Bonsai-demo) for prebuilt binaries and model downloads.
+
+**Run guide (Bonsai-27B + DSpark speculative):** see [docs/models/bonsai-27b.md](models/bonsai-27b.md) — exact `llama-server` dspark flags, VRAM fit at 65K, and the known drafter-load crash + resolution.
+
+All binaries → `./llama.cpp-prismml/build-cuda/bin/`
 
 ---
 
