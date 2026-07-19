@@ -12,8 +12,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Protocol
 
-from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent, resolve_llama_bench, resolve_llama_perplexity
-from autoresearch.core.config import ConfigError
+from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent, resolve_llama_bench, resolve_llama_perplexity, ConfigError
 from autoresearch.core.sglang_runner import SGLangServerRunner, run_sglang_bench_validation
 from autoresearch.core.llama_client import LlamaClient, GenerationParams
 from autoresearch.benchmarks.benchmark_coding import run_benchmark as run_coding

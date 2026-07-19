@@ -13,7 +13,7 @@ class TestAutoLoop(unittest.TestCase):
 
     def setUp(self):
         self._state_dir = tempfile.TemporaryDirectory()
-        self._state_patch = patch.object(core_config, "STATE_FILE", Path(self._state_dir.name) / "state.json")
+        self._state_patch = patch.object(autoloop, "STATE_FILE", Path(self._state_dir.name) / "state.json")
         self._state_patch.start()
 
     def tearDown(self):

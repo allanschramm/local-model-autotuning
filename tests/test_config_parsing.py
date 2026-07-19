@@ -3,7 +3,9 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from autoresearch.runners import run
-from autoresearch.core.config import ConfigError, load_config, load_state, validate_config, write_state
+from autoresearch.core.config import load_config
+from autoresearch.core.llama_runner import ConfigError, validate_config
+from autoloop import load_state, write_state
 
 class TestConfigParsing(unittest.TestCase):
 

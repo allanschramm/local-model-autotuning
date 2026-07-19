@@ -15,13 +15,10 @@ import signal
 from pathlib import Path
 from typing import Any
 
-from autoresearch.core.llama_runner import estimate_vram_mb
+from autoresearch.core.llama_runner import estimate_vram_mb, validate_config, ConfigError
 from autoresearch.core.config import (
     CONFIG_KEYS,
     load_config as _core_load_config,
-    load_state,
-    write_state,
-    validate_config,
 )
 from autoresearch.runners.run import get_git_commit, write_row, RESULTS_FILE, MODELS_DIR
 from autoresearch.runners.evaluation import ExperimentRunner
@@ -74,7 +71,39 @@ def _signal_handler(_sig, _frame):
 signal.signal(signal.SIGINT, _signal_handler)
 signal.signal(signal.SIGTERM, _signal_handler)
 
+STATE_SCHEMA_VERSION = 1
+STATE_FILE = Path(__file__).resolve().parent / ".autoresearch_state.json"
 
+def load_state(path: str | Path | None = None) -> dict[str, Any]:
+    """Load the local Baseline, initializing it from immutable defaults."""
+    state_path = Path(path) if path else STATE_FILE
+    if not state_path.exists():
+        return {"schema_version": STATE_SCHEMA_VERSION, "baseline": _core_load_config(), "visited": []}
+    data = json.loads(state_path.read_text(encoding="utf-8"))
+    if data.get("schema_version") != STATE_SCHEMA_VERSION:
+        raise ConfigError(f"Unsupported state schema: {data.get('schema_version')}")
+    data["baseline"] = validate_config(data.get("baseline", {}))
+    return data
+
+
+def write_state(state: dict[str, Any], path: str | Path | None = None) -> None:
+    """Atomically persist local Search state without rewriting Python source."""
+    state_path = Path(path) if path else STATE_FILE
+    payload = dict(state)
+    payload["schema_version"] = STATE_SCHEMA_VERSION
+    payload["baseline"] = validate_config(payload.get("baseline", {}))
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    import tempfile
+    import os
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{state_path.name}.", dir=state_path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, sort_keys=True)
+            handle.write("\n")
+        os.replace(tmp_name, state_path)
+    finally:
+        if os.path.exists(tmp_name):
+            os.unlink(tmp_name)
 def load_config() -> dict[str, Any]:
     """Load immutable defaults overlaid by the local Baseline state."""
     from autoresearch.benchmarks import bench_config as _bc

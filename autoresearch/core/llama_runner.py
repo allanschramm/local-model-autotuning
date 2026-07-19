@@ -23,6 +23,33 @@ from typing import Any
 
 _LLAMA_SERVER_HELP_CACHE = None
 
+import math
+from autoresearch.core import config
+
+class ConfigError(ValueError):
+    """Configuration violates a non-negotiable runtime invariant."""
+
+
+def validate_config(cfg: dict) -> dict:
+    """Return a normalized copy, or fail before any model process starts."""
+    normalized = dict(cfg)
+    ctx = int(normalized.get("ctx_size", normalized.get("CTX_SIZE", config.CTX_SIZE)))
+    flash = normalized.get("flash_attn", normalized.get("FLASH_ATTN", config.FLASH_ATTN))
+    if ctx < config.MIN_CTX_SIZE:
+        raise ConfigError(f"CTX_SIZE must be >= {config.MIN_CTX_SIZE}; got {ctx}")
+    if flash != "on":
+        raise ConfigError("FLASH_ATTN must be 'on'")
+    batch = int(normalized.get("batch_size", normalized.get("BATCH_SIZE", config.BATCH_SIZE)))
+    ubatch = int(normalized.get("ubatch_size", normalized.get("UBATCH_SIZE", config.UBATCH_SIZE)))
+    if batch <= 0 or ubatch <= 0 or ubatch > batch:
+        raise ConfigError("Require BATCH_SIZE > 0 and 0 < UBATCH_SIZE <= BATCH_SIZE")
+    for key, value in normalized.items():
+        if isinstance(value, float) and not math.isfinite(value):
+            raise ConfigError(f"{key} must be finite")
+    normalized["CTX_SIZE"] = ctx
+    normalized["FLASH_ATTN"] = flash
+    return normalized
+
 ROOT_DIR = Path(__file__).resolve().parent
 LLAMA_CPP_ROOT = Path(os.environ.get("AUTORESEARCH_LLAMA_CPP_ROOT", "./llama.cpp"))
 IS_WINDOWS = os.name == "nt"
@@ -100,8 +127,6 @@ class ServerIntent:
         Returns (intent, norm_dict) where norm_dict holds all config fields
         (server + non-server) for callers that need remaining params.
         """
-        from autoresearch.core.config import validate_config
-
         merged = dict(cfg)
         merged.update({k: v for k, v in overrides.items() if v is not None})
         merged = validate_config(merged)
