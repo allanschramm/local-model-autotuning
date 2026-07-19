@@ -94,15 +94,21 @@ def write_config(cfg: dict[str, Any]) -> None:
     write_state(state)
 
 
-def trial_config(cfg: dict[str, Any], defaults: dict[str, Any]) -> dict[str, Any]:
+def trial_config(cfg: dict[str, Any], defaults: dict[str, Any], include_ppl: bool = False) -> dict[str, Any]:
     """Map bench_config INCLUDE_* flags onto evaluation.py agentic_*/include_coding keys."""
-    return {
-        **defaults,
-        **cfg,
-        "include_coding": bool(cfg.get("INCLUDE_CODING", False)),
-        "agentic_quick": bool(cfg.get("INCLUDE_AGENTIC_QUICK", False)),
-        "agentic_full": bool(cfg.get("INCLUDE_AGENTIC_FULL", False)),
-    }
+    res_cfg = {**defaults, **cfg}
+    if include_ppl:
+        for k in ["INCLUDE_CODING", "INCLUDE_AGENTIC_QUICK", "INCLUDE_AGENTIC_FULL",
+                  "include_coding", "agentic_quick", "agentic_full",
+                  "include_agentic_quick", "include_agentic_full"]:
+            res_cfg[k] = False
+        res_cfg["include_perplexity"] = True
+    else:
+        res_cfg["include_coding"] = bool(cfg.get("INCLUDE_CODING", False))
+        res_cfg["agentic_quick"] = bool(cfg.get("INCLUDE_AGENTIC_QUICK", False))
+        res_cfg["agentic_full"] = bool(cfg.get("INCLUDE_AGENTIC_FULL", False))
+        res_cfg["include_perplexity"] = False
+    return res_cfg
 
 
 def preflight_vram_ok(cfg: dict[str, Any], vram_limit: float | None) -> bool:
@@ -141,6 +147,7 @@ def main():
     parser.add_argument("--max-rounds", type=int, default=0, help="Max rounds (0=infinite)")
     parser.add_argument("--reset-visited", action="store_true", help="Reset local Search state to immutable defaults")
     parser.add_argument("--models", nargs="+", help="Space-separated list of model filenames to optimize (1 or more)")
+    parser.add_argument("--perplexity-val", action="store_true", help="Enable perplexity validation to act as a quality ceiling constraint while optimizing for TPS")
     cli_args = parser.parse_args()
 
     vram_limit = cli_args.vram_limit_mb
@@ -246,7 +253,7 @@ def main():
 
             # ── Step 2: Evaluate baseline ────────────────────────────────
             print("\n[EVAL] Running baseline benchmarks...")
-            baseline_res = runner.run_trial(trial_config(baseline_cfg, _defaults))
+            baseline_res = runner.run_trial(trial_config(baseline_cfg, _defaults, include_ppl=cli_args.perplexity_val))
             if getattr(baseline_res, "outcome", TrialOutcome.OK) in (TrialOutcome.INFRA_ERROR, TrialOutcome.CODE_ERROR):
                 raise RuntimeError(f"Search stopped: {baseline_res.status}")
             baseline_score = baseline_res.val_score
@@ -262,7 +269,7 @@ def main():
                 baseline_vram,
                 baseline_status,
                 f"AutoLoop R{round_num} baseline for {model_name}: {search_strategy.format_config_summary(baseline_cfg)} "
-                f"TPS={baseline_tps:.1f}",
+                f"TPS={baseline_tps:.1f} PPL={getattr(baseline_res, 'bench_ppl', 0.0):.4f}",
                 lcb_score=baseline_res.lcb_val, bigcode_score=baseline_res.bigcode_val,
                 category="agentic-full",
                 model=model_name,
@@ -275,7 +282,8 @@ def main():
                 tps_source=getattr(baseline_res, "tps_source", ""),
             )
 
-            print(f"[BASELINE] Score={baseline_score:.6f} TPS={baseline_tps:.1f} VRAM={baseline_vram:.1f}GB")
+            ppl_str = f" PPL={getattr(baseline_res, 'bench_ppl', 0.0):.4f}" if cli_args.perplexity_val else ""
+            print(f"[BASELINE] Score={baseline_score:.6f} TPS={baseline_tps:.1f}{ppl_str} VRAM={baseline_vram:.1f}GB")
 
             if baseline_status == "discard":
                 print(f"[BASELINE] Rejected ({baseline_res.status}); attempting Random Restart.")
@@ -313,7 +321,7 @@ def main():
                     continue
 
                 print(f"\n  [EVAL] Trying {changed}: {old_val} -> {new_val}")
-                res = runner.run_trial(trial_config(neighbor.config, _defaults))
+                res = runner.run_trial(trial_config(neighbor.config, _defaults, include_ppl=cli_args.perplexity_val))
                 if getattr(res, "outcome", TrialOutcome.OK) in (TrialOutcome.INFRA_ERROR, TrialOutcome.CODE_ERROR):
                     raise RuntimeError(f"Search stopped: {res.status}")
                 score = res.val_score
@@ -328,6 +336,14 @@ def main():
                     score, tps, vram
                 )
 
+                # Apply Perplexity Quality Ceiling Constraint
+                if cli_args.perplexity_val:
+                    n_ppl = getattr(res, "bench_ppl", 0.0)
+                    b_ppl = getattr(baseline_res, "bench_ppl", 0.0)
+                    if n_ppl > b_ppl * 1.01:
+                        is_improvement = False
+                        reason = f"Perplexity degraded too much (PPL={n_ppl:.4f} vs base={b_ppl:.4f})"
+
                 status = "keep" if is_improvement else "discard"
 
                 write_row(
@@ -335,7 +351,7 @@ def main():
                     res.swe_val, res.he_val, res.mbpp_val,
                     vram, status,
                     f"AutoLoop R{round_num} {changed}={new_val}: "
-                    f"{search_strategy.format_config_summary(neighbor.config)} TPS={tps:.1f} Δ={delta:+.6f}",
+                    f"{search_strategy.format_config_summary(neighbor.config)} TPS={tps:.1f} PPL={getattr(res, 'bench_ppl', 0.0):.4f} Δ={delta:+.6f}",
                     lcb_score=res.lcb_val, bigcode_score=res.bigcode_val,
                     category="agentic-full",
                     model=model_name,

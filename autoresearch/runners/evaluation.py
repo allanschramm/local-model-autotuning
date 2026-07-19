@@ -12,7 +12,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Protocol
 
-from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent, resolve_llama_bench
+from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent, resolve_llama_bench, resolve_llama_perplexity
 from autoresearch.core.config import ConfigError
 from autoresearch.core.sglang_runner import SGLangServerRunner, run_sglang_bench_validation
 from autoresearch.core.llama_client import LlamaClient, GenerationParams
@@ -73,6 +73,7 @@ class TrialResult:
     peak_vram_gb: float = 0.0
     bench_tg_tps: float = 0.0
     bench_pp_tps: float = 0.0
+    bench_ppl: float = 0.0
     elapsed_sec: float = 0.0
     outcome: TrialOutcome = TrialOutcome.OK
     diagnostic: str = ""
@@ -130,6 +131,55 @@ def run_llama_bench_validation(
         raise RuntimeError(f"llama-bench returned no tg result: {result.stdout[:300]}")
 
     return tg_tps
+
+
+def run_llama_perplexity_validation(
+    model_path: Path,
+    ngl: int = 99,
+    threads: int = 8,
+    batch_size: int = 512,
+    ubatch_size: int = 128,
+    flash_attn: str = "on",
+    cache_type_k: str = "q4_0",
+    cache_type_v: str = "q4_0",
+    ctx_size: int = 2048,
+    text_file: Path = BASE_DIR / "../../data/perplexity_val.txt",
+    chunks: int = 1,
+) -> float:
+    """Run llama-perplexity over the validation text and return the resulting float score."""
+    llama_ppl = resolve_llama_perplexity()
+
+    cmd = [
+        str(llama_ppl),
+        "-m", str(model_path),
+        "-f", str(text_file),
+        "-t", str(threads),
+        "-ngl", str(ngl),
+        "-b", str(batch_size),
+        "-ub", str(ubatch_size),
+        "-fa", flash_attn,
+        "-ctk", cache_type_k,
+        "-ctv", cache_type_v,
+        "-c", str(ctx_size),
+        "--chunks", str(chunks),
+    ]
+
+    print(f"  [perplexity] {' '.join(str(a) for a in cmd)}")
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
+
+    import re
+    full_output = (result.stdout or "") + "\n" + (result.stderr or "")
+    match = re.search(r"Final estimate:\s*PPL\s*=\s*([0-9.]+)", full_output)
+    if not match:
+        # Fallback: parse single chunk perplexity like [1]5.8806,
+        chunk_match = re.search(r"\[\d+\]\s*([0-9.]+)", full_output)
+        if chunk_match:
+            return float(chunk_match.group(1))
+        raise RuntimeError(f"Could not parse perplexity from output. stdout: {result.stdout[:200]}, stderr: {result.stderr[:200]}")
+    
+    return float(match.group(1))
 
 
 class ExperimentRunner:
@@ -283,6 +333,30 @@ class ExperimentRunner:
                     print(f"  [OK] Bench validation passed: tg {bench_tg:.1f} t/s >= {bench_tts_threshold:.1f}")
                     # Fall through to the configured agentic smoke validation.
 
+        # ── Perplexity validation ────────────────────────────────────────
+        include_perplexity = bool(norm.get("include_perplexity", False))
+        if include_perplexity:
+            try:
+                ppl = run_llama_perplexity_validation(
+                    model_path=intent.model_path,
+                    ngl=intent.ngl,
+                    threads=intent.threads,
+                    batch_size=intent.batch_size,
+                    ubatch_size=intent.ubatch_size,
+                    flash_attn=intent.flash_attn,
+                    cache_type_k=intent.kv_cache_k or intent.kv_cache,
+                    cache_type_v=intent.kv_cache_v or intent.kv_cache,
+                    ctx_size=2048,
+                )
+                res.bench_ppl = ppl
+                print(f"  [perplexity] PPL: {ppl:.4f}")
+            except Exception as e:
+                print(f"  [FAIL] Perplexity validation failed: {e}")
+                res.status = f"FAIL: Perplexity failed: {str(e)[:50]}"
+                res.outcome = TrialOutcome.INFRA_ERROR
+                res.diagnostic = str(e)
+                return res
+
         # ── Full evaluation ──────────────────────────────────────────────
         server_log = BASE_DIR / "llama_server.log"
         if server_log.exists():
@@ -302,6 +376,26 @@ class ExperimentRunner:
         )
 
         trial_start = time.time()
+        if include_perplexity and not include_coding and not agentic_quick and not agentic_full:
+            res.avg_tps = res.bench_tg_tps
+            res.tps_source = "backend-bench"
+            if res.avg_tps < 20.0:
+                res.val_score = 0.0
+                res.outcome = TrialOutcome.MODEL_REJECTED
+                return res
+            if include_perplexity:
+                res.val_score = res.avg_tps
+            else:
+                res.val_score = 0.0
+            
+            # Estimate peak VRAM from config since server wasn't started
+            from autoresearch.core.llama_runner import estimate_vram_mb
+            k_val = intent.kv_cache_k or intent.kv_cache
+            v_val = intent.kv_cache_v or intent.kv_cache
+            res.peak_vram_gb = estimate_vram_mb(intent.model_path, intent.ctx_size, k_val, v_val) / 1024.0
+            res.elapsed_sec = time.time() - trial_start
+            return res
+
         runner = None
         try:
             runner_cls = SGLangServerRunner if intent.model_path.is_dir() else LlamaServerRunner
@@ -376,11 +470,15 @@ class ExperimentRunner:
                     res.avg_tps = 0.0
                     res.tps_source = "skipped"
 
-                # Agentic takes priority as quality gate; falls back to coding
+                # Agentic takes priority as quality gate; falls back to coding; falls back to perplexity-only
                 if res.agentic_tier and res.agentic_task_count > 0:
                     res.val_score = res.agentic_val
-                else:
+                elif include_coding:
                     res.val_score = res.coding_val
+                elif include_perplexity:
+                    res.val_score = res.avg_tps
+                else:
+                    res.val_score = 0.0
 
         except Exception as e:
             print(f"  [FAIL] Evaluation failed: {e}")

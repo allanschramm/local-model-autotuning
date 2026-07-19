@@ -384,6 +384,45 @@ class TestAutoLoop(unittest.TestCase):
         # Neighbor was skipped (vram over budget), but baseline still ran
         self.assertGreaterEqual(mock_runner.run_trial.call_count, 1)
 
+    @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--models", "test.gguf", "--perplexity-val"])
+    @patch("autoloop.MODELS_DIR")
+    @patch("autoloop.ExperimentRunner")
+    @patch("autoloop.load_config")
+    @patch("autoloop.write_config")
+    @patch("autoloop.get_git_commit", return_value="abc")
+    @patch("autoloop.write_row")
+    @patch("autoloop.estimate_vram_mb", return_value=0.0)
+    def test_main_with_perplexity_validation(
+        self, mock_vram, mock_write_row, mock_git, mock_wcfg, mock_lcfg,
+        mock_runner_cls, mock_models_dir
+    ):
+        """Main loop runs successfully with --perplexity-val active."""
+        mock_models_dir.glob.return_value = [Path("test.gguf")]
+        mock_lcfg.return_value = self._full_config(MODEL="test.gguf")
+        mock_runner = MagicMock()
+        
+        # Mock result for baseline and neighbors
+        base_res = self._make_trial_result()
+        base_res.bench_ppl = 5.5
+        base_res.val_score = 30.0
+        
+        mock_runner.run_trial.return_value = base_res
+        mock_runner_cls.return_value = mock_runner
+
+        strategy = SearchStrategy(autoloop.SEARCH_SPACE, use_pareto_tiebreaker=True)
+        base_config = self._full_config(MODEL="test.gguf")
+        nbr = strategy.get_neighbors(base_config)[0]
+
+        with patch.object(SearchStrategy, "get_neighbors", return_value=[nbr]):
+            with patch.object(SearchStrategy, "random_restart", return_value=None):
+                autoloop.main()
+
+        # baseline and neighbor ran with perplexity_val active
+        self.assertGreaterEqual(mock_runner.run_trial.call_count, 2)
+        # Ensure include_perplexity parameter was set to True
+        first_call_args, first_call_kwargs = mock_runner.run_trial.call_args_list[0]
+        self.assertTrue(first_call_args[0]["include_perplexity"])
+
 
 if __name__ == "__main__":
     unittest.main()

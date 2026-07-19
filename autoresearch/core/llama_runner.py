@@ -221,6 +221,19 @@ def resolve_llama_bench() -> Path:
     )
 
 
+LLAMA_PERPLEXITY_CANDIDATES = _binary_candidates("llama-perplexity")
+
+
+def resolve_llama_perplexity() -> Path:
+    for candidate in LLAMA_PERPLEXITY_CANDIDATES:
+        if candidate.exists():
+            return candidate.resolve()
+    raise FileNotFoundError(
+        "llama-perplexity not found. Expected one of: "
+        + ", ".join(str(path) for path in LLAMA_PERPLEXITY_CANDIDATES)
+    )
+
+
 def candidate_ports(preferred: int) -> list[int]:
     return list(dict.fromkeys((preferred, preferred + 1, preferred + 2, 18080, 28080)))
 
