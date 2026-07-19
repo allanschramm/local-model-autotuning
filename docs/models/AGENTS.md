@@ -58,4 +58,5 @@ One markdown file per GGUF model we run on this rig. Cards are the canonical loc
 - [ornith-1.0-35b.md](ornith-1.0-35b.md) — Ornith-1.0-35B (Q4_K_M, 19.70 GB).
 - [ornith-1.0-35b-iq3_m.md](ornith-1.0-35b-iq3_m.md) — Ornith-1.0-35B IQ3_M variant (15.74 GB, rejected).
 - [vitriol-technique.md](vitriol-technique.md) — Codacus MoE-on-small-VRAM technique (cross-cutting, not a model card).
+- [bonsai-27b.md](bonsai-27b.md) — Bonsai-27B (Q1_0 1-bit, DSpark drafter; 262K ctx, prism fork; drafter load crash TBD).
 
