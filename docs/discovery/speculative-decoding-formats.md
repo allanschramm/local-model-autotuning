@@ -66,6 +66,11 @@ Tested on our local rig (RTX 4060 8 GB VRAM) on a standard short prompt:
 *   **DFlash (`draft-dflash`):** **51.3 t/s** (+31.2% speedup, cost: ~765 MB VRAM)
 *   **Multi-Token Prediction (`draft-mtp`):** **69.1 t/s** (**+76.7% speedup!**, cost: ~380 MB VRAM)
 
+### Qwen3.6-35B-A3B (MoE):
+*   **Baseline (`none` with `--n-cpu-moe 40`):** **19.0 - 22.1 t/s**
+*   **Eagle-3 (`draft-eagle3` with `--n-cpu-moe 40`):** **8.3 t/s** (**-60% performance slowdown!**)
+*   *Note: For sparse MoE models where active experts are offloaded to CPU (to fit in 8 GB VRAM), speculative decoding causes severe bottlenecks. The draft model runs on GPU but requires sequential CPU synchronization for routing/experts on every draft token proposal, collapsing throughput. When running MoE models with CPU expert offloading, speculative decoding should be disabled (`none`).*
+
 ---
 
 ## 4. Key Takeaways & Trade-offs (VRAM vs Context Size)
