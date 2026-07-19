@@ -71,6 +71,11 @@ Tested on our local rig (RTX 4060 8 GB VRAM) on a standard short prompt:
 *   **Eagle-3 (`draft-eagle3` with `--n-cpu-moe 40`):** **8.3 t/s** (**-60% performance slowdown!**)
 *   *Note: For sparse MoE models where active experts are offloaded to CPU (to fit in 8 GB VRAM), speculative decoding causes severe bottlenecks. The draft model runs on GPU but requires sequential CPU synchronization for routing/experts on every draft token proposal, collapsing throughput. When running MoE models with CPU expert offloading, speculative decoding should be disabled (`none`).*
 
+### Bonsai-27B (Sparse MoE):
+*   **Baseline (`none`):** **37.3 t/s** (Target model `Bonsai-27B-Q1_0.gguf` fully on GPU, ~3.80 GB VRAM)
+*   **DSpark (`draft-dspark`):** **19.2 t/s** (**-48.5% performance slowdown!** with draft `Bonsai-27B-dspark-Q4_1.gguf`, ~1.79 GB VRAM)
+*   *Note: Under extreme low-bit target quantizations (like 1-bit Q1_0), the main model's forward passes run incredibly fast on GPU (37.3 t/s for 27B parameters). Because the draft model is in a heavier precision (4-bit Q4_1, 1.79 GB), its forward passes are slower per token, making speculation slower than simply running the target model directly (Quantization-Speed Inversion).*
+
 ---
 
 ## 4. Key Takeaways & Trade-offs (VRAM vs Context Size)
