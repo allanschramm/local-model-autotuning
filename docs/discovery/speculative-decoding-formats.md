@@ -50,13 +50,18 @@ In `llama.cpp`, the format is specified using the `--spec-type` flag. These form
 
 ---
 
-## 3. Local Performance Comparison (Gemma-4 E4B)
+## 3. Local Performance Comparison
 
 Tested on our local rig (RTX 4060 8 GB VRAM) on a standard short prompt:
 
+### Gemma-4 E4B:
 *   **Baseline (`none`):** **61.6 t/s**
 *   **N-gram Cache (`ngram-cache`):** **65.4 t/s** (+6.1% speedup, 0 VRAM cost)
 *   **N-gram Simple (`ngram-simple`):** **65.6 t/s** (+6.4% speedup, 0 VRAM cost)
 *   **Multi-Token Prediction (`draft-mtp`):** **103.7 t/s** (**+68.3% speedup!**, cost: ~60 MB VRAM)
+*   *Note: Attempting to load the MTP draft file with `--spec-type draft-eagle3` throws a model initialization error and falls back silently to the non-speculative baseline (64.4 t/s).*
 
-*Note: Attempting to load the MTP draft file with `--spec-type draft-eagle3` throws a model initialization error and falls back silently to the non-speculative baseline (64.4 t/s).*
+### Qwen3.5-9B:
+*   **Baseline (`none`):** **39.1 t/s**
+*   **DFlash (`draft-dflash`):** **51.3 t/s** (+31.2% speedup, cost: ~765 MB VRAM)
+*   **Multi-Token Prediction (`draft-mtp`):** **69.1 t/s** (**+76.7% speedup!**, cost: ~380 MB VRAM)
