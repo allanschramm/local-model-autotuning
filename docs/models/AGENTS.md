@@ -47,16 +47,5 @@ One markdown file per GGUF model we run on this rig. Cards are the canonical loc
 - "Sources / Verification" must list URLs with extraction dates.
 - "Open questions" must be empty for production-use models; new TBDs are allowed but must be dated and actionable.
 
-## Child DOX Index
-- [README.md](README.md) — quick index (kept for human readers; auto-mirror of this list).
-- [gemma-4-12b.md](gemma-4-12b.md) — Gemma-4-12B (UD-Q4_K_XL, 6.3 GB).
-- [qwythos-9b-claude-mythos-5-1m.md](qwythos-9b-claude-mythos-5-1m.md) — Qwythos-9B-Claude-Mythos-5-1M (Q4_K_M, 5.3 GB).
-- [qwen3.6-35b-a3b.md](qwen3.6-35b-a3b.md) — Qwen3.6-35B-A3B (UD-Q4_K_M, 22.1 GB).
-- [qwen-agentworld-35b-a3b.md](qwen-agentworld-35b-a3b.md) — Qwen-AgentWorld-35B-A3B (UD-IQ4_XS, 16.56 GB).
-- [gemma-4-26b-a4b.md](gemma-4-26b-a4b.md) — Gemma-4-26B-A4B-it (UD-Q4_K_M, 16.2 GB).
-- [ornith-1.0-9b.md](ornith-1.0-9b.md) — Ornith-1.0-9B (Q4_K_M, 5.63 GB).
-- [ornith-1.0-35b.md](ornith-1.0-35b.md) — Ornith-1.0-35B (Q4_K_M, 19.70 GB).
-- [ornith-1.0-35b-iq3_m.md](ornith-1.0-35b-iq3_m.md) — Ornith-1.0-35B IQ3_M variant (15.74 GB, rejected).
-- [vitriol-technique.md](vitriol-technique.md) — Codacus MoE-on-small-VRAM technique (cross-cutting, not a model card).
-- [bonsai-27b.md](bonsai-27b.md) — Bonsai-27B (Q1_0 1-bit, DSpark drafter; 262K ctx, prism fork; drafter load crash TBD).
+
 

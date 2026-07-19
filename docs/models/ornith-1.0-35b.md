@@ -1,11 +1,11 @@
 # Ornith-1.0-35B — Model Card (Local)
 
-**Source repo:** https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B-GGUF
+**Source repo:** https://huggingface.co/unsloth/Ornith-1.0-35B-GGUF
 **Unsloth docs:** https://unsloth.ai/docs/models/qwen35 (model uses Qwen 3.5 MoE architecture)
 **License:** Apache-2.0
-**Local file:** `models/ornith-1.0-35b-Q4_K_M.gguf` (19.70 GiB)
+**Local file:** `models/Ornith-1.0-35B-UD-Q4_K_XL.gguf` (22.32 GB) (previously `models/deepreinforce-ai_Ornith-1.0-35B-IQ3_M.gguf`)
 **Family:** Ornith (based on Qwen 3.5 MoE architecture)
-**Quantization:** `Q4_K_M` (4.88 BPW)
+**Quantization:** `UD-Q4_K_XL` (Unsloth Dynamic Q4_K_XL)
 
 ## Architecture (from GGUF metadata, verified via llama-server log)
 - Causal LM (hybrid Attention + SSM + MoE)
@@ -105,6 +105,11 @@ See [IQ3_M variant card](ornith-1.0-35b-iq3_m.md) for detailed testing results.
 - **n-cpu-moe 32 is the sweet spot** for RTX 4060 8 GB
 - No fork, quant, or speculative decoding improves TPS or score
 - 35B is hardware-limited by 8 GB VRAM
+
+### 2026-07-19 Update (Unsloth Dynamic 4-bit XL Quant)
+- Upgraded local model to the newly released `Ornith-1.0-35B-UD-Q4_K_XL.gguf` (22.32 GB) from Unsloth.
+- Alias `o35` updated.
+- Performance/TPS results pending benchmark.
 
 ## Open questions
 - None (baseline verified).

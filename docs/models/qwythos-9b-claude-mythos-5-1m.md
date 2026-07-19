@@ -4,6 +4,7 @@
 **License:** Apache-2.0
 **Local files:**
 - `models/Qwythos-9B-Claude-Mythos-5-1M-Q4_K_M.gguf` (5.3 GB)
+- `models/Qwythos-9B-v2-Q4_K_M.gguf` (5.74 GB)
 **Family:** Qwythos (based on Qwen 3.5 architecture)
 **Architecture type:** Dense (all params active per token)
 **MTP:** Optional training head (orthogonal to architecture — both dense and MoE models can have MTP)

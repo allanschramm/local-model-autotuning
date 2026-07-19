@@ -1,13 +1,12 @@
 # Gemma-4-26B-A4B — Model Card (Local)
 
-**Source repo:** https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF
+**Source repo:** https://huggingface.co/unsloth/gemma-4-26B-A4B-it-qat-GGUF
 **Unsloth docs:** https://unsloth.ai/docs/models/gemma-4
 **MTP guide:** https://unsloth.ai/docs/models/mtp
 **License:** Apache-2.0 (Gemma 4 license)
-**Local file:** `/mnt/d/LLM-Models/gemma-4-26B-A4B-it-UD-Q4_K_M.gguf` (16.2 GB)
-**Symlink:** `models/gemma-4-26B-A4B-it-UD-Q4_K_M.gguf -> /mnt/d/LLM-Models/gemma-4-26B-A4B-it-UD-Q4_K_M.gguf`
+**Local file:** `models/gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf` (14.25 GB) (previously `models/gemma-4-26B-A4B-it-QAT-Q4_0.gguf`)
 **Family:** Gemma 4 (Google DeepMind)
-**Quantization:** Unsloth Dynamic 2.0 — `UD-Q4_K_M`
+**Quantization:** Unsloth QAT Dynamic Q4_K_XL — `UD-Q4_K_XL` (QAT-lossless 4-bit)
 
 ## Architecture (from GGUF metadata, verified via gguf lib)
 - Causal LM (text-only, this GGUF has NO vision encoder tensors)
@@ -123,6 +122,11 @@ MTP: `--spec-type mtp` (corrected flag, not `draft-mtp` — see Qwen3.6 card for
 - **HumanEval pass@1 = 0.533 (16/30)**
 - **TPS ~13-18** (abaixo do floor de 20 — score zerado, descarte)
 - Resultado fica como evidência da viabilidade da técnica; tuning posterior precisa melhorar TPS
+
+### 2026-07-19 Update (Unsloth QAT Dynamic 4-bit XL Quant)
+- Upgraded model file to `gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf` (14.25 GB) from Unsloth.
+- Created local alias `gemma-4-26b-a4b`.
+- Performance/TPS results pending benchmark.
 
 ## Sources / Verification
 - HF model card (extracted 2026-06-15)

@@ -1,11 +1,11 @@
 # Ornith-1.0-9B — Model Card (Local)
 
-**Source repo:** https://huggingface.co/deepreinforce-ai/Ornith-1.0-9B-GGUF
+**Source repo:** https://huggingface.co/unsloth/Ornith-1.0-9B-GGUF
 **Unsloth docs:** https://unsloth.ai/docs/models/qwen35 (model uses Qwen 3.5 architecture)
 **License:** Apache-2.0
-**Local file:** `models/ornith-1.0-9b-Q4_K_M.gguf` (5.63 GB)
+**Local file:** `models/Ornith-1.0-9B-UD-Q4_K_XL.gguf` (5.98 GB) (previously `models/ornith-1.0-9b-Q4_K_M.gguf`)
 **Family:** Ornith (based on Qwen 3.5 architecture)
-**Quantization:** `Q4_K_M`
+**Quantization:** `UD-Q4_K_XL` (Unsloth Dynamic Q4_K_XL)
 
 ## Architecture (from GGUF metadata, verified via gguf lib)
 - Causal LM (hybrid Attention + SSM)
@@ -97,6 +97,11 @@ Since the model is ~5.6 GB and we have 8 GB of VRAM, we can run with maximum GPU
 - **0.580 / 52.2 TPS is the ceiling** for RTX 4060 8 GB
 - No hyperparam, fork, or quant improves either score or speed
 - 9B is the optimal model for this hardware
+
+### 2026-07-19 Update (Unsloth Dynamic 4-bit XL Quant)
+- Upgraded local model to the newly released `Ornith-1.0-9B-UD-Q4_K_XL.gguf` (5.98 GB) from Unsloth.
+- Alias `o9` updated.
+- Performance/TPS results pending benchmark.
 
 ## Open questions
 - None (baseline verified).

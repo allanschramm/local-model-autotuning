@@ -15,7 +15,9 @@ Dense and MoE models can both have MTP support.
 
 Cards:
 - [Gemma-4-12B](gemma-4-12b.md)
+- [Gemma-4-E4B](gemma-4-e4b.md)
 - [Qwythos-9B-Claude-Mythos-5-1M](qwythos-9b-claude-mythos-5-1m.md)
+- [Qwen3.5-9B](qwen3.5-9b.md)
 - [Qwen3.6-35B-A3B](qwen3.6-35b-a3b.md)
 - [Qwen-AgentWorld-35B-A3B](qwen-agentworld-35b-a3b.md)
 - [Gemma-4-26B-A4B](gemma-4-26b-a4b.md)
