@@ -32,15 +32,15 @@ In `llama.cpp`, the format is specified using the `--spec-type` flag. These form
 
 ### B. Eagle 3 — `draft-eagle3`
 *   **How it works:** A tree-based speculative decoder that trains a small recurrent neural network head directly on top of the target model's hidden states.
-*   **Availability:** While Unsloth does not bundle Eagle drafts for our current targets, the community uploads Eagle-3 GGUF draft models for some target models on Hugging Face (e.g. `Ex0bit/Qwen3.6-27B-PRISM-PRO-DQ`). They must be paired using `--spec-type draft-eagle3` and `-md <path>`.
+*   **Availability:** While Unsloth does not bundle Eagle drafts for our current targets, the community hosts Eagle-3 GGUF draft models for target models on Hugging Face (e.g. `Ex0bit/Qwen3.6-27B-PRISM-PRO-DQ`, `thoughtworks/Gemma-4-31B-Eagle3`, or `RedHatAI/gemma-4-31B-it-speculator.eagle3`). They must be paired using `--spec-type draft-eagle3` and `-md <path>`.
 *   **Error Case:** If you try to pass an MTP draft model to `--spec-type draft-eagle3`, it will fail to load with:
     `failed to initialize speculative decoding context: draft model is not eagle3`
 
 ### C. DFlash & DSpark — `draft-dflash` (DFlash) / `dspark` (DSpark)
 *   **How it works:** Open-source research released by DeepSeek (the **DeepSpec** framework).
-    - **DFlash:** A block-parallel drafter utilizing a diffusion-like block process to predict blocks of tokens in a single step (e.g. community files like `spiritbuun/Qwen3.6-27B-DFlash-GGUF`).
+    - **DFlash:** A block-parallel drafter utilizing a diffusion-like block process to predict blocks of tokens in a single step (e.g. `spiritbuun/Qwen3.6-27B-DFlash-GGUF` or `williamliao/gemma-4-31B-it-DFlash-GGUF`).
     - **DSpark:** A semi-autoregressive model combining a parallel backbone with a lightweight serial head to reduce "suffix decay" (loss of coherence at the end of draft sequences).
-*   **Availability:** These require specialized draft models trained via the DeepSpec pipeline. In our repository, the `Bonsai-27B` model (a quantized Qwen3.6-27B fork) utilizes DSpark speculative decoding (`Bonsai-27B-dspark-Q4_1.gguf`) in the PrismML fork to accelerate local inference. Other models (like Qwen3.5-9B or Gemma-4) require custom training through DeepSpec.
+*   **Availability:** In our repository, the `Bonsai-27B` model (a quantized Qwen3.6-27B fork) utilizes DSpark speculative decoding (`Bonsai-27B-dspark-Q4_1.gguf`) in the PrismML fork. There are also official DeepSeek DSpark releases for Gemma-4 (e.g. `deepseek-ai/dspark_gemma4_12b_block7` and community GGUF conversions like `ankk98/dspark-gemma4-12b-block7-Q4_0-GGUF`). Other target models require custom training via DeepSpec or finding matching community GGUF drafts.
 
 ### D. N-gram Decoders — `ngram-cache` / `ngram-simple`
 *   **How it works:** Instead of loading a neural network, these search the model's own active KV cache to find repeating patterns of words (N-grams) and predict subsequent tokens based on past context.
