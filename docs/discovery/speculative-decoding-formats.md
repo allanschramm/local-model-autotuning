@@ -65,3 +65,19 @@ Tested on our local rig (RTX 4060 8 GB VRAM) on a standard short prompt:
 *   **Baseline (`none`):** **39.1 t/s**
 *   **DFlash (`draft-dflash`):** **51.3 t/s** (+31.2% speedup, cost: ~765 MB VRAM)
 *   **Multi-Token Prediction (`draft-mtp`):** **69.1 t/s** (**+76.7% speedup!**, cost: ~380 MB VRAM)
+
+---
+
+## 4. Key Takeaways & Trade-offs (VRAM vs Context Size)
+
+For consumer GPU rigs with constrained VRAM (like our RTX 4060 8 GB):
+
+1.  **VRAM and Context Trade-Off:**
+    *   Every megabyte saved on the model/draft weights is a megabyte gained for the active KV cache context window.
+    *   For a 9B model using a `q4_0` KV cache quantization, saving **~385 MB** of VRAM (MTP vs DFlash) translates directly to an extra **~12,000 tokens of context depth**.
+2.  **MTP is the Optimal Choice:**
+    *   **Highest Speed:** +76.7% speedup vs +31.2% for DFlash.
+    *   **Lowest VRAM Footprint:** ~380 MB VRAM overhead vs ~765 MB for DFlash (saving nearly 50% VRAM overhead).
+    *   **Zero File Complexity (for Qwen):** Qwen's MTP draft heads are embedded directly in the main GGUF file, requiring no secondary `-md` flag or file tracking.
+3.  **DFlash and Eagle-3 Standby Value:**
+    *   While MTP is superior, DFlash and Eagle-3 remain valuable fallback architectures when testing custom fine-tuned models that do not support or were not trained with MTP layers.
