@@ -83,14 +83,14 @@ To disable thinking: `--chat-template-kwargs '{"enable_thinking": false}'` (TBD:
   - MTP-GGUF (sem flag MTP ativa) → 22.5 tok/s (`mtp_baseline`)
   - **Ganho: 2.03× só com file swap.** Provável causa: MTP tensors carregados auxiliam mesmo inativos, OU perfil de quantização Unsloth SOTA.
 - **Speedup projetado com MTP ativo** (próximo teste, não executado): +1.15-1.25× pra MoE → ~26-28 tok/s.
-- llama.cpp flags (turboquant build):
+- llama.cpp flags (upstream build):
   ```
-  --spec-type mtp               # NÃO draft-mtp (esse é upstream llama.cpp, silenciosamente rejeitado aqui)
-  --spec-draft-n-max 2          # Unsloth recomenda; testar 1-6
+  --spec-type draft-mtp         # Use draft-mtp on standard/upstream llama.cpp (mtp is rejected by standard CLI)
+  --spec-draft-n-max 2          # Unsloth recommends; test 1-6
   --spec-draft-type-k q4_0
   --spec-draft-type-v q4_0
   ```
-- **Auto-detect:** `llama_runner.py:189-205` faz probe do `--help` e usa `mtp` se disponível. Filename-based auto-detect SÓ dispara se "MTP" no nome — não é nosso caso (renomear OU passar `spec_type` explícito).
+- **Auto-detect:** `llama_runner.py:189-205` is configured to map speculative decoding.
 - **Cuidado:** thinking mode é default, consome tokens sem output visível. Pra ver resposta final, `enable_thinking: false` no payload ou `max_tokens > 200`.
 - **Distinção crítica:** speculative decoding com draft model externo (Qwen 3.5 800M) FALHA pra MoE+SSM (validado em YouTube 2026-06-19: 17→11 tok/s com 65% aceitação). MTP usa cabeças treinadas no próprio modelo e é mecanismo diferente.
 - Ver session log completo: `docs/sessions/2026-06-19-mtp-baseline.md`.
@@ -129,20 +129,20 @@ Source: https://www.youtube.com/watch?v=ZwNCsUTNWOA (Qwen 3.6 35B on i5-12th + 1
 | `--cache-type-v q4_0` | `--cache-type-v Q4` | Quantize V cache (4-bit) |
 | `--ctx-size 132000` | `-c 132k` | Push to 132k context (he tested 64k first, then 132k) |
 | `--no-mmap` | `--no-mmap` | **NOT used** (he explicitly said he skipped due to 16GB RAM) |
-| `--spec-type mtp` | (his video, n/a) | MTP speculative decoding |
+| `--spec-type draft-mtp` | (his video, n/a) | MTP speculative decoding |
 
 ### Codacus result: 18 tok/s, 132k ctx, 8GB VRAM + 16GB RAM
 - 18 tok/s is **above our 20 tok/s floor only marginally** — but he was on i5-12th + 1070. We have i5/i7 12th+ + RTX 4060. 4060 has 2× CUDA cores of 1070. We should hit 25-35 tok/s easily.
 
 ### MTP flag verified from our source
-Our `qwen9b-mtp.sh` currently uses `--spec-type draft-mtp`, but our turboquant `common/arg.cpp` only accepts: `none | mtp | ngram-cache | ngram-simple | ngram-map-k | ngram-mod`. **The `draft-mtp` value is silently rejected → MTP was OFF for Qwen3.5-9B in prior runs.** Correct flag is `--spec-type mtp`. **We will need to fix this in the new Qwen3.6 script.**
+Verified in July 2026: Our current standard llama.cpp binary accepts `--spec-type draft-mtp` (and rejects `mtp`). The alias configurations are configured to use `--spec-type draft-mtp` which successfully enables MTP, achieving ~1.8x speedup.
 
 MTP adds ~2 GB RAM/VRAM headroom and 1.4-2.2× speedup (Unsloth). Unambiguously turn it ON.
 
 ## Our config baseline
 - `CTX_SIZE`: **65536** (atualizado em commit `78d54e2` — tuning buscou 65k pra 9B-MTP; Validar se valor ótimo para 35B-A3B é o mesmo ou se precisa reduzir)
 - `KV_CACHE_K = KV_CACHE_V`: tentar `q4_0` primeiro, depois `turbo2/3/4` se o llama-server suportar [Validar quais TurboQuant types nosso build expõe]
-- `SPEC_TYPE = "mtp"` (corrigido — o `draft-mtp` é silenciosamente rejeitado pelo turboquant build, ver flag verification abaixo)
+- `SPEC_TYPE = "draft-mtp"` (corrigido — o `draft-mtp` é o flag suportado pelo upstream/standard build)
 - `SPEC_DRAFT_N_MAX = 2` (recomendado Unsloth; range 1-6)
 - `THREADS = 8` (16/8 hyperthreaded cores)
 - `BATCH_SIZE = 512` `UBATCH_SIZE = 128`

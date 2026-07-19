@@ -22,7 +22,7 @@
 
 ## MTP (Multi-Token Prediction)
 - **MTP tensors are integrated into this GGUF.**
-- Configured with `spec_type = "mtp"`.
+- Configured with `spec_type = "draft-mtp"`.
 - Uses `--spec-draft-n-max 2` for speculative decoding, achieving up to 1.5x–2.0x faster generation speeds.
 
 ## Recommended Settings
@@ -41,7 +41,7 @@
 - `THREADS = 8`
 - `THREADS_BATCH = 8`
 - `FLASH_ATTN = 'on'`
-- `SPEC_TYPE = 'mtp'`
+- `SPEC_TYPE = 'draft-mtp'`
 - `SPEC_DRAFT_N_MAX = 2`
 
 ### Status
