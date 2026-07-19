@@ -114,7 +114,7 @@ MTP: `--spec-type mtp` (corrected flag, not `draft-mtp` — see Qwen3.6 card for
 - `BATCH_SIZE = 512` `UBATCH_SIZE = 128`
 - `FLASH_ATTN = "on"`
 - `--n-gpu-layers`: Validar (autoloop vai descobrir)
-- `--n-cpu-moe`: **15** (para 30 layers — mantém metade dos experts no CPU/RAM, padrão configurado em commit `2bd795b`)
+- `--n-cpu-moe`: **30** (keeps all 30 layers of routed experts on CPU/RAM to avoid GPU memory swapping/thrashing on 8 GB VRAM at 65k context).
 - Sampling: Validar — Unsloth doc truncado antes da seção "Recommended Settings"
 
 ### Teste real (commit `2bd795b`)
@@ -126,7 +126,8 @@ MTP: `--spec-type mtp` (corrected flag, not `draft-mtp` — see Qwen3.6 card for
 ### 2026-07-19 Update (Unsloth QAT Dynamic 4-bit XL Quant)
 - Upgraded model file to `gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf` (14.25 GB) from Unsloth.
 - Created local alias `gemma-4-26b-a4b`.
-- Performance/TPS results pending benchmark.
+- Benchmarked: **19.00 TPS** at 65k depth with `--n-cpu-moe 30` (MTP speedup pending).
+- Note: `--n-cpu-moe 15` was retired because it exceeded 8 GB VRAM at 65k context, causing severe memory swapping.
 
 ## Sources / Verification
 - HF model card (extracted 2026-06-15)
