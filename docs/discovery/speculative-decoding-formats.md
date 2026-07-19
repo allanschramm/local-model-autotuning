@@ -21,7 +21,22 @@ In `llama.cpp`, the format is specified using the `--spec-type` flag. These form
 
 ---
 
-## 2. Deep-Dive into Formats
+## 2. Can MTP and other Speculative Decoding methods be used together?
+
+The short answer is **no, they are mutually exclusive at runtime**.
+
+1.  **MTP is already a form of Speculative Decoding:**
+    *   Speculative decoding is the general concept of using a fast drafting method to propose tokens and a target model to verify them.
+    *   Multi-Token Prediction (MTP) is simply a *specific implementation* of this concept, where the "draft model" is built directly into the target model as auxiliary prediction heads (e.g. Qwen's MTP heads or Gemma-4 assistant models). When you enable MTP, you *are* using speculative decoding.
+2.  **No Chaining or Multi-Speculation:**
+    *   During inference, you can only set **one** `--spec-type` flag. You cannot run `--spec-type draft-mtp` and `--spec-type draft-eagle3` at the same time.
+    *   The engine must follow a single path: either it uses the MTP heads to propose draft tokens, or it uses the external Eagle/DFlash model. Chaining them (e.g. using Eagle to draft tokens, then MTP to draft those drafts, and then verifying both) is not supported by any current inference engine and would introduce catastrophic synchronization overhead.
+3.  **Choosing the Best Method:**
+    *   Since they cannot be combined, you must choose the single best speculative type. For our Qwen/Gemma-4 target models, **MTP is always the optimal choice** (providing the highest speedup at the lowest VRAM footprint).
+
+---
+
+## 3. Deep-Dive into Formats
 
 ### A. Multi-Token Prediction (MTP) — `draft-mtp`
 *   **How it works:** Native to Qwen2.5/3.5/3.6 and Gemma-4. Google trained official "assistant" models (e.g. `google/gemma-4-E4B-it-assistant`) that share the base model's vocabulary and embeddings. Unsloth quantized these into standalone GGUF drafts.
@@ -50,7 +65,7 @@ In `llama.cpp`, the format is specified using the `--spec-type` flag. These form
 
 ---
 
-## 3. Local Performance Comparison
+## 4. Local Performance Comparison
 
 Tested on our local rig (RTX 4060 8 GB VRAM) on a standard short prompt:
 
@@ -78,7 +93,7 @@ Tested on our local rig (RTX 4060 8 GB VRAM) on a standard short prompt:
 
 ---
 
-## 4. Key Takeaways & Trade-offs (VRAM vs Context Size)
+## 5. Key Takeaways & Trade-offs (VRAM vs Context Size)
 
 For consumer GPU rigs with constrained VRAM (like our RTX 4060 8 GB):
 
