@@ -90,6 +90,7 @@ class ServerIntent:
     cont_batching: bool = False
     host: str = "127.0.0.1"
     spec_type: str | None = None
+    spec_draft_model: str | None = None
     n_cpu_moe: int | None = None
 
     @classmethod
@@ -134,6 +135,7 @@ class ServerIntent:
             reasoning=norm.get("reasoning"),
             cont_batching=norm.get("cont_batching", False),
             spec_type=norm.get("spec_type"),
+            spec_draft_model=norm.get("spec_draft_model") or norm.get("draft_model") or norm.get("spec_draft_model_file"),
             n_cpu_moe=norm.get("n_cpu_moe"),
         )
 
@@ -311,6 +313,9 @@ class LlamaServerRunner:
                 "--spec-draft-type-k", cache_type_k,
                 "--spec-draft-type-v", cache_type_v,
             ]
+            if self.intent.spec_draft_model:
+                draft_path = self.intent.model_path.parent / self.intent.spec_draft_model
+                cmd += ["--spec-draft-model", str(draft_path)]
 
         # VITRIOL Optimization: Hardware Necromancy for large MoE models.
         # Only match actual MoE architecture patterns, not model size numbers.

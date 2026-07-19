@@ -81,6 +81,26 @@ class TestLlamaRunner(unittest.TestCase):
         self.assertIn(".*exps.*=CPU", cmd)
 
     @patch("autoresearch.core.llama_runner.resolve_llama_server")
+    def test_build_cmd_traditional_speculative(self, mock_resolve):
+        mock_resolve.return_value = Path("/bin/llama-server")
+        intent = ServerIntent(
+            model_path=Path("models/qwen35-9b.gguf"),
+            ctx_size=2048,
+            kv_cache="q4_0",
+            flash_attn="on",
+            spec_type="draft-dflash",
+            spec_draft_model="qwen35-9b-dflash-Q4_K_M.gguf",
+            spec_draft_n_max=2
+        )
+        runner = LlamaServerRunner(intent)
+        cmd = runner._build_cmd(18080)
+        self.assertIn("--spec-type", cmd)
+        self.assertIn("draft-dflash", cmd)
+        self.assertIn("--spec-draft-model", cmd)
+        expected_draft_path = Path("models/qwen35-9b-dflash-Q4_K_M.gguf")
+        self.assertIn(str(expected_draft_path), cmd)
+
+    @patch("autoresearch.core.llama_runner.resolve_llama_server")
     @patch("urllib.request.urlopen")
     @patch("time.time")
     def test_wait_for_server_success(self, mock_time, mock_urlopen, mock_resolve):

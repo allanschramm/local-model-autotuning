@@ -54,7 +54,7 @@ SEARCH_SPACE = {
 # Core params (in autoresearch.core.config)
 CORE_PASSTHROUGH = [
     "KV_CACHE", "MODEL", "CTX_SIZE", "JINJA", "REASONING_BUDGET", "REASONING_BUDGET_MESSAGE",
-    "REASONING", "SPEC_TYPE", "FREQUENCY_PENALTY", "N_CPU_MOE",
+    "REASONING", "SPEC_TYPE", "SPEC_DRAFT_MODEL", "FREQUENCY_PENALTY", "N_CPU_MOE",
 ]
 # Bench params (in autoresearch.benchmarks.bench_config)
 BENCH_PASSTHROUGH = [
