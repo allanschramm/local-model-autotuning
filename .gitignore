@@ -65,9 +65,8 @@ run_gemma4.py
 run_grid_agency.py
 run_nexus_only.py
 
-# Per-user alias configs (paths are absolute, machine-specific)
-# Keep models/aliases/INDEX.md (schema) tracked; ignore per-alias config.yaml.
-models/aliases/*/config.yaml
+# Models folder is entirely local/offline
+/models/
 
 # Local launcher artifacts
 .model-up.pid
