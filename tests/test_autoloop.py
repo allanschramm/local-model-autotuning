@@ -423,6 +423,63 @@ class TestAutoLoop(unittest.TestCase):
         first_call_args, first_call_kwargs = mock_runner.run_trial.call_args_list[0]
         self.assertTrue(first_call_args[0]["include_perplexity"])
 
+    @patch("autoloop.Path")
+    def test_update_model_alias_success(self, mock_path_cls):
+        import yaml
+        with tempfile.TemporaryDirectory() as tmpdir:
+            aliases_dir = Path(tmpdir) / "models" / "aliases"
+            alias_dir = aliases_dir / "test-model"
+            alias_dir.mkdir(parents=True)
+            
+            yaml_path = alias_dir / "config.yaml"
+            dummy_config = {
+                "alias": "test-model",
+                "model": "models/test-model-gguf",
+                "flags": [],
+                "metrics": {"tps": 10.0}
+            }
+            with open(yaml_path, "w", encoding="utf-8") as f:
+                yaml.safe_dump(dummy_config, f)
+            
+            # Setup path mock to return our temp dir
+            mock_path = MagicMock()
+            # Path(__file__) is resolved in autoloop.py, mock resolve().parent
+            mock_path.resolve.return_value.parent = Path(tmpdir)
+            mock_path_cls.return_value = mock_path
+            
+            new_cfg = {"THREADS": 4, "BATCH_SIZE": 512}
+            autoloop.update_model_alias("test-model-v1.gguf", new_cfg, 25.5, "tps")
+            
+            with open(yaml_path, "r", encoding="utf-8") as f:
+                updated = yaml.safe_load(f)
+                
+            self.assertEqual(updated["metrics"]["tps"], 25.5)
+            self.assertIn("--threads 4", updated["flags"])
+
+    @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--models", "test.gguf", "--mode", "tps"])
+    @patch("autoloop.MODELS_DIR")
+    @patch("autoloop.ExperimentRunner")
+    @patch("autoloop.load_config")
+    @patch("autoloop.write_config")
+    @patch("autoloop.get_git_commit", return_value="abc")
+    @patch("autoloop.write_row")
+    @patch("autoloop.estimate_vram_mb", return_value=0.0)
+    @patch("autoloop.update_model_alias")
+    def test_main_with_tps_mode(
+        self, mock_update_alias, mock_vram, mock_write_row, mock_git, mock_wcfg, mock_lcfg,
+        mock_runner_cls, mock_models_dir
+    ):
+        mock_models_dir.glob.return_value = [Path("test.gguf")]
+        mock_lcfg.return_value = self._full_config(MODEL="test.gguf")
+        mock_runner = MagicMock()
+        mock_runner.run_trial.return_value = self._make_trial_result()
+        mock_runner_cls.return_value = mock_runner
+        
+        with patch.object(SearchStrategy, "random_restart", return_value=None):
+            autoloop.main()
+            
+        self.assertGreaterEqual(mock_runner.run_trial.call_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

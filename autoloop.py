@@ -123,6 +123,90 @@ def write_config(cfg: dict[str, Any]) -> None:
     write_state(state)
 
 
+def update_model_alias(model_name: str, new_cfg: dict, tps: float, mode: str) -> None:
+    """Resolve model alias in models/aliases/ and update its config.yaml with new flags and TPS."""
+    import yaml
+    aliases_dir = Path(__file__).resolve().parent / "models" / "aliases"
+    if not aliases_dir.exists():
+        return
+
+    # Option A: Automatic convention matching (lowercase prefix)
+    model_lower = model_name.lower()
+    target_dir = None
+    for d in aliases_dir.iterdir():
+        if d.is_dir() and model_lower.startswith(d.name.lower()):
+            target_dir = d
+            break
+
+    if not target_dir:
+        return
+
+    yaml_path = target_dir / "config.yaml"
+    if not yaml_path.exists():
+        return
+
+    try:
+        with open(yaml_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+        # 1. Compile flags from new_cfg
+        flags = []
+        if new_cfg.get("JINJA"): flags.append("--jinja")
+        if new_cfg.get("CTX_SIZE"): flags.append(f"--ctx-size {new_cfg['CTX_SIZE']}")
+        flags.append("--n-gpu-layers 99")
+        
+        k_val = new_cfg.get("KV_CACHE_K") or new_cfg.get("KV_CACHE")
+        if k_val: flags.append(f"--cache-type-k {k_val}")
+        
+        v_val = new_cfg.get("KV_CACHE_V") or new_cfg.get("KV_CACHE")
+        if v_val: flags.append(f"--cache-type-v {v_val}")
+        
+        if new_cfg.get("FLASH_ATTN"): flags.append(f"--flash-attn {new_cfg['FLASH_ATTN']}")
+        if new_cfg.get("THREADS"): flags.append(f"--threads {new_cfg['THREADS']}")
+        if new_cfg.get("THREADS_BATCH"): flags.append(f"--threads-batch {new_cfg['THREADS_BATCH']}")
+        if new_cfg.get("BATCH_SIZE"): flags.append(f"--batch-size {new_cfg['BATCH_SIZE']}")
+        if new_cfg.get("UBATCH_SIZE"): flags.append(f"--ubatch-size {new_cfg['UBATCH_SIZE']}")
+        if new_cfg.get("CONT_BATCHING"): flags.append("--cont-batching")
+        
+        spec_type = new_cfg.get("SPEC_TYPE")
+        if spec_type and spec_type != "none":
+            flags.append(f"--spec-type {spec_type}")
+            if new_cfg.get("SPEC_DRAFT_N_MAX", 0) > 0:
+                flags.append(f"--spec-draft-n-max {new_cfg['SPEC_DRAFT_N_MAX']}")
+            if new_cfg.get("SPEC_DRAFT_MODEL"):
+                flags.append(f"--spec-draft-model models/{new_cfg['SPEC_DRAFT_MODEL']}")
+
+        for p in ["TEMP", "TOP_P", "TOP_K", "MIN_P", "REPEAT_PENALTY", "PRESENCE_PENALTY"]:
+            val = new_cfg.get(p)
+            if val is not None:
+                flags.append(f"--{p.lower().replace('_', '-')} {val}")
+
+        data["flags"] = flags
+
+        # 2. Update metrics
+        if "metrics" not in data or not isinstance(data["metrics"], dict):
+            data["metrics"] = {}
+        data["metrics"]["tps"] = float(tps)
+        
+        import datetime
+        data["metrics"]["measured_at"] = datetime.date.today().strftime("%Y-%m-%d")
+        data["metrics"]["measured_by"] = "autoloop"
+        
+        notes = data["metrics"].get("notes", "")
+        if notes and "(Auto-updated by autoloop)" not in notes:
+            data["metrics"]["notes"] = f"{notes} (Auto-updated by autoloop)"
+        elif not notes:
+            data["metrics"]["notes"] = "Auto-updated by autoloop"
+
+        # 3. Write back with formatting preserved
+        with open(yaml_path, "w", encoding="utf-8") as f:
+            yaml.safe_dump(data, f, sort_keys=False, default_flow_style=False)
+
+        print(f"  [ALIAS] Automatically updated alias config at {yaml_path}")
+    except Exception as e:
+        print(f"  [WARNING] Failed to auto-update alias config: {e}")
+
+
 def trial_config(cfg: dict[str, Any], defaults: dict[str, Any], include_ppl: bool = False) -> dict[str, Any]:
     """Map bench_config INCLUDE_* flags onto evaluation.py agentic_*/include_coding keys."""
     res_cfg = {**defaults, **cfg}
@@ -177,6 +261,7 @@ def main():
     parser.add_argument("--reset-visited", action="store_true", help="Reset local Search state to immutable defaults")
     parser.add_argument("--models", nargs="+", help="Space-separated list of model filenames to optimize (1 or more)")
     parser.add_argument("--perplexity-val", action="store_true", help="Enable perplexity validation to act as a quality ceiling constraint while optimizing for TPS")
+    parser.add_argument("--mode", choices=["tps", "quality", "both"], default="both", help="Optimization mode: 'tps' (speed), 'quality' (accuracy), 'both' (everything)")
     cli_args = parser.parse_args()
 
     vram_limit = cli_args.vram_limit_mb
@@ -247,7 +332,16 @@ def main():
         "max_tokens": 1024,
         "context_tokens": 131072,
     }
-    search_strategy = SearchStrategy(SEARCH_SPACE, use_pareto_tiebreaker=True)
+    ENGINE_KEYS = {"THREADS", "THREADS_BATCH", "BATCH_SIZE", "UBATCH_SIZE", "KV_CACHE_K", "KV_CACHE_V", "SPEC_DRAFT_N_MAX", "CONT_BATCHING", "NO_MMAP"}
+    SAMPLER_KEYS = {"TEMP", "TOP_P", "TOP_K", "MIN_P", "REPEAT_PENALTY", "PRESENCE_PENALTY"}
+
+    active_search_space = dict(SEARCH_SPACE)
+    if cli_args.mode == "tps":
+        active_search_space = {k: v for k, v in SEARCH_SPACE.items() if k in ENGINE_KEYS}
+    elif cli_args.mode == "quality":
+        active_search_space = {k: v for k, v in SEARCH_SPACE.items() if k in SAMPLER_KEYS}
+
+    search_strategy = SearchStrategy(active_search_space, use_pareto_tiebreaker=True)
 
     for model_name in selected_models:
         if _stop_requested:
@@ -282,7 +376,8 @@ def main():
 
             # ── Step 2: Evaluate baseline ────────────────────────────────
             print("\n[EVAL] Running baseline benchmarks...")
-            baseline_res = runner.run_trial(trial_config(baseline_cfg, _defaults, include_ppl=cli_args.perplexity_val))
+            is_tps_mode = (cli_args.mode == "tps")
+            baseline_res = runner.run_trial(trial_config(baseline_cfg, _defaults, include_ppl=(is_tps_mode or cli_args.perplexity_val)))
             if getattr(baseline_res, "outcome", TrialOutcome.OK) in (TrialOutcome.INFRA_ERROR, TrialOutcome.CODE_ERROR):
                 raise RuntimeError(f"Search stopped: {baseline_res.status}")
             baseline_score = baseline_res.val_score
@@ -290,6 +385,13 @@ def main():
             baseline_vram = baseline_res.peak_vram_gb
             baseline_outcome = getattr(baseline_res, "outcome", TrialOutcome.OK)
             baseline_status = "discard" if baseline_outcome in (TrialOutcome.INVALID_CONFIG, TrialOutcome.MODEL_REJECTED) else "keep"
+
+            if cli_args.mode == "tps":
+                tsv_category = "engine-tps"
+            elif cli_args.mode == "quality":
+                tsv_category = "sampler-quality"
+            else:
+                tsv_category = "agentic-full"
 
             commit = get_git_commit()
             write_row(
@@ -300,18 +402,18 @@ def main():
                 f"AutoLoop R{round_num} baseline for {model_name}: {search_strategy.format_config_summary(baseline_cfg)} "
                 f"TPS={baseline_tps:.1f} PPL={getattr(baseline_res, 'bench_ppl', 0.0):.4f}",
                 lcb_score=baseline_res.lcb_val, bigcode_score=baseline_res.bigcode_val,
-                category="agentic-full",
+                category=tsv_category,
                 model=model_name,
                 outcome=getattr(getattr(baseline_res, "outcome", TrialOutcome.OK), "value", "OK"),
                 diagnostic=getattr(baseline_res, "diagnostic", ""),
-                evaluation_profile="agentic-full",
+                evaluation_profile=tsv_category,
                 scoring_benchmark="claw-eval",
                 task_ids=",".join(getattr(baseline_res, "task_ids", ())),
                 config_json=json.dumps(baseline_cfg, sort_keys=True, default=repr),
                 tps_source=getattr(baseline_res, "tps_source", ""),
             )
 
-            ppl_str = f" PPL={getattr(baseline_res, 'bench_ppl', 0.0):.4f}" if cli_args.perplexity_val else ""
+            ppl_str = f" PPL={getattr(baseline_res, 'bench_ppl', 0.0):.4f}" if (is_tps_mode or cli_args.perplexity_val) else ""
             print(f"[BASELINE] Score={baseline_score:.6f} TPS={baseline_tps:.1f}{ppl_str} VRAM={baseline_vram:.1f}GB")
 
             if baseline_status == "discard":
@@ -350,7 +452,7 @@ def main():
                     continue
 
                 print(f"\n  [EVAL] Trying {changed}: {old_val} -> {new_val}")
-                res = runner.run_trial(trial_config(neighbor.config, _defaults, include_ppl=cli_args.perplexity_val))
+                res = runner.run_trial(trial_config(neighbor.config, _defaults, include_ppl=(is_tps_mode or cli_args.perplexity_val)))
                 if getattr(res, "outcome", TrialOutcome.OK) in (TrialOutcome.INFRA_ERROR, TrialOutcome.CODE_ERROR):
                     raise RuntimeError(f"Search stopped: {res.status}")
                 score = res.val_score
@@ -366,7 +468,7 @@ def main():
                 )
 
                 # Apply Perplexity Quality Ceiling Constraint
-                if cli_args.perplexity_val:
+                if is_tps_mode or cli_args.perplexity_val:
                     n_ppl = getattr(res, "bench_ppl", 0.0)
                     b_ppl = getattr(baseline_res, "bench_ppl", 0.0)
                     if n_ppl > b_ppl * 1.01:
@@ -382,11 +484,11 @@ def main():
                     f"AutoLoop R{round_num} {changed}={new_val}: "
                     f"{search_strategy.format_config_summary(neighbor.config)} TPS={tps:.1f} PPL={getattr(res, 'bench_ppl', 0.0):.4f} Δ={delta:+.6f}",
                     lcb_score=res.lcb_val, bigcode_score=res.bigcode_val,
-                    category="agentic-full",
+                    category=tsv_category,
                     model=model_name,
                     outcome=getattr(getattr(res, "outcome", TrialOutcome.OK), "value", "OK"),
                     diagnostic=getattr(res, "diagnostic", ""),
-                    evaluation_profile="agentic-full",
+                    evaluation_profile=tsv_category,
                     scoring_benchmark="claw-eval",
                     task_ids=",".join(getattr(res, "task_ids", ())),
                     config_json=json.dumps(neighbor.config, sort_keys=True, default=repr),
@@ -398,6 +500,8 @@ def main():
                           f"({reason})")
                     # Persist new baseline to local state
                     write_config(neighbor.config)
+                    # Automatically update model alias config
+                    update_model_alias(model_name, neighbor.config, tps, cli_args.mode)
                     improved = True
                     break
                 else:
