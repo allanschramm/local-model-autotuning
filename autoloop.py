@@ -16,7 +16,7 @@ import signal
 from pathlib import Path
 from typing import Any
 
-from autoresearch.core.llama_runner import estimate_vram_mb
+from autoresearch.core.llama_runner import estimate_vram_mb, resolve_model_path
 from autoresearch.core.config import (
     ENGINE_DEFAULTS,
     SAMPLER_DEFAULTS,
@@ -201,13 +201,22 @@ def preflight_vram_ok(cfg: dict[str, Any], vram_limit: float | None) -> bool:
     if not kv_k: kv_k = "q4_0"
     if not kv_v: kv_v = "q4_0"
 
-    est = estimate_vram_mb(MODELS_DIR / model, ctx, kv_k, kv_v)
+    est = estimate_vram_mb(resolve_model_path(MODELS_DIR, model), ctx, kv_k, kv_v)
     return est <= vram_limit
 
 
-
-
-
+def _available_gguf_names(models_dir: Path) -> list[str]:
+    """Basenames of main GGUFs under models/ (nested OK). Skips draft/vision/aliases/cache."""
+    skip_roots = {".cache", "aliases", "huggingface", "draft", "vision"}
+    names: set[str] = set()
+    for path in models_dir.rglob("*.gguf"):
+        rel = path.relative_to(models_dir)
+        if rel.parts and rel.parts[0] in skip_roots:
+            continue
+        if any(part in {".cache", "aliases", "huggingface"} for part in rel.parts):
+            continue
+        names.add(path.name)
+    return sorted(names)
 
 def main():
     import sys
@@ -241,7 +250,7 @@ def main():
         print("[AUTOLOOP] Cleared visited memory. Baseline unchanged in config.py.")
 
     # 1. Resolve selected models
-    available_models = sorted([f.name for f in MODELS_DIR.glob("*.gguf")])
+    available_models = _available_gguf_names(MODELS_DIR)
     if not available_models:
         print("[AUTOLOOP] Error: No GGUF models found in models/ directory!")
         sys.exit(1)

@@ -44,7 +44,7 @@ Scan ASCII metadata (first ~8–32 MB is enough for keys):
 | Gemma E4B | draft already local | many assistant MTP GGUFs | reuse `draft/mtp-gemma-4-E4B-it.gguf` |
 | Qwen3.5-9B | embedded already | n/a | reuse local UD |
 
-Download rule: always `hf download <repo> <file> --local-dir models/` (UTF-8 / quiet if Windows charmap breaks on ✓). Files may land on machine model store with junction into `models/`.
+Download rule: `hf download <repo> <file> --local-dir models/<publisher>/<model>` (nested for LM Studio). Config/harness use basename; `resolve_model_path` finds the file. Drafts: `--local-dir models/draft`. UTF-8 / quiet if Windows charmap breaks on ✓.
 
 ### L4 — Upstream has no TurboQuant KV types
 - Upstream `llama.cpp` allows KV: `f32, f16, bf16, q8_0, q4_0, q4_1, iq4_nl, q5_0, q5_1`.

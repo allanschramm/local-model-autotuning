@@ -135,7 +135,9 @@ def run_llama_bench_validation(
             "-ngld", str(ngl),
         ]
         if spec_draft_model:
-            draft_path = model_path.parent / spec_draft_model
+            draft_path = Path(spec_draft_model)
+            if not draft_path.is_absolute():
+                draft_path = model_path.parent / draft_path
             cmd += ["--spec-draft-model", str(draft_path)]
 
     print(f"  [cli-bench] {' '.join(str(a) for a in cmd)}")

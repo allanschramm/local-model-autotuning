@@ -169,7 +169,7 @@ class TestAutoLoop(unittest.TestCase):
         return cfg
 
     @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--vram-limit-mb", "99999", "--models", "test.gguf"])
-    @patch("autoloop.MODELS_DIR")
+    @patch("autoloop._available_gguf_names", return_value=["test.gguf"])
     @patch("autoloop.ExperimentRunner")
     @patch("autoloop.load_config")
     @patch("autoloop.SearchState.update_baseline")
@@ -177,10 +177,9 @@ class TestAutoLoop(unittest.TestCase):
     @patch("autoloop.write_row")
     def test_main_single_round_no_neighbors(
         self, mock_write_row, mock_git, mock_wcfg, mock_lcfg,
-        mock_runner_cls, mock_models_dir
+        mock_runner_cls, _mock_models
     ):
         """main() with --models flag (stdin non-tty fallback from baseline cfg)."""
-        mock_models_dir.glob.return_value = [Path("test.gguf")]
         mock_lcfg.return_value = self._full_config(MODEL="test.gguf")
         mock_runner = MagicMock()
         mock_runner.run_trial.return_value = self._make_trial_result()
@@ -197,7 +196,7 @@ class TestAutoLoop(unittest.TestCase):
         # "Exhausted random search space" reached → no crash
 
     @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--models", "test.gguf"])
-    @patch("autoloop.MODELS_DIR")
+    @patch("autoloop._available_gguf_names", return_value=["test.gguf"])
     @patch("autoloop.ExperimentRunner")
     @patch("autoloop.load_config")
     @patch("autoloop.SearchState.update_baseline")
@@ -205,10 +204,9 @@ class TestAutoLoop(unittest.TestCase):
     @patch("autoloop.write_row")
     def test_main_with_models_flag(
         self, mock_write_row, mock_git, mock_wcfg, mock_lcfg,
-        mock_runner_cls, mock_models_dir
+        mock_runner_cls, _mock_models
     ):
         """--models flag with explicit model name."""
-        mock_models_dir.glob.return_value = [Path("test.gguf")]
         mock_lcfg.return_value = self._full_config(MODEL="test.gguf")
         mock_runner = MagicMock()
         mock_runner.run_trial.return_value = self._make_trial_result()
@@ -222,19 +220,17 @@ class TestAutoLoop(unittest.TestCase):
         mock_wcfg.assert_called()
 
     @patch("sys.argv", ["autoloop.py", "--models", "nonexistent.gguf"])
-    @patch("autoloop.MODELS_DIR")
-    def test_main_model_not_found(self, mock_models_dir):
+    @patch("autoloop._available_gguf_names", return_value=["real.gguf"])
+    def test_main_model_not_found(self, _mock_models):
         """--models with name not in models dir → fuzzy match fallback then exit."""
-        mock_models_dir.glob.return_value = [Path("real.gguf")]
         with self.assertRaises(SystemExit):
             autoloop.main()
 
     @patch("sys.argv", ["autoloop.py", "--models", "real"])
-    @patch("autoloop.MODELS_DIR")
+    @patch("autoloop._available_gguf_names", return_value=["real.gguf", "other.gguf"])
     @patch("autoloop.ExperimentRunner")
-    def test_main_model_fuzzy_match(self, mock_runner_cls, mock_models_dir):
+    def test_main_model_fuzzy_match(self, mock_runner_cls, _mock_models):
         """--models with partial name → fuzzy match to first result."""
-        mock_models_dir.glob.return_value = [Path("real.gguf"), Path("other.gguf")]
         mock_runner = MagicMock()
         mock_runner.run_trial.return_value = self._make_trial_result()
         mock_runner_cls.return_value = mock_runner
@@ -248,17 +244,16 @@ class TestAutoLoop(unittest.TestCase):
 
     @patch("sys.argv", ["autoloop.py", "--reset-visited", "--max-rounds", "1", "--models", "test.gguf"])
     @patch("autoloop.SearchState.reset")
-    @patch("autoloop.MODELS_DIR")
+    @patch("autoloop._available_gguf_names", return_value=["test.gguf"])
     @patch("autoloop.ExperimentRunner")
     @patch("autoloop.load_config")
     @patch("autoloop.get_git_commit", return_value="abc")
     @patch("autoloop.write_row")
     def test_main_reset_visited(
         self, mock_write_row, mock_git, mock_lcfg,
-        mock_runner_cls, mock_models_dir, mock_reset
+        mock_runner_cls, _mock_models, mock_reset
     ):
         """--reset-visited clears visited keys in local state."""
-        mock_models_dir.glob.return_value = [Path("test.gguf")]
         mock_lcfg.return_value = self._full_config(MODEL="test.gguf")
         mock_runner = MagicMock()
         mock_runner.run_trial.return_value = self._make_trial_result()
@@ -272,7 +267,7 @@ class TestAutoLoop(unittest.TestCase):
         mock_write_row.assert_called()
 
     @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--models", "test.gguf"])
-    @patch("autoloop.MODELS_DIR")
+    @patch("autoloop._available_gguf_names", return_value=["test.gguf"])
     @patch("autoloop.ExperimentRunner")
     @patch("autoloop.load_config")
     @patch("autoloop.SearchState.update_baseline")
@@ -281,10 +276,9 @@ class TestAutoLoop(unittest.TestCase):
     @patch("autoloop.estimate_vram_mb")
     def test_main_with_neighbor_improvement(
         self, mock_vram, mock_write_row, mock_git, mock_wcfg, mock_lcfg,
-        mock_runner_cls, mock_models_dir
+        mock_runner_cls, _mock_models
     ):
         """Neighbor with better score → writes new config and breaks."""
-        mock_models_dir.glob.return_value = [Path("test.gguf")]
         mock_lcfg.return_value = self._full_config(MODEL="test.gguf")
         mock_vram.return_value = 1000.0  # under default 7900MB limit
         mock_runner = MagicMock()
@@ -307,7 +301,7 @@ class TestAutoLoop(unittest.TestCase):
         mock_wcfg.assert_called()
 
     @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--models", "test.gguf"])
-    @patch("autoloop.MODELS_DIR")
+    @patch("autoloop._available_gguf_names", return_value=["test.gguf"])
     @patch("autoloop.ExperimentRunner")
     @patch("autoloop.load_config")
     @patch("autoloop.SearchState.update_baseline")
@@ -315,10 +309,9 @@ class TestAutoLoop(unittest.TestCase):
     @patch("autoloop.write_row")
     def test_main_has_no_trial_budget(
         self, mock_write_row, mock_git, mock_wcfg, mock_lcfg,
-        mock_runner_cls, mock_models_dir
+        mock_runner_cls, _mock_models
     ):
         """Trials run to completion without a budget override."""
-        mock_models_dir.glob.return_value = [Path("test.gguf")]
         mock_lcfg.return_value = self._full_config(MODEL="test.gguf")
         mock_runner = MagicMock()
         mock_runner.run_trial.return_value = self._make_trial_result()
@@ -333,7 +326,7 @@ class TestAutoLoop(unittest.TestCase):
 
     @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--models", "test.gguf",
                          "--vram-limit-mb", "1"])
-    @patch("autoloop.MODELS_DIR")
+    @patch("autoloop._available_gguf_names", return_value=["test.gguf"])
     @patch("autoloop.ExperimentRunner")
     @patch("autoloop.load_config")
     @patch("autoloop.SearchState.update_baseline")
@@ -342,10 +335,9 @@ class TestAutoLoop(unittest.TestCase):
     @patch("autoloop.estimate_vram_mb")
     def test_main_vram_skip(
         self, mock_vram, mock_write_row, mock_git, mock_wcfg, mock_lcfg,
-        mock_runner_cls, mock_models_dir
+        mock_runner_cls, _mock_models
     ):
         """Neighbor exceeding VRAM limit gets skipped."""
-        mock_models_dir.glob.return_value = [Path("test.gguf")]
         mock_lcfg.return_value = self._full_config(MODEL="test.gguf")
         mock_runner = MagicMock()
         mock_runner.run_trial.return_value = self._make_trial_result()
@@ -366,7 +358,7 @@ class TestAutoLoop(unittest.TestCase):
         self.assertGreaterEqual(mock_runner.run_trial.call_count, 1)
 
     @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--models", "test.gguf", "--perplexity-val"])
-    @patch("autoloop.MODELS_DIR")
+    @patch("autoloop._available_gguf_names", return_value=["test.gguf"])
     @patch("autoloop.ExperimentRunner")
     @patch("autoloop.load_config")
     @patch("autoloop.SearchState.update_baseline")
@@ -375,10 +367,9 @@ class TestAutoLoop(unittest.TestCase):
     @patch("autoloop.estimate_vram_mb", return_value=0.0)
     def test_main_with_perplexity_validation(
         self, mock_vram, mock_write_row, mock_git, mock_wcfg, mock_lcfg,
-        mock_runner_cls, mock_models_dir
+        mock_runner_cls, _mock_models
     ):
         """Main loop runs successfully with --perplexity-val active."""
-        mock_models_dir.glob.return_value = [Path("test.gguf")]
         mock_lcfg.return_value = self._full_config(MODEL="test.gguf")
         mock_runner = MagicMock()
         
@@ -438,7 +429,7 @@ class TestAutoLoop(unittest.TestCase):
             self.assertIn("--threads 4", updated["flags"])
 
     @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--models", "test.gguf", "--mode", "tps"])
-    @patch("autoloop.MODELS_DIR")
+    @patch("autoloop._available_gguf_names", return_value=["test.gguf"])
     @patch("autoloop.ExperimentRunner")
     @patch("autoloop.load_config")
     @patch("autoloop.SearchState.update_baseline")
@@ -448,9 +439,8 @@ class TestAutoLoop(unittest.TestCase):
     @patch("autoloop.update_model_alias")
     def test_main_with_tps_mode(
         self, mock_update_alias, mock_vram, mock_write_row, mock_git, mock_wcfg, mock_lcfg,
-        mock_runner_cls, mock_models_dir
+        mock_runner_cls, _mock_models
     ):
-        mock_models_dir.glob.return_value = [Path("test.gguf")]
         mock_lcfg.return_value = self._full_config(MODEL="test.gguf")
         mock_runner = MagicMock()
         mock_runner.run_trial.return_value = self._make_trial_result()

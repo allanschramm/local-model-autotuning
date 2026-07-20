@@ -22,7 +22,7 @@ def _ensure_repo_root_on_sys_path() -> None:
 
 _ensure_repo_root_on_sys_path()
 
-from autoresearch.core.llama_runner import IS_WINDOWS, resolve_llama_server
+from autoresearch.core.llama_runner import IS_WINDOWS, resolve_llama_server, resolve_model_path
 ALIASES_DIR = REPO_ROOT / "models" / "aliases"
 STATE_DIR = (
     Path(os.environ["LOCALAPPDATA"]) / "local-model-autoresearch"
@@ -166,14 +166,13 @@ def _resolve_model_path(raw: str) -> Path:
     if candidate.is_absolute():
         return candidate
 
-    options = [REPO_ROOT / candidate]
-    if not candidate.parts or candidate.parts[0] != "models":
-        options.append(REPO_ROOT / "models" / candidate)
+    models_dir = REPO_ROOT / "models"
+    at_repo = REPO_ROOT / candidate
+    if at_repo.exists():
+        return at_repo
 
-    for option in options:
-        if option.exists():
-            return option
-    return options[0]
+    ref = Path(*candidate.parts[1:]) if candidate.parts[:1] == ("models",) else candidate
+    return resolve_model_path(models_dir, ref)
 
 
 def build_command(cfg: AliasConfig) -> tuple[list[str], Path]:

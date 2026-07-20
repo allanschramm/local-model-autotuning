@@ -116,7 +116,7 @@ Use these exact terms in your reasoning and commit messages:
 You can download models from HuggingFace. Place them in the `models/` directory.
 - **Via HuggingFace CLI**:
   ```bash
-  hf download Qwen/Qwen2.5-Coder-7B-Instruct-GGUF qwen2.5-coder-7b-instruct-q4_k_m.gguf --local-dir models
+  hf download Qwen/Qwen2.5-Coder-7B-Instruct-GGUF qwen2.5-coder-7b-instruct-q4_k_m.gguf --local-dir models/local/qwen2.5-coder-7b-instruct-gguf
   ```
 - **Via Agent**: Ask your coding assistant to download a specific GGUF model into the `models/` directory for you.
 

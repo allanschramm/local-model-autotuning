@@ -22,11 +22,40 @@ from pathlib import Path
 from typing import Any
 
 _LLAMA_SERVER_HELP_CACHE = None
+_MODEL_SEARCH_SKIP = frozenset({".cache", "aliases", "huggingface"})
 
 import math
 from autoresearch.core import config
 
 from autoresearch.core.config import ConfigError, validate_config
+
+
+def resolve_model_path(models_dir: Path, ref: str | Path) -> Path:
+    """Resolve a model ref under models_dir (flat or nested LM Studio layout).
+
+    Order: absolute → models_dir/ref if present → rglob basename (skip .cache/aliases).
+    Missing refs return models_dir/ref for the caller to fail later.
+    """
+    models_dir = Path(models_dir)
+    ref_path = Path(ref)
+    if ref_path.is_absolute():
+        return ref_path
+
+    direct = models_dir / ref_path
+    if direct.exists():
+        return direct
+
+    name = ref_path.name
+    matches: list[Path] = []
+    for path in models_dir.rglob(name):
+        if any(part in _MODEL_SEARCH_SKIP for part in path.parts):
+            continue
+        if path.is_file() or path.is_dir():
+            matches.append(path)
+    if not matches:
+        return direct
+    matches.sort(key=lambda p: (len(p.relative_to(models_dir).parts), str(p).lower()))
+    return matches[0]
 
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -115,9 +144,15 @@ class ServerIntent:
         kv_cache = norm.get("kv_cache") or norm.get("kv") or "q4_0"
         k_val = norm.get("kv_cache_k") or norm.get("kv_k") or kv_cache
         v_val = norm.get("kv_cache_v") or norm.get("kv_v") or kv_cache
+        draft_ref = (
+            norm.get("spec_draft_model")
+            or norm.get("draft_model")
+            or norm.get("spec_draft_model_file")
+        )
+        draft_path = str(resolve_model_path(models_dir, draft_ref)) if draft_ref else None
 
         intent = cls(
-            model_path=models_dir / model_fn,
+            model_path=resolve_model_path(models_dir, model_fn),
             ctx_size=norm.get("ctx_size", 131072),
             kv_cache=kv_cache,
             flash_attn=norm.get("flash_attn", "on"),
@@ -139,7 +174,7 @@ class ServerIntent:
             reasoning=norm.get("reasoning"),
             cont_batching=norm.get("cont_batching", False),
             spec_type=norm.get("spec_type"),
-            spec_draft_model=norm.get("spec_draft_model") or norm.get("draft_model") or norm.get("spec_draft_model_file"),
+            spec_draft_model=draft_path,
             n_cpu_moe=norm.get("n_cpu_moe"),
         )
 
@@ -331,7 +366,9 @@ class LlamaServerRunner:
                 "--spec-draft-type-v", cache_type_v,
             ]
             if self.intent.spec_draft_model:
-                draft_path = self.intent.model_path.parent / self.intent.spec_draft_model
+                draft_path = Path(self.intent.spec_draft_model)
+                if not draft_path.is_absolute():
+                    draft_path = self.intent.model_path.parent / draft_path
                 cmd += ["--spec-draft-model", str(draft_path)]
 
         # VITRIOL Optimization: Hardware Necromancy for large MoE models.

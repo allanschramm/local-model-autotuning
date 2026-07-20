@@ -52,6 +52,37 @@ def test_model_up_parses_flags_and_builds_command(tmp_path, monkeypatch):
     assert cmd[9:] == ["--jinja", "--ctx-size", "131072", "--flash-attn", "on"]
 
 
+def test_model_up_resolves_nested_lmstudio_layout(tmp_path, monkeypatch):
+    alias_dir = tmp_path / "models" / "aliases" / "nested"
+    alias_dir.mkdir(parents=True)
+    model_file = tmp_path / "models" / "lmstudio-community" / "demo-gguf" / "demo.gguf"
+    model_file.parent.mkdir(parents=True)
+    model_file.write_text("x", encoding="utf-8")
+    alias_file = alias_dir / "config.yaml"
+    alias_file.write_text(
+        "\n".join(
+            [
+                "alias: nested-demo",
+                "model: models/demo.gguf",
+                "port: 18080",
+                "host: 127.0.0.1",
+                "flags:",
+                "  - --jinja",
+                "status: ready",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(model_up, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(model_up, "ALIASES_DIR", tmp_path / "models" / "aliases")
+    monkeypatch.setattr(model_up, "resolve_llama_server", lambda: Path("llama-server.exe"))
+
+    cfg = model_up.load_alias_config(alias_file)
+    _, model_path = model_up.build_command(cfg)
+    assert model_path == model_file
+
+
 def test_model_up_adds_repo_root_to_sys_path(monkeypatch):
     repo_root = str(model_up.REPO_ROOT)
     monkeypatch.setattr(model_up.sys, "path", [p for p in model_up.sys.path if p != repo_root])

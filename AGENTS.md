@@ -13,7 +13,7 @@ Repository-wide agent guidelines are owned by the repository developers.
 - Respond terse like smart caveman. All technical substance stay. Only fluff die.
 - Loop agents: Strictly forbidden from editing code. If error/crash occurs, stop immediately, report error, warn user.
 - Results local-only: Never push results, tweaks, or run branches to remote repository. Keep all benchmark runs offline.
-- Model downloads: Always use `hf` CLI tool to download models, never web download scripts or browser.
+- Model downloads: Always use `hf` CLI tool to download models, never web download scripts or browser. Land main GGUFs under `models/<publisher>/<model>/` (LM Studio nested layout). Config keeps basename only; harness resolves via `resolve_model_path`. Drafts stay in `models/draft/`. See [models/README.md](models/README.md).
 - Parallel processes: NEVER run multiple validations, benchmarks, or command tasks in parallel. Always run one command/task at a time sequentially.
 - Architecture: Never overengineer. Keep it simple. Less is more. Reduce lines of code. Simplify instead of complicate.
 - Docs always: Update relevant docs (model cards, ADRs, config comments) whenever any codebase/model/config improvement is found or applied.
@@ -129,6 +129,7 @@ When the user requests a durable behavior change, record it here or in the relev
 
 ## Child DOX Index
 - [autoresearch/AGENTS.md](autoresearch/AGENTS.md) — Core autotuning package (config, runners, benchmarks).
+- [models/README.md](models/README.md) — Shared GGUF store layout (nested LM Studio + basename resolve).
 - [docs/AGENTS.md](docs/AGENTS.md) — Durable documentation contract.
   - [docs/models/](docs/models/) — Per-model GGUF specs (architecture, quant, settings).
   - [docs/adr/](docs/adr/) — Architecture decision records.

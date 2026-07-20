@@ -36,8 +36,8 @@ MTP is a **training/inference feature**, not a Dense-vs-MoE class.
 - Mythos MTP: `mradermacher/Qwythos-9B-Claude-Mythos-5-1M-MTP-GGUF` → `Qwythos-9B-Claude-Mythos-5-1M-MTP.Q4_K_M.gguf`
 
 ```powershell
-hf download protoLabsAI/Ornith-1.0-9B-MTP-GGUF Ornith-1.0-9B-MTP-Q4_K_M.gguf --local-dir models
-hf download mradermacher/Qwythos-9B-Claude-Mythos-5-1M-MTP-GGUF Qwythos-9B-Claude-Mythos-5-1M-MTP.Q4_K_M.gguf --local-dir models
+hf download protoLabsAI/Ornith-1.0-9B-MTP-GGUF Ornith-1.0-9B-MTP-Q4_K_M.gguf --local-dir models/local/Ornith-1.0-9B-MTP-Q4_K_M
+hf download mradermacher/Qwythos-9B-Claude-Mythos-5-1M-MTP-GGUF Qwythos-9B-Claude-Mythos-5-1M-MTP.Q4_K_M.gguf --local-dir models/local/Qwythos-9B-Claude-Mythos-5-1M-MTP.Q4_K_M
 ```
 
 Always use `hf` CLI (repo contract). On Windows, prefer UTF-8 / `--format quiet` if progress glyphs crash the console.
