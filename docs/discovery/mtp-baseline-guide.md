@@ -6,38 +6,50 @@ This guide explains how to verify and baseline speculative decoding (Multi-Token
 
 ## 1. MTP Verification Concept
 
-MTP speculative decoding speeds up text generation by predicting multiple tokens per step using prediction heads built into the model. However, it requires:
-1. **Compatible GGUF file:** The model must be downloaded from the `-MTP-GGUF` repository variant (e.g. `unsloth/Qwen3.5-9B-MTP-GGUF`), which includes the draft prediction head tensors directly in the `.gguf` file.
-2. **Speculative flag:** You must run the server or CLI with `--spec-type draft-mtp` and specify `--spec-draft-n-max 2` (recommended baseline).
+MTP speeds generation by drafting multiple tokens per step. Packaging differs by model family:
+
+1. **Embedded `nextn`:** tensors inside the main GGUF (e.g. local `Qwen3.5-9B-UD-Q4_K_XL.gguf`, Ornith/Mythos `*-MTP*.gguf`). Flags: `--spec-type draft-mtp --spec-draft-n-max N` (no draft file).
+2. **External draft:** separate assistant GGUF (Gemma-4 E4B → `models/draft/mtp-gemma-4-E4B-it.gguf`). Main UD file has **no** `nextn`. Flags: add `--spec-draft-model <draft>`.
+
+Detect: scan GGUF metadata for `nextn` / `gemma4-assistant`. Inventory + measured TPS: [small-model-mtp-tps.md](./small-model-mtp-tps.md).
+
+Prefer the harness gate (`run_llama_bench_validation`) over raw `llama-bench` — bench binaries do not accept MTP draft flags. Canonical `n_max` on this rig for speed matrix: **4** (not 2).
 
 ---
 
 ## 2. Test MTP Speedup via `llama-cli`
 
-To test if MTP is working and measure the exact speedup, run a test prompt with and without MTP using the `llama-cli` binary.
-
-### Run WITH MTP:
+### Embedded MTP (Qwen) — WITH:
 ```bash
 ./llama.cpp/build-cuda/bin/llama-cli.exe \
   -m models/Qwen3.5-9B-UD-Q4_K_XL.gguf \
   --spec-type draft-mtp \
-  --spec-draft-n-max 2 \
+  --spec-draft-n-max 4 \
   -p "Explain quantum computing in one sentence." \
-  -n 64 -ngl 99 -fa on -ctk q4_0 -ctv q4_0
+  -n 64 -ngl 99 -fa on -ctk q4_0 -ctv q4_0 --single-turn
 ```
-*Note the generation speed at the end (e.g. `Generation: 69.1 t/s`).*
 
-### Run WITHOUT MTP (Baseline):
+### Gemma external draft — WITH:
+```bash
+./llama.cpp/build-cuda/bin/llama-cli.exe \
+  -m models/gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf \
+  --spec-type draft-mtp \
+  --spec-draft-n-max 4 \
+  --spec-draft-model models/draft/mtp-gemma-4-E4B-it.gguf \
+  -p "Explain quantum computing in one sentence." \
+  -n 64 -ngl 99 -fa on -ctk q4_0 -ctv q4_0 --single-turn
+```
+
+### WITHOUT MTP (Baseline):
 ```bash
 ./llama.cpp/build-cuda/bin/llama-cli.exe \
   -m models/Qwen3.5-9B-UD-Q4_K_XL.gguf \
-  --spec-type none \
   -p "Explain quantum computing in one sentence." \
-  -n 64 -ngl 99 -fa on -ctk q4_0 -ctv q4_0
+  -n 64 -ngl 99 -fa on -ctk q4_0 -ctv q4_0 --single-turn
 ```
-*Note the generation speed (e.g. `Generation: 39.1 t/s`). Compare the speedup ratio.*
+(Omit `--spec-type` / draft flags entirely, or set `--spec-type none` if your build requires an explicit disable.)
 
-If the MTP run throws an error like `failed to create MTP context`, the loaded GGUF file does not contain the MTP tensors. You must download the MTP version of the GGUF file.
+If the MTP run throws `failed to create MTP context` (or similar), that GGUF has no usable MTP heads — download a `*-MTP-GGUF` variant or the matching Gemma draft.
 
 ---
 

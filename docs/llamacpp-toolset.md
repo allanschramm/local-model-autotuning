@@ -175,7 +175,12 @@ Performance testing. Measures prompt processing (pp) and text generation (tg) in
 
 ### MTP (speculative decoding) testing
 
+`llama-bench` does **not** take `--spec-type` / `--spec-draft-model`. For MTP TPS use `llama-cli` (harness: `run_llama_bench_validation`) or see [mtp-baseline-guide.md](discovery/mtp-baseline-guide.md) and [small-model-mtp-tps.md](discovery/small-model-mtp-tps.md).
+
+Upstream KV types only (`q4_0`, …). `turbo*` KV cache types are **not** in upstream `llama.cpp`.
+
 ```bash
+# Context-depth bench WITHOUT speculation:
 ./bin/llama-bench -m model.gguf -pg 512,128 -d 0
 # -d prefills KV cache to simulate context state
 ```

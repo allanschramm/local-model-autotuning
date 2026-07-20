@@ -21,25 +21,25 @@ CONFIG_PATH = Path(__file__).resolve()
 
 # Hardware/Engine/Inference configuration parameters (affect speed and VRAM usage)
 ENGINE_DEFAULTS = {
-    'MODEL': 'test.gguf',
+    'MODEL': 'gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf',
     'CTX_SIZE': 131072,
     'KV_CACHE': 'q4_0',
     'KV_CACHE_K': 'q4_0',
     'KV_CACHE_V': 'q4_0',
-    'BATCH_SIZE': 1024,
-    'UBATCH_SIZE': 256,
-    'THREADS': 8,
+    'BATCH_SIZE': 256,
+    'UBATCH_SIZE': 128,
+    'THREADS': 6,
     'THREADS_BATCH': 8,
     'FLASH_ATTN': 'on',
-    'SPEC_TYPE': None,
-    'SPEC_DRAFT_N_MAX': 0,
+    'SPEC_TYPE': 'draft-mtp',
+    'SPEC_DRAFT_N_MAX': 4,
     'SPEC_DRAFT_MODEL': 'draft/mtp-gemma-4-E4B-it.gguf',
-    'NO_MMAP': False,
-    'JINJA': False,
+    'NO_MMAP': True,
+    'JINJA': True,
     'REASONING_BUDGET': None,
     'REASONING_BUDGET_MESSAGE': None,
     'REASONING': None,
-    'CONT_BATCHING': True,
+    'CONT_BATCHING': False,
     'N_CPU_MOE': 32,
 }
 
@@ -49,7 +49,7 @@ SAMPLER_DEFAULTS = {
     'TOP_P': 0.95,
     'TOP_K': 20,
     'MIN_P': 0.0,
-    'REPEAT_PENALTY': 1.05,
+    'REPEAT_PENALTY': 1.0,
     'PRESENCE_PENALTY': 0.0,
     'FREQUENCY_PENALTY': None,
 }

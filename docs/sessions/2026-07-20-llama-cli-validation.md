@@ -63,3 +63,6 @@ python -m autoresearch.runners.run --validation --desc "Test MTP 512-token gener
 - Transitioned candidate pre-check validation completely to `llama-cli` utilizing the `--single-turn` parameter.
 - Set default generation length to `512` tokens (`BENCH_N_GEN = 512`) to ensure sustained metrics.
 - Updated baseline model card in `docs/models/gemma-4-e4b.md` and `config.yaml` to specify standard `q4_0` cache formatting, ensuring immediate out-of-the-box compatibility without custom TurboQuant dependency crashes.
+
+## Follow-up (same day)
+Fair small-model base-vs-MTP TPS matrix documented in [2026-07-20-small-model-tps-matrix.md](2026-07-20-small-model-tps-matrix.md) and [docs/discovery/small-model-mtp-tps.md](../discovery/small-model-mtp-tps.md).

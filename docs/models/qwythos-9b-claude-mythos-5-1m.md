@@ -3,8 +3,9 @@
 **Source repo:** https://huggingface.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF
 **License:** Apache-2.0
 **Local files:**
-- `models/Qwythos-9B-Claude-Mythos-5-1M-Q4_K_M.gguf` (5.3 GB)
-- `models/Qwythos-9B-v2-Q4_K_M.gguf` (5.74 GB)
+- `models/Qwythos-9B-Claude-Mythos-5-1M-Q4_K_M.gguf` (5.3 GB) — base, no `nextn`
+- `models/Qwythos-9B-Claude-Mythos-5-1M-MTP.Q4_K_M.gguf` (~5.4 GB) — Hub MTP (2026-07-20)
+- `models/Qwythos-9B-v2-Q4_K_M.gguf` (5.74 GB) — v2, no CUDA MTP
 **Family:** Qwythos (based on Qwen 3.5 architecture)
 **Architecture type:** Dense (all params active per token)
 **MTP:** Optional training head (orthogonal to architecture — both dense and MoE models can have MTP)
@@ -53,26 +54,29 @@ Fits entirely in 8 GB with 131k context and flash-attn.
 | TOP_P | 0.95 | Default nucleus sampling |
 | TOP_K | 20 | Focused token pool |
 | REPEAT_PENALTY | 1.05 | Light penalty for repetition reduction |
-| BATCH_SIZE | 1024 | Matched with ubatch=256 |
+| BATCH_SIZE | 1024 | Matched with ubatch=256 (agentic path) |
 | UBATCH_SIZE | 256 | Sweet spot on RTX 4060 (llama-bench) |
-| SPEC_TYPE | None | MTP + 131k ctx exceeds 8GB VRAM |
-| SPEC_DRAFT_N_MAX | 0 | Disabled — no VRAM headroom for draft
+| SPEC_TYPE | None | Mythos MTP not worth it (measured +1% short-gen) |
+| SPEC_DRAFT_N_MAX | 0 | Disabled |
 
 ## MTP (Multi-Token Prediction)
 
-**MTP is not a model class.** It is a training technique orthogonal to architecture type:
-- Dense models can have MTP (this model, Qwen 3.5, Gemma 4)
-- MoE models can have MTP (Qwen 3.6, DeepSeek V3)
-- Dense/MoE = which subset of params activates per token (architecture)
-- MTP/no-MTP = whether model was trained to predict multiple future tokens (training objective)
-- In inference, an MTP head acts as a draft model for speculative decoding
+**MTP is not a model class.** Orthogonal to Dense/MoE — see [README.md](README.md).
 
-**Status on RTX 4060 8GB:** MTP + 131k ctx exceeds VRAM. The MTP variant was deleted — no VRAM headroom for MTP benefit on 8GB card with 131k context.
-- Non-MTP at 131k uses ~7.5 GB already
-- MTP adds model overhead (+0.26 GB) + draft KV cache
-- With `--spec-draft-ctx-size 512`, server loads but throughput collapses (~5 min per task)
-- At 8192 ctx, MTP fits (7.3 GB, 42 TPS) but throughput is _lower_ than non-MTP at 131k
-- **Verdict**: No VRAM headroom for MTP benefit on 8GB card with 131k context
+### Local assets (2026-07-20)
+- Base (no `nextn`): `Qwythos-9B-Claude-Mythos-5-1M-Q4_K_M.gguf`
+- MTP GGUF (embedded `nextn`): `Qwythos-9B-Claude-Mythos-5-1M-MTP.Q4_K_M.gguf` from `mradermacher/Qwythos-9B-Claude-Mythos-5-1M-MTP-GGUF` (re-downloaded; older "deleted" note obsolete)
+
+### Measured short-gen TPS (fair matrix)
+- Base **40.8 t/s** vs MTP **41.2 t/s** (**+1%**); MTP wall clock worse (29.3s vs 18.4s).
+- **Verdict for speed:** keep **non-MTP**. Evidence: [session](../sessions/2026-07-20-small-model-tps-matrix.md).
+
+### Long-ctx / agentic (still true)
+- At 131k on 8 GB, MTP overhead historically hurt (timeouts / collapsed TPS in mid-2026 Beellama runs below). Short cli-bench does not contradict that.
+
+## Qwythos-9B-v2 (same card family)
+- Local: `Qwythos-9B-v2-Q4_K_M.gguf` — fair matrix base **40.1 t/s**
+- **No CUDA GGUF MTP** on Hub as of 2026-07-20 (MLX-only MTP exists — useless here)
 
 ## Validation Bench (2 tasks each, 2026-06-30)
 
@@ -113,3 +117,4 @@ REPEAT_PENALTY = 1.05
 - 2026-06-30: MTP tested — no VRAM headroom on 8GB at 131k ctx
 - 2026-07-01: MTP variant deleted — non-MTP is the only local copy
 - 2026-07-01: Re-validation upstream build-cuda + cont-batching (0.3000, 50.4 TPS, 7.1 GB)
+- 2026-07-20: MTP GGUF re-downloaded; short-gen matrix +1% only — keep non-MTP for speed

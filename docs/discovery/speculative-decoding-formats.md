@@ -32,19 +32,24 @@ The short answer is **no, they are mutually exclusive at runtime**.
     *   During inference, you can only set **one** `--spec-type` flag. You cannot run `--spec-type draft-mtp` and `--spec-type draft-eagle3` at the same time.
     *   The engine must follow a single path: either it uses the MTP heads to propose draft tokens, or it uses the external Eagle/DFlash model. Chaining them (e.g. using Eagle to draft tokens, then MTP to draft those drafts, and then verifying both) is not supported by any current inference engine and would introduce catastrophic synchronization overhead.
 3.  **Choosing the Best Method:**
-    *   Since they cannot be combined, you must choose the single best speculative type. For our Qwen/Gemma-4 target models, **MTP is always the optimal choice** (providing the highest speedup at the lowest VRAM footprint).
+    *   Since they cannot be combined, you must choose the single best speculative type. For Gemma-4 / Qwen3.5 on this 8 GB rig, **MTP is usually best when it actually accelerates** (measure). Mythos MTP GGUF is a counterexample (~+1%). See [small-model-mtp-tps.md](./small-model-mtp-tps.md).
 
 ---
 
 ## 3. Deep-Dive into Formats
 
 ### A. Multi-Token Prediction (MTP) — `draft-mtp`
-*   **How it works:** Native to Qwen2.5/3.5/3.6 and Gemma-4. Google trained official "assistant" models (e.g. `google/gemma-4-E4B-it-assistant`) that share the base model's vocabulary and embeddings. Unsloth quantized these into standalone GGUF drafts.
-*   **Why it's best for us:** MTP has a very high token acceptance rate because it is specifically trained by the model creators. It achieves **1.6x–2.0x speedups** locally.
-*   **In llama.cpp:** 
-    - Qwen models (like Qwen3.5-9B and Qwen3.6-35B) have the MTP draft head **embedded directly in the main GGUF file** (no separate `-md` file needed).
-    - Gemma-4 models have the MTP draft head in a **separate file** (e.g. `models/draft/mtp-gemma-4-E4B-it.gguf`). You must pass `--spec-draft-model <path>`.
-    - **Ornith-1.0 models:** As they are built on top of Gemma-4/Qwen, they support MTP. However, the standard Unsloth UD files we use do **not** have MTP heads. To run MTP on Ornith-1.0, you must download community GGUFs with MTP heads grafted onto them (e.g. repositories by `satgeze/ornith-35b-1m`, `wang-yang`, or `SC117`).
+*   **How it works:** Native to Qwen2.5/3.5/3.6 and Gemma-4. Two packaging forms:
+    1. **Embedded `nextn` heads** inside the main GGUF (Qwen UD MTP builds; community `*-MTP*.gguf`).
+    2. **External assistant draft** (Gemma-4): Google trained `*-assistant` models; Unsloth ships tiny draft GGUFs. The **main** Gemma UD file does **not** contain `nextn` tensors.
+*   **Why it's best for us:** When acceptance is healthy, MTP hits **~1.5x–1.8x** on this 8 GB rig (see §4 matrix). Not automatic — Mythos MTP GGUF measured ~+1%.
+*   **In llama.cpp:**
+    - Qwen3.5-9B UD: MTP **embedded** — `--spec-type draft-mtp --spec-draft-n-max N` only (no `-md`).
+    - Gemma-4 E4B: pass `--spec-draft-model models/draft/mtp-gemma-4-E4B-it.gguf` (path relative to `models/` in harness: `draft/mtp-gemma-4-E4B-it.gguf`).
+    - **Ornith-1.0-9B UD:** no MTP. Use Hub `protoLabsAI/Ornith-1.0-9B-MTP-GGUF` (local: `Ornith-1.0-9B-MTP-Q4_K_M.gguf`).
+    - **Mythos 5-1M:** Hub `mradermacher/Qwythos-9B-Claude-Mythos-5-1M-MTP-GGUF` (local MTP Q4_K_M). Loads; short-gen gain negligible in 2026-07-20 matrix.
+    - **Qwythos-9B-v2:** no useful CUDA GGUF MTP on Hub (MLX-only) as of 2026-07-20.
+*   **Detect:** metadata keys `nextn` / `blk.*.nextn.*` (embedded) or `gemma4-assistant` (draft). See [small-model-mtp-tps.md](./small-model-mtp-tps.md).
 
 ### B. Eagle 3 — `draft-eagle3`
 *   **How it works:** A tree-based speculative decoder that trains a small recurrent neural network head directly on top of the target model's hidden states.
@@ -67,17 +72,34 @@ The short answer is **no, they are mutually exclusive at runtime**.
 
 ## 4. Local Performance Comparison
 
-Tested on our local rig (RTX 4060 8 GB VRAM) on a standard short prompt:
+### 4a. Fair small-model matrix (2026-07-20) — canonical
+
+Upstream CUDA `llama-cli`, `-n 512`, shared knobs (`q4_0` KV, batch 256/128, threads 6/8, `draft-mtp` n_max=4). Full write-up: [session](../sessions/2026-07-20-small-model-tps-matrix.md) · [operator guide](./small-model-mtp-tps.md).
+
+| Model | Base t/s | MTP t/s | Gain | MTP form |
+|---|---:|---:|---:|---|
+| Gemma-4 E4B | 67.6 | **122.0** | **+80%** | external draft (~60 MB) |
+| Qwen3.5-9B | 38.7 | 57.3 | +48% | embedded `nextn` |
+| Ornith-1.0-9B | 38.7 | 56.3 | +46% | Hub MTP GGUF |
+| Mythos 5-1M | 40.8 | 41.2 | +1% | Hub MTP GGUF (not worth it) |
+| Qwythos-9B-v2 | 40.1 | — | — | no CUDA MTP |
+
+**Default speed Baseline:** Gemma-4 E4B + draft MTP.
+
+### 4b. Earlier spot checks (still useful)
+
+Short `-n 128` / mixed prompts (pre-matrix):
 
 ### Gemma-4 E4B:
-*   **Baseline (`none`):** **69.9 t/s**
-*   **Multi-Token Prediction (`draft-mtp`):** **136.6 t/s** (**+95.4% speedup!**, cost: ~60 MB VRAM)
-*   *Note: Attempting to load the MTP draft file with `--spec-type draft-eagle3` throws a model initialization error and falls back silently to the non-speculative baseline.*
+*   **Baseline (`none`, -n 128):** **69.9 t/s**
+*   **MTP (`draft-mtp` n_max=4, -n 128):** **136.6 t/s** (+95.4%, draft ~60 MB VRAM)
+*   **MTP sustained (-n 512):** **113.4 t/s** (earlier); matrix **122.0 t/s** under fixed knobs
+*   *Note: MTP draft + `--spec-type draft-eagle3` → init error / silent fallback to non-spec.*
 
 ### Qwen3.5-9B:
-*   **Baseline (`none`):** **39.1 t/s**
+*   **Baseline (`none`):** **39.1 t/s** (earlier spot); matrix **38.7 t/s**
 *   **DFlash (`draft-dflash`):** **51.3 t/s** (+31.2% speedup, cost: ~765 MB VRAM)
-*   **Multi-Token Prediction (`draft-mtp`):** **69.1 t/s** (**+76.7% speedup!**, cost: ~380 MB VRAM)
+*   **MTP (`draft-mtp`):** earlier spot **69.1 t/s**; matrix sustained `-n 512` **57.3 t/s** (+48% vs matrix base)
 
 ### Qwen3.6-35B-A3B (MoE):
 *   **Baseline (`none` with `--n-cpu-moe 40`):** **19.0 - 22.1 t/s**
@@ -98,9 +120,9 @@ For consumer GPU rigs with constrained VRAM (like our RTX 4060 8 GB):
 1.  **VRAM and Context Trade-Off:**
     *   Every megabyte saved on the model/draft weights is a megabyte gained for the active KV cache context window.
     *   For a 9B model using a `q4_0` KV cache quantization, saving **~385 MB** of VRAM (MTP vs DFlash) translates directly to an extra **~12,000 tokens of context depth**.
-2.  **MTP is the Optimal Choice:**
-    *   **Highest Speed:** +76.7% speedup vs +31.2% for DFlash.
-    *   **Lowest VRAM Footprint:** ~380 MB VRAM overhead vs ~765 MB for DFlash (saving nearly 50% VRAM overhead).
-    *   **Zero File Complexity (for Qwen):** Qwen's MTP draft heads are embedded directly in the main GGUF file, requiring no secondary `-md` flag or file tracking.
+2.  **MTP is usually optimal (but measure):**
+    *   On the 2026-07-20 matrix: Gemma draft **+80%**, Qwen/Ornith embedded/Hub MTP **~+46–48%**, Mythos Hub MTP **~+1%** (skip).
+    *   Lowest VRAM overhead for Gemma is the tiny assistant draft (~60 MB), not a second full model.
+    *   Qwen embeds heads in the main GGUF — no secondary file to track.
 3.  **DFlash and Eagle-3 Standby Value:**
     *   While MTP is superior, DFlash and Eagle-3 remain valuable fallback architectures when testing custom fine-tuned models that do not support or were not trained with MTP layers.

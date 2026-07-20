@@ -132,9 +132,9 @@ When the user requests a durable behavior change, record it here or in the relev
 - [docs/AGENTS.md](docs/AGENTS.md) — Durable documentation contract.
   - [docs/models/](docs/models/) — Per-model GGUF specs (architecture, quant, settings).
   - [docs/adr/](docs/adr/) — Architecture decision records.
-  - [docs/discovery/](docs/discovery/) — User-facing guides: model selection workflow, whichllm CLI reference, quantization cascade, agent onboarding.
-  - [docs/sessions/](docs/sessions/) — Empirical session logs (reproducibility evidence).
-  - [docs/llamacpp-toolset.md](docs/llamacpp-toolset.md) — llama.cpp binary reference (build, bench, server, quantize).
+ - [docs/discovery/](docs/discovery/) — User-facing guides: model selection workflow, whichllm CLI reference, quantization cascade, agent onboarding, MTP inventory/TPS.
+ - [docs/sessions/](docs/sessions/) — Empirical session logs (reproducibility evidence).
+ - [docs/llamacpp-toolset.md](docs/llamacpp-toolset.md) — llama.cpp binary reference (build, bench, server, quantize).
 - [scripts/AGENTS.md](scripts/AGENTS.md) — Operator scripts (setup, monitoring, server daemon).
 - [tests/AGENTS.md](tests/AGENTS.md) — Unit and integration test suite.
 - External source submodules:

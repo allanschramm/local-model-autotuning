@@ -42,9 +42,9 @@ Durable documentation for this repo: model cards, technique notes, architecture 
   - 0003 — In-process benchmark orchestration.
   - 0004 — Agentic-first Search (Val Score); Baseline location superseded by 0005.
   - 0005 — config.py as mutable Baseline; state = visited only.
-- [docs/discovery/AGENTS.md](discovery/AGENTS.md) — user-facing guides (whichllm, Pareto frontier, model selection workflow, quantization selection).
-- [docs/sessions/AGENTS.md](sessions/AGENTS.md) — single-day empirical session logs.
+- [docs/discovery/AGENTS.md](discovery/AGENTS.md) — user-facing guides (whichllm, Pareto, quantization, MTP inventory/TPS, speculative formats).
+- [docs/sessions/AGENTS.md](sessions/AGENTS.md) — single-day empirical session logs (incl. 2026-07-20 small-model MTP TPS matrix).
 - [docs/llamacpp-toolset.md](llamacpp-toolset.md) — llama.cpp toolset reference: build, binaries, flags, bench/server/quantize/perplexity/imatrix commands.
   Covers: build from source, all built binaries, `llama-bench` syntax with multi-value ranges and output formats,
   `llama-server` flags relevant to autotuning, `llama-quantize`/`llama-imatrix`/`llama-perplexity` usage,
-  example combos for this repo's workflow.
+  example combos for this repo's workflow. MTP TPS → use `llama-cli` / harness, not `llama-bench`.

@@ -36,16 +36,25 @@
 - **Repeat Penalty:** 1.0 (disabled)
 
 ## MTP (Multi-Token Prediction)
-- **NO MTP tensors in this GGUF.** No spec_type configured.
+- **Base UD GGUF (`Ornith-1.0-9B-UD-Q4_K_XL.gguf`): NO `nextn`.**
+- **MTP GGUF (downloaded 2026-07-20):** `models/Ornith-1.0-9B-MTP-Q4_K_M.gguf` from `protoLabsAI/Ornith-1.0-9B-MTP-GGUF` — embedded `nextn`.
+- Enable on MTP file: `SPEC_TYPE=draft-mtp`, `SPEC_DRAFT_N_MAX=4`, no draft model path.
+- Fair matrix: base UD **38.7 t/s** → MTP GGUF **56.3 t/s** (**+46%**). [session](../sessions/2026-07-20-small-model-tps-matrix.md) · [guide](../discovery/small-model-mtp-tps.md).
 
 ## VITRIOL / Split strategy
 Since the model is ~5.6 GB and we have 8 GB of VRAM, we can run with maximum GPU offload (`--n-gpu-layers 999`), loading the model completely into GPU VRAM.
 
-## Our config baseline (Verified 2026-06-26)
-- `MODEL = 'ornith-1.0-9b-Q4_K_M.gguf'`
-- `CTX_SIZE = 131072` (Maximum context offloaded cleanly)
+## Our config baseline (speed path 2026-07-20)
+- Prefer MTP file when throughput matters: `MODEL = 'Ornith-1.0-9B-MTP-Q4_K_M.gguf'`
+- `SPEC_TYPE = 'draft-mtp'`, `SPEC_DRAFT_N_MAX = 4`
+- Shared matrix knobs: `KV q4_0`, batch 256/128, threads 6/8, `NO_MMAP=True`
+- Quality/coding baselines historically used non-MTP UD — keep separate if comparing scores to older runs.
+
+## Older verified baseline (2026-06-26, non-MTP)
+- `MODEL = 'ornith-1.0-9b-Q4_K_M.gguf'` (superseded filename; now `Ornith-1.0-9B-UD-Q4_K_XL.gguf`)
+- `CTX_SIZE = 131072`
 - `KV_CACHE = 'q4_0'`
-- `NGL = 99` (GPU Offloaded)
+- `NGL = 99`
 - `THREADS = 8`
 - `THREADS_BATCH = 8`
 - `FLASH_ATTN = 'on'`

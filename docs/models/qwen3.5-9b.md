@@ -21,9 +21,9 @@
 - Model size ~6.14 GB, leaving adequate headroom for context cache.
 
 ## MTP (Multi-Token Prediction)
-- **MTP tensors are integrated into this GGUF.**
-- Configured with `spec_type = "draft-mtp"`.
-- Uses `--spec-draft-n-max 2` for speculative decoding, achieving up to 1.5x–2.0x faster generation speeds.
+- **MTP tensors are embedded in this GGUF** (`qwen35.nextn_predict_layers`, `blk.32.nextn.*` verified 2026-07-20).
+- Enable: `SPEC_TYPE = "draft-mtp"`, `SPEC_DRAFT_N_MAX = 4` — **no** `--spec-draft-model`.
+- Fair matrix (2026-07-20, `llama-cli` `-n 512`): base **38.7 t/s** → MTP **57.3 t/s** (**+48%**). Evidence: [session](../sessions/2026-07-20-small-model-tps-matrix.md).
 
 ## Recommended Settings
 - **Temperature:** 0.4
@@ -33,16 +33,21 @@
 - **Repeat Penalty:** 1.05
 - **Chat Template:** Jinja (requires `--jinja` flag)
 
-## Config Baseline (2026-07-19)
+## Config Baseline (2026-07-20 TPS matrix knobs)
 - `MODEL = 'Qwen3.5-9B-UD-Q4_K_XL.gguf'`
 - `CTX_SIZE = 131072`
 - `KV_CACHE = 'q4_0'`
+- `KV_CACHE_K = 'q4_0'`
+- `KV_CACHE_V = 'q4_0'`
 - `NGL = 99`
-- `THREADS = 8`
+- `THREADS = 6`
 - `THREADS_BATCH = 8`
+- `BATCH_SIZE = 256`
+- `UBATCH_SIZE = 128`
 - `FLASH_ATTN = 'on'`
 - `SPEC_TYPE = 'draft-mtp'`
-- `SPEC_DRAFT_N_MAX = 2`
+- `SPEC_DRAFT_N_MAX = 4`
+- `NO_MMAP = True`
 
 ### Status
-- **UNTESTED.** Upgraded to Unsloth Dynamic Q4_K_XL with built-in MTP.
+- **Measured (2026-07-20):** embedded MTP works on upstream CUDA; +48% vs base under fair knobs. Slower absolute than Gemma+draft MTP (122 t/s).
