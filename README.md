@@ -19,10 +19,10 @@ O agente vai:
 2. Rodar `whichllm` pra listar candidatos
 3. Cruzar com SWE-bench / Aider / LiveCodeBench
 4. Plotar Pareto frontier (tok/s vs qualidade)
-5. Definir o modelo alvo no Baseline mutável (`autoresearch/core/config.py`)
+5. Semear e editar o Baseline (`cp autoresearch/core/config.py.example autoresearch/core/config.py`, depois definir `MODEL`)
 6. Rodar `python3 autoloop.py --vram-limit-mb=<budget>` overnight
 
-**Resultado de manhã:** `results.tsv` com todos os Trials + `config.py` com a melhor configuração encontrada (visited em `.autoresearch_state.json`).
+**Resultado de manhã:** `results.tsv` com todos os Trials + `config.py` local com a melhor configuração (visited em `.autoresearch_state.json`).
 
 ---
 
@@ -39,6 +39,16 @@ Instale **antes** de pedir pro agente:
 | huggingface_hub[cli] | `pip install huggingface_hub[cli]` | baixar GGUFs |
 
 Depois clone e compile o `llama.cpp` (ver [seção Build](#build-do-llamacpp-com-cuda) abaixo).
+
+### Baseline local (`config.py`)
+
+O Baseline mutável **não vem no git** (fica só na sua máquina). Depois do clone:
+
+```bash
+cp autoresearch/core/config.py.example autoresearch/core/config.py
+```
+
+Edite `MODEL` (basename do GGUF em `models/`) e os knobs ENGINE/SAMPLER. O autoloop reescreve esse arquivo a cada keep — **não faça commit** dele.
 
 ### Verificar se tá tudo pronto
 
@@ -66,7 +76,8 @@ Output verde = pronto pro autoloop.
 
 | Arquivo | O quê | Agente/loop pode editar? |
 |---|---|---|
-| `autoresearch/core/config.py` | Baseline mutável (ENGINE + SAMPLER) | **Sim** (via autoloop / edição manual) |
+| `autoresearch/core/config.py` | Baseline local (gitignored; seed = `.example`) | **Sim** (via autoloop / edição manual) |
+| `autoresearch/core/config.py.example` | Template versionado do Baseline | **Não** (só pra atualizar defaults genéricos) |
 | `.autoresearch_state.json` | Visited memory (local) | **Sim** (só visited) |
 | `autoresearch/benchmarks/bench_config.py` | Quais benches rodam | **Não** (só com permissão explícita) |
 | `benchmark_search.py` | CLI runner | **Não** |
@@ -167,10 +178,11 @@ model:    <nome-do-modelo-do-config>
 Se preferir fazer na mão:
 
 1. Leia `program.md` pra regras
-2. Ajuste o Baseline em `autoresearch/core/config.py`
-3. Rode `python3 benchmark_search.py --desc "sua hipótese"` (sem flag soup)
-4. Cheque `results.tsv` pelos resultados
-5. Keep se o Val Score melhorou, reverte o `config.py` caso contrário
+2. Se ainda não tiver: `cp autoresearch/core/config.py.example autoresearch/core/config.py`
+3. Ajuste o Baseline em `autoresearch/core/config.py` (`MODEL` = basename do GGUF)
+4. Rode `python3 benchmark_search.py --desc "sua hipótese"` (sem flag soup)
+5. Cheque `results.tsv` pelos resultados
+6. Keep se o Val Score melhorou, reverte o `config.py` caso contrário
 
 ---
 
