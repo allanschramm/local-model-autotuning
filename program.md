@@ -6,7 +6,7 @@ The contract is strict:
 
 - `program.md` is fixed (unless explicitly requested by user).
 - `autoresearch/benchmarks/*` harnesses are fixed.
-- `autoresearch/core/config.py` is the **only mutable Baseline** (ENGINE = performance, SAMPLER = quality). The Search loop and agents edit this file.
+- `autoresearch/core/config.py` is the **only mutable Baseline** (ENGINE = performance, SAMPLER = quality). The Search loop and agents edit this file. It is **gitignored** — seed from `autoresearch/core/config.py.example`.
 - `.autoresearch_state.json` stores **visited memory only** (not Baseline).
 
 The goal is to push any model as far as possible on any hardware using optimized KV cache configurations and runtime parameters.

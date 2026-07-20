@@ -9,6 +9,7 @@ Operators and agents expected a single editable Baseline file (`config.py`, with
 
 ## Decision
 - `autoresearch/core/config.py` is the only mutable Baseline (`ENGINE_DEFAULTS` = performance, `SAMPLER_DEFAULTS` = quality). Keeps persist via `write_baseline`.
+- Tracked template: `autoresearch/core/config.py.example`. Local `config.py` is gitignored (machine Baseline stays offline).
 - `.autoresearch_state.json` stores visited memory only (schema v2).
 - `program.md` and harnesses remain fixed unless the user explicitly requests a change.
 - Trials are driven from `config.py`, not CLI flag overrides.
@@ -16,5 +17,6 @@ Operators and agents expected a single editable Baseline file (`config.py`, with
 ## Consequences
 - Manual and autonomous Search share one Baseline file.
 - `serve-config.py` / `run.py` argparse defaults follow the live Baseline.
-- Search keeps dirty `config.py` in the working tree (expected; commit only when the operator wants).
+- Search keeps dirty `config.py` in the working tree (expected; never commit it).
+- Fresh clone: `cp autoresearch/core/config.py.example autoresearch/core/config.py` (tests/conftest.py also seeds when missing).
 - Legacy state files with a `baseline` key still load visited entries; baseline payload is ignored.

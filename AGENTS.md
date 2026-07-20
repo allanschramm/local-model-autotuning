@@ -28,7 +28,7 @@ Repository-wide agent guidelines are owned by the repository developers.
 ## Work Guidance
 - Use `/caveman lite|full|ultra|wenyan` for communication style constraint.
 - Prioritize test-driven sanity. Verify logic changes using the test suite.
-- Maintain mutable Baseline in [config.py](autoresearch/core/config.py) (`ENGINE_DEFAULTS` / `SAMPLER_DEFAULTS`); visited memory lives in `.autoresearch_state.json`.
+- Maintain mutable Baseline in local `autoresearch/core/config.py` (gitignored; seed from [config.py.example](autoresearch/core/config.py.example)). Visited memory lives in `.autoresearch_state.json`.
 - `program.md` and evaluation harnesses are fixed unless the user explicitly requests a change.
 
 ## Verification
@@ -124,7 +124,7 @@ When the user requests a durable behavior change, record it here or in the relev
 - **Agentic coding migration**: Treat HumanEval+/MBPP+/LiveCodeBench/BigCodeBench as direct-coding preflight benchmarks. Prefer long-horizon agentic targets for future coding-agent quality decisions once adapters exist.
 - **Agentic-first Search**: Claw-Eval full is the canonical Val Score; Claw-Eval quick is smoke validation. Direct-coding is optional and, when enabled, uses exactly 10 tasks per dataset.
 - **No eval-score floor**: Only the TPS Floor rejects a Trial. Claw-Eval quick/full scores are recorded for keep/discard comparison; low smoke scores must not short-circuit as `MODEL_REJECTED`.
-- **config.py is the only mutable Baseline**: Agents and Search edit `ENGINE_DEFAULTS` / `SAMPLER_DEFAULTS` in `config.py`. `program.md` and harnesses stay fixed. Do not drive Trials with CLI flag soup. `.autoresearch_state.json` is visited memory only.
+- **config.py is the only mutable Baseline (local)**: Seed with `cp autoresearch/core/config.py.example autoresearch/core/config.py`. Agents and Search edit `ENGINE_DEFAULTS` / `SAMPLER_DEFAULTS` there. File is gitignored — do not commit machine Baseline. `program.md` and harnesses stay fixed. Do not drive Trials with CLI flag soup. `.autoresearch_state.json` is visited memory only.
 - **Every requested Trial edits `config.py` first**: For each user-requested test/run, set the Baseline in `config.py` (then invoke harness). Never pass the experiment knobs as CLI flags.
 
 ## Child DOX Index

@@ -4,6 +4,9 @@
 # .autoresearch_state.json stores visited memory only (not Baseline).
 # NOTE: CTX_SIZE default is 131072. User may lower it to trade context for speed.
 # Minimum floor is 2048 (llama.cpp practical minimum).
+#
+# This file is gitignored. Seed from the tracked template:
+#   cp autoresearch/core/config.py.example autoresearch/core/config.py
 
 from typing import Any
 from pathlib import Path
@@ -21,26 +24,26 @@ CONFIG_PATH = Path(__file__).resolve()
 
 # Hardware/Engine/Inference configuration parameters (affect speed and VRAM usage)
 ENGINE_DEFAULTS = {
-    'MODEL': 'gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf',
+    'MODEL': 'model.gguf',
     'CTX_SIZE': 131072,
     'KV_CACHE': 'q4_0',
     'KV_CACHE_K': 'q4_0',
     'KV_CACHE_V': 'q4_0',
-    'BATCH_SIZE': 256,
+    'BATCH_SIZE': 512,
     'UBATCH_SIZE': 128,
-    'THREADS': 6,
+    'THREADS': 8,
     'THREADS_BATCH': 8,
     'FLASH_ATTN': 'on',
-    'SPEC_TYPE': 'draft-mtp',
-    'SPEC_DRAFT_N_MAX': 4,
-    'SPEC_DRAFT_MODEL': 'draft/mtp-gemma-4-E4B-it.gguf',
-    'NO_MMAP': True,
+    'SPEC_TYPE': None,
+    'SPEC_DRAFT_N_MAX': 0,
+    'SPEC_DRAFT_MODEL': None,
+    'NO_MMAP': False,
     'JINJA': True,
     'REASONING_BUDGET': None,
     'REASONING_BUDGET_MESSAGE': None,
     'REASONING': None,
     'CONT_BATCHING': False,
-    'N_CPU_MOE': 32,
+    'N_CPU_MOE': None,
 }
 
 # Generation/Sampling configuration parameters (affect quality and token selection)

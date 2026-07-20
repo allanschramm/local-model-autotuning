@@ -68,6 +68,9 @@ run_nexus_only.py
 # Models folder is entirely local/offline
 /models/
 
+# Local mutable Baseline (seed from config.py.example)
+autoresearch/core/config.py
+
 # Local launcher artifacts
 .model-up.pid
 .model-up.log
