@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>S1 Dia 3 — MoE maior que a VRAM</title>
+  <link rel="stylesheet" href="../assets/lesson.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <p class="eyebrow">Semana 1 · Dia 3 · Performance</p>
+      <h1>MoE — modelos maiores que a tua GPU</h1>
+      <p class="lede">
+        Dense mete (quase) tudo na VRAM. <strong>MoE</strong> ativa só alguns especialistas por token —
+        com offload podes correr modelos “grandes demais” para a GPU.
+      </p>
+      <p class="navlinks">
+        <a href="s1d2-llamacpp-flags-tps.html">← Dia 2</a>
+        <a href="../CURRICULUM.md">Currículo</a>
+        <a href="s1-live-mesmo-modelo-varios-harness.html">Live →</a>
+      </p>
+    </header>
+
+    <h2>Ideia</h2>
+    <p>
+      No llama.cpp, combinações típicas: <code>-ngl</code> (camadas na GPU) +
+      <code>--n-cpu-moe</code> / offload de experts (ver técnica VITRIOL no repo).
+      Objetivo da Semana 1: <strong>correr</strong> e manter TPS usável — não pontuar qualidade.
+    </p>
+    <p>
+      Guia: <a href="../../docs/models/vitriol-technique.md">docs/models/vitriol-technique.md</a>.
+    </p>
+    <div class="note">
+      Há um <strong>outro motor</strong> que o professor pode mostrar como palinha — surpresa da aula.
+      Não precisas adivinhar o nome aqui; o contrato MoE no llama.cpp basta para o quiz.
+    </div>
+
+    <h2>Prática</h2>
+    <div class="quiz" data-quiz data-lesson="s1d3-q1"
+         data-answer-hash="6da41398b4c370729c5bf095b217e5511cb11b2da17b53134f4f6f6d4523fe57"
+         data-ok="Certo. MoE + offload = caber o que a VRAM sozinha não aguenta."
+         data-bad="Não é fine-tune; é colocar experts/camadas fora da GPU.">
+      <p class="q">Para que serve offload MoE no Dia 3?</p>
+      <div class="choices">
+        <button type="button" data-choice="A">Correr modelo maior que a VRAM permite sozinha</button>
+        <button type="button" data-choice="B">Treinar um dense 70B do zero em 8GB</button>
+        <button type="button" data-choice="C">Apagar o llama.cpp e usar só LM Studio UI</button>
+        <button type="button" data-choice="D">Medir só a qualidade literária do output</button>
+      </div>
+      <p class="feedback" data-feedback></p>
+    </div>
+
+    <div class="quiz" data-quiz data-lesson="s1d3-q2"
+         data-answer-hash="795d7cf91e9a0ff829581f62005225930988ce20a579c2cffe1f3bc6f7152e8f"
+         data-ok="Isso. A surpresa fica para a aula; o núcleo é llama.cpp + MoE."
+         data-bad="O quiz não pede o nome do motor surpresa.">
+      <p class="q">O que este material exige saberes nomear já?</p>
+      <div class="choices">
+        <button type="button" data-choice="A">O nome secreto do motor surpresa completo</button>
+        <button type="button" data-choice="B">Todos os papers de MoE desde 2017</button>
+        <button type="button" data-choice="C">Só a temperatura ideal da Semana 2</button>
+        <button type="button" data-choice="D">MoE no llama.cpp com offload para caber</button>
+      </div>
+      <p class="feedback" data-feedback></p>
+    </div>
+
+    <h2>Próximo</h2>
+    <p><a href="s1-live-mesmo-modelo-varios-harness.html">Live — mesmo modelo, vários harness</a></p>
+    <footer class="site"><p>Dúvida? Levanta na sessão.</p></footer>
+  </div>
+  <script type="module" src="../assets/quiz.js"></script>
+</body>
+</html>

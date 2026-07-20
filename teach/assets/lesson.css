@@ -1,0 +1,195 @@
+/* teach/assets/lesson.css — shared lesson chrome (Tufte-ish, print-friendly) */
+:root {
+  --bg: #f7f4ef;
+  --ink: #1c1917;
+  --muted: #57534e;
+  --accent: #0f766e;
+  --line: #d6d3d1;
+  --card: #fffdf9;
+  --wrong: #9f1239;
+  --right: #166534;
+  --font: "Source Serif 4", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --mono: "IBM Plex Mono", "Consolas", "Cascadia Mono", ui-monospace, monospace;
+  --sans: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html { font-size: 18px; }
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--bg);
+  font-family: var(--font);
+  line-height: 1.55;
+}
+
+.wrap {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 4rem;
+}
+
+header.site {
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 1.75rem;
+  padding-bottom: 0.85rem;
+}
+
+header.site .eyebrow {
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 0.35rem;
+}
+
+h1 {
+  font-size: 1.85rem;
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0 0 0.5rem;
+}
+
+h2 {
+  font-size: 1.15rem;
+  margin: 2rem 0 0.65rem;
+  font-weight: 600;
+}
+
+h3 {
+  font-size: 1rem;
+  margin: 1.35rem 0 0.4rem;
+  font-family: var(--sans);
+  font-weight: 600;
+}
+
+p, li { color: var(--ink); }
+.lede { font-size: 1.05rem; color: var(--muted); margin-top: 0; }
+
+a { color: var(--accent); text-underline-offset: 2px; }
+
+code, .mono {
+  font-family: var(--mono);
+  font-size: 0.86em;
+}
+
+pre {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.85rem 1rem;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.note {
+  border-left: 3px solid var(--accent);
+  padding: 0.35rem 0 0.35rem 0.9rem;
+  margin: 1rem 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+dl {
+  margin: 1rem 0 1.25rem;
+}
+
+dt {
+  font-family: var(--sans);
+  font-weight: 650;
+  margin-top: 0.75rem;
+}
+
+dd {
+  margin: 0.2rem 0 0 0;
+  color: var(--muted);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+  margin: 1rem 0 1.25rem;
+}
+
+th, td {
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  padding: 0.45rem 0.35rem;
+  vertical-align: top;
+}
+
+th { font-family: var(--sans); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+
+.quiz {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1rem 1.1rem 1.15rem;
+  margin: 1.25rem 0;
+}
+
+.quiz .q {
+  font-family: var(--sans);
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+}
+
+.choices { display: grid; gap: 0.5rem; }
+
+.choices button {
+  font: inherit;
+  font-family: var(--sans);
+  font-size: 0.92rem;
+  text-align: left;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.choices button:hover { border-color: var(--accent); }
+
+.choices button[aria-pressed="true"][data-correct="true"] {
+  border-color: var(--right);
+  background: #dcfce7;
+}
+
+.choices button[aria-pressed="true"][data-correct="false"] {
+  border-color: var(--wrong);
+  background: #ffe4e6;
+}
+
+.feedback {
+  margin-top: 0.75rem;
+  font-size: 0.92rem;
+  min-height: 1.4em;
+  color: var(--muted);
+}
+
+.feedback.ok { color: var(--right); }
+.feedback.bad { color: var(--wrong); }
+
+footer.site {
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.navlinks { font-family: var(--sans); font-size: 0.88rem; }
+.navlinks a { margin-right: 0.85rem; }
+
+@media print {
+  body { background: #fff; }
+  .choices button { border-color: #999; }
+  .quiz { break-inside: avoid; }
+}

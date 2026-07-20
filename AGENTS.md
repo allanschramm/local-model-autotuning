@@ -137,6 +137,7 @@ When the user requests a durable behavior change, record it here or in the relev
  - [docs/llamacpp-toolset.md](docs/llamacpp-toolset.md) — llama.cpp binary reference (build, bench, server, quantize).
 - [scripts/AGENTS.md](scripts/AGENTS.md) — Operator scripts (setup, monitoring, server daemon).
 - [tests/AGENTS.md](tests/AGENTS.md) — Unit and integration test suite.
+- [teach/AGENTS.md](teach/AGENTS.md) — Course materials (Semana 1 TPS / Semana 2 quality); Dia 1 LM Studio, Dia 2+ this repo.
 - External source submodules:
   - [llama.cpp/](llama.cpp/) - Upstream llama.cpp runtime source.
   - [claw-eval/](claw-eval/) - Claw-Eval autonomous-agent benchmark harness source.

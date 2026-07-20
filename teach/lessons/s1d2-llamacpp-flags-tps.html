@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>S1 Dia 2 — llama.cpp e flags de TPS</title>
+  <link rel="stylesheet" href="../assets/lesson.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <p class="eyebrow">Semana 1 · Dia 2 · Este repositório</p>
+      <h1>llama.cpp — mesmo fluxo, tunar performance</h1>
+      <p class="lede">
+        Ontem viste motor + API no LM Studio. Hoje
+        <strong>começa o trabalho neste repositório</strong>:
+        <strong>llama.cpp</strong> + flags que mexem no <strong>TPS</strong>.
+      </p>
+      <p class="navlinks">
+        <a href="s1d1-lmstudio-avisos-motores-api.html">← Dia 1</a>
+        <a href="../CURRICULUM.md">Currículo</a>
+        <a href="s1d3-moe-maior-que-a-vram.html">Dia 3 →</a>
+      </p>
+    </header>
+
+    <h2>Mesmo contrato, outra embalagem</h2>
+    <table>
+      <thead><tr><th>Ideia Dia 1</th><th>Dia 2 neste repo</th></tr></thead>
+      <tbody>
+        <tr><td>Motor + UI</td><td><code>llama-cli</code> / <code>llama-server</code> em <code>llama.cpp/build-cuda/bin/</code></td></tr>
+        <tr><td>Pesos GGUF</td><td><code>models/*.gguf</code> (via <code>hf download</code>)</td></tr>
+        <tr><td>Local Server</td><td><code>llama-server --host 127.0.0.1</code></td></tr>
+        <tr><td>Baseline de flags</td><td><code>autoresearch/core/config.py</code> (não sopa de CLI solta)</td></tr>
+      </tbody>
+    </table>
+    <p>Referência de flags: <a href="../../docs/llamacpp-toolset.md">docs/llamacpp-toolset.md</a>.</p>
+
+    <h2>Tunar performance (o que importa na S1)</h2>
+    <ul>
+      <li><code>-ngl</code> — camadas na GPU (mais na GPU → tipicamente mais TPS se couber).</li>
+      <li><code>-fa on</code> — flash attention (neste projeto: ligado).</li>
+      <li><code>-ctk</code> / <code>-ctv</code> — tipo do KV (ex. <code>q4_0</code>); afeta VRAM e velocidade.</li>
+      <li><code>-b</code> / <code>-ub</code> — batch / ubatch (sweet spots por modelo/GPU).</li>
+      <li><code>-c</code> — contexto: maior = mais KV = menos folga de VRAM (pode matar TPS ou dar OOM).</li>
+    </ul>
+    <div class="note">
+      Ainda <strong>não</strong> é aula de temperatura/top-k. Isso é Semana 2 (qualidade).
+      Hoje: o modelo responde depressa e estável.
+    </div>
+
+    <h2>Prática</h2>
+    <div class="quiz" data-quiz data-lesson="s1d2-q1"
+         data-answer-hash="58fc2d60f785b5e282d0c202eb04d43bb666d8e661a748a8e727509a6cfe39a4"
+         data-ok="Certo. Dia 2 = llama.cpp neste repo, a repetir o contrato do Dia 1."
+         data-bad="Não voltamos ao treino nem à qualidade HE+.">
+      <p class="q">O que muda do Dia 1 para o Dia 2?</p>
+      <div class="choices">
+        <button type="button" data-choice="A">Passamos a treinar pesos novos no Hub</button>
+        <button type="button" data-choice="B">Repetimos o fluxo com llama.cpp e flags TPS</button>
+        <button type="button" data-choice="C">Avaliamos só a inteligência do modelo</button>
+        <button type="button" data-choice="D">Apagamos a API e usamos só screenshots</button>
+      </div>
+      <p class="feedback" data-feedback></p>
+    </div>
+
+    <div class="quiz" data-quiz data-lesson="s1d2-q2"
+         data-answer-hash="85b5a270437a3c45edb747870d5ce9142093b9962773e39d2958493263085238"
+         data-ok="Isso. Contexto grande come VRAM via KV e pode afundar TPS."
+         data-bad="Pensa em KV cache e VRAM — não em fine-tune.">
+      <p class="q">Na lente de performance, o que um <code>-c</code> enorme costuma fazer?</p>
+      <div class="choices">
+        <button type="button" data-choice="A">Treina o modelo automaticamente à noite</button>
+        <button type="button" data-choice="B">Apaga o GGUF do disco para libertar espaço</button>
+        <button type="button" data-choice="C">Aumenta o KV cache e pode matar VRAM/TPS</button>
+        <button type="button" data-choice="D">Troca o motor llama.cpp por Notepad</button>
+      </div>
+      <p class="feedback" data-feedback></p>
+    </div>
+
+    <h2>Próximo</h2>
+    <p><a href="s1d3-moe-maior-que-a-vram.html">Dia 3 — MoE maior que a VRAM</a></p>
+    <footer class="site"><p>Dúvida? Levanta na sessão.</p></footer>
+  </div>
+  <script type="module" src="../assets/quiz.js"></script>
+</body>
+</html>

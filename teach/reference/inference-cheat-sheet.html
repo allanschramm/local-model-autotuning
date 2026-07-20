@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Inferência — cola rápida</title>
+  <link rel="stylesheet" href="../assets/lesson.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <p class="eyebrow">Referência · Lição 0001</p>
+      <h1>Inferência — cola rápida</h1>
+      <p class="lede">Uma página. Cola na parede mental.</p>
+    </header>
+
+    <h2>Definição</h2>
+    <p><strong>Inferência</strong> = gerar saídas com pesos <em>já treinados</em> (congelados). Não atualiza o modelo.</p>
+
+    <h2>Treino vs inferência</h2>
+    <pre>TREINO      → muda pesos (fora deste curso)
+INFERÊNCIA  → só calcula o próximo token (este curso)</pre>
+
+    <h2>Loop</h2>
+    <pre>prompt → tokens → modelo → próximo token → … → texto</pre>
+
+    <h2>Métrica que vais ver</h2>
+    <pre>t/s  ou  TPS  = tokens por segundo (velocidade de geração)</pre>
+
+    <h2>Neste repo</h2>
+    <pre>GGUF no disco + llama.cpp  =  inferência local
+hf download                 =  obter pesos (ainda não é treino)</pre>
+
+    <footer class="site">
+      <p><a href="../lessons/0001-o-que-e-inferencia.html">Lição 0001</a> ·
+         <a href="../CURRICULUM.md">Currículo</a></p>
+    </footer>
+  </div>
+</body>
+</html>

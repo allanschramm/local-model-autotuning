@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>S1 Dia 4 — Use-case do zero</title>
+  <link rel="stylesheet" href="../assets/lesson.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <p class="eyebrow">Semana 1 · Dia 4 · Performance aplicada</p>
+      <h1>Use-case — fluxo de trabalho do zero</h1>
+      <p class="lede">
+        Se trouxeres um problema real: o professor mostra
+        <strong>planear → quebrar tasks → executar</strong> com o LLM local já a correr (API / llama.cpp).
+        Continua Semana 1: o modelo tem de <em>responder depressa o suficiente</em> para o fluxo.
+      </p>
+      <p class="navlinks">
+        <a href="s1-live-mesmo-modelo-varios-harness.html">← Live</a>
+        <a href="../CURRICULUM.md">Currículo</a>
+        <a href="s2d1-parametros-qualidade.html">Semana 2 →</a>
+      </p>
+    </header>
+
+    <h2>Fluxo</h2>
+    <ol>
+      <li><strong>Objetivo</strong> em uma frase.</li>
+      <li><strong>Quebrar</strong> em tasks verificáveis.</li>
+      <li><strong>Garantir</strong> motor+modelo+API no ar (Dias 1–3).</li>
+      <li><strong>Executar</strong> task a task com o LLM local.</li>
+      <li><strong>Medir</strong> se a latência/TPS deixa o loop usável — senão, volta às flags (Dia 2) ou MoE (Dia 3).</li>
+    </ol>
+    <div class="note">
+      Ainda não é aula de skills/MCP/hooks (Semana 2). Hoje o herói é o pipeline de inferência local.
+    </div>
+
+    <h2>Prática</h2>
+    <div class="quiz" data-quiz data-lesson="s1d4-q1"
+         data-answer-hash="2611a1c17cfa2d9c7f58d5a718c683f1e474f94beda473ea33249406b03523d7"
+         data-ok="Certo. Plano → tasks → LLM local no ar."
+         data-bad="Não comesças pelo fine-tune nem pela Semana 2.">
+      <p class="q">Ordem pedida no use-case do Dia 4?</p>
+      <div class="choices">
+        <button type="button" data-choice="A">Fine-tune → push ao Hub → depois pensar</button>
+        <button type="button" data-choice="B">Planear → quebrar tasks → executar no LLM local</button>
+        <button type="button" data-choice="C">Só medir qualidade literária sem motor ligado</button>
+        <button type="button" data-choice="D">Apagar o server e improvisar no Excel</button>
+      </div>
+      <p class="feedback" data-feedback></p>
+    </div>
+
+    <div class="quiz" data-quiz data-lesson="s1d4-q2"
+         data-answer-hash="cbef8a9643cf1be98b72f357ac1ed74d8140dfe21e9ee383be1cf6d606a27a18"
+         data-ok="Isso. Se TPS/latência impedir o loop, voltas ao setup de performance."
+         data-bad="O Dia 4 ainda está na lente Semana 1.">
+      <p class="q">Se o LLM local estiver demasiado lento para o fluxo?</p>
+      <div class="choices">
+        <button type="button" data-choice="A">Voltar a flags/MoE e recuperar TPS útil</button>
+        <button type="button" data-choice="B">Ignorar e começar a Semana 2 de skills</button>
+        <button type="button" data-choice="C">Treinar um modelo novo durante a aula</button>
+        <button type="button" data-choice="D">Publicar o GGUF no origin/main</button>
+      </div>
+      <p class="feedback" data-feedback></p>
+    </div>
+
+    <h2>Fim da Semana 1</h2>
+    <p>Semana 2 (qualidade) começa em <a href="s2d1-parametros-qualidade.html">S2 Dia 1</a> — mapa flexível.</p>
+    <footer class="site"><p>Dúvida? Sessão / Discord do curso.</p></footer>
+  </div>
+  <script type="module" src="../assets/quiz.js"></script>
+</body>
+</html>

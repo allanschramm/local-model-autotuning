@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MTP packaging — cola rápida</title>
+  <link rel="stylesheet" href="../assets/lesson.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <p class="eyebrow">Referência · Trilha avançada (0010)</p>
+      <h1>MTP packaging — cola rápida</h1>
+      <p class="lede">Imprimível. Depois da intro MTP/draft (0009). Antes de editar <code>config.py</code> com speculation.</p>
+    </header>
+
+    <h2>Detetar</h2>
+    <pre>nextn / blk.*.nextn.*     → embedded (embutido)
+gemma4-assistant          → draft externo
+nenhum dos dois           → sem MTP neste ficheiro</pre>
+
+    <h2>Ligar (upstream llama.cpp)</h2>
+    <pre># Embedded (Qwen UD, Ornith-MTP, Mythos-MTP)
+--spec-type draft-mtp --spec-draft-n-max 4
+
+# Draft externo (Gemma E4B)
+--spec-type draft-mtp --spec-draft-n-max 4 \
+  --spec-draft-model models/draft/mtp-gemma-4-E4B-it.gguf
+
+# Caminho no harness relativo a models/:
+SPEC_DRAFT_MODEL = 'draft/mtp-gemma-4-E4B-it.gguf'</pre>
+
+    <h2>Mapa local (2026-07-20)</h2>
+    <table>
+      <thead><tr><th>Modelo</th><th>Forma</th><th>Asset</th></tr></thead>
+      <tbody>
+        <tr><td>Gemma E4B</td><td>draft</td><td><code>draft/mtp-gemma-4-E4B-it.gguf</code></td></tr>
+        <tr><td>Qwen3.5-9B</td><td>embedded</td><td>mesmo ficheiro UD</td></tr>
+        <tr><td>Ornith-9B</td><td>Hub MTP GGUF</td><td><code>Ornith-1.0-9B-MTP-Q4_K_M.gguf</code></td></tr>
+        <tr><td>Mythos</td><td>Hub MTP GGUF</td><td><code>…Mythos…-MTP.Q4_K_M.gguf</code> (~+1% TPS)</td></tr>
+        <tr><td>Qwythos v2</td><td>nenhum</td><td>sem MTP CUDA</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Snapshot TPS justo (-n 512)</h2>
+    <pre>Gemma base 67.6 → MTP 122.0  (+80%)
+Qwen  38.7 → 57.3            (+48%)
+Ornith 38.7 → 56.3           (+46%)
+Mythos 40.8 → 41.2           (+1%)
+Qwythos v2 40.1              (só base)</pre>
+
+    <h2>Proibido neste rig</h2>
+    <ul>
+      <li><code>turbo*</code> KV no upstream → não suportado</li>
+      <li><code>llama-bench</code> para TPS com MTP → sem flags de draft; usa <code>llama-cli</code> / harness</li>
+      <li>Nome do ficheiro tem <code>MTP</code> → não é vitória automática</li>
+    </ul>
+
+    <footer class="site">
+      <p><a href="../lessons/0010-duas-embalagens-de-mtp.html">Lição 0010</a> ·
+         <a href="../../docs/discovery/small-model-mtp-tps.md">Guia do operador</a> ·
+         <a href="../lessons/0001-o-que-e-inferencia.html">Início do curso</a></p>
+    </footer>
+  </div>
+</body>
+</html>
