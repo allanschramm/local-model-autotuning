@@ -15,10 +15,8 @@ import signal
 from pathlib import Path
 from typing import Any
 
-from autoresearch.core.llama_runner import estimate_vram_mb, validate_config, ConfigError
+from autoresearch.core.llama_runner import estimate_vram_mb
 from autoresearch.core.config import (
-    CONFIG_KEYS,
-    load_config as _core_load_config,
     ENGINE_DEFAULTS,
     SAMPLER_DEFAULTS,
 )
@@ -26,6 +24,7 @@ from autoresearch.runners.run import get_git_commit, write_row, RESULTS_FILE, MO
 from autoresearch.runners.evaluation import ExperimentRunner
 from autoresearch.runners.evaluation import TrialOutcome
 from autoresearch.core.search import SearchStrategy
+from autoresearch.core.state import SearchState
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -73,56 +72,17 @@ def _signal_handler(_sig, _frame):
 signal.signal(signal.SIGINT, _signal_handler)
 signal.signal(signal.SIGTERM, _signal_handler)
 
-STATE_SCHEMA_VERSION = 1
-STATE_FILE = Path(__file__).resolve().parent / ".autoresearch_state.json"
-
-def load_state(path: str | Path | None = None) -> dict[str, Any]:
-    """Load the local Baseline, initializing it from immutable defaults."""
-    state_path = Path(path) if path else STATE_FILE
-    if not state_path.exists():
-        return {"schema_version": STATE_SCHEMA_VERSION, "baseline": _core_load_config(), "visited": []}
-    data = json.loads(state_path.read_text(encoding="utf-8"))
-    if data.get("schema_version") != STATE_SCHEMA_VERSION:
-        raise ConfigError(f"Unsupported state schema: {data.get('schema_version')}")
-    data["baseline"] = validate_config(data.get("baseline", {}))
-    return data
-
-
-def write_state(state: dict[str, Any], path: str | Path | None = None) -> None:
-    """Atomically persist local Search state without rewriting Python source."""
-    state_path = Path(path) if path else STATE_FILE
-    payload = dict(state)
-    payload["schema_version"] = STATE_SCHEMA_VERSION
-    payload["baseline"] = validate_config(payload.get("baseline", {}))
-    state_path.parent.mkdir(parents=True, exist_ok=True)
-    import tempfile
-    import os
-    fd, tmp_name = tempfile.mkstemp(prefix=f".{state_path.name}.", dir=state_path.parent)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, indent=2, sort_keys=True)
-            handle.write("\n")
-        os.replace(tmp_name, state_path)
-    finally:
-        if os.path.exists(tmp_name):
-            os.unlink(tmp_name)
-def load_config() -> dict[str, Any]:
+def load_config(baseline_cfg: dict[str, Any] | None = None) -> dict[str, Any]:
     """Load immutable defaults overlaid by the local Baseline state."""
     from autoresearch.benchmarks import bench_config as _bc
-    result = _core_load_config(list(SEARCH_SPACE.keys()) + CORE_PASSTHROUGH)
-    result.update(load_state()["baseline"])
+    if baseline_cfg is None:
+        from autoresearch.core.config import load_config as _core_load_config
+        baseline_cfg = _core_load_config()
+    result = dict(baseline_cfg)
     # Merge bench params
     bench_vals = {p: getattr(_bc, p, None) for p in BENCH_PASSTHROUGH}
     result.update({k: v for k, v in bench_vals.items() if v is not None})
     return result
-
-
-def write_config(cfg: dict[str, Any]) -> None:
-    """Persist the Baseline to ignored local state, never Python source."""
-    state = load_state()
-    filtered = {k: cfg[k] for k in CONFIG_KEYS if k in cfg}
-    state["baseline"] = validate_config(filtered)
-    write_state(state)
 
 
 def update_model_alias(model_name: str, new_cfg: dict, tps: float, mode: str) -> None:
@@ -245,14 +205,7 @@ def preflight_vram_ok(cfg: dict[str, Any], vram_limit: float | None) -> bool:
 
 
 
-def load_visited() -> set[str]:
-    return set(load_state().get("visited", []))
 
-
-def save_visited(visited: set[str]) -> None:
-    state = load_state()
-    state["visited"] = sorted(visited)
-    write_state(state)
 
 
 def main():
@@ -269,8 +222,10 @@ def main():
     vram_limit = cli_args.vram_limit_mb
     max_rounds = cli_args.max_rounds
 
+    state_manager = SearchState()
+
     if cli_args.reset_visited:
-        write_state({"baseline": _core_load_config(), "visited": []})
+        state_manager.reset()
         print("[AUTOLOOP] Reset local Search state to immutable defaults.")
 
     # 1. Resolve selected models
@@ -312,7 +267,7 @@ def main():
                 pass
             print("Invalid choice, try again.")
     else:
-        baseline_cfg = load_config()
+        baseline_cfg = load_config(state_manager.get_baseline())
         selected_models = [baseline_cfg.get("MODEL", "g4-opt-it-Q4_K_M.gguf")]
 
     print("=" * 60)
@@ -322,8 +277,7 @@ def main():
     print("  Stop with Ctrl+C. State persists in .autoresearch_state.json + results.tsv")
     print("=" * 60)
 
-    visited = load_visited()
-    print(f"[AUTOLOOP] Loaded {len(visited)} previously visited configs.")
+    print(f"[AUTOLOOP] Loaded {len(state_manager.visited)} previously visited configs.")
 
     runner = ExperimentRunner(MODELS_DIR)
     _defaults = {
@@ -354,9 +308,9 @@ def main():
         print(f"{'#' * 60}")
         
         # Load config and update MODEL
-        cfg = load_config()
+        cfg = load_config(state_manager.get_baseline())
         cfg["MODEL"] = model_name
-        write_config(cfg)
+        state_manager.update_baseline(cfg)
 
         round_num = 0
         while not _stop_requested:
@@ -370,9 +324,10 @@ def main():
             print(f"{'=' * 60}")
 
             # ── Step 1: Load current baseline from local state ───────────
-            baseline_cfg = load_config()
+            baseline_cfg = load_config(state_manager.get_baseline())
             baseline_key = search_strategy.get_config_key(baseline_cfg)
-            visited.add(baseline_key)
+            if not state_manager.is_visited(baseline_key):
+                state_manager.mark_visited(baseline_key)
 
             print(f"[BASELINE] {search_strategy.format_config_summary(baseline_cfg)}")
 
@@ -420,9 +375,9 @@ def main():
 
             if baseline_status == "discard":
                 print(f"[BASELINE] Rejected ({baseline_res.status}); attempting Random Restart.")
-                new_baseline = search_strategy.random_restart(visited, baseline_cfg)
+                new_baseline = search_strategy.random_restart(state_manager.visited, baseline_cfg)
                 if new_baseline and preflight_vram_ok(new_baseline, vram_limit):
-                    write_config(new_baseline)
+                    state_manager.update_baseline(new_baseline)
                     continue
                 print("[AUTOLOOP] No unvisited VRAM-safe restart available. Stopping.")
                 break
@@ -439,10 +394,9 @@ def main():
                     break
 
                 n_key = search_strategy.get_config_key(neighbor.config)
-                if n_key in visited:
+                if state_manager.is_visited(n_key):
                     continue
-                visited.add(n_key)
-                save_visited(visited)
+                state_manager.mark_visited(n_key)
 
                 changed = neighbor.changed
                 old_val = neighbor.old
@@ -501,7 +455,7 @@ def main():
                     print(f"  >>> IMPROVEMENT! {changed}: {old_val} -> {new_val} "
                           f"({reason})")
                     # Persist new baseline to local state
-                    write_config(neighbor.config)
+                    state_manager.update_baseline(neighbor.config)
                     # Automatically update model alias config
                     update_model_alias(model_name, neighbor.config, tps, cli_args.mode)
                     improved = True
@@ -515,7 +469,7 @@ def main():
                 print("[AUTOLOOP] Attempting Random Restart...")
                 new_baseline = None
                 for _ in range(50):
-                    candidate = search_strategy.random_restart(visited, baseline_cfg)
+                    candidate = search_strategy.random_restart(state_manager.visited, baseline_cfg)
                     if not candidate:
                         break
                     # Pre-flight VRAM check
@@ -523,18 +477,18 @@ def main():
                         new_baseline = candidate
                         break
                     else:
-                        # Mark as visited so we don't try it again
-                        visited.add(search_strategy.get_config_key(candidate))
+                        # Mark as visited in memory so we don't try it again in this round, but do not write to disk
+                        state_manager.mark_visited(search_strategy.get_config_key(candidate), persist=False)
                 
                 if new_baseline:
                     print("[AUTOLOOP] Found unvisited VRAM-safe random configuration. Restarting search.")
-                    write_config(new_baseline)
+                    state_manager.update_baseline(new_baseline)
                 else:
                     print("[AUTOLOOP] Exhausted random search space or cannot find VRAM-safe config. Stopping.")
                     break
 
     # ── Shutdown summary ─────────────────────────────────────────────
-    final_cfg = load_config()
+    final_cfg = load_config(state_manager.get_baseline())
     print(f"\n{'=' * 60}")
     print("  AUTOLOOP STOPPED")
     print(f"{'=' * 60}")

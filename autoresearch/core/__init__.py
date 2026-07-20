@@ -24,6 +24,9 @@ from autoresearch.core.search import (
     SearchStrategy,
     Neighbor,
 )
+from autoresearch.core.state import (
+    SearchState,
+)
 
 __all__ = [
     # Server lifecycle
@@ -36,6 +39,7 @@ __all__ = [
     # Search
     "SearchStrategy",
     "Neighbor",
+    "SearchState",
     # Utilities
     "estimate_vram_mb",
     "resolve_llama_server",

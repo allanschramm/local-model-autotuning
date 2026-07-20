@@ -13,7 +13,8 @@ class TestAutoLoop(unittest.TestCase):
 
     def setUp(self):
         self._state_dir = tempfile.TemporaryDirectory()
-        self._state_patch = patch.object(autoloop, "STATE_FILE", Path(self._state_dir.name) / "state.json")
+        temp_file = Path(self._state_dir.name) / "state.json"
+        self._state_patch = patch("autoresearch.core.config.STATE_FILE", temp_file)
         self._state_patch.start()
 
     def tearDown(self):
@@ -87,7 +88,8 @@ class TestAutoLoop(unittest.TestCase):
 
     def test_load_config_returns_dict(self):
         """autoloop.load_config wraps config.load_config with search keys."""
-        cfg = autoloop.load_config()
+        state = autoloop.SearchState()
+        cfg = autoloop.load_config(state.get_baseline())
         self.assertIsInstance(cfg, dict)
         self.assertIn("KV_CACHE_K", cfg)
         self.assertIn("MODEL", cfg)
@@ -133,26 +135,7 @@ class TestAutoLoop(unittest.TestCase):
         for n in neighbors:
             self.assertLessEqual(n.config["UBATCH_SIZE"], n.config["BATCH_SIZE"])
 
-    @patch("autoloop.load_state", return_value={"visited": []})
-    def test_load_visited_no_file(self, _mock_state):
-        self.assertEqual(autoloop.load_visited(), set())
 
-    def test_load_visited_with_data(self):
-        with patch("autoloop.load_state", return_value={"visited": ["cfg1", "cfg2"]}):
-            self.assertEqual(autoloop.load_visited(), {"cfg1", "cfg2"})
-
-    @patch("autoloop.write_state")
-    @patch("autoloop.load_state", return_value={"baseline": {}, "visited": []})
-    def test_save_visited(self, _mock_load, mock_write):
-        autoloop.save_visited({"a", "b"})
-        saved = mock_write.call_args[0][0]
-        self.assertEqual(saved["visited"], ["a", "b"])
-
-    @patch("autoloop.write_state")
-    @patch("autoloop.load_state", return_value={"baseline": {}, "visited": ["x"]})
-    def test_save_visited_empty(self, _mock_load, mock_write):
-        autoloop.save_visited(set())
-        self.assertEqual(mock_write.call_args[0][0]["visited"], [])
 
     # ── main() tests ───────────────────────────────────────────────
 
@@ -189,7 +172,7 @@ class TestAutoLoop(unittest.TestCase):
     @patch("autoloop.MODELS_DIR")
     @patch("autoloop.ExperimentRunner")
     @patch("autoloop.load_config")
-    @patch("autoloop.write_config")
+    @patch("autoloop.SearchState.update_baseline")
     @patch("autoloop.get_git_commit", return_value="abc123")
     @patch("autoloop.write_row")
     def test_main_single_round_no_neighbors(
@@ -217,7 +200,7 @@ class TestAutoLoop(unittest.TestCase):
     @patch("autoloop.MODELS_DIR")
     @patch("autoloop.ExperimentRunner")
     @patch("autoloop.load_config")
-    @patch("autoloop.write_config")
+    @patch("autoloop.SearchState.update_baseline")
     @patch("autoloop.get_git_commit", return_value="abc123")
     @patch("autoloop.write_row")
     def test_main_with_models_flag(
@@ -256,7 +239,7 @@ class TestAutoLoop(unittest.TestCase):
         mock_runner.run_trial.return_value = self._make_trial_result()
         mock_runner_cls.return_value = mock_runner
         with patch("autoloop.load_config", return_value=self._full_config(MODEL="real.gguf")):
-            with patch("autoloop.write_config"):
+            with patch("autoloop.SearchState.update_baseline"):
                 with patch("autoloop.get_git_commit", return_value="abc"):
                     with patch("autoloop.write_row"):
                         with patch.object(SearchStrategy, "get_neighbors", return_value=[]):
@@ -264,17 +247,15 @@ class TestAutoLoop(unittest.TestCase):
                                 autoloop.main()
 
     @patch("sys.argv", ["autoloop.py", "--reset-visited", "--max-rounds", "1", "--models", "test.gguf"])
-    @patch("autoloop.write_state")
-    @patch("autoloop.load_state", return_value={"baseline": {}, "visited": ["old"]})
+    @patch("autoloop.SearchState.reset")
     @patch("autoloop.MODELS_DIR")
     @patch("autoloop.ExperimentRunner")
     @patch("autoloop.load_config")
-    @patch("autoloop.write_config")
     @patch("autoloop.get_git_commit", return_value="abc")
     @patch("autoloop.write_row")
     def test_main_reset_visited(
-        self, mock_write_row, mock_git, mock_wcfg, mock_lcfg,
-        mock_runner_cls, mock_models_dir, mock_load_state, mock_write_state
+        self, mock_write_row, mock_git, mock_lcfg,
+        mock_runner_cls, mock_models_dir, mock_reset
     ):
         """--reset-visited clears visited keys in local state."""
         mock_models_dir.glob.return_value = [Path("test.gguf")]
@@ -287,14 +268,14 @@ class TestAutoLoop(unittest.TestCase):
             with patch.object(SearchStrategy, "random_restart", return_value=None):
                 autoloop.main()
 
-        self.assertEqual(mock_write_state.call_args_list[0].args[0]["visited"], [])
+        mock_reset.assert_called_once()
         mock_write_row.assert_called()
 
     @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--models", "test.gguf"])
     @patch("autoloop.MODELS_DIR")
     @patch("autoloop.ExperimentRunner")
     @patch("autoloop.load_config")
-    @patch("autoloop.write_config")
+    @patch("autoloop.SearchState.update_baseline")
     @patch("autoloop.get_git_commit", return_value="abc")
     @patch("autoloop.write_row")
     @patch("autoloop.estimate_vram_mb")
@@ -329,7 +310,7 @@ class TestAutoLoop(unittest.TestCase):
     @patch("autoloop.MODELS_DIR")
     @patch("autoloop.ExperimentRunner")
     @patch("autoloop.load_config")
-    @patch("autoloop.write_config")
+    @patch("autoloop.SearchState.update_baseline")
     @patch("autoloop.get_git_commit", return_value="abc")
     @patch("autoloop.write_row")
     def test_main_has_no_trial_budget(
@@ -355,7 +336,7 @@ class TestAutoLoop(unittest.TestCase):
     @patch("autoloop.MODELS_DIR")
     @patch("autoloop.ExperimentRunner")
     @patch("autoloop.load_config")
-    @patch("autoloop.write_config")
+    @patch("autoloop.SearchState.update_baseline")
     @patch("autoloop.get_git_commit", return_value="abc")
     @patch("autoloop.write_row")
     @patch("autoloop.estimate_vram_mb")
@@ -388,7 +369,7 @@ class TestAutoLoop(unittest.TestCase):
     @patch("autoloop.MODELS_DIR")
     @patch("autoloop.ExperimentRunner")
     @patch("autoloop.load_config")
-    @patch("autoloop.write_config")
+    @patch("autoloop.SearchState.update_baseline")
     @patch("autoloop.get_git_commit", return_value="abc")
     @patch("autoloop.write_row")
     @patch("autoloop.estimate_vram_mb", return_value=0.0)
@@ -460,7 +441,7 @@ class TestAutoLoop(unittest.TestCase):
     @patch("autoloop.MODELS_DIR")
     @patch("autoloop.ExperimentRunner")
     @patch("autoloop.load_config")
-    @patch("autoloop.write_config")
+    @patch("autoloop.SearchState.update_baseline")
     @patch("autoloop.get_git_commit", return_value="abc")
     @patch("autoloop.write_row")
     @patch("autoloop.estimate_vram_mb", return_value=0.0)

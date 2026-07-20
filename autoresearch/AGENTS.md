@@ -19,7 +19,7 @@ Repository developers.
 
 ## Verification
 - Run `pytest` on tests checking core runners (`test_llama_runner.py`, `test_llama_client.py`).
-- Run `pytest tests/test_search_strategy.py` for core optimization loop verification.
+- Run `pytest tests/test_search_strategy.py` and `pytest tests/test_state.py` for core optimization loop and state verification.
 
 ## Child DOX Index
 None

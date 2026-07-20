@@ -5,7 +5,7 @@ from unittest.mock import patch, MagicMock
 from autoresearch.runners import run
 from autoresearch.core.config import load_config
 from autoresearch.core.llama_runner import ConfigError, validate_config
-from autoloop import load_state, write_state
+from autoresearch.core.state import SearchState
 
 class TestConfigParsing(unittest.TestCase):
 
@@ -86,8 +86,12 @@ class TestRuntimeInvariants(unittest.TestCase):
     def test_state_round_trip(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "state.json"
-            write_state({"baseline": load_config(), "visited": ["abc"]}, path)
-            self.assertEqual(load_state(path)["visited"], ["abc"])
+            state = SearchState(path)
+            state.mark_visited("abc")
+            self.assertTrue(state.is_visited("abc"))
+            # Verify serialization round-trip
+            fresh_state = SearchState(path)
+            self.assertTrue(fresh_state.is_visited("abc"))
 
     @patch("sys.argv", ["benchmark_search.py", "--no-agentic-quick", "--no-agentic-full", "--desc", "x"])
     def test_parse_args_can_disable_agentic_flags(self):

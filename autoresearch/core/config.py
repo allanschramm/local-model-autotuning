@@ -1,6 +1,6 @@
 # config.py
 # Immutable runtime defaults + invariants. Mutable Baseline lives in
-# .autoresearch_state.json (see load_state / write_state). Never rewrite this
+# .autoresearch_state.json (see SearchState). Never rewrite this
 # file from the Search loop.
 # NOTE: CTX_SIZE default is 131072. User may lower it to trade context for speed.
 # Minimum floor is 2048 (llama.cpp practical minimum).
@@ -11,6 +11,11 @@ import json
 import math
 import os
 import tempfile
+
+class ConfigError(ValueError):
+    """Custom exception raised for invalid or unsupported configurations."""
+    pass
+
 
 # Hardware/Engine/Inference configuration parameters (affect speed and VRAM usage)
 ENGINE_DEFAULTS = {
@@ -51,6 +56,28 @@ SAMPLER_DEFAULTS = {
 DEFAULTS = {**ENGINE_DEFAULTS, **SAMPLER_DEFAULTS}
 
 MIN_CTX_SIZE = 2048
+
+
+def validate_config(cfg: dict) -> dict:
+    """Return a normalized copy, or fail before any model process starts."""
+    normalized = dict(cfg)
+    ctx = int(normalized.get("ctx_size", normalized.get("CTX_SIZE", DEFAULTS["CTX_SIZE"])))
+    flash = normalized.get("flash_attn", normalized.get("FLASH_ATTN", DEFAULTS["FLASH_ATTN"]))
+    if ctx < MIN_CTX_SIZE:
+        raise ConfigError(f"CTX_SIZE must be >= {MIN_CTX_SIZE}; got {ctx}")
+    if flash != "on":
+        raise ConfigError("FLASH_ATTN must be 'on'")
+    batch = int(normalized.get("batch_size", normalized.get("BATCH_SIZE", DEFAULTS["BATCH_SIZE"])))
+    ubatch = int(normalized.get("ubatch_size", normalized.get("UBATCH_SIZE", DEFAULTS["UBATCH_SIZE"])))
+    if batch <= 0 or ubatch <= 0 or ubatch > batch:
+        raise ConfigError("Require BATCH_SIZE > 0 and 0 < UBATCH_SIZE <= BATCH_SIZE")
+    for key, value in normalized.items():
+        if isinstance(value, float) and not math.isfinite(value):
+            raise ConfigError(f"{key} must be finite")
+    normalized["CTX_SIZE"] = ctx
+    normalized["FLASH_ATTN"] = flash
+    return normalized
+
 STATE_SCHEMA_VERSION = 1
 STATE_FILE = Path(__file__).resolve().parents[2] / ".autoresearch_state.json"
 
