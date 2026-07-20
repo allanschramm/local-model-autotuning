@@ -112,9 +112,9 @@ class ServerIntent:
         norm = {str(k).lower(): v for k, v in merged.items() if v is not None and isinstance(k, (str, bytes))}
 
         model_fn = norm.get("model", "g4-opt-it-Q4_K_M.gguf")
-        kv_cache = norm.get("kv", "q4_0")
-        k_val = norm.get("kv_k") or kv_cache
-        v_val = norm.get("kv_v") or kv_cache
+        kv_cache = norm.get("kv_cache") or norm.get("kv") or "q4_0"
+        k_val = norm.get("kv_cache_k") or norm.get("kv_k") or kv_cache
+        v_val = norm.get("kv_cache_v") or norm.get("kv_v") or kv_cache
 
         intent = cls(
             model_path=models_dir / model_fn,
@@ -210,7 +210,7 @@ LLAMA_BENCH_CANDIDATES = _binary_candidates("llama-bench")
 def resolve_llama_server() -> Path:
     for candidate in LLAMA_SERVER_CANDIDATES:
         if candidate.exists():
-            return candidate.resolve()  # follow symlinks to get real path
+            return candidate.absolute()
     raise FileNotFoundError(
         "llama-server not found. Expected one of: "
         + ", ".join(str(path) for path in LLAMA_SERVER_CANDIDATES)
@@ -220,10 +220,23 @@ def resolve_llama_server() -> Path:
 def resolve_llama_bench() -> Path:
     for candidate in LLAMA_BENCH_CANDIDATES:
         if candidate.exists():
-            return candidate.resolve()
+            return candidate.absolute()
     raise FileNotFoundError(
         "llama-bench not found. Expected one of: "
         + ", ".join(str(path) for path in LLAMA_BENCH_CANDIDATES)
+    )
+
+
+LLAMA_CLI_CANDIDATES = _binary_candidates("llama-cli")
+
+
+def resolve_llama_cli() -> Path:
+    for candidate in LLAMA_CLI_CANDIDATES:
+        if candidate.exists():
+            return candidate.absolute()
+    raise FileNotFoundError(
+        "llama-cli not found. Expected one of: "
+        + ", ".join(str(path) for path in LLAMA_CLI_CANDIDATES)
     )
 
 
@@ -233,7 +246,7 @@ LLAMA_PERPLEXITY_CANDIDATES = _binary_candidates("llama-perplexity")
 def resolve_llama_perplexity() -> Path:
     for candidate in LLAMA_PERPLEXITY_CANDIDATES:
         if candidate.exists():
-            return candidate.resolve()
+            return candidate.absolute()
     raise FileNotFoundError(
         "llama-perplexity not found. Expected one of: "
         + ", ".join(str(path) for path in LLAMA_PERPLEXITY_CANDIDATES)

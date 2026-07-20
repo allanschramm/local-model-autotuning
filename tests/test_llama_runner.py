@@ -30,6 +30,7 @@ class TestLlamaRunner(unittest.TestCase):
         mock_cuda.exists.return_value = True
         mock_cuda.__str__.return_value = "/fake/cuda"
         mock_cuda.resolve.return_value = Path("/fake/cuda")
+        mock_cuda.absolute.return_value = Path("/fake/cuda")
         
         with patch("autoresearch.core.llama_runner.LLAMA_SERVER_CANDIDATES", (mock_cuda,)):
             path = resolve_llama_server()
