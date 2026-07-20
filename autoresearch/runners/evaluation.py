@@ -12,7 +12,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Protocol
 
-from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent, resolve_llama_bench, resolve_llama_perplexity, ConfigError
+from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent, resolve_llama_bench, resolve_llama_cli, resolve_llama_perplexity, ConfigError
 from autoresearch.core.sglang_runner import SGLangServerRunner, run_sglang_bench_validation
 from autoresearch.core.llama_client import LlamaClient, GenerationParams
 from autoresearch.benchmarks.benchmark_coding import run_benchmark as run_coding
@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent
 # ── llama-bench defaults ────────────────────────────────────────────────
 BENCH_TPS_THRESHOLD = 20.0  # min tg t/s from llama-bench
 BENCH_N_PROMPT = 512
-BENCH_N_GEN = 128
+BENCH_N_GEN = 512
 
 
 class TrialOutcome(str, Enum):
@@ -90,16 +90,21 @@ def run_llama_bench_validation(
     cache_type_k: str = "q4_0",
     cache_type_v: str = "q4_0",
     ctx_size: int = 131072,
-    n_prompt: int = BENCH_N_PROMPT,
+    threads_batch: int | None = None,
+    no_mmap: bool = False,
+    cont_batching: bool = False,
+    spec_type: str | None = None,
+    spec_draft_n_max: int = 0,
+    spec_draft_model: str | None = None,
     n_gen: int = BENCH_N_GEN,
 ) -> float:
-    """Run llama-bench with given config. Returns tg t/s. Raises on failure."""
-    llama_bench = resolve_llama_bench()
+    """Run llama-cli with given config. Returns tg t/s. Raises on failure."""
+    llama_cli = resolve_llama_cli()
 
     cmd = [
-        str(llama_bench),
+        str(llama_cli),
         "-m", str(model_path),
-        "-p", "0",
+        "-p", "Write a comprehensive, step-by-step tutorial explaining quantum computing, qubits, superposition, and entanglement, including a detailed Python simulation using NumPy.",
         "-n", str(n_gen),
         "-t", str(threads),
         "-ngl", str(ngl),
@@ -108,27 +113,45 @@ def run_llama_bench_validation(
         "-fa", flash_attn,
         "-ctk", cache_type_k,
         "-ctv", cache_type_v,
-        "-o", "json",
-        "-r", "3",
+        "--no-mmap" if no_mmap else "--mmap",
+        "--no-warmup",
+        "--simple-io",
+        "--single-turn",
     ]
 
-    print(f"  [bench] {' '.join(str(a) for a in cmd)}")
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    if threads_batch is not None:
+        cmd += ["-tbd", str(threads_batch)]
+
+    spec_type_val = spec_type
+    if spec_type_val is None and "MTP" in model_path.name.upper() and spec_draft_n_max > 0:
+        spec_type_val = "draft-mtp"
+
+    if spec_type_val is not None and spec_type_val.lower() != "none" and spec_draft_n_max > 0:
+        cmd += [
+            "--spec-type", spec_type_val.lower(),
+            "--spec-draft-n-max", str(spec_draft_n_max),
+            "--spec-draft-type-k", cache_type_k,
+            "--spec-draft-type-v", cache_type_v,
+            "-ngld", str(ngl),
+        ]
+        if spec_draft_model:
+            draft_path = model_path.parent / spec_draft_model
+            cmd += ["--spec-draft-model", str(draft_path)]
+
+    print(f"  [cli-bench] {' '.join(str(a) for a in cmd)}")
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
     if result.returncode != 0:
         raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
 
-    data = json.loads(result.stdout)
-    tg_tps = 0.0
-    for entry in data:
-        n_g = entry.get("n_gen", 0)
-        n_p = entry.get("n_prompt", 0)
-        if n_g > 0 and n_p == 0:
-            tg_tps = entry.get("avg_ts", 0.0)
-            break
+    import re
+    match = re.search(r"Generation:\s*([\d\.]+)\s*t/s", result.stdout)
+    if not match:
+        match = re.search(r"Generation:\s*([\d\.]+)\s*t/s", result.stderr)
 
-    if tg_tps == 0.0:
-        raise RuntimeError(f"llama-bench returned no tg result: {result.stdout[:300]}")
+    if not match:
+        raise RuntimeError(f"llama-cli output did not contain Generation TPS metric: {result.stdout[:500]} {result.stderr[:500]}")
 
+    tg_tps = float(match.group(1))
     return tg_tps
 
 
@@ -164,7 +187,7 @@ def run_llama_perplexity_validation(
     ]
 
     print(f"  [perplexity] {' '.join(str(a) for a in cmd)}")
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
     if result.returncode != 0:
         raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
 
@@ -298,23 +321,28 @@ class ExperimentRunner:
                         cache_type_k=intent.kv_cache_k or intent.kv_cache,
                         cache_type_v=intent.kv_cache_v or intent.kv_cache,
                         ctx_size=intent.ctx_size,
-                        n_prompt=BENCH_N_PROMPT,
+                        threads_batch=intent.threads_batch,
+                        no_mmap=intent.no_mmap,
+                        cont_batching=intent.cont_batching,
+                        spec_type=intent.spec_type,
+                        spec_draft_n_max=intent.spec_draft_n_max,
+                        spec_draft_model=intent.spec_draft_model,
                         n_gen=BENCH_N_GEN,
                     )
                 except FileNotFoundError as e:
-                    print(f"  [FAIL] llama-bench not found: {e}")
-                    res.status = "FAIL: llama-bench not found"
+                    print(f"  [FAIL] llama-cli not found: {e}")
+                    res.status = "FAIL: llama-cli not found"
                     res.outcome = TrialOutcome.INFRA_ERROR
                     res.diagnostic = str(e)
                     return res
                 except subprocess.CalledProcessError as e:
-                    print(f"  [FAIL] llama-bench crashed: {e}")
-                    res.status = "FAIL: llama-bench crashed"
+                    print(f"  [FAIL] llama-cli crashed: {e}")
+                    res.status = "FAIL: llama-cli crashed"
                     res.outcome = TrialOutcome.MODEL_REJECTED
                     return res
                 except Exception as e:
-                    print(f"  [FAIL] llama-bench error: {e}")
-                    res.status = f"FAIL: llama-bench error: {str(e)[:50]}"
+                    print(f"  [FAIL] llama-cli error: {e}")
+                    res.status = f"FAIL: llama-cli error: {str(e)[:50]}"
                     res.outcome = TrialOutcome.INFRA_ERROR
                     res.diagnostic = str(e)
                     return res
@@ -323,7 +351,7 @@ class ExperimentRunner:
                 print(f"  [bench] tg {BENCH_N_GEN}: {bench_tg:.1f} t/s")
 
                 if bench_tg < bench_tts_threshold:
-                    print(f"  [FAIL] llama-bench tg {bench_tg:.1f} t/s below threshold {bench_tts_threshold:.1f}")
+                    print(f"  [FAIL] llama-cli tg {bench_tg:.1f} t/s below threshold {bench_tts_threshold:.1f}")
                     res.status = f"FAIL: bench tg {bench_tg:.1f} < threshold {bench_tts_threshold:.1f}"
                     res.outcome = TrialOutcome.MODEL_REJECTED
                     return res
