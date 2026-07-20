@@ -6,7 +6,8 @@ The contract is strict:
 
 - `program.md` is fixed (unless explicitly requested by user).
 - `autoresearch/benchmarks/*` harnesses are fixed.
-- `autoresearch/core/config.py` owns immutable defaults and invariants. `.autoresearch_state.json` stores the local mutable Baseline and visited configurations.
+- `autoresearch/core/config.py` is the **only mutable Baseline** (ENGINE = performance, SAMPLER = quality). The Search loop and agents edit this file.
+- `.autoresearch_state.json` stores **visited memory only** (not Baseline).
 
 The goal is to push any model as far as possible on any hardware using optimized KV cache configurations and runtime parameters.
 
@@ -18,8 +19,8 @@ To start a fresh Search:
 2. **Create the branch**: `git checkout -b autoresearch/<tag>` from `main`.
 3. **Read the in-scope files**:
    - `program.md` — the rules for the Search (this file)
-   - `autoresearch/core/config.py` — immutable defaults / invariants
-   - `.autoresearch_state.json` — local mutable Baseline + visited (created on first run)
+   - `autoresearch/core/config.py` — mutable Baseline (ENGINE + SAMPLER)
+   - `.autoresearch_state.json` — local visited memory (created on first run)
 4. **Verify local assets exist**:
    - GGUF models in `models/`
    - `llama-server` (accessible via `autoresearch/core/llama_runner.py`)
@@ -56,14 +57,14 @@ If a Trial falls below the **TPS Floor** (default 20.0 TPS), the `Val Score` is 
 - **Flash Attention:** Must always be `on` (`-fa on`).
 
 ## What you CAN do
-- Mutate the local Baseline in `.autoresearch_state.json` (via `autoloop.py` / `write_state`) to generate a new Neighbor.
+- Mutate the Baseline in `autoresearch/core/config.py` (via `autoloop.py` / `write_baseline`, or by editing ENGINE_/SAMPLER_ defaults) to generate a new Neighbor or seed a hypothesis.
 - Modify the `Search Space` for autonomous exploration in `autoloop.py` (only if requested).
-- Change immutable defaults in `autoresearch/core/config.py` only with explicit user permission (never from the Search loop).
 
 ## What you CANNOT do
 - Modify the fixed evaluation logic in any `autoresearch/benchmarks/*` files.
 - Add new dependencies.
-- Rewrite `config.py` from the Search loop.
+- Rewrite `program.md` or harness code from the Search loop.
+- Drive Trials via raw `llama-server` / CLI flag soup — change `config.py`, then run the harness.
 
 ## Output format
 Each Trial logs exclusively to the canonical results file `results.tsv`. No other log files should be committed. The output format in `results.tsv` is tab-separated:
@@ -73,23 +74,23 @@ Each Trial logs exclusively to the canonical results file `results.tsv`. No othe
 
 ### Autonomous mode (preferred)
 Run `python autoloop.py` to start the SearchStrategy loop:
-1. Reads current Baseline from `.autoresearch_state.json` (seeded from `config.py` defaults).
+1. Reads current Baseline from `autoresearch/core/config.py`.
 2. Runs all active benchmarks in a unified Trial (Claw-Eval full = Val Score; quick = smoke).
 3. Generates Neighbors by mutating a single parameter within the Search Space.
-4. Evaluates each Neighbor via a new Trial. If improved (or won via Pareto Tie-Breaker) → writes new Baseline to `.autoresearch_state.json`.
+4. Evaluates each Neighbor via a new Trial. If improved (or won via Pareto Tie-Breaker) → writes new Baseline to `config.py`.
 5. If at a Local Maxima → triggers a Random Restart.
-6. Loops forever until `Ctrl+C` (SIGINT). State persists in `.autoresearch_state.json` + `results.tsv`.
+6. Loops forever until `Ctrl+C` (SIGINT). Baseline persists in `config.py`; visited memory in `.autoresearch_state.json`; results in `results.tsv`.
 
 ### Manual mode
-1. Edit `.autoresearch_state.json` Baseline (or seed defaults in `config.py` then reset state) with a hypothesis.
-2. Run: `python benchmark_search.py --desc "your hypothesis"`
+1. Edit `autoresearch/core/config.py` Baseline with a hypothesis.
+2. Run: `python benchmark_search.py --desc "your hypothesis"` (or `python -m autoresearch.runners.run --validation --desc "..."`).
 3. Analyze `results.tsv`.
-4. If improved, keep as the new Baseline in local state. Otherwise revert the state Baseline.
+4. If improved, keep the `config.py` edit. Otherwise revert `config.py`.
 
 ## Autonomy rule
 Once the Search has started, continue autonomously until manually interrupted.
 Do not pause to ask for permission to continue the Search.
-The looping agent is strictly forbidden from editing codebase source code (e.g., `run.py`, benchmarks, tests) under any circumstances. If any error, bug, or exception occurs in the code, the agent MUST NOT attempt to fix or edit the code. It MUST immediately stop execution, report the error, and warn the user.
+The looping agent is strictly forbidden from editing codebase source code (e.g., `run.py`, benchmarks, tests) under any circumstances — except writing the Baseline via `config.write_baseline` / `config.py`. If any error, bug, or exception occurs in the code, the agent MUST NOT attempt to fix or edit the code. It MUST immediately stop execution, report the error, and warn the user.
 Additionally, the looping agent must only save results and tweak commits locally. It is strictly forbidden from pushing any commits, branches, or results (e.g., benchmark scores, config tweaks) to the remote repository. All benchmark runs and results branches must remain completely offline and local-only.
 
 ## Terminology (Strict)
@@ -97,7 +98,7 @@ Use these exact terms in your reasoning and commit messages:
 - **Search**: The overall optimization process.
 - **Round**: One iteration of the Search.
 - **Trial**: One complete execution of all benchmarks against a single configuration.
-- **Baseline**: The current best-known configuration in `.autoresearch_state.json`.
+- **Baseline**: The current best-known configuration in `autoresearch/core/config.py`.
 - **Neighbor**: A configuration derived from the Baseline by changing exactly one parameter.
 - **Val Score**: The scalar metric used for keep/discard decisions.
 - **Pareto Tie-Breaker**: Keep a Neighbor if it matches Baseline score but improves TPS by >5% or reduces VRAM by >5%.
@@ -123,4 +124,3 @@ You can download models from HuggingFace. Place them in the `models/` directory.
 - **Non-GGUF file**: If you download a PyTorch/safetensors weight file (e.g., `.bin`, `.safetensors`), `llama-server` will fail to parse it, log a `FAIL` status in `results.tsv`, and skip the configuration without breaking the loop.
 - **Unsupported architecture**: If the GGUF uses a brand new, unsupported neural architecture, `llama-server` will exit during startup, which is caught safely as a trial failure.
 - **Corrupt GGUF**: If the model file is corrupt/truncated, the server will fail to load it, log `FAIL` to `results.tsv`, and gracefully continue.
-

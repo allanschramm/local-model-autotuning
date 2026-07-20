@@ -92,6 +92,7 @@ class TestRuntimeInvariants(unittest.TestCase):
             # Verify serialization round-trip
             fresh_state = SearchState(path)
             self.assertTrue(fresh_state.is_visited("abc"))
+            self.assertNotIn("baseline", path.read_text(encoding="utf-8"))
 
     @patch("sys.argv", ["benchmark_search.py", "--no-agentic-quick", "--no-agentic-full", "--desc", "x"])
     def test_parse_args_can_disable_agentic_flags(self):

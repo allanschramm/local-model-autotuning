@@ -2,11 +2,12 @@
 """
 Autonomous Hill-Climbing Evaluation Loop.
 
-Reads Baseline from .autoresearch_state.json (defaults from config.py) →
-runs active benchmarks → perturbs one flag → if improved, saves Baseline
-to .autoresearch_state.json → loops forever.
+Reads Baseline from autoresearch/core/config.py →
+runs active benchmarks → perturbs one flag → if improved, writes Baseline
+back to config.py → loops forever.
 
-Stop with Ctrl+C (SIGINT). State persists in .autoresearch_state.json and results.tsv.
+Stop with Ctrl+C (SIGINT). Visited memory persists in .autoresearch_state.json;
+Baseline persists in config.py; results in results.tsv.
 """
 
 import sys
@@ -224,7 +225,7 @@ def main():
     parser = argparse.ArgumentParser(description="Autonomous Hill-Climbing Evaluation Loop")
     parser.add_argument("--vram-limit-mb", type=float, default=7900.0, help="Max safe VRAM in MB")
     parser.add_argument("--max-rounds", type=int, default=0, help="Max rounds (0=infinite)")
-    parser.add_argument("--reset-visited", action="store_true", help="Reset local Search state to immutable defaults")
+    parser.add_argument("--reset-visited", action="store_true", help="Clear visited memory only (Baseline stays in config.py)")
     parser.add_argument("--models", nargs="+", help="Space-separated list of model filenames to optimize (1 or more)")
     parser.add_argument("--perplexity-val", action="store_true", help="Enable perplexity validation to act as a quality ceiling constraint while optimizing for TPS")
     parser.add_argument("--mode", choices=["tps", "quality", "both"], default="both", help="Optimization mode: 'tps' (speed), 'quality' (accuracy), 'both' (everything)")
@@ -237,7 +238,7 @@ def main():
 
     if cli_args.reset_visited:
         state_manager.reset()
-        print("[AUTOLOOP] Reset local Search state to immutable defaults.")
+        print("[AUTOLOOP] Cleared visited memory. Baseline unchanged in config.py.")
 
     # 1. Resolve selected models
     available_models = sorted([f.name for f in MODELS_DIR.glob("*.gguf")])
@@ -334,7 +335,7 @@ def main():
             print(f"  ROUND {round_num} ({model_name})")
             print(f"{'=' * 60}")
 
-            # ── Step 1: Load current baseline from local state ───────────
+            # ── Step 1: Load current baseline from config.py ─────────────
             baseline_cfg = load_config(state_manager.get_baseline())
             baseline_key = search_strategy.get_config_key(baseline_cfg)
             if not state_manager.is_visited(baseline_key):
@@ -465,7 +466,7 @@ def main():
                 if is_improvement:
                     print(f"  >>> IMPROVEMENT! {changed}: {old_val} -> {new_val} "
                           f"({reason})")
-                    # Persist new baseline to local state
+                    # Persist new baseline to config.py
                     state_manager.update_baseline(neighbor.config)
                     # Automatically update model alias config
                     update_model_alias(model_name, neighbor.config, tps, cli_args.mode)

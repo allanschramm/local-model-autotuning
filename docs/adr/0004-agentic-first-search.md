@@ -1,7 +1,7 @@
 # ADR 0004: Agentic-First Search and Local State
 
 **Date:** 2026-07-10
-**Status:** Accepted
+**Status:** Superseded in part by [0005](0005-config-py-mutable-baseline.md) (Baseline location). Agentic-first Val Score decision remains accepted.
 
 ## Context
 Direct code-generation scores do not measure long-horizon tool use. Rewriting Python configuration also mixed durable defaults with local Search state.

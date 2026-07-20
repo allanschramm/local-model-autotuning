@@ -32,7 +32,9 @@
 
 ## 4. Loop Agent Constraints
 
-*   **Mutable Search state**: Baseline + visited live in ignored `.autoresearch_state.json`. `config.py` holds immutable defaults only — the Search loop must never rewrite it.
+*   **Mutable Baseline**: `autoresearch/core/config.py` (`ENGINE_DEFAULTS` = performance, `SAMPLER_DEFAULTS` = quality). The Search loop writes keeps here via `write_baseline`.
+*   **Visited memory**: Ignored `.autoresearch_state.json` tracks visited Neighbors only — never Baseline.
+*   **Fixed protocol**: `program.md` and `autoresearch/benchmarks/*` stay fixed unless the user explicitly requests a change.
 *   **No Code Edits**: The looping agent is strictly forbidden from editing codebase source code (e.g., `run.py`, benchmarks, tests) under any circumstances. If any error, bug, or exception occurs during the Search, the agent MUST NOT attempt to edit code to fix it. Instead, the agent MUST immediately stop execution, print the full traceback/error, and warn the user.
 *   **Unified Evaluation**: Every round runs the active agentic gate (Claw-Eval full Val Score; quick as smoke). Optional Coding preflight uses exactly 10 tasks per dataset when enabled.
 *   **Canonical Results File**: All runs must log results exclusively to the single canonical tab-separated file `results.tsv`. No other results CSV, TSV, or log files should be committed or left in the workspace.
@@ -56,14 +58,14 @@ See `autoresearch/runners/evaluation.py` → `run_llama_bench_validation()` + `r
 
 When asked to "validate a model", follow this exact procedure:
 
-1. **Set MODEL** — Put the target GGUF filename in `config.py` defaults (or the Baseline in `.autoresearch_state.json`). Leave other constants alone unless the task says otherwise.
+1. **Set MODEL** — Put the target GGUF filename in `autoresearch/core/config.py` Baseline. Leave other constants alone unless the task says otherwise.
 
 2. **Run validation** — Execute directly, no wrapper scripts:
    ```
    python3 benchmark_search.py --validation --desc "validate <model-filename>"
    ```
    This runs the unified harness (not raw binaries). The harness:
-   - Resolves the model path from Baseline / config defaults
+   - Resolves the model path from `config.py` Baseline
    - Translates config flags to llama-server CLI args
    - Manages server lifecycle (start, health-check, teardown)
    - Monitors VRAM via NVML sampling
@@ -79,14 +81,14 @@ When asked to "validate a model", follow this exact procedure:
 
 **RULES**:
 - Do NOT run `llama-server` or `llama-bench` directly. The harness handles everything.
-- Do NOT write wrapper scripts or bash loops. Change Baseline/state and invoke benchmark_search.py directly.
+- Do NOT write wrapper scripts or bash loops. Change `config.py` Baseline and invoke benchmark_search.py / `run.py` directly.
 - Do NOT batch models into a single command chain. One validation per invocation.
 
 ## 6. Use the Harness, Not Raw Binaries
 
 *   **Do NOT run `llama-server` or `llama-bench` directly** for evaluation. The harness (`benchmark_search.py`, `autoloop.py`) resolves paths, translates config flags to CLI args, manages server lifecycle, monitors VRAM, and logs results. Bypassing it produces unlogged, unreproducible trials.
-*   **Do NOT override flags via raw `llama-server` CLI arguments**. All tuning goes through Baseline state / config defaults. The harness generates the correct `llama-server` command.
-*   **Mutable Search surface is `.autoresearch_state.json`**. `config.py` is immutable defaults. Run `python3 autoloop.py` or `python3 benchmark_search.py --desc "what you changed"`.
+*   **Do NOT override flags via raw `llama-server` CLI arguments**. All tuning goes through `config.py` Baseline. The harness generates the correct `llama-server` command.
+*   **Mutable Search surface is `autoresearch/core/config.py`**. Visited memory is `.autoresearch_state.json`. Run `python3 autoloop.py` or `python3 benchmark_search.py --desc "what you changed"`.
 
 ## 7. Codebase Architecture
 

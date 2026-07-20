@@ -11,7 +11,7 @@ Repository operators and developers.
 - `setup-check.sh` is the canonical readiness verification script.
 
 ## Work Guidance
-- Use `serve-config.py` as the preferred CLI helper to start/stop the llama-server daemon based on `config.py`.
+- Use `serve-config.py` as the preferred CLI helper to start/stop the llama-server daemon based on the mutable Baseline in `config.py`.
 - Maintain helper commands documented in README.md.
 
 ## Verification

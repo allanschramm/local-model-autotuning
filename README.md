@@ -19,10 +19,10 @@ O agente vai:
 2. Rodar `whichllm` pra listar candidatos
 3. Cruzar com SWE-bench / Aider / LiveCodeBench
 4. Plotar Pareto frontier (tok/s vs qualidade)
-5. Definir o modelo alvo (defaults em `config.py`; Baseline mutável em `.autoresearch_state.json`)
+5. Definir o modelo alvo no Baseline mutável (`autoresearch/core/config.py`)
 6. Rodar `python3 autoloop.py --vram-limit-mb=<budget>` overnight
 
-**Resultado de manhã:** `results.tsv` com todos os Trials + `.autoresearch_state.json` com a melhor configuração local encontrada.
+**Resultado de manhã:** `results.tsv` com todos os Trials + `config.py` com a melhor configuração encontrada (visited em `.autoresearch_state.json`).
 
 ---
 
@@ -54,7 +54,7 @@ Output verde = pronto pro autoloop.
 
 ### O Loop
 
-1. Lê o Baseline atual de `.autoresearch_state.json` (defaults de `config.py`)
+1. Lê o Baseline atual de `autoresearch/core/config.py`
 2. Valida throughput e roda o smoke test Claw-Eval quick
 3. Roda Claw-Eval full e calcula o Val Score agentic (+ TPS floor)
 4. Muta um param -> gera config Neighbor
@@ -66,11 +66,12 @@ Output verde = pronto pro autoloop.
 
 | Arquivo | O quê | Agente/loop pode editar? |
 |---|---|---|
-| `.autoresearch_state.json` | Baseline + visited (local) | **Sim** (via autoloop) |
-| `autoresearch/core/config.py` | Defaults imutáveis | **Não** (só com permissão explícita) |
+| `autoresearch/core/config.py` | Baseline mutável (ENGINE + SAMPLER) | **Sim** (via autoloop / edição manual) |
+| `.autoresearch_state.json` | Visited memory (local) | **Sim** (só visited) |
 | `autoresearch/benchmarks/bench_config.py` | Quais benches rodam | **Não** (só com permissão explícita) |
 | `benchmark_search.py` | CLI runner | **Não** |
 | `autoresearch/benchmarks/*` | Lógica de avaliação | **Não** |
+| `program.md` | Protocolo do Search | **Não** |
 | `results.tsv` | Métricas dos trials | **Só append** |
 
 ### Val Score
@@ -166,10 +167,10 @@ model:    <nome-do-modelo-do-config>
 Se preferir fazer na mão:
 
 1. Leia `program.md` pra regras
-2. Ajuste o Baseline em `.autoresearch_state.json` (ou defaults em `config.py` + reset de state)
-3. Rode `python3 benchmark_search.py --desc "sua hipótese"`
+2. Ajuste o Baseline em `autoresearch/core/config.py`
+3. Rode `python3 benchmark_search.py --desc "sua hipótese"` (sem flag soup)
 4. Cheque `results.tsv` pelos resultados
-5. Keep se o Val Score melhorou, reverte o Baseline caso contrário
+5. Keep se o Val Score melhorou, reverte o `config.py` caso contrário
 
 ---
 

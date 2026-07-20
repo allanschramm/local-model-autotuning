@@ -10,7 +10,7 @@ Built with CUDA in `build-cuda/` matching the stock config.
 
 ## Build
 
-Windows toolchain (installed 2026-07-17): VS 2022 Build Tools (MSVC 14.44, VCTools workload), NVIDIA CUDA Toolkit 13.3, Ninja. nvcc on Windows requires MSVC host compiler; configure must run inside `vcvars64.bat` env. Helper `llama.cpp/rebuild-cuda.bat` (untracked, machine-specific) wraps this: `rebuild-cuda.bat configure` = full configure+build, `rebuild-cuda.bat` = incremental build. `build-cuda/` is a symlink to `C:\builds\...`.
+Windows toolchain (installed 2026-07-17): VS 2022 Build Tools (MSVC 14.44, VCTools workload), NVIDIA CUDA Toolkit 13.3, Ninja. nvcc on Windows requires MSVC host compiler; configure must run inside `vcvars64.bat` env. Helper `llama.cpp/rebuild-cuda.bat` (untracked, machine-specific) wraps this: `rebuild-cuda.bat configure` = full configure+build, `rebuild-cuda.bat` = incremental build. Keep `build-cuda/` as a real in-repo directory (no external junctions).
 
 ```bash
 # Full build (all tools) — inside vcvars64 env, CUDA bin on PATH

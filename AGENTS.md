@@ -17,7 +17,7 @@ Repository-wide agent guidelines are owned by the repository developers.
 - Parallel processes: NEVER run multiple validations, benchmarks, or command tasks in parallel. Always run one command/task at a time sequentially.
 - Architecture: Never overengineer. Keep it simple. Less is more. Reduce lines of code. Simplify instead of complicate.
 - Docs always: Update relevant docs (model cards, ADRs, config comments) whenever any codebase/model/config improvement is found or applied.
-- Config frozen: Never change any config value without explicit user permission. Never touch ctx_size under any circumstance.
+- Config surface: Agents and the Search loop change Baseline only via `autoresearch/core/config.py`. Do not drive Trials with CLI flag soup. Never edit `program.md` or harness code from the Search loop.
 - Context size: CTX_SIZE default is 131072. User may lower it to trade context for speed. Code minimum is 2048 (llama.cpp practical floor). Always use the user-configured value.
 - No timeouts: Never set execution timeouts on commands unless explicitly told to. Benchmarks and model tests run until completion.
 - No hardcoded machine paths: Do not commit absolute user or checkout paths in scripts, docs, configs, or durable notes. Resolve them dynamically or keep them repo-relative.
@@ -28,7 +28,8 @@ Repository-wide agent guidelines are owned by the repository developers.
 ## Work Guidance
 - Use `/caveman lite|full|ultra|wenyan` for communication style constraint.
 - Prioritize test-driven sanity. Verify logic changes using the test suite.
-- Maintain immutable runtime defaults in [config.py](autoresearch/core/config.py); mutable Baseline lives in `.autoresearch_state.json`.
+- Maintain mutable Baseline in [config.py](autoresearch/core/config.py) (`ENGINE_DEFAULTS` / `SAMPLER_DEFAULTS`); visited memory lives in `.autoresearch_state.json`.
+- `program.md` and evaluation harnesses are fixed unless the user explicitly requests a change.
 
 ## Verification
 - Test with `pytest`. Ensure the full collected test suite passes.
@@ -123,6 +124,7 @@ When the user requests a durable behavior change, record it here or in the relev
 - **Agentic coding migration**: Treat HumanEval+/MBPP+/LiveCodeBench/BigCodeBench as direct-coding preflight benchmarks. Prefer long-horizon agentic targets for future coding-agent quality decisions once adapters exist.
 - **Agentic-first Search**: Claw-Eval full is the canonical Val Score; Claw-Eval quick is smoke validation. Direct-coding is optional and, when enabled, uses exactly 10 tasks per dataset.
 - **No eval-score floor**: Only the TPS Floor rejects a Trial. Claw-Eval quick/full scores are recorded for keep/discard comparison; low smoke scores must not short-circuit as `MODEL_REJECTED`.
+- **config.py is the only mutable Baseline**: Agents and Search edit `ENGINE_DEFAULTS` / `SAMPLER_DEFAULTS` in `config.py`. `program.md` and harnesses stay fixed. Do not drive Trials with CLI flag soup. `.autoresearch_state.json` is visited memory only.
 
 ## Child DOX Index
 - [autoresearch/AGENTS.md](autoresearch/AGENTS.md) — Core autotuning package (config, runners, benchmarks).

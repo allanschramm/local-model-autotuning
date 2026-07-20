@@ -8,7 +8,7 @@ Repository developers.
 
 ## Local Contracts
 - Do not modify internal evaluation logic or benchmarks under `autoresearch/benchmarks/` without authorization.
-- `autoresearch/core/config.py` owns immutable defaults and validation. The ignored `.autoresearch_state.json` is the only mutable Search state.
+- `autoresearch/core/config.py` owns the mutable Baseline (`ENGINE_DEFAULTS` / `SAMPLER_DEFAULTS`) and validation. The ignored `.autoresearch_state.json` stores visited memory only.
 - Do not add hardcoded user or absolute directory paths in the source files.
 - **Use the harness, not raw binaries**: Run `benchmark_search.py` or `autoloop.py` for evaluation. Do not invoke `llama-server` or `llama-bench` directly — the harness resolves paths, translates config flags to CLI args, manages server lifecycle, monitors VRAM, and logs results.
 - **Perplexity-Guided Tuning Guard**: When using `--perplexity-val` to maximize throughput (TPS), enforce a strict quality ceiling: any candidate configuration resulting in more than a 1% increase in perplexity (PPL) compared to the baseline must be discarded.

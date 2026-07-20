@@ -1,15 +1,15 @@
 # config.py
-# Immutable runtime defaults + invariants. Mutable Baseline lives in
-# .autoresearch_state.json (see SearchState). Never rewrite this
-# file from the Search loop.
+# Mutable Baseline for the Search / agents. ENGINE_* = performance;
+# SAMPLER_* = quality. program.md and evaluation harnesses are fixed.
+# .autoresearch_state.json stores visited memory only (not Baseline).
 # NOTE: CTX_SIZE default is 131072. User may lower it to trade context for speed.
 # Minimum floor is 2048 (llama.cpp practical minimum).
 
 from typing import Any
 from pathlib import Path
-import json
 import math
 import os
+import re
 import tempfile
 
 class ConfigError(ValueError):
@@ -17,42 +17,44 @@ class ConfigError(ValueError):
     pass
 
 
+CONFIG_PATH = Path(__file__).resolve()
+
 # Hardware/Engine/Inference configuration parameters (affect speed and VRAM usage)
 ENGINE_DEFAULTS = {
-    "MODEL": 'Qwythos-9B-v2-Q4_K_M.gguf',
-    "CTX_SIZE": 131072,
-    "KV_CACHE": 'q4_0',
-    "KV_CACHE_K": 'q4_0',
-    "KV_CACHE_V": 'q4_0',
-    "BATCH_SIZE": 1024,
-    "UBATCH_SIZE": 128,
-    "THREADS": 8,
-    "THREADS_BATCH": 8,
-    "FLASH_ATTN": 'on',
-    "SPEC_TYPE": None,
-    "SPEC_DRAFT_N_MAX": 0,
-    "SPEC_DRAFT_MODEL": None,
-    "NO_MMAP": False,
-    "JINJA": False,
-    "REASONING_BUDGET": None,
-    "REASONING_BUDGET_MESSAGE": None,
-    "REASONING": None,
-    "CONT_BATCHING": True,
-    "N_CPU_MOE": 32,
+    'MODEL': 'test.gguf',
+    'CTX_SIZE': 131072,
+    'KV_CACHE': 'q4_0',
+    'KV_CACHE_K': 'q4_0',
+    'KV_CACHE_V': 'q4_0',
+    'BATCH_SIZE': 1024,
+    'UBATCH_SIZE': 256,
+    'THREADS': 8,
+    'THREADS_BATCH': 8,
+    'FLASH_ATTN': 'on',
+    'SPEC_TYPE': None,
+    'SPEC_DRAFT_N_MAX': 0,
+    'SPEC_DRAFT_MODEL': 'draft/mtp-gemma-4-E4B-it.gguf',
+    'NO_MMAP': False,
+    'JINJA': False,
+    'REASONING_BUDGET': None,
+    'REASONING_BUDGET_MESSAGE': None,
+    'REASONING': None,
+    'CONT_BATCHING': True,
+    'N_CPU_MOE': 32,
 }
 
 # Generation/Sampling configuration parameters (affect quality and token selection)
 SAMPLER_DEFAULTS = {
-    "TEMP": 0.4,
-    "TOP_P": 0.95,
-    "TOP_K": 20,
-    "MIN_P": 0.0,
-    "REPEAT_PENALTY": 1.05,
-    "PRESENCE_PENALTY": 0.0,
-    "FREQUENCY_PENALTY": None,
+    'TEMP': 0.4,
+    'TOP_P': 0.95,
+    'TOP_K': 20,
+    'MIN_P': 0.0,
+    'REPEAT_PENALTY': 1.05,
+    'PRESENCE_PENALTY': 0.0,
+    'FREQUENCY_PENALTY': None,
 }
 
-# Centralized defaults registry (merged for backwards compatibility)
+# Live Baseline registry (kept in sync when ENGINE_/SAMPLER_ mutate)
 DEFAULTS = {**ENGINE_DEFAULTS, **SAMPLER_DEFAULTS}
 
 MIN_CTX_SIZE = 2048
@@ -78,7 +80,7 @@ def validate_config(cfg: dict) -> dict:
     normalized["FLASH_ATTN"] = flash
     return normalized
 
-STATE_SCHEMA_VERSION = 1
+STATE_SCHEMA_VERSION = 2
 STATE_FILE = Path(__file__).resolve().parents[2] / ".autoresearch_state.json"
 
 # Derived dynamically from DEFAULTS keys (replaces static CONFIG_KEYS tuple)
@@ -98,8 +100,87 @@ def __dir__() -> list[str]:
 
 
 def load_config(params: list[str] | None = None) -> dict[str, Any]:
-    """Return default configuration as a dictionary."""
+    """Return current Baseline configuration as a dictionary."""
     if params is not None:
         return {p: DEFAULTS.get(p) for p in params if p in DEFAULTS}
     return dict(DEFAULTS)
 
+
+def _py_literal(value: Any) -> str:
+    if value is None:
+        return "None"
+    if isinstance(value, bool):
+        return "True" if value else "False"
+    if isinstance(value, str):
+        return repr(value)
+    return repr(value)
+
+
+def _format_defaults_dict(name: str, data: dict[str, Any]) -> str:
+    lines = [f"{name} = {{"]
+    for key, value in data.items():
+        lines.append(f"    {key!r}: {_py_literal(value)},")
+    lines.append("}")
+    return "\n".join(lines)
+
+
+def _refresh_defaults() -> None:
+    DEFAULTS.clear()
+    DEFAULTS.update({**ENGINE_DEFAULTS, **SAMPLER_DEFAULTS})
+
+
+def write_baseline(cfg: dict[str, Any], path: Path | str | None = None) -> dict[str, Any]:
+    """Persist Baseline into ENGINE_DEFAULTS / SAMPLER_DEFAULTS (memory + config.py)."""
+    target = Path(path) if path is not None else CONFIG_PATH
+    merged = dict(DEFAULTS)
+    for key in CONFIG_KEYS:
+        if key in cfg:
+            merged[key] = cfg[key]
+    validated = validate_config(merged)
+
+    for key in list(ENGINE_DEFAULTS):
+        ENGINE_DEFAULTS[key] = validated[key]
+    for key in list(SAMPLER_DEFAULTS):
+        SAMPLER_DEFAULTS[key] = validated[key]
+    _refresh_defaults()
+
+    text = target.read_text(encoding="utf-8")
+    engine_block = _format_defaults_dict("ENGINE_DEFAULTS", ENGINE_DEFAULTS)
+    sampler_block = _format_defaults_dict("SAMPLER_DEFAULTS", SAMPLER_DEFAULTS)
+    text, n_engine = re.subn(
+        r"ENGINE_DEFAULTS\s*=\s*\{.*?\n\}",
+        engine_block,
+        text,
+        count=1,
+        flags=re.DOTALL,
+    )
+    text, n_sampler = re.subn(
+        r"SAMPLER_DEFAULTS\s*=\s*\{.*?\n\}",
+        sampler_block,
+        text,
+        count=1,
+        flags=re.DOTALL,
+    )
+    if n_engine != 1 or n_sampler != 1:
+        raise ConfigError(
+            f"failed to locate defaults blocks in {target} "
+            f"(engine={n_engine}, sampler={n_sampler})"
+        )
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(prefix=".config.", suffix=".py", dir=target.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(text)
+            if not text.endswith("\n"):
+                handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp_name, target)
+    finally:
+        if os.path.exists(tmp_name):
+            try:
+                os.unlink(tmp_name)
+            except OSError:
+                pass
+    return dict(DEFAULTS)

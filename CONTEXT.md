@@ -37,8 +37,8 @@ _Avoid_: heuristic loop, search script
 ### Configuration
 
 **Baseline**:
-The current best-known configuration. Persisted in `.autoresearch_state.json`. A Trial must strictly beat the Baseline score to replace it. `config.py` holds immutable defaults only.
-_Avoid_: default, current config
+The current best-known configuration. Persisted in `autoresearch/core/config.py` (`ENGINE_DEFAULTS` / `SAMPLER_DEFAULTS`). A Trial must strictly beat the Baseline score to replace it. `.autoresearch_state.json` holds visited memory only.
+_Avoid_: default, current config, state baseline
 
 **Neighbor**:
 A configuration derived from the Baseline by changing exactly one parameter. The Search evaluates Neighbors to find improvements.
@@ -53,7 +53,7 @@ _Avoid_: grid, parameter space
 **Validation**:
 The pre-check before a full Trial: (1) local backend throughput validation, then (2) Claw-Eval quick. Optional direct-coding preflight always uses exactly 10 tasks per dataset. The `--validation` flag runs throughput plus Claw-Eval quick and exits.
 
-**To validate a single model**: (1) set `MODEL` in defaults or Baseline state, (2) run `python3 benchmark_search.py --validation --desc "validate <model>"`. One model at a time — never parallel. See GOLDEN-RULES.md §5 for the full step-by-step.
+**To validate a single model**: (1) set `MODEL` (and other flags) in `config.py` Baseline, (2) run `python3 benchmark_search.py --validation --desc "validate <model>"` with no CLI flag soup. One model at a time — never parallel. See GOLDEN-RULES.md §5 for the full step-by-step.
 _Avoid_: bench-only, speed check, smoke test
 
 **Val Score**:

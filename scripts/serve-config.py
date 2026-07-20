@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """serve-config.py — Start llama-server using autoresearch/core/config.py.
 
-Reads MODEL + key llama-server flags from config.py and starts the server
-detached (survives terminal close). After autoloop finishes, this is how
-a user (or an agent) gets the tuned model back up for live use.
+Reads MODEL + key llama-server flags from the mutable Baseline in config.py
+and starts the server detached (survives terminal close). After autoloop
+finishes, this is how a user (or an agent) gets the tuned model back up
+for live use.
 
 Usage:
     python3 scripts/serve-config.py                # start with current config.py
@@ -20,7 +21,6 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
-import ast
 import os
 import signal
 import socket
@@ -57,33 +57,13 @@ DEFAULT_ALIAS = "local-model-autoresearch"
 
 
 def parse_config(path: Path) -> dict:
-    """Parse top-level constants from config.py via AST.
-
-    Only string / int / float / bool / None literals are captured. Tuples,
-    function calls, and imports are skipped — those aren't llama-server args.
-    """
+    """Load Baseline from config.py (ENGINE_DEFAULTS + SAMPLER_DEFAULTS)."""
     if not path.exists():
         print(f"ERROR: {path} not found", file=sys.stderr)
         sys.exit(2)
 
-    src = path.read_text(encoding="utf-8")
-    tree = ast.parse(src)
-    out: dict = {}
-
-    # Only top-level assignments (not inside functions/if blocks).
-    for node in tree.body:
-        if isinstance(node, ast.Assign) and len(node.targets) == 1:
-            t = node.targets[0]
-            if isinstance(t, ast.Name):
-                try:
-                    val = ast.literal_eval(node.value)
-                    if isinstance(val, (str, int, float, bool)) or val is None:
-                        out[t.id] = val
-                except (ValueError, SyntaxError):
-                    # Skip non-literal RHS (function calls, expressions).
-                    pass
-
-    return out
+    from autoresearch.core.config import load_config
+    return load_config()
 
 
 def derive_alias(cfg: dict) -> str:
