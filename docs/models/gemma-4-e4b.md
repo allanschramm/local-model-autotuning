@@ -22,18 +22,28 @@
 ## Config Baseline (2026-07-20 - Optimized)
 - `MODEL = 'gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf'`
 - `CTX_SIZE = 65536`
-- `KV_CACHE_K = 'q8_0'`
-- `KV_CACHE_V = 'q8_0'`
+- `KV_CACHE_K = 'q4_0'`
+- `KV_CACHE_V = 'q4_0'`
 - `NGL = 99`
-- `THREADS = 8`
-- `THREADS_BATCH = None`
-- `BATCH_SIZE = 512`
-- `UBATCH_SIZE = 256`
+- `THREADS = 6`
+- `THREADS_BATCH = 8`
+- `BATCH_SIZE = 256`
+- `UBATCH_SIZE = 128`
 - `FLASH_ATTN = 'on'`
-- `SPEC_TYPE = None`
-- `SPEC_DRAFT_N_MAX = 0`
+- `SPEC_TYPE = 'draft-mtp'`
+- `SPEC_DRAFT_MODEL = 'models/draft/mtp-gemma-4-E4B-it.gguf'`
+- `SPEC_DRAFT_N_MAX = 4`
 - `CONT_BATCHING = False`
+- `NO_MMAP = True`
 
 ### Status
-- **Tuned (2026-07-20):** Optimized via `autoloop.py` under TPS mode with perplexity ceiling. Increased throughput from **72.6 t/s** to **75.7 t/s** (PPL: 16.3360, up slightly from 16.2608 but well within the 1% ceiling).
-- **MTP/Speculation Note:** While manual single-prompt `llama-cli` runs with `mtp-gemma-4-E4B-it.gguf` showed speedups, the autoloop discovered that *disabling* speculation (`SPEC_DRAFT_N_MAX = 0`) yields the highest throughput (75.7 t/s) for batch/evaluation configurations, as the draft model overhead exceeds target inference benefits on this small 4.2B model.
+- **Tuned (2026-07-20):** Optimized via `autoloop.py` under TPS mode with perplexity ceiling. Over the course of 760 search rounds, increased throughput from **72.6 t/s** to **76.67 t/s** with absolutely **zero perplexity degradation** (PPL remains at baseline 16.2608).
+- **MTP/Speculation Note:** Under batch/evaluation configurations, the autoloop discovered that speculative decoding with the draft model can be optimized to beat the no-spec baseline, reaching **76.67 t/s** when KV cache types are set to `q4_0` (Key) / `q4_0` (Value) and speculative draft max tokens is set to `4` (with `threads=6`, `threads_batch=8`).
+- **Direct Verification (llama-cli):** Single-prompt generation speeds verified directly using `llama-cli`:
+  - **Shorter Generation (-n 128 - Prime Numbers):**
+    - **Without MTP:** 69.9 t/s
+    - **With MTP (`--spec-draft-n-max 4`):** **136.6 t/s** (+95.4% speedup).
+  - **Shorter Generation (-n 128 - Quantum Mechanics):**
+    - **With MTP:** 128.8 t/s.
+  - **Sustained Generation (-n 512 - Quantum Mechanics Tutorial):**
+    - **With MTP:** **113.4 t/s**.

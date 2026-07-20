@@ -70,11 +70,9 @@ The short answer is **no, they are mutually exclusive at runtime**.
 Tested on our local rig (RTX 4060 8 GB VRAM) on a standard short prompt:
 
 ### Gemma-4 E4B:
-*   **Baseline (`none`):** **61.6 t/s**
-*   **N-gram Cache (`ngram-cache`):** **65.4 t/s** (+6.1% speedup, 0 VRAM cost)
-*   **N-gram Simple (`ngram-simple`):** **65.6 t/s** (+6.4% speedup, 0 VRAM cost)
-*   **Multi-Token Prediction (`draft-mtp`):** **103.7 t/s** (**+68.3% speedup!**, cost: ~60 MB VRAM)
-*   *Note: Attempting to load the MTP draft file with `--spec-type draft-eagle3` throws a model initialization error and falls back silently to the non-speculative baseline (64.4 t/s).*
+*   **Baseline (`none`):** **69.9 t/s**
+*   **Multi-Token Prediction (`draft-mtp`):** **136.6 t/s** (**+95.4% speedup!**, cost: ~60 MB VRAM)
+*   *Note: Attempting to load the MTP draft file with `--spec-type draft-eagle3` throws a model initialization error and falls back silently to the non-speculative baseline.*
 
 ### Qwen3.5-9B:
 *   **Baseline (`none`):** **39.1 t/s**

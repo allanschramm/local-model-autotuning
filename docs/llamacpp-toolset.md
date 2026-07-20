@@ -364,24 +364,26 @@ kill %1
 
 ## Validation gate (this repo)
 
-`run.py --validation` now runs **llama-bench only** — no coding benchmarks.
-Useful to quick-check a config before committing to full 10-task suite.
+`run.py --validation` now runs **llama-cli** instead of `llama-bench`.
+- **Reason:** `llama-bench` does not support custom speculative decoding arguments (such as `--spec-draft-model` and `--spec-draft-n-max`). Transitioning to `llama-cli` allows the validation gate to run real speculative decoding configurations and measure correct, accelerated MTP throughput values.
+- **Workflow:** It runs a single-turn generation test with a 512-token generation limit.
+- **Process Cleanup:** It uses the `--single-turn` flag to ensure the process exits cleanly and unloads the model from VRAM immediately upon completion.
+- **Encoding:** Subprocesses are configured to decode output in UTF-8 to prevent CP1252 Windows encoding crashes when math notations are generated.
 
 ```bash
-# Quick bench validation (default: tg >= 30 t/s threshold)
-python3 benchmark_search.py --desc "test config" --validation
+# Quick validation (default: tg >= 20 t/s threshold over 512 tokens)
+python -m autoresearch.runners.run --validation --desc "test config"
 
 # Custom threshold
-python3 benchmark_search.py --desc "test config" --validation --bench-tts-threshold 25
+python -m autoresearch.runners.run --validation --desc "test config" --bench-tts-threshold 25
 ```
 
-Bench also runs automatically before every full evaluation. If bench tg < threshold,
-the trial is skipped immediately — no server start, no coding benchmarks.
+The validation gate runs automatically before every full evaluation. If the `llama-cli` test generation speed is below the threshold, the trial is skipped immediately.
 
 ```bash
 # Full run with automatic bench pre-check
-python3 benchmark_search.py --desc "sweep batch 1024" --batch-size 1024
-# Output: [bench] ... tg 42.1 t/s → passes → starts server → runs coding
+python -m autoresearch.runners.run --desc "sweep batch 1024" --batch-size 1024
+# Output: [cli-bench] ... tg 113.4 t/s → passes → starts server → runs coding
 ```
 
 ---
