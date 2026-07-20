@@ -125,6 +125,7 @@ When the user requests a durable behavior change, record it here or in the relev
 - **Agentic-first Search**: Claw-Eval full is the canonical Val Score; Claw-Eval quick is smoke validation. Direct-coding is optional and, when enabled, uses exactly 10 tasks per dataset.
 - **No eval-score floor**: Only the TPS Floor rejects a Trial. Claw-Eval quick/full scores are recorded for keep/discard comparison; low smoke scores must not short-circuit as `MODEL_REJECTED`.
 - **config.py is the only mutable Baseline**: Agents and Search edit `ENGINE_DEFAULTS` / `SAMPLER_DEFAULTS` in `config.py`. `program.md` and harnesses stay fixed. Do not drive Trials with CLI flag soup. `.autoresearch_state.json` is visited memory only.
+- **Every requested Trial edits `config.py` first**: For each user-requested test/run, set the Baseline in `config.py` (then invoke harness). Never pass the experiment knobs as CLI flags.
 
 ## Child DOX Index
 - [autoresearch/AGENTS.md](autoresearch/AGENTS.md) — Core autotuning package (config, runners, benchmarks).
