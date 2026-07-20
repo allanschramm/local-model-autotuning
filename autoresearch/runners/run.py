@@ -61,6 +61,7 @@ def parse_args():
     parser.add_argument("--flash-attn", "-fa", nargs="?", const="on", default=config.FLASH_ATTN, choices=["on", "off", "auto"], help="Enable/disable/auto Flash Attention")
     parser.add_argument("--spec-type", type=str, default=config.SPEC_TYPE, help="Speculative decoding type (e.g. draft-mtp, mtp)")
     parser.add_argument("--spec-draft-n-max", type=int, default=config.SPEC_DRAFT_N_MAX, help="Speculative draft max tokens count for MTP")
+    parser.add_argument("--spec-draft-model", type=str, default=config.SPEC_DRAFT_MODEL, help="Speculative draft model filename/path")
     parser.add_argument("--context-tokens", type=int, default=config.CTX_SIZE, help="Context tokens padding length (100k minimum)")
     parser.add_argument("--include-coding", action="store_true", default=getattr(bench_config, "INCLUDE_CODING", False), help="Run the optional 10-task direct-coding preflight")
     parser.add_argument("--no-coding", dest="include_coding", action="store_false", help="Disable Coding benchmark")
