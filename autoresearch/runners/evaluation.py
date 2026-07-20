@@ -99,7 +99,7 @@ def run_llama_bench_validation(
     cmd = [
         str(llama_bench),
         "-m", str(model_path),
-        "-p", str(n_prompt),
+        "-p", "0",
         "-n", str(n_gen),
         "-t", str(threads),
         "-ngl", str(ngl),
