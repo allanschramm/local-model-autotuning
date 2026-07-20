@@ -209,6 +209,17 @@ def preflight_vram_ok(cfg: dict[str, Any], vram_limit: float | None) -> bool:
 
 
 def main():
+    import sys
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+    if hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
     import argparse
     parser = argparse.ArgumentParser(description="Autonomous Hill-Climbing Evaluation Loop")
     parser.add_argument("--vram-limit-mb", type=float, default=7900.0, help="Max safe VRAM in MB")

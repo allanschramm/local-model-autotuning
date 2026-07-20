@@ -42,7 +42,7 @@ class TestRun(unittest.TestCase):
                 mock_exit.assert_not_called()
                 
         # File should have been opened for appending
-        mock_file.assert_called_with(run.RESULTS_FILE, "a", newline="")
+        mock_file.assert_called_with(run.RESULTS_FILE, "a", newline="", encoding="utf-8")
 
     @patch("autoresearch.runners.evaluation.run_llama_bench_validation", return_value=45.0)
     @patch("autoresearch.runners.evaluation.LlamaServerRunner")
@@ -70,7 +70,7 @@ class TestRun(unittest.TestCase):
         
         run.handle_grid_run(args)
         
-        mock_file.assert_called_with(run.RESULTS_FILE, "a", newline="")
+        mock_file.assert_called_with(run.RESULTS_FILE, "a", newline="", encoding="utf-8")
 
     @patch("autoresearch.runners.run.run_evaluation")
     @patch("autoresearch.runners.run.get_git_commit")

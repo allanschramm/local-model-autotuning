@@ -132,7 +132,7 @@ def get_previous_best(results_file: Path, model_name: str | None = None) -> floa
         return 0.0
     best_score = 0.0
     try:
-        with open(results_file, "r") as f:
+        with open(results_file, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f, delimiter="\t")
             for row in reader:
                 if row.get("status") == "keep":
@@ -170,7 +170,7 @@ def _ensure_category_column(results_file: Path) -> None:
     """One-time migration: add missing columns."""
     if not results_file.exists() or results_file.stat().st_size == 0:
         return
-    with open(results_file, "r") as f:
+    with open(results_file, "r", encoding="utf-8") as f:
         header = f.readline().strip()
     cols = header.split("\t")
     if cols == CATEGORY_FIELDNAMES:
@@ -179,11 +179,11 @@ def _ensure_category_column(results_file: Path) -> None:
     if results_file.is_file() and not backup.exists():
         shutil.copy2(results_file, backup)
     rows = []
-    with open(results_file, "r") as f:
+    with open(results_file, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f, delimiter="\t")
         for row in reader:
             rows.append(row)
-    with open(results_file, "w", newline="") as f:
+    with open(results_file, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=CATEGORY_FIELDNAMES, delimiter="\t",
                                 extrasaction="ignore")
         writer.writeheader()
@@ -193,7 +193,7 @@ def _ensure_category_column(results_file: Path) -> None:
 def write_row(results_file: Path, commit: str, val_score: float, swe_score: float, he_score: float, mbpp_score: float, memory_gb: float, status: str, description: str, lcb_score: float = 0.0, bigcode_score: float = 0.0, category: str = "", elapsed_sec: float = 0.0, model: str = "", tps: float = 0.0, bench_tg: float = 0.0, kv: str = "", ctx: int = 0, threads: int = 0, threads_batch: int = 0, batch_size: int = 0, ubatch_size: int = 0, n_cpu_moe: int = 0, temp: float = 0.0, top_p: float = 0.0, top_k: int = 0, min_p: float = 0.0, repeat_penalty: float = 0.0, presence_penalty: float = 0.0, cont_batching: str = "", flash_attn: str = "", no_mmap: str = "", spec_draft_n_max: int = 0, outcome: str = "", diagnostic: str = "", evaluation_profile: str = "", scoring_benchmark: str = "", task_ids: str = "", config_json: str = "", tps_source: str = ""):
     _ensure_category_column(results_file)
     new_file = not results_file.exists() or results_file.stat().st_size == 0
-    with open(results_file, "a", newline="") as f:
+    with open(results_file, "a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=CATEGORY_FIELDNAMES, delimiter="\t")
         if new_file:
             writer.writeheader()
