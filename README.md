@@ -16,7 +16,7 @@ Abra seu agente de coding (Claude Code, Codex, Pi Agent, OpenCode) e cole:
 
 O agente vai:
 1. Detectar seu hardware (GPU/VRAM/RAM)
-2. Rodar `whichllm` pra listar candidatos
+2. Rodar `whichllm` ou `llmfit` pra listar candidatos e estimar o footprint de VRAM
 3. Cruzar com SWE-bench / Aider / LiveCodeBench
 4. Plotar Pareto frontier (tok/s vs qualidade)
 5. Semear e editar o Baseline (`cp autoresearch/core/config.py.example autoresearch/core/config.py`, depois definir `MODEL`)
@@ -35,7 +35,8 @@ Instale **antes** de pedir pro agente:
 | Python 3.11+ | `sudo apt install python3.11 python3.11-venv` | runtime do autoloop |
 | CUDA Toolkit | `nvidia-smi` + driver NVIDIA | llama.cpp precisa de `-DGGML_CUDA=ON` |
 | build-essential + cmake >= 3.14 | `sudo apt install build-essential cmake` | compilar llama.cpp |
-| uvx (ou uv) | `pip install uv` | rodar `uvx whichllm@latest` |
+| uvx / whichllm | `pip install uv` | rodar `uvx whichllm@latest` |
+| llmfit | `cargo install llmfit` (ou `scoop install llmfit`) | dimensionamento de hardware e CLI/TUI Rust |
 | huggingface_hub[cli] | `pip install huggingface_hub[cli]` | baixar GGUFs |
 
 Depois clone e compile o `llama.cpp` (ver [seção Build](#build-do-llamacpp-com-cuda) abaixo).
@@ -214,9 +215,10 @@ Agentes trabalhando neste repo, leiam nesta ordem:
 3. `GOLDEN-RULES.md` — Flags de performance, segurança, validação
 4. `CONTEXT.md` — Terminologia e definições
 5. `docs/discovery/discover-models.md` — Workflow de seleção de modelo
-6. `docs/discovery/whichllm-reference.md` — Referência CLI
-7. `docs/discovery/quantization-cascade.md` — Seleção de formato de quant
-8. `docs/llamacpp-toolset.md` — Referência dos binários do llama.cpp
+6. `docs/discovery/whichllm-reference.md` — Referência CLI do whichllm
+7. `docs/discovery/llmfit-reference.md` — Referência CLI/TUI do llmfit
+8. `docs/discovery/quantization-cascade.md` — Seleção de formato de quant
+9. `docs/llamacpp-toolset.md` — Referência dos binários do llama.cpp
 
 ---
 

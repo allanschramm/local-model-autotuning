@@ -2,25 +2,32 @@
 
 End-to-end workflow: **find models that fit your rig, filter for coding quality, run the autoloop on the Pareto-optimal pick.**
 
-## Step 1 — Find candidates with `whichllm`
+## Step 1 — Find candidates with `whichllm` or `llmfit`
 
 ```bash
+# Option A: whichllm (Python / uvx)
 uvx whichllm@latest
+
+# Option B: llmfit (Rust CLI/TUI)
+llmfit
+# or plan a specific model:
+llmfit plan "qwen 3.5 9b"
 ```
 
-Auto-detects GPU/CPU/RAM. Outputs a ranked list. See [`whichllm-reference.md`](./whichllm-reference.md) for full CLI docs.
+Auto-detects GPU/CPU/RAM. Outputs a ranked list and memory footprint breakdown. See [`whichllm-reference.md`](./whichllm-reference.md) and [`llmfit-reference.md`](./llmfit-reference.md) for full CLI docs.
 
 Key flags for this workflow:
 
-| Flag | Use |
-|---|---|
-| `--gpu-only` / `--fit gpu` | Only models that fit FULL GPU (faster, no offload penalty) |
-| `--speed usable` | Hide models too slow to be practical |
-| `--gpu "RTX 4090"` | Simulate different hardware before buying |
-| `--profile coding` | Rank by coding-agent quality |
-| `whichllm plan "qwen 3.6 35b"` | VRAM/quant options + estimated tok/s for one model |
+| Flag / Command | Tool | Use |
+|---|---|---|
+| `--gpu-only` / `--fit gpu` | `whichllm` | Only models that fit FULL GPU (faster, no offload penalty) |
+| `--speed usable` | `whichllm` | Hide models too slow to be practical |
+| `--gpu "RTX 4090"` | `whichllm` | Simulate different hardware before buying |
+| `--profile coding` | `whichllm` | Rank by coding-agent quality |
+| `whichllm plan "qwen 3.6 35b"` | `whichllm` | VRAM/quant options + estimated tok/s for one model |
+| `llmfit plan "qwen 3.6 35b"` | `llmfit` | Interactive memory fit & footprint planning per quant |
 
-**Caveat**: whichllm's "score" is intelligence-index (AA Index blended with Aider / LiveBench / Chatbot Arena). It is **NOT** a coding-agent benchmark. Gemma 4 26B A4B ranks #1 in whichllm but scores 17.4% on SWE-bench Verified — bad for coding agents despite the high score.
+**Caveat**: discovery tool "scores" (e.g. intelligence index) are broad quality blends. They are **NOT** coding-agent benchmarks. Gemma 4 26B A4B ranks top on general intelligence lists but scores only 17.4% on SWE-bench Verified — bad for coding agents despite the high score.
 
 Always cross-check coding quality on real benchmarks before committing.
 
@@ -101,7 +108,7 @@ The autoloop hill-climbs around the baseline, saves the best `config.py`, and ap
 
 ## Quick checklist
 
-- [ ] `uvx whichllm@latest` — shortlist of viable models
+- [ ] `uvx whichllm@latest` or `llmfit` — shortlist of viable models
 - [ ] Cross-reference SWE-bench Verified / Aider for each
 - [ ] Plot Pareto frontier on tok/s vs coding-quality axes
 - [ ] Pick the Pareto-optimal point matching your preference

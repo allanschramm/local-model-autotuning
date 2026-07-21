@@ -24,8 +24,9 @@ User-facing guides for **discovering, evaluating, selecting, and optimizing** lo
 ## Child DOX Index
 
 ### 1. Tooling, Onboarding & Hard Gates
-- [`discover-models.md`](./discover-models.md) — end-to-end workflow: whichllm discovery → Pareto frontier → autoloop target selection.
+- [`discover-models.md`](./discover-models.md) — end-to-end workflow: discovery (whichllm/llmfit) → Pareto frontier → autoloop target selection.
 - [`whichllm-reference.md`](./whichllm-reference.md) — full whichllm CLI reference (commands, flags, profiles, examples).
+- [`llmfit-reference.md`](./llmfit-reference.md) — full llmfit CLI/TUI reference (hardware sizing, planning, model search, examples).
 - [`agent-onboarding.md`](./agent-onboarding.md) — onboarding guide for future agents.
 - [`agentic-coding-benchmarks.md`](./agentic-coding-benchmarks.md) — migration guide from direct coding tasks to long-horizon agentic coding benchmarks.
 - [`agent-shell-hard-gates.md`](./agent-shell-hard-gates.md) — live gate inventory, disable/rollback playbook (§3), threat model (Cursor + Claude Code).

@@ -36,15 +36,23 @@ echo "  RAM: $(free -h 2>/dev/null | grep Mem: | awk '{print $2 " total, " $3 " 
 echo "  Disk: $(df -h "$REPO_ROOT" 2>/dev/null | tail -1 | awk '{print $4 " free (" $5 " used)"}')"
 echo ""
 
-# whichllm
-if ! command -v uvx &>/dev/null; then
-    echo "ERROR: uvx not installed (pip install uv)"
-    exit 1
+# Discovery tools (llmfit / whichllm)
+if command -v llmfit &>/dev/null; then
+    echo "--- llmfit recommendations ---"
+    echo ""
+    llmfit 2>/dev/null
+    echo ""
 fi
 
-echo "--- whichllm recommendations ---"
-echo ""
-uvx whichllm@latest 2>/dev/null
+if command -v uvx &>/dev/null; then
+    echo "--- whichllm recommendations ---"
+    echo ""
+    uvx whichllm@latest 2>/dev/null
+elif ! command -v llmfit &>/dev/null; then
+    echo "ERROR: Neither llmfit nor uvx (for whichllm) is installed."
+    echo "Install llmfit (cargo install llmfit / brew install AlexsJones/llmfit/llmfit) or uvx (pip install uv)."
+    exit 1
+fi
 
 echo ""
 echo "=================================================================="
