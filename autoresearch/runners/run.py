@@ -24,6 +24,23 @@ CATEGORY_VALIDATION = "validation"
 CATEGORY_10_TASK = "10-task"
 CATEGORY_FULL_SUITE = "full-suite"
 
+BASELINE_CLI_FLAGS = {
+    "--model", "--kv", "--kv-k", "--cache-type-k", "-ctk",
+    "--kv-v", "--cache-type-v", "-ctv", "--max-tokens", "--ctx-size", "-c",
+    "--threads", "-t", "--threads-batch", "--n-cpu-moe", "-ncmoe",
+    "--ngl", "--n-gpu-layers", "-ngl", "--parallel", "--context-tokens",
+    "--batch-size", "-b", "--ubatch-size", "-ub", "--flash-attn", "-fa",
+    "--spec-type", "--spec-draft-n-max", "--spec-draft-model", "--no-mmap",
+    "--jinja", "--reasoning-budget", "--reasoning-budget-message", "--reasoning",
+    "--cont-batching", "--temp", "--top-p", "--min-p", "--top-k",
+    "--repeat-penalty", "--presence-penalty", "--frequency-penalty",
+    "--coding-task-limit", "--lcb-task-limit", "--bigcode-task-limit",
+    "--bench-tts-threshold", "--grid", "--grid-kvs", "--grid-kvs-k",
+    "--grid-kvs-v", "--grid-max-tokens", "--grid-threads",
+    "--grid-threads-batch", "--grid-batch-sizes", "--grid-ubatch-sizes",
+    "--grid-spec-draft-n-max",
+}
+
 
 def determine_category(args) -> str:
     """Infer run category from CLI args."""
@@ -41,7 +58,7 @@ def determine_category(args) -> str:
     return CATEGORY_FULL_SUITE
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Unified AutoResearch Benchmark Runner")
+    parser = argparse.ArgumentParser(description="Unified AutoResearch Benchmark Runner", allow_abbrev=False)
     parser.add_argument("--desc", type=str, help="Description of the experiment (required for logging single runs)")
     parser.add_argument("--model", type=str, default=config.MODEL, help="Model filename in models/ directory")
     parser.add_argument("--kv", type=str, default=config.KV_CACHE, help="KV cache type (e.g. q4_0, q4_1, f16)")
@@ -115,8 +132,41 @@ def parse_args():
     parser.add_argument("--grid-batch-sizes", type=str, default=None, help="Comma-separated batch size options")
     parser.add_argument("--grid-ubatch-sizes", type=str, default=None, help="Comma-separated ubatch size options")
     parser.add_argument("--grid-spec-draft-n-max", type=str, default=None, help="Comma-separated speculative draft max tokens options")
-    
+
+    for action in parser._actions:
+        if BASELINE_CLI_FLAGS.intersection(action.option_strings):
+            action.help = argparse.SUPPRESS
+
+    forbidden = [arg.split("=", 1)[0] for arg in sys.argv[1:] if arg.split("=", 1)[0] in BASELINE_CLI_FLAGS]
+    if forbidden:
+        parser.error(f"Baseline flags are config.py-only: {', '.join(forbidden)}")
     return parser.parse_args()
+
+
+def _result_config() -> dict[str, Any]:
+    baseline = config.load_config()
+    recorded = {key.lower(): value for key, value in baseline.items()}
+    return {
+        "model": baseline["MODEL"],
+        "kv": baseline["KV_CACHE"],
+        "ctx": baseline["CTX_SIZE"],
+        "threads": baseline["THREADS"],
+        "threads_batch": baseline["THREADS_BATCH"],
+        "batch_size": baseline["BATCH_SIZE"],
+        "ubatch_size": baseline["UBATCH_SIZE"],
+        "n_cpu_moe": baseline["N_CPU_MOE"],
+        "temp": baseline["TEMP"],
+        "top_p": baseline["TOP_P"],
+        "top_k": baseline["TOP_K"],
+        "min_p": baseline["MIN_P"],
+        "repeat_penalty": baseline["REPEAT_PENALTY"],
+        "presence_penalty": baseline["PRESENCE_PENALTY"],
+        "cont_batching": baseline["CONT_BATCHING"],
+        "flash_attn": baseline["FLASH_ATTN"],
+        "no_mmap": baseline["NO_MMAP"],
+        "spec_draft_n_max": baseline["SPEC_DRAFT_N_MAX"],
+        "config_json": json.dumps(recorded, separators=(",", ":"), sort_keys=True),
+    }
 
 def get_git_commit() -> str:
     try:
@@ -311,10 +361,11 @@ def handle_single_run(args):
             RESULTS_FILE, commit, 0.0, 0.0, 0.0, 0.0, res["peak_vram_gb"],
             "discard", f"FAIL: {res['status']} | {args.desc}",
             category=determine_category(args), elapsed_sec=res.get("elapsed_sec", 0.0),
-            model=args.model, outcome=res.get("outcome", ""),
+            outcome=res.get("outcome", ""),
             diagnostic=res.get("diagnostic", ""),
             task_ids=",".join(res.get("task_ids", [])),
             tps_source=res.get("tps_source", ""),
+            **_result_config(),
         )
         sys.exit(1)
         
@@ -342,7 +393,7 @@ def handle_single_run(args):
         bigcode_score=res.get("bigcode_val", 0.0),
         category=determine_category(args),
         elapsed_sec=res.get("elapsed_sec", 0.0),
-        model=args.model,
+        **_result_config(),
     )
     
     print("\n" + "="*40)

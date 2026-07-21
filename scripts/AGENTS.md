@@ -9,7 +9,7 @@ Repository operators and developers.
 ## Local Contracts
 - Scripts must be runnable from the repository root.
 - `setup-check.sh` is the canonical readiness verification script.
-- `hooks/block-adhoc-eval.ps1` — shell policy (python allowlist, cwd, no gate rewrite).
+- `hooks/block-adhoc-eval.ps1` — shell policy (python allowlist, config-only Baseline, cwd, no gate rewrite).
 - `hooks/block-gate-tamper.ps1` — deny Edit/Write/Delete on gate wiring paths.
 - **Rollback:** [docs/discovery/agent-shell-hard-gates.md](../docs/discovery/agent-shell-hard-gates.md) §3.
 

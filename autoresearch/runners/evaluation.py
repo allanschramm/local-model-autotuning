@@ -96,6 +96,7 @@ def run_llama_bench_validation(
     spec_type: str | None = None,
     spec_draft_n_max: int = 0,
     spec_draft_model: str | None = None,
+    n_cpu_moe: int | None = None,
     n_gen: int = BENCH_N_GEN,
 ) -> float:
     """Run llama-cli with given config. Returns tg t/s. Raises on failure."""
@@ -122,6 +123,8 @@ def run_llama_bench_validation(
 
     if threads_batch is not None:
         cmd += ["-tbd", str(threads_batch)]
+    if n_cpu_moe is not None:
+        cmd += ["--n-cpu-moe", str(n_cpu_moe)]
 
     spec_type_val = spec_type
     if spec_type_val is None and "MTP" in model_path.name.upper() and spec_draft_n_max > 0:
@@ -330,6 +333,7 @@ class ExperimentRunner:
                         spec_type=intent.spec_type,
                         spec_draft_n_max=intent.spec_draft_n_max,
                         spec_draft_model=intent.spec_draft_model,
+                        n_cpu_moe=intent.n_cpu_moe,
                         n_gen=BENCH_N_GEN,
                     )
                 except FileNotFoundError as e:

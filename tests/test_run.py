@@ -1,3 +1,4 @@
+import json
 import unittest
 from unittest.mock import patch, MagicMock, mock_open
 from autoresearch.runners import run
@@ -6,6 +7,17 @@ from pathlib import Path
 import csv
 
 class TestRun(unittest.TestCase):
+
+    @patch("autoresearch.runners.evaluation.subprocess.run")
+    @patch("autoresearch.runners.evaluation.resolve_llama_cli", return_value=Path("llama-cli.exe"))
+    def test_llama_bench_forwards_n_cpu_moe(self, mock_resolve, mock_subprocess):
+        mock_subprocess.return_value = MagicMock(returncode=0, stdout="Generation: 7.4 t/s")
+
+        from autoresearch.runners.evaluation import run_llama_bench_validation
+        run_llama_bench_validation(Path("model.gguf"), n_cpu_moe=40)
+
+        command = mock_subprocess.call_args.args[0]
+        self.assertEqual(command[command.index("--n-cpu-moe") + 1], "40")
 
     @patch("autoresearch.runners.evaluation.run_llama_bench_validation", return_value=45.0)
     @patch("autoresearch.runners.evaluation.LlamaServerRunner")
@@ -332,6 +344,31 @@ class TestRun(unittest.TestCase):
         with patch("sys.exit") as mock_exit:
             run.handle_single_run(args)
             mock_exit.assert_called_once_with(1)
+
+    @patch("autoresearch.runners.run.run_evaluation")
+    @patch("autoresearch.runners.run.get_previous_best", return_value=0.0)
+    @patch("autoresearch.runners.run.get_git_commit", return_value="abcdefg")
+    def test_failed_single_run_logs_complete_baseline(self, mock_commit, mock_best, mock_eval):
+        mock_eval.return_value = {
+            "status": "FAIL: bench tg 7.4 < threshold 20.0",
+            "peak_vram_gb": 0.0,
+            "elapsed_sec": 1.0,
+            "outcome": "MODEL_REJECTED",
+            "diagnostic": "slow",
+        }
+        with patch("sys.argv", ["benchmark_search.py", "--desc", "failed baseline"]):
+            args = run.parse_args()
+
+        with patch("autoresearch.runners.run.write_row") as mock_write:
+            with self.assertRaises(SystemExit):
+                run.handle_single_run(args)
+
+        recorded = json.loads(mock_write.call_args.kwargs["config_json"])
+        self.assertEqual(recorded["model"], args.model)
+        self.assertEqual(recorded["ctx_size"], args.ctx_size)
+        self.assertEqual(recorded["batch_size"], args.batch_size)
+        self.assertEqual(recorded["n_cpu_moe"], args.n_cpu_moe)
+        self.assertEqual(recorded["temp"], run.config.TEMP)
 
     @patch("autoresearch.runners.run.open", new_callable=mock_open, read_data="commit\tmodel\tval_score\tswe_score\tlcb_score\the_score\tmbpp_score\tbigcode_score\tmemory_gb\telapsed_sec\tstatus\tcategory\tdescription\n"
               "abcdefg\tornith-1.0-9b-Q4_K_M.gguf\t0.580000\t0.000000\t0.400000\t0.800000\t0.900000\t0.100000\t7.4\t0\tkeep\t\tornith-1.0-9b-Q4_K_M.gguf baseline\n"

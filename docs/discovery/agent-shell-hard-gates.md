@@ -13,7 +13,7 @@
 
 | Piece | Path | Role |
 |---|---|---|
-| Shell policy | `scripts/hooks/block-adhoc-eval.ps1` | cwd check; python allowlist; deny `-c` / raw llama / shell rewrite of gates |
+| Shell policy | `scripts/hooks/block-adhoc-eval.ps1` | cwd check; python allowlist; deny Baseline CLI overrides / `-c` / raw llama / shell rewrite of gates |
 | Gate-file policy | `scripts/hooks/block-gate-tamper.ps1` | Deny Write/Edit/Delete on wiring paths |
 | Cursor wiring | `.cursor/hooks.json` | `beforeShellExecution` + `preToolUse` (all tools; script no-ops if no path), `failClosed: true` |
 | Cursor soft rule | `.cursor/rules/harness-trials.mdc` | Always-on Trial = `config.py` + harness CLI |
@@ -32,6 +32,7 @@
 - Any `python`/`py` not hitting allowlist entrypoints
 - Scratch scripts e.g. `python .scratch\matrix.py`
 - Direct `llama-cli` / `llama-server` / `llama-bench`
+- Baseline overrides on `benchmark_search.py` (`--model`, `--threads`, `--n-cpu-moe`, batch/KV/sampler flags, etc.); edit `autoresearch/core/config.py` instead
 - `cwd` (or `cd` to absolute path) outside `workspace_roots` / `CLAUDE_PROJECT_DIR`
 - Shell rewrite of gate paths (`Set-Content`, redirects, `Remove-Item`, …)
 
@@ -151,7 +152,7 @@ If hooks do not fire: trust the workspace / enable project hooks in Cursor Setti
 
 - Cursor Hooks: https://cursor.com/docs/hooks — 2026-07-21  
 - Claude Code Hooks / Settings: https://docs.anthropic.com/en/docs/claude-code/hooks , https://docs.anthropic.com/en/docs/claude-code/settings — 2026-07-21  
-- Smoke (2026-07-21): deny `python -c`, scratch `.py`, llama-cli, foreign cwd, Set-Content gate; allow `benchmark_search.py`, `-m pytest`, `nvidia-smi`; deny Write `.cursor/hooks.json`; allow Write `README.md`.
+- Smoke (2026-07-21): deny `python -c`, scratch `.py`, llama-cli, Baseline CLI overrides, foreign cwd, Set-Content gate; allow config-driven `benchmark_search.py`, `-m pytest`, `nvidia-smi`; deny Write `.cursor/hooks.json`; allow Write `README.md`.
 
 ---
 

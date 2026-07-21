@@ -247,10 +247,11 @@ class TestAutoLoop(unittest.TestCase):
     @patch("autoloop._available_gguf_names", return_value=["test.gguf"])
     @patch("autoloop.ExperimentRunner")
     @patch("autoloop.load_config")
+    @patch("autoloop.SearchState.update_baseline")
     @patch("autoloop.get_git_commit", return_value="abc")
     @patch("autoloop.write_row")
     def test_main_reset_visited(
-        self, mock_write_row, mock_git, mock_lcfg,
+        self, mock_write_row, mock_git, mock_update_baseline, mock_lcfg,
         mock_runner_cls, _mock_models, mock_reset
     ):
         """--reset-visited clears visited keys in local state."""
@@ -264,6 +265,7 @@ class TestAutoLoop(unittest.TestCase):
                 autoloop.main()
 
         mock_reset.assert_called_once()
+        mock_update_baseline.assert_called()
         mock_write_row.assert_called()
 
     @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--models", "test.gguf"])

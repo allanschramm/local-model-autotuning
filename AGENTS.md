@@ -18,7 +18,7 @@ Repository-wide agent guidelines are owned by the repository developers.
 - Architecture: Never overengineer. Keep it simple. Less is more. Reduce lines of code. Simplify instead of complicate.
 - Docs always: Update relevant docs (model cards, ADRs, config comments) whenever any codebase/model/config improvement is found or applied.
 - Config surface: Agents and the Search loop change Baseline only via `autoresearch/core/config.py`. Do not drive Trials with CLI flag soup. Never edit `program.md` or harness code from the Search loop.
-- **Hard gate (hooks):** Shell allowlist + gate-file protection. Scripts: `scripts/hooks/block-adhoc-eval.ps1`, `scripts/hooks/block-gate-tamper.ps1`. Wiring: `.cursor/hooks.json`, `.claude/settings.json`, `.cursor/rules/harness-trials.mdc`. Trial loop = edit `config.py` → `benchmark_search.py` / `autoloop.py`. **Disable playbook:** [docs/discovery/agent-shell-hard-gates.md](docs/discovery/agent-shell-hard-gates.md) §3 (teach human; wiring edits require unlock).
+- **Hard gate (hooks):** Shell allowlist + Baseline CLI-override rejection + gate-file protection. Scripts: `scripts/hooks/block-adhoc-eval.ps1`, `scripts/hooks/block-gate-tamper.ps1`. Wiring: `.cursor/hooks.json`, `.claude/settings.json`, `.cursor/rules/harness-trials.mdc`. Trial loop = edit `config.py` → `benchmark_search.py` / `autoloop.py`. **Disable playbook:** [docs/discovery/agent-shell-hard-gates.md](docs/discovery/agent-shell-hard-gates.md) §3 (teach human; wiring edits require unlock).
 - Context size: CTX_SIZE default is 131072. User may lower it to trade context for speed. Code minimum is 2048 (llama.cpp practical floor). Always use the user-configured value.
 - No timeouts: Never set execution timeouts on commands unless explicitly told to. Benchmarks and model tests run until completion.
 - No hardcoded machine paths: Do not commit absolute user or checkout paths in scripts, docs, configs, or durable notes. Resolve them dynamically or keep them repo-relative.
@@ -132,7 +132,7 @@ When the user requests a durable behavior change, record it here or in the relev
 
 ## Child DOX Index
 - [autoresearch/AGENTS.md](autoresearch/AGENTS.md) — Core autotuning package (config, runners, benchmarks).
-- [scripts/hooks/block-adhoc-eval.ps1](scripts/hooks/block-adhoc-eval.ps1) — Shell hard-gate (allowlist + cwd).
+- [scripts/hooks/block-adhoc-eval.ps1](scripts/hooks/block-adhoc-eval.ps1) — Shell hard-gate (allowlist + config-only Baseline + cwd).
 - [scripts/hooks/block-gate-tamper.ps1](scripts/hooks/block-gate-tamper.ps1) — Gate-file hard-gate (Edit/Write/Delete).
 - [.cursor/hooks.json](.cursor/hooks.json) — Cursor `beforeShellExecution` + `preToolUse` wiring.
 - [.cursor/rules/harness-trials.mdc](.cursor/rules/harness-trials.mdc) — Always-on Trial/harness rule.

@@ -15,6 +15,30 @@ class TestBenchmarkSearch(unittest.TestCase):
             self.assertEqual(args.threads, config.THREADS)
             self.assertEqual(args.include_coding, bench_config.INCLUDE_CODING)
 
+    def test_parse_args_rejects_baseline_cli_overrides(self):
+        with patch("sys.argv", [
+            "benchmark_search.py",
+            "--model", "Ornith-1.0-35B-UD-Q3_K_XL.gguf",
+            "--threads", "8",
+            "--threads-batch", "8",
+            "--batch-size", "1024",
+            "--ubatch-size", "256",
+        ]):
+            with self.assertRaises(SystemExit):
+                benchmark_search.parse_args()
+
+    def test_help_hides_config_only_baseline_flags(self):
+        with patch("sys.argv", ["benchmark_search.py", "--help"]):
+            with patch("sys.stdout") as stdout:
+                with self.assertRaises(SystemExit):
+                    benchmark_search.parse_args()
+        help_text = "".join(call.args[0] for call in stdout.write.call_args_list)
+        self.assertNotIn("--model", help_text)
+        self.assertNotIn("--n-cpu-moe", help_text)
+        self.assertNotIn("--ngl", help_text)
+        self.assertNotIn("--bench-tts-threshold", help_text)
+        self.assertNotIn("--grid", help_text)
+
     @patch("autoresearch.runners.run.handle_single_run")
     def test_main_execution(self, mock_handle):
         with patch("sys.argv", ["benchmark_search.py"]):

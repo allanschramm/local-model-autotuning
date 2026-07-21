@@ -22,7 +22,7 @@ Trial workflow:
      or:  venv\Scripts\python.exe autoloop.py --mode tps ...
 
 Python allowlist only: benchmark_search.py | autoloop.py | -m pytest | -m unittest | scripts\*.py
-Forbidden: python -c, scratch .py Trials, raw llama-cli|server|bench, rewriting gate files via Shell.
+Forbidden: Baseline knobs on benchmark_search.py, python -c, scratch .py Trials, raw llama-cli|server|bench, rewriting gate files via Shell.
 '@
 
 $denyCwd = @'
@@ -119,6 +119,23 @@ function Test-UnderRoots([string]$path, $roots) {
 }
 
 $gatePathRegex = '(?i)(?:^|[\s''"\\/])(?:\.cursor[/\\]hooks\.json|\.cursor[/\\]rules[/\\]harness-trials\.mdc|\.claude[/\\]settings\.json|scripts[/\\]hooks(?:[/\\]|\s|$))\b'
+$baselineCliFlags = @(
+    '--model', '--kv', '--kv-k', '--cache-type-k', '-ctk',
+    '--kv-v', '--cache-type-v', '-ctv', '--max-tokens', '--ctx-size', '-c',
+    '--threads', '-t', '--threads-batch', '--n-cpu-moe', '-ncmoe',
+    '--ngl', '--n-gpu-layers', '-ngl', '--parallel', '--context-tokens',
+    '--batch-size', '-b', '--ubatch-size', '-ub', '--flash-attn', '-fa',
+    '--spec-type', '--spec-draft-n-max', '--spec-draft-model', '--no-mmap',
+    '--jinja', '--reasoning-budget', '--reasoning-budget-message', '--reasoning',
+    '--cont-batching', '--temp', '--top-p', '--min-p', '--top-k',
+    '--repeat-penalty', '--presence-penalty', '--frequency-penalty',
+    '--coding-task-limit', '--lcb-task-limit', '--bigcode-task-limit',
+    '--bench-tts-threshold', '--grid', '--grid-kvs', '--grid-kvs-k',
+    '--grid-kvs-v', '--grid-max-tokens', '--grid-threads',
+    '--grid-threads-batch', '--grid-batch-sizes', '--grid-ubatch-sizes',
+    '--grid-spec-draft-n-max'
+)
+$baselineCliFlagRegex = '(?i)(?:^|\s)(?:' + (($baselineCliFlags | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')(?=\s|=|$)'
 
 # Python entrypoint allowlist (after interpreter token)
 $pythonAllowed = @(
@@ -159,6 +176,11 @@ if ($n -match '(?i)(?:>|>>).{0,120}(?:\.cursor[/\\]hooks\.json|\.cursor[/\\]rule
 
 # Inline python
 if ($n -match '(?i)\b(?:python(?:3)?|py)(?:\.exe)?\s+(?:-c|--command)\b') {
+    Emit-Deny $denyTrial
+}
+
+# Baseline configuration must come from autoresearch/core/config.py.
+if ($n -match '(?i)\bbenchmark_search\.py\b' -and $n -match $baselineCliFlagRegex) {
     Emit-Deny $denyTrial
 }
 
