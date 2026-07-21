@@ -9,7 +9,6 @@ coding_results/
 autoresearch/data/
 /config.py
 grid_execution.log
-.autoloop_visited.json
 
 # Python
 __pycache__/
@@ -79,4 +78,3 @@ autoresearch/core/config.py
 models/sglang/
 .autoresearch_state.json
 .autoresearch_state.json.*
-results.tsv.bak

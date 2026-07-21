@@ -95,4 +95,4 @@ wsl -d Ubuntu-24.04 -- bash -c "pkill -9 -f llama-server"
 - `results.tsv`: NÃO atualizado nesta sessão (runs manuais, não passaram pelo autoloop; formato da TSV é exclusivo pra runs de `autoresearch measure`).
 - `docs/models/qwen3.6-35b-a3b.md`: atualizado com MTP-GGUF confirmado, novo baseline 22.5 tok/s, path corrigido.
 - `docs/sessions/2026-06-19-mtp-baseline.md`: este arquivo.
-- `MEMORY.md` (Mavis agent): atualizado com lições da sessão.
+- Empirical notes formerly in root `MEMORY.md` archived to [`2026-07-20-root-memory-archive.md`](2026-07-20-root-memory-archive.md).

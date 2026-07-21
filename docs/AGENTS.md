@@ -15,7 +15,7 @@ Durable documentation for this repo: model cards, technique notes, architecture 
 - **DOX hierarchy** is mandatory: walk root → leaf before editing; update nearest owning doc + affected parents after meaningful changes.
 - **No run logs, no commit logs, no diary entries** in `/docs/` proper. Run logs go to `results.tsv`, git history, or `docs/sessions/` (only if capturing methodology for reproducibility).
 - **Stable contracts only.** If a doc will be stale in a week, it doesn't belong here.
-- **Markdown only** in this tree (except for media assets in sub-folders when needed).
+- **Markdown only** in this tree (except media assets and the architecture diagram `architecture.html`).
 - **Reference external sources by URL**, not by copy-paste. We're a local repo, not a doc mirror.
 - **User-facing guides** in `docs/discovery/` must be runnable by anyone with the documented steps. Avoid hardcoded private paths.
 
@@ -43,7 +43,8 @@ Durable documentation for this repo: model cards, technique notes, architecture 
   - 0004 — Agentic-first Search (Val Score); Baseline location superseded by 0005.
   - 0005 — config.py as mutable Baseline; state = visited only.
 - [docs/discovery/AGENTS.md](discovery/AGENTS.md) — user-facing guides (whichllm, Pareto, quantization, MTP inventory/TPS, speculative formats).
-- [docs/sessions/AGENTS.md](sessions/AGENTS.md) — single-day empirical session logs (incl. 2026-07-20 small-model MTP TPS matrix).
+- [docs/sessions/AGENTS.md](sessions/AGENTS.md) — single-day empirical session logs (incl. 2026-07-20 small-model MTP TPS matrix; 2026-07-20 root MEMORY archive).
+- [docs/architecture.html](architecture.html) — interactive architecture diagram (HTML exception under docs/).
 - [docs/llamacpp-toolset.md](llamacpp-toolset.md) — llama.cpp toolset reference: build, binaries, flags, bench/server/quantize/perplexity/imatrix commands.
   Covers: build from source, all built binaries, `llama-bench` syntax with multi-value ranges and output formats,
   `llama-server` flags relevant to autotuning, `llama-quantize`/`llama-imatrix`/`llama-perplexity` usage,

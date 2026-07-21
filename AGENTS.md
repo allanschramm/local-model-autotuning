@@ -135,11 +135,13 @@ When the user requests a durable behavior change, record it here or in the relev
   - [docs/adr/](docs/adr/) — Architecture decision records.
  - [docs/discovery/](docs/discovery/) — User-facing guides: model selection workflow, whichllm CLI reference, quantization cascade, agent onboarding, MTP inventory/TPS.
  - [docs/sessions/](docs/sessions/) — Empirical session logs (reproducibility evidence).
+ - [docs/architecture.html](docs/architecture.html) — Interactive architecture diagram.
  - [docs/llamacpp-toolset.md](docs/llamacpp-toolset.md) — llama.cpp binary reference (build, bench, server, quantize).
 - [scripts/AGENTS.md](scripts/AGENTS.md) — Operator scripts (setup, monitoring, server daemon).
 - [tests/AGENTS.md](tests/AGENTS.md) — Unit and integration test suite.
 - [teach/AGENTS.md](teach/AGENTS.md) — Course materials (Semana 1 TPS / Semana 2 quality); Dia 1 LM Studio, Dia 2+ this repo.
 - External source submodules:
   - [llama.cpp/](llama.cpp/) - Upstream llama.cpp runtime source.
+  - [llama.cpp-prismml/](llama.cpp-prismml/) - PrismML fork (bonsai model runtime).
   - [claw-eval/](claw-eval/) - Claw-Eval autonomous-agent benchmark harness source.
 
