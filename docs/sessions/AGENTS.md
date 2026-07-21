@@ -26,4 +26,18 @@ Single-day empirical session logs. Captures what was run, on which hardware, wit
 - "Correções M3" or similar self-correction sections are encouraged.
 
 ## Child DOX Index
-None — `docs/sessions/` is a leaf.
+- [`2026-06-19-alias-system.md`](./2026-06-19-alias-system.md) — Alias system setup and design.
+- [`2026-06-19-mtp-baseline.md`](./2026-06-19-mtp-baseline.md) — MTP baseline benchmarking and verification.
+- [`2026-06-19-whichllm-coding.md`](./2026-06-19-whichllm-coding.md) — whichllm evaluation on coding benchmarks.
+- [`2026-06-19-whichllm-plan.md`](./2026-06-19-whichllm-plan.md) — whichllm search and selection planning.
+- [`2026-06-19-whichllm-source-deepdive.md`](./2026-06-19-whichllm-source-deepdive.md) — whichllm source code analysis.
+- [`2026-06-23-4bench-integration.md`](./2026-06-23-4bench-integration.md) — 4bench evaluation harness integration.
+- [`2026-06-26-ornith-baseline-and-validation.md`](./2026-06-26-ornith-baseline-and-validation.md) — Ornith model baseline validation.
+- [`2026-06-29-beellama-tcq-copyspec-dflash-iq3.md`](./2026-06-29-beellama-tcq-copyspec-dflash-iq3.md) — BeeLlama TCQ, CopySpec, and DFlash experiments.
+- [`2026-07-01-dense-model-validation.md`](./2026-07-01-dense-model-validation.md) — Dense model execution validation.
+- [`2026-07-01-gemma4-v2-q3km-validation.md`](./2026-07-01-gemma4-v2-q3km-validation.md) — Gemma 4 v2 Q3_K_M validation.
+- [`2026-07-01-ornith-1.0-9b-analysis.md`](./2026-07-01-ornith-1.0-9b-analysis.md) — Ornith 1.0 9B detailed benchmark analysis.
+- [`2026-07-06-windows-model-up.md`](./2026-07-06-windows-model-up.md) — Windows model launcher (`model-up`) validation.
+- [`2026-07-20-llama-cli-validation.md`](./2026-07-20-llama-cli-validation.md) — llama-cli execution & validation log.
+- [`2026-07-20-root-memory-archive.md`](./2026-07-20-root-memory-archive.md) — Root memory archive and empirical notes.
+- [`2026-07-20-small-model-tps-matrix.md`](./2026-07-20-small-model-tps-matrix.md) — Small-model MTP TPS empirical matrix (8 GB).

@@ -21,7 +21,7 @@ Durable documentation for this repo: model cards, technique notes, architecture 
 
 ## Work Guidance
 - New model card? Read `docs/models/AGENTS.md` first; follow its schema; add to its index.
-- New architectural decision? Use the existing `docs/adr/` format (numbered filename, status, date, context, decision, consequences).
+- New architectural decision? Read `docs/adr/AGENTS.md` first; use the standard ADR format (numbered filename, status, date, context, decision, consequences).
 - New technique or pattern worth preserving? Create a new top-level folder under `/docs/` with its own `AGENTS.md` explaining purpose, scope, and schema.
 - New session log (single-day empirical capture)? Add to `docs/sessions/` with `YYYY-MM-DD-<topic>.md` naming.
 - New user-facing guide? Add to `docs/discovery/` with runnable commands and methodology rationale.
@@ -36,16 +36,8 @@ Durable documentation for this repo: model cards, technique notes, architecture 
 
 ## Child DOX Index
 - [docs/models/AGENTS.md](models/AGENTS.md) — model card schema + per-model index.
-- [docs/adr/](adr/) — architecture decision records.
-  - 0001 — Deepen llama-server runner.
-  - 0002 — Consolidated evaluation harness.
-  - 0003 — In-process benchmark orchestration.
-  - 0004 — Agentic-first Search (Val Score); Baseline location superseded by 0005.
-  - 0005 — config.py as mutable Baseline; state = visited only.
-- [docs/discovery/AGENTS.md](discovery/AGENTS.md) — user-facing guides (whichllm, Pareto, quantization, MTP inventory/TPS, speculative formats).
-- [docs/sessions/AGENTS.md](sessions/AGENTS.md) — single-day empirical session logs (incl. 2026-07-20 small-model MTP TPS matrix; 2026-07-20 root MEMORY archive).
+- [docs/adr/AGENTS.md](adr/AGENTS.md) — architecture decision records contract + index (ADRs 0001–0005).
+- [docs/discovery/AGENTS.md](discovery/AGENTS.md) — user-facing guides (tooling, quantization, inference engines, speculative formats).
+- [docs/sessions/AGENTS.md](sessions/AGENTS.md) — single-day empirical session logs index (2026-06-19 to 2026-07-20).
 - [docs/architecture.html](architecture.html) — interactive architecture diagram (HTML exception under docs/).
 - [docs/llamacpp-toolset.md](llamacpp-toolset.md) — llama.cpp toolset reference: build, binaries, flags, bench/server/quantize/perplexity/imatrix commands.
-  Covers: build from source, all built binaries, `llama-bench` syntax with multi-value ranges and output formats,
-  `llama-server` flags relevant to autotuning, `llama-quantize`/`llama-imatrix`/`llama-perplexity` usage,
-  example combos for this repo's workflow. MTP TPS → use `llama-cli` / harness, not `llama-bench`.

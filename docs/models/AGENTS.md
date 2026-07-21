@@ -47,5 +47,17 @@ One markdown file per GGUF model we run on this rig. Cards are the canonical loc
 - "Sources / Verification" must list URLs with extraction dates.
 - "Open questions" must be empty for production-use models; new TBDs are allowed but must be dated and actionable.
 
-
-
+## Child DOX Index
+- [`README.md`](./README.md) — index and summary of available GGUF model cards.
+- [`bonsai-27b.md`](./bonsai-27b.md) — Bonsai 27B model card.
+- [`gemma-4-12b.md`](./gemma-4-12b.md) — Gemma 4 12B model card.
+- [`gemma-4-26b-a4b.md`](./gemma-4-26b-a4b.md) — Gemma 4 26B A4B MoE model card.
+- [`gemma-4-e4b.md`](./gemma-4-e4b.md) — Gemma 4 E4B model card.
+- [`ornith-1.0-9b.md`](./ornith-1.0-9b.md) — Ornith 1.0 9B model card.
+- [`ornith-1.0-35b.md`](./ornith-1.0-35b.md) — Ornith 1.0 35B model card.
+- [`ornith-1.0-35b-iq3_m.md`](./ornith-1.0-35b-iq3_m.md) — Ornith 1.0 35B IQ3_M quant model card.
+- [`qwen-agentworld-35b-a3b.md`](./qwen-agentworld-35b-a3b.md) — Qwen AgentWorld 35B A3B model card.
+- [`qwen3.5-9b.md`](./qwen3.5-9b.md) — Qwen 3.5 9B model card.
+- [`qwen3.6-35b-a3b.md`](./qwen3.6-35b-a3b.md) — Qwen 3.6 35B A3B model card.
+- [`qwythos-9b-claude-mythos-5-1m.md`](./qwythos-9b-claude-mythos-5-1m.md) — Qwythos 9B Claude Mythos model card.
+- [`vitriol-technique.md`](./vitriol-technique.md) — Codacus VITRIOL technique note (2-knob MoE offload strategy).
