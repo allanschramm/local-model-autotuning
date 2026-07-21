@@ -129,6 +129,7 @@ When the user requests a durable behavior change, record it here or in the relev
 - **Every requested Trial edits `config.py` first**: For each user-requested test/run, set the Baseline in `config.py` (then invoke harness). Never pass the experiment knobs as CLI flags.
 - **No ad-hoc eval scripts**: Do not invent one-off Python/`python -c` Trial loops. Hooks deny them. Use harness CLIs only.
 - **Portable agent hard-gates only**: Ship Cursor/Claude project hooks in-repo so any clone benefits. Do **not** require OS ACL (`icacls`), chmod lockdowns, or enterprise managed hooks for normal users (including non-devs).
+- **Virtual environment execution**: ALWAYS use the project's dedicated virtual environment (`.\venv\Scripts\python.exe` / `.\venv\Scripts\pytest.exe` on Windows, `./venv/bin/python` on Linux/macOS) for all python scripts, tests, and tool commands. NEVER run system-global `python` or `pip`, and NEVER install packages globally.
 
 ## Child DOX Index
 - [autoresearch/AGENTS.md](autoresearch/AGENTS.md) — Core autotuning package (config, runners, benchmarks).
@@ -138,10 +139,10 @@ When the user requests a durable behavior change, record it here or in the relev
 - [docs/discovery/agent-shell-hard-gates.md](docs/discovery/agent-shell-hard-gates.md) — Inventory + disable playbook.
 - [models/README.md](models/README.md) — Shared GGUF store layout (nested LM Studio + basename resolve).
 - [docs/AGENTS.md](docs/AGENTS.md) — Durable documentation contract.
-  - [docs/models/](docs/models/) — Per-model GGUF specs (architecture, quant, settings).
-  - [docs/adr/](docs/adr/) — Architecture decision records.
- - [docs/discovery/](docs/discovery/) — User-facing guides: model selection workflow, whichllm CLI reference, quantization cascade, agent onboarding, MTP inventory/TPS.
- - [docs/sessions/](docs/sessions/) — Empirical session logs (reproducibility evidence).
+  - [docs/models/AGENTS.md](docs/models/AGENTS.md) — Per-model GGUF specs (architecture, quant, settings).
+  - [docs/adr/AGENTS.md](docs/adr/AGENTS.md) — Architecture decision records contract + index (ADRs 0001–0005).
+  - [docs/discovery/AGENTS.md](docs/discovery/AGENTS.md) — User-facing guides: model selection workflow, whichllm CLI reference, quantization cascade, agent onboarding, MTP inventory/TPS, inference engines.
+  - [docs/sessions/AGENTS.md](docs/sessions/AGENTS.md) — Empirical session logs (reproducibility evidence).
  - [docs/architecture.html](docs/architecture.html) — Interactive architecture diagram.
  - [docs/llamacpp-toolset.md](docs/llamacpp-toolset.md) — llama.cpp binary reference (build, bench, server, quantize).
 - [scripts/AGENTS.md](scripts/AGENTS.md) — Operator scripts (setup, monitoring, server daemon).
