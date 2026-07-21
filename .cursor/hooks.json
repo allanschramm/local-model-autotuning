@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/hooks/block-adhoc-eval.ps1",
+        "failClosed": true
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/hooks/block-gate-tamper.ps1",
+        "failClosed": true
+      }
+    ]
+  }
+}

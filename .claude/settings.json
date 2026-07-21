@@ -1,0 +1,50 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(.cursor/hooks.json)",
+      "Write(.cursor/hooks.json)",
+      "Edit(.cursor/rules/harness-trials.mdc)",
+      "Write(.cursor/rules/harness-trials.mdc)",
+      "Edit(.claude/settings.json)",
+      "Write(.claude/settings.json)",
+      "Edit(scripts/hooks/**)",
+      "Write(scripts/hooks/**)",
+      "Bash(python* -c *)",
+      "Bash(python.exe* -c *)",
+      "Bash(*llama-cli*)",
+      "Bash(*llama-server*)",
+      "Bash(*llama-bench*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/scripts/hooks/block-adhoc-eval.ps1\""
+          }
+        ]
+      },
+      {
+        "matcher": "PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/scripts/hooks/block-adhoc-eval.ps1\""
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|Delete",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/scripts/hooks/block-gate-tamper.ps1\""
+          }
+        ]
+      }
+    ]
+  }
+}

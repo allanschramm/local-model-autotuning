@@ -35,7 +35,11 @@ venv-sglang/
 # IDE
 .vscode/
 .idea/
-.cursor/
+.cursor/*
+# Portable agent hard-gates (must ship with clone)
+!.cursor/hooks.json
+!.cursor/rules/
+!.cursor/rules/harness-trials.mdc
 .windsurf/
 .clinerules/
 .opencode/

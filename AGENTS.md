@@ -18,6 +18,7 @@ Repository-wide agent guidelines are owned by the repository developers.
 - Architecture: Never overengineer. Keep it simple. Less is more. Reduce lines of code. Simplify instead of complicate.
 - Docs always: Update relevant docs (model cards, ADRs, config comments) whenever any codebase/model/config improvement is found or applied.
 - Config surface: Agents and the Search loop change Baseline only via `autoresearch/core/config.py`. Do not drive Trials with CLI flag soup. Never edit `program.md` or harness code from the Search loop.
+- **Hard gate (hooks):** Shell allowlist + gate-file protection. Scripts: `scripts/hooks/block-adhoc-eval.ps1`, `scripts/hooks/block-gate-tamper.ps1`. Wiring: `.cursor/hooks.json`, `.claude/settings.json`, `.cursor/rules/harness-trials.mdc`. Trial loop = edit `config.py` → `benchmark_search.py` / `autoloop.py`. **Disable playbook:** [docs/discovery/agent-shell-hard-gates.md](docs/discovery/agent-shell-hard-gates.md) §3 (teach human; wiring edits require unlock).
 - Context size: CTX_SIZE default is 131072. User may lower it to trade context for speed. Code minimum is 2048 (llama.cpp practical floor). Always use the user-configured value.
 - No timeouts: Never set execution timeouts on commands unless explicitly told to. Benchmarks and model tests run until completion.
 - No hardcoded machine paths: Do not commit absolute user or checkout paths in scripts, docs, configs, or durable notes. Resolve them dynamically or keep them repo-relative.
@@ -126,9 +127,17 @@ When the user requests a durable behavior change, record it here or in the relev
 - **No eval-score floor**: Only the TPS Floor rejects a Trial. Claw-Eval quick/full scores are recorded for keep/discard comparison; low smoke scores must not short-circuit as `MODEL_REJECTED`.
 - **config.py is the only mutable Baseline (local)**: Seed with `cp autoresearch/core/config.py.example autoresearch/core/config.py`. Agents and Search edit `ENGINE_DEFAULTS` / `SAMPLER_DEFAULTS` there. File is gitignored — do not commit machine Baseline. `program.md` and harnesses stay fixed. Do not drive Trials with CLI flag soup. `.autoresearch_state.json` is visited memory only.
 - **Every requested Trial edits `config.py` first**: For each user-requested test/run, set the Baseline in `config.py` (then invoke harness). Never pass the experiment knobs as CLI flags.
+- **No ad-hoc eval scripts**: Do not invent one-off Python/`python -c` Trial loops. Hooks deny them. Use harness CLIs only.
+- **Portable agent hard-gates only**: Ship Cursor/Claude project hooks in-repo so any clone benefits. Do **not** require OS ACL (`icacls`), chmod lockdowns, or enterprise managed hooks for normal users (including non-devs).
 
 ## Child DOX Index
 - [autoresearch/AGENTS.md](autoresearch/AGENTS.md) — Core autotuning package (config, runners, benchmarks).
+- [scripts/hooks/block-adhoc-eval.ps1](scripts/hooks/block-adhoc-eval.ps1) — Shell hard-gate (allowlist + cwd).
+- [scripts/hooks/block-gate-tamper.ps1](scripts/hooks/block-gate-tamper.ps1) — Gate-file hard-gate (Edit/Write/Delete).
+- [.cursor/hooks.json](.cursor/hooks.json) — Cursor `beforeShellExecution` + `preToolUse` wiring.
+- [.cursor/rules/harness-trials.mdc](.cursor/rules/harness-trials.mdc) — Always-on Trial/harness rule.
+- [.claude/settings.json](.claude/settings.json) — Claude Code permissions.deny + PreToolUse wiring.
+- [docs/discovery/agent-shell-hard-gates.md](docs/discovery/agent-shell-hard-gates.md) — Inventory + disable playbook.
 - [models/README.md](models/README.md) — Shared GGUF store layout (nested LM Studio + basename resolve).
 - [docs/AGENTS.md](docs/AGENTS.md) — Durable documentation contract.
   - [docs/models/](docs/models/) — Per-model GGUF specs (architecture, quant, settings).
