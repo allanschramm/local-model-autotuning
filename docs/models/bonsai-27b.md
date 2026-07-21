@@ -64,10 +64,11 @@ E llama_model_load: error loading model: invalid vector subscript
 - Crash is at **drafter model load** (before any draft round) — the command matches the run guide exactly, so this is not a flag error.
 - `"adding 248320 dummy tokens"` = drafter GGUF `vocab_size` read as ~248320 (real vocab ≈152K); loader pads then indexes out of bounds → `invalid vector subscript`. Points to a **drafter GGUF / build version mismatch**.
 - **Suspected cause:** earlier drafter from `PrismML-Eng/Bonsai-27B` vs canonical PRIVATE `prism-ml/Bonsai-27B-gguf`.
-- **2026-07-21:** re-pulled `Bonsai-27B-dspark-Q4_1.gguf` from `prism-ml/Bonsai-27B-gguf` → `models/draft/` (SHA256 `25E73F9F…BEFB1B`, 1787468768 bytes). Load + TPS Trial with PrismML `--spec-type draft-dspark` **not yet re-run**.
+- **2026-07-21:** re-pulled `Bonsai-27B-dspark-Q4_1.gguf` from `prism-ml/Bonsai-27B-gguf` → `models/draft/` (SHA256 `25E73F9F…BEFB1B`, 1787468768 bytes).
+- **2026-07-21 Trial (PrismML, dense VRAM guard):** `ctx=65536` `KV=q4_0` `--spec-type draft-dspark` `--spec-draft-n-max 4` `-ngl/-ngld 99`. Preflight est=7066MB ≤7900. **bench_tg=39.2 t/s**, peak VRAM **7.6 GB**, no kill/OOM. Loads OK with canonical drafter. Still **slower than target-only ~41 t/s** → keep max-TPS remains `SPEC_TYPE=None`.
 
 ## VITRIOL (MoE split)
-**TBD** — Bonsai-27B MoE vs dense unconfirmed; VITRIOL (`--n-gpu-layers` + `--n-cpu-moe`) not applicable until confirmed.
+**Dense** — do not apply `--n-cpu-moe` / shared-memory offload. Fit in physical VRAM only (dense VRAM guard).
 
 ## Max TPS (RTX 4060 8 GB, ctx band 65k–131k) — 2026-07-21
 
@@ -82,8 +83,9 @@ Harness: `benchmark_search.py --no-agentic-quick --no-agentic-full --no-coding` 
 | Q1_0 + KV q8_0 | prism | 65536 | q8_0 | 40.7 | 6.9 GB |
 | Ternary Q2_0 | prism | 131072 | q4_0 | 10.6 (reject) | — |
 | Q1_0 + DSpark (prior) | prism | — | — | 19.2 (−48%) | — |
+| Q1_0 + DSpark canonical | prism | 65536 | q4_0 | **39.2** | 7.6 GB |
 
-**Keep:** `Bonsai-27B-Q1_0.gguf`, `CTX_SIZE=131072`, `KV=q4_0`, no speculative, upstream `llama.cpp` CUDA. Short-gen TPS flat across 65k↔131k; prefer 131k for usable context. Thread/batch tweaks noise (~±0.2 t/s).
+**Keep (max TPS):** `Bonsai-27B-Q1_0.gguf`, `CTX_SIZE=131072`, `KV=q4_0`, no speculative, upstream `llama.cpp` CUDA (~41 t/s). Canonical DSpark loads and stays under 8GB at ctx=65k but does not beat target-only.
 
 ## Config Baseline (max TPS, no draft)
 ```python
@@ -110,7 +112,7 @@ Runtime: upstream `llama.cpp/build-cuda` (Q1_0). Use `llama.cpp-prismml` only if
 - Max-TPS matrix (65k–131k): harness cli-bench, this card table — 2026-07-21
 
 ## Open Questions
-- **Drafter load crash** after canonical re-pull (2026-07-21): re-test PrismML server load + harness TPS with `--spec-type draft-dspark`. Prior target-only keep remains `SPEC_TYPE=None` until Trial beats ~41 t/s.
+- **DSpark speedup**: canonical drafter loads (39.2 t/s @ 65k / 7.6 GB) but still loses to target-only ~41. Acceptance rate / PrismML kernel path TBD if chasing speculative wins.
 - **Architecture**: block_count, expert_count, head_count_kv — **TBD**, run `gguf.GGUFReader`.
-- **VITRIOL**: MoE vs dense — **TBD**.
+- **VITRIOL**: MoE vs dense — treat as **dense** (no shared-memory offload; VRAM guard applies).
 - **Ternary variant** `Ternary-Bonsai-27B-Q2_0` (+ its dspark drafter) — separate card `ternary-bonsai-27b.md` **TBD** (spot: 10.6 t/s @ 131k, reject).

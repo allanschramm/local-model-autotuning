@@ -12,7 +12,17 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Protocol
 
-from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent, resolve_llama_bench, resolve_llama_cli, resolve_llama_perplexity, ConfigError
+from autoresearch.core.llama_runner import (
+    LlamaServerRunner,
+    ServerIntent,
+    resolve_llama_bench,
+    resolve_llama_cli,
+    resolve_llama_perplexity,
+    ConfigError,
+    estimate_vram_mb,
+    preflight_vram_for_intent,
+    resolve_vram_limit_mb,
+)
 from autoresearch.core.sglang_runner import SGLangServerRunner, run_sglang_bench_validation
 from autoresearch.core.llama_client import LlamaClient, GenerationParams
 from autoresearch.benchmarks.benchmark_coding import run_benchmark as run_coding
@@ -253,6 +263,16 @@ class ExperimentRunner:
             res.diagnostic = str(exc)
             return res
         model_filename = intent.model_path.name
+        vram_limit_mb = resolve_vram_limit_mb(norm.get("vram_limit_mb"))
+
+        ok_vram, est_vram, vram_reason = preflight_vram_for_intent(intent, vram_limit_mb)
+        print(f"  [vram-preflight] est={est_vram:.0f}MB limit={vram_limit_mb:.0f}MB ok={ok_vram}")
+        if not ok_vram:
+            res.status = f"FAIL: {vram_reason}"
+            res.outcome = TrialOutcome.MODEL_REJECTED
+            res.diagnostic = vram_reason
+            res.peak_vram_gb = est_vram / 1024.0
+            return res
 
         max_tokens = norm.get("max_tokens", 1024)
         include_coding = bool(norm.get("include_coding", False))
@@ -423,17 +443,31 @@ class ExperimentRunner:
                 res.val_score = 0.0
             
             # Estimate peak VRAM from config since server wasn't started
-            from autoresearch.core.llama_runner import estimate_vram_mb
             k_val = intent.kv_cache_k or intent.kv_cache
             v_val = intent.kv_cache_v or intent.kv_cache
-            res.peak_vram_gb = estimate_vram_mb(intent.model_path, intent.ctx_size, k_val, v_val) / 1024.0
+            res.peak_vram_gb = estimate_vram_mb(
+                intent.model_path,
+                intent.ctx_size,
+                k_val,
+                v_val,
+                draft_path=intent.spec_draft_model,
+            ) / 1024.0
             res.elapsed_sec = time.time() - trial_start
             return res
 
         runner = None
         try:
             runner_cls = SGLangServerRunner if intent.model_path.is_dir() else LlamaServerRunner
-            with runner_cls(intent, log_path=server_log) as runner:
+            runner_kwargs: dict[str, Any] = {"log_path": server_log}
+            if runner_cls is LlamaServerRunner:
+                runner_kwargs["vram_limit_mb"] = vram_limit_mb
+            with runner_cls(intent, **runner_kwargs) as runner:
+                if getattr(runner, "vram_killed", False):
+                    res.status = "FAIL: VRAM_LIMIT_EXCEEDED"
+                    res.outcome = TrialOutcome.MODEL_REJECTED
+                    res.diagnostic = "VRAM_LIMIT_EXCEEDED"
+                    res.peak_vram_gb = max(runner.peak_vram_mb, 0.0) / 1024.0
+                    return res
                 client = LlamaClient(runner.port)
 
                 # Coding (HumanEval + MBPP + LCB + BigCode)
@@ -523,6 +557,11 @@ class ExperimentRunner:
         finally:
             if runner is not None:
                 res.peak_vram_gb = max(runner.peak_vram_mb, 0.0) / 1024.0
+                if getattr(runner, "vram_killed", False) and res.outcome == TrialOutcome.OK:
+                    res.status = "FAIL: VRAM_LIMIT_EXCEEDED"
+                    res.outcome = TrialOutcome.MODEL_REJECTED
+                    res.diagnostic = "VRAM_LIMIT_EXCEEDED"
+                    res.val_score = 0.0
 
         res.elapsed_sec = time.time() - trial_start
         return res

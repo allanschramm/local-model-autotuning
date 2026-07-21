@@ -16,7 +16,7 @@ import signal
 from pathlib import Path
 from typing import Any
 
-from autoresearch.core.llama_runner import estimate_vram_mb, resolve_model_path
+from autoresearch.core.llama_runner import resolve_model_path, estimate_vram_mb
 from autoresearch.core.config import (
     ENGINE_DEFAULTS,
     SAMPLER_DEFAULTS,
@@ -188,20 +188,28 @@ def trial_config(cfg: dict[str, Any], defaults: dict[str, Any], include_ppl: boo
 
 
 def preflight_vram_ok(cfg: dict[str, Any], vram_limit: float | None) -> bool:
-    """Estimate VRAM for a config and return True if it fits budget."""
+    """Estimate VRAM for a config (incl. draft) and return True if it fits budget."""
     if vram_limit is None:
         return True
-    
+
     model = cfg.get("MODEL", "g4-opt-it-Q4_K_M.gguf")
     ctx = cfg.get("CTX_SIZE", 131072)
     kv_k = cfg.get("KV_CACHE_K") or cfg.get("KV_CACHE", "q4_0")
     kv_v = cfg.get("KV_CACHE_V") or cfg.get("KV_CACHE", "q4_0")
-    
-    # Needs fallback to default cache if kv_k/kv_v are not defined
-    if not kv_k: kv_k = "q4_0"
-    if not kv_v: kv_v = "q4_0"
-
-    est = estimate_vram_mb(resolve_model_path(MODELS_DIR, model), ctx, kv_k, kv_v)
+    if not kv_k:
+        kv_k = "q4_0"
+    if not kv_v:
+        kv_v = "q4_0"
+    draft = cfg.get("SPEC_DRAFT_MODEL")
+    draft_path = resolve_model_path(MODELS_DIR, draft) if draft else None
+    # Prefer module-level estimate_vram_mb so tests can patch autoloop.estimate_vram_mb.
+    est = estimate_vram_mb(
+        resolve_model_path(MODELS_DIR, model),
+        ctx,
+        kv_k,
+        kv_v,
+        draft_path=draft_path,
+    )
     return est <= vram_limit
 
 

@@ -9,15 +9,17 @@
     *   Turboquant and similar forks typically accept `--spec-type mtp` (NOT `draft-mtp`). The autoloop's `llama_runner.py` probes `--help` at runtime and picks whichever value the build supports.
     *   Speculative draft tokens (`--spec-draft-n-max` between `1` and `4`) accelerate generation if accepted. Speedup is **1.15–1.25× for MoE**, **1.4–2.0× for dense**.
     *   **Architectural caveat**: speculative decoding with a separate draft model (e.g., Qwen-3.5-800M as drafter) does **not** help MoE+SSM models — verification becomes PCIe-bound. MTP (draft heads built into the model) is a different mechanism and does help.
-*   **Offloading (`-ngl`)**: Default to maximum (`99` or `999`) for full GPU. Partial CPU offload is acceptable if throughput stays above 20 TPS — trading speed for accuracy is a valid strategy.
+*   **Offloading (`-ngl`)**: Default to maximum (`99` or `999`) for full GPU. Dense models must stay fully on GPU — never partial layer offload to shared memory. MoE may use `--n-cpu-moe` (VITRIOL) when experts do not fit.
 *   **Batching (`-b` / `-ub`)**: Micro-batch (`-ub`) and batch (`-b`) sizes balance GPU Tensor Core utilization during prefill against VRAM overhead.
 *   **Threading (`-t`)**: CPU threads must match physical CPU core boundaries to avoid thrashing and context-switch latency.
 
 ## 2. VRAM Safety & Hardware Failsafes
 
-*   **Pre-flight Estimation**: Check `estimate_vram_mb` before starting `llama-server`. Skip any configuration predicted to exceed hardware limit (e.g., 7.9 GB on a 8GB GPU) to prevent system hangs or hard OOMs. Partial CPU offload is preferred over skipping entirely.
+*   **Dense = physical VRAM only**: Never partially offload dense GGUFs (layers → CPU / Windows shared GPU memory). That path freezes the PC. Dense must fit physical VRAM (cut `CTX_SIZE` / KV quant / drop draft) or the Trial is rejected. Only MoE may use `--n-cpu-moe` / VITRIOL.
+*   **Pre-flight Estimation**: `estimate_vram_mb` (weights + optional draft file + KV + overhead) runs before `llama-cli` / `llama-server`. Skip/reject any config with estimate `> VRAM_LIMIT_MB` (default 7900 on 8GB). Override via `ENGINE_DEFAULTS['VRAM_LIMIT_MB']` or `AUTORESEARCH_VRAM_LIMIT_MB`.
+*   **Runtime NVML kill (dense)**: While `llama-server` runs, the VRAM sampler kills the process if `used_mb > VRAM_LIMIT_MB` and records `VRAM_LIMIT_EXCEEDED` — belt-and-suspenders when the estimate undercounts.
 *   **TPS Floor**: Hard floor is 20 TPS. Below this, `val_score` is zeroed.
-*   **Shared Memory Mitigation**: Driver fallback to shared system memory drops processing speeds. The 20 TPS floor serves as the primary guardrail to automatically discard configurations relying on shared RAM.
+*   **Shared Memory Mitigation**: Driver fallback to shared system memory freezes dense workloads. Do not rely on the TPS floor alone — preflight + NVML kill are the primary guards.
 *   **Loop Resilience**: All model server startup failures, bad configurations, or exceptions are caught at the Trial level. They log a `FAIL` status to `results.tsv` and proceed to the next candidate configuration instead of crashing the search loop.
 *   **NVML Failsafe**: If NVML query fails mid-run, set `nvml = None` in the exception block immediately to avoid repetitive CDLL calling overhead.
 *   **Testing CDLL**: When writing unit tests for VRAM sampling, always mock `ctypes.CDLL` to raise an exception. This forces fallback to the mocked `nvidia-smi` parser and avoids testing against host GPU status.

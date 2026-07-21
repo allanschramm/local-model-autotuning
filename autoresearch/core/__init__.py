@@ -9,9 +9,13 @@ from autoresearch.core.llama_runner import (
     ServerIntent,
     ROOT_DIR,
     estimate_vram_mb,
+    preflight_vram,
+    preflight_vram_for_intent,
+    resolve_vram_limit_mb,
     resolve_llama_server,
     resolve_llama_bench,
 )
+from autoresearch.core.config import is_dense_model, is_moe_model
 from autoresearch.core.llama_client import (
     LlamaClient,
     GenerationParams,
@@ -42,6 +46,11 @@ __all__ = [
     "SearchState",
     # Utilities
     "estimate_vram_mb",
+    "preflight_vram",
+    "preflight_vram_for_intent",
+    "resolve_vram_limit_mb",
+    "is_dense_model",
+    "is_moe_model",
     "resolve_llama_server",
     "resolve_llama_bench",
     "run_sglang_bench_validation",

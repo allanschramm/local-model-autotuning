@@ -44,6 +44,7 @@ ENGINE_DEFAULTS = {
     'REASONING': None,
     'CONT_BATCHING': False,
     'N_CPU_MOE': None,
+    'VRAM_LIMIT_MB': 7900,
 }
 
 # Generation/Sampling configuration parameters (affect quality and token selection)
@@ -62,6 +63,18 @@ DEFAULTS = {**ENGINE_DEFAULTS, **SAMPLER_DEFAULTS}
 
 MIN_CTX_SIZE = 2048
 
+# Filename markers for MoE (VITRIOL / --n-cpu-moe allowed). Everything else = dense.
+MOE_NAME_INDICATORS = ("MOE", "A3B", "A4B", "A1B", "A2B", "8X3B", "8X4B")
+
+
+def is_moe_model(name: str) -> bool:
+    up = str(name).upper()
+    return any(ind in up for ind in MOE_NAME_INDICATORS)
+
+
+def is_dense_model(name: str) -> bool:
+    return not is_moe_model(name)
+
 
 def validate_config(cfg: dict) -> dict:
     """Return a normalized copy, or fail before any model process starts."""
@@ -76,11 +89,25 @@ def validate_config(cfg: dict) -> dict:
     ubatch = int(normalized.get("ubatch_size", normalized.get("UBATCH_SIZE", DEFAULTS["UBATCH_SIZE"])))
     if batch <= 0 or ubatch <= 0 or ubatch > batch:
         raise ConfigError("Require BATCH_SIZE > 0 and 0 < UBATCH_SIZE <= BATCH_SIZE")
+    model_name = str(normalized.get("model", normalized.get("MODEL", DEFAULTS.get("MODEL", ""))))
+    n_cpu_moe = normalized.get("n_cpu_moe", normalized.get("N_CPU_MOE"))
+    if n_cpu_moe is not None and is_dense_model(model_name):
+        raise ConfigError(
+            f"N_CPU_MOE is MoE-only; dense model {model_name!r} must fit physical VRAM "
+            "(cut CTX/KV/draft) — never expert/layer offload"
+        )
+    vram_limit = normalized.get("vram_limit_mb", normalized.get("VRAM_LIMIT_MB", DEFAULTS.get("VRAM_LIMIT_MB", 7900)))
+    if vram_limit is not None:
+        vram_limit = float(vram_limit)
+        if not math.isfinite(vram_limit) or vram_limit <= 0:
+            raise ConfigError(f"VRAM_LIMIT_MB must be a positive finite number; got {vram_limit}")
     for key, value in normalized.items():
         if isinstance(value, float) and not math.isfinite(value):
             raise ConfigError(f"{key} must be finite")
     normalized["CTX_SIZE"] = ctx
     normalized["FLASH_ATTN"] = flash
+    if vram_limit is not None:
+        normalized["VRAM_LIMIT_MB"] = vram_limit
     return normalized
 
 STATE_SCHEMA_VERSION = 2

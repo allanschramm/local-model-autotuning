@@ -27,7 +27,7 @@ _MODEL_SEARCH_SKIP = frozenset({".cache", "aliases", "huggingface"})
 import math
 from autoresearch.core import config
 
-from autoresearch.core.config import ConfigError, validate_config
+from autoresearch.core.config import ConfigError, validate_config, is_dense_model, is_moe_model
 
 
 def resolve_model_path(models_dir: Path, ref: str | Path) -> Path:
@@ -202,22 +202,48 @@ VRAM_QUANT_FACTORS = {
 }
 """KV cache quantization type memory usage scaling factors relative to f16."""
 
+DEFAULT_VRAM_LIMIT_MB = 7900.0
 
-def estimate_vram_mb(model_path: Path, ctx_size: int, kv_cache_k: str | None = None, kv_cache_v: str | None = None, base_kv_cache: str = "q4_0") -> float:
+
+def resolve_vram_limit_mb(limit: float | int | None = None) -> float:
+    """Resolve VRAM budget: explicit arg > env AUTORESEARCH_VRAM_LIMIT_MB > config default."""
+    if limit is not None:
+        return float(limit)
+    env = os.environ.get("AUTORESEARCH_VRAM_LIMIT_MB")
+    if env:
+        return float(env)
+    return float(config.DEFAULTS.get("VRAM_LIMIT_MB", DEFAULT_VRAM_LIMIT_MB))
+
+
+def estimate_vram_mb(
+    model_path: Path,
+    ctx_size: int,
+    kv_cache_k: str | None = None,
+    kv_cache_v: str | None = None,
+    base_kv_cache: str = "q4_0",
+    draft_path: Path | str | None = None,
+) -> float:
     try:
         model_size_mb = model_path.stat().st_size / (1024 * 1024)
     except Exception:
         model_size_mb = 4000.0
-    
+
+    draft_mb = 0.0
+    if draft_path:
+        try:
+            draft_mb = Path(draft_path).stat().st_size / (1024 * 1024)
+        except Exception:
+            draft_mb = 0.0
+
     try:
         c_size = int(ctx_size)
     except Exception:
         c_size = 16384
-    
+
     base_kv = base_kv_cache if base_kv_cache is not None else "q4_0"
     k_type = kv_cache_k if kv_cache_k is not None else base_kv
     v_type = kv_cache_v if kv_cache_v is not None else base_kv
-    
+
     def get_quant_factor(q_type: Any) -> float:
         if q_type is None or not isinstance(q_type, str):
             return VRAM_DEFAULT_QUANT_FACTOR
@@ -226,17 +252,52 @@ def estimate_vram_mb(model_path: Path, ctx_size: int, kv_cache_k: str | None = N
             if key in q:
                 return factor
         return VRAM_DEFAULT_QUANT_FACTOR
-        
+
     kf = get_quant_factor(k_type)
     vf = get_quant_factor(v_type)
-    
+
     # Calibrated KV cache size per token at f16 is ~80 KB
     kv_base_mb = c_size * VRAM_KB_PER_TOKEN_F16 / 1024.0
     kv_est_mb = (kv_base_mb / 2.0) * kf + (kv_base_mb / 2.0) * vf
-    
-    # Baseline system/CUDA overhead
-    return model_size_mb + kv_est_mb + VRAM_OVERHEAD_MB
 
+    # Baseline system/CUDA overhead (+ draft file size when speculative)
+    return model_size_mb + draft_mb + kv_est_mb + VRAM_OVERHEAD_MB
+
+
+def preflight_vram(
+    model_path: Path,
+    ctx_size: int,
+    kv_cache_k: str | None = None,
+    kv_cache_v: str | None = None,
+    draft_path: Path | str | None = None,
+    vram_limit_mb: float | None = None,
+) -> tuple[bool, float, str]:
+    """Return (ok, estimate_mb, reason). reason non-empty when rejected."""
+    limit = resolve_vram_limit_mb(vram_limit_mb)
+    est = estimate_vram_mb(
+        model_path,
+        ctx_size,
+        kv_cache_k=kv_cache_k,
+        kv_cache_v=kv_cache_v,
+        draft_path=draft_path,
+    )
+    if est > limit:
+        return False, est, f"VRAM_PREFLIGHT est={est:.0f}MB > limit={limit:.0f}MB"
+    return True, est, ""
+
+
+def preflight_vram_for_intent(
+    intent: "ServerIntent",
+    vram_limit_mb: float | None = None,
+) -> tuple[bool, float, str]:
+    return preflight_vram(
+        intent.model_path,
+        intent.ctx_size,
+        kv_cache_k=intent.kv_cache_k or intent.kv_cache,
+        kv_cache_v=intent.kv_cache_v or intent.kv_cache,
+        draft_path=intent.spec_draft_model,
+        vram_limit_mb=vram_limit_mb,
+    )
 
 
 LLAMA_BENCH_CANDIDATES = _binary_candidates("llama-bench")
@@ -293,18 +354,25 @@ def candidate_ports(preferred: int) -> list[int]:
 
 
 class LlamaServerRunner:
-    def __init__(self, intent: ServerIntent, log_path: Path | None = None):
+    def __init__(
+        self,
+        intent: ServerIntent,
+        log_path: Path | None = None,
+        vram_limit_mb: float | None = None,
+    ):
         self.intent = intent
         self.log_path = log_path
-        
+        self.vram_limit_mb = resolve_vram_limit_mb(vram_limit_mb)
+
         self.port: int | None = None
         self.peak_vram_mb: float = 0.0
-        
+        self.vram_killed: bool = False
+
         self._server_proc: subprocess.Popen[str] | None = None
         self._server_log: Any = None
         self._stop_event = threading.Event()
         self._vram_thread: threading.Thread | None = None
-        
+
         self.llama_server = resolve_llama_server()
 
     def _build_cmd(self, target_port: int) -> list[str]:
@@ -371,14 +439,11 @@ class LlamaServerRunner:
                     draft_path = self.intent.model_path.parent / draft_path
                 cmd += ["--spec-draft-model", str(draft_path)]
 
-        # VITRIOL Optimization: Hardware Necromancy for large MoE models.
-        # Only match actual MoE architecture patterns, not model size numbers.
-        moe_indicators = ["MOE", "A3B", "A4B", "A1B", "A2B", "8X3B", "8X4B"]
+        # VITRIOL: MoE expert offload only. Dense must never spill to shared memory.
         model_name_up = self.intent.model_path.name.upper()
-        is_moe = any(ind in model_name_up for ind in moe_indicators)
-        is_small_dense = any(f"-{x}B" in model_name_up for x in ["2", "4", "6", "7", "8", "9", "12"]) and not ("MOE" in model_name_up or "A1B" in model_name_up or "A3B" in model_name_up or "A4B" in model_name_up)
+        is_small_dense = any(f"-{x}B" in model_name_up for x in ["2", "4", "6", "7", "8", "9", "12"]) and not is_moe_model(self.intent.model_path.name)
 
-        if is_moe and not is_small_dense:
+        if is_moe_model(self.intent.model_path.name) and not is_small_dense:
             if self.intent.n_cpu_moe is not None:
                 print(f"  [VITRIOL] MoE Expert Streaming: --n-cpu-moe {self.intent.n_cpu_moe} for {self.intent.model_path.name}.")
                 cmd += ["--n-cpu-moe", str(self.intent.n_cpu_moe)]
@@ -463,7 +528,7 @@ class LlamaServerRunner:
 
     def _start_vram_sampler(self) -> None:
         import ctypes
-        
+
         # Load NVML library using ctypes
         nvml = None
         device = None
@@ -485,6 +550,21 @@ class LlamaServerRunner:
             nvml = None
             print("  [VRAM] NVML initialization failed. Falling back to subprocess nvidia-smi (200ms).")
 
+        dense = is_dense_model(self.intent.model_path.name)
+        limit = self.vram_limit_mb
+
+        def _maybe_kill(current: float) -> None:
+            if current > self.peak_vram_mb:
+                self.peak_vram_mb = current
+            if dense and current > limit and not self.vram_killed:
+                self.vram_killed = True
+                print(
+                    f"  [VRAM] LIMIT EXCEEDED used={current:.0f}MB > limit={limit:.0f}MB "
+                    f"(dense={self.intent.model_path.name}) — killing server"
+                )
+                self._cleanup_process()
+                self._stop_event.set()
+
         def sampler() -> None:
             nonlocal nvml
             while not self._stop_event.is_set():
@@ -493,8 +573,7 @@ class LlamaServerRunner:
                         mem_info = nvmlMemory_t()
                         nvml.nvmlDeviceGetMemoryInfo(device, ctypes.byref(mem_info))
                         current = float(mem_info.used) / (1024.0 * 1024.0)
-                        if current > self.peak_vram_mb:
-                            self.peak_vram_mb = current
+                        _maybe_kill(current)
                         self._stop_event.wait(0.02)
                         continue
                     except Exception:
@@ -511,8 +590,7 @@ class LlamaServerRunner:
                         text=True,
                     )
                     current = float(res.strip() or 0.0)
-                    if current > self.peak_vram_mb:
-                        self.peak_vram_mb = current
+                    _maybe_kill(current)
                 except FileNotFoundError:
                     print("Error: nvidia-smi not found. VRAM sampling stopped.")
                     break

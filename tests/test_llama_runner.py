@@ -3,6 +3,7 @@ from unittest.mock import patch, MagicMock
 from pathlib import Path
 import os
 import subprocess
+import tempfile
 from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent, resolve_llama_server
 from autoresearch.core import llama_runner
 
@@ -271,6 +272,81 @@ class TestLlamaRunner(unittest.TestCase):
         # Test default/none cache parameters
         v3 = estimate_vram_mb(Path("models/non-existent.gguf"), 2048)
         self.assertEqual(v1, v3)
+
+    def test_estimate_vram_mb_includes_draft(self):
+        from autoresearch.core.llama_runner import estimate_vram_mb
+        with tempfile.TemporaryDirectory() as tmp:
+            draft = Path(tmp) / "draft.gguf"
+            draft.write_bytes(b"x" * (10 * 1024 * 1024))  # 10 MiB
+            base = estimate_vram_mb(Path("models/non-existent.gguf"), 2048, "q4_0", "q4_0")
+            with_draft = estimate_vram_mb(
+                Path("models/non-existent.gguf"), 2048, "q4_0", "q4_0", draft_path=draft
+            )
+            self.assertAlmostEqual(with_draft - base, 10.0, places=1)
+
+    def test_preflight_vram_rejects_over_limit(self):
+        from autoresearch.core.llama_runner import preflight_vram
+        ok, est, reason = preflight_vram(
+            Path("models/non-existent.gguf"),
+            131072,
+            kv_cache_k="q4_0",
+            kv_cache_v="q4_0",
+            vram_limit_mb=1.0,
+        )
+        self.assertFalse(ok)
+        self.assertGreater(est, 1.0)
+        self.assertIn("VRAM_PREFLIGHT", reason)
+
+    def test_dense_n_cpu_moe_rejected(self):
+        from autoresearch.core.config import validate_config, ConfigError
+        with self.assertRaises(ConfigError) as ctx:
+            validate_config({
+                "MODEL": "Bonsai-27B-Q1_0.gguf",
+                "CTX_SIZE": 65536,
+                "FLASH_ATTN": "on",
+                "BATCH_SIZE": 512,
+                "UBATCH_SIZE": 128,
+                "N_CPU_MOE": 32,
+            })
+        self.assertIn("MoE-only", str(ctx.exception))
+
+    def test_moe_n_cpu_moe_allowed(self):
+        from autoresearch.core.config import validate_config
+        cfg = validate_config({
+            "MODEL": "Qwen3.6-35B-A3B.gguf",
+            "CTX_SIZE": 65536,
+            "FLASH_ATTN": "on",
+            "BATCH_SIZE": 512,
+            "UBATCH_SIZE": 128,
+            "N_CPU_MOE": 32,
+            "VRAM_LIMIT_MB": 7900,
+        })
+        self.assertEqual(cfg["N_CPU_MOE"], 32)
+
+    def test_vram_sampler_kills_dense_over_limit(self):
+        from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent
+        intent = ServerIntent(
+            model_path=Path("Bonsai-27B-Q1_0.gguf"),
+            ctx_size=65536,
+            kv_cache="q4_0",
+            flash_attn="on",
+        )
+        with patch("autoresearch.core.llama_runner.resolve_llama_server", return_value=Path("llama-server")):
+            runner = LlamaServerRunner(intent, vram_limit_mb=100.0)
+        proc = MagicMock()
+        runner._server_proc = proc
+        # Force nvidia-smi path (no NVML)
+        with patch("ctypes.CDLL", side_effect=OSError("no nvml")):
+            with patch("subprocess.check_output", return_value="500\n"):
+                runner._start_vram_sampler()
+                # Allow sampler thread to fire once
+                import time
+                time.sleep(0.35)
+                runner._stop_event.set()
+                if runner._vram_thread:
+                    runner._vram_thread.join(timeout=1.0)
+        self.assertTrue(runner.vram_killed)
+        proc.kill.assert_called()
 
 if __name__ == "__main__":
     unittest.main()
