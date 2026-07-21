@@ -36,14 +36,18 @@ Gate paths are human-maintained. Rollback playbook: docs/discovery/agent-shell-h
 '@
 
 try {
+    [Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
     $raw = [Console]::In.ReadToEnd()
+    if ($null -ne $raw) {
+        $raw = $raw.Trim([char]0, "`r", "`n", " ", "`t")
+    }
     if ([string]::IsNullOrWhiteSpace($raw)) {
         Write-Output '{"permission":"allow"}'
         exit 0
     }
     $payload = $raw | ConvertFrom-Json
 } catch {
-    Write-Output (@{ permission = 'deny'; user_message = $denyTrial; agent_message = "Hook JSON parse failed. $denyTrial" } | ConvertTo-Json -Compress)
+    Write-Output (@{ permission = 'deny'; user_message = $denyTrial; agent_message = "Hook JSON parse failed: $_. $denyTrial" } | ConvertTo-Json -Compress)
     exit 2
 }
 

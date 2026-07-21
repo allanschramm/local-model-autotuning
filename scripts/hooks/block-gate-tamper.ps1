@@ -18,18 +18,41 @@ Protected paths (human unlock required to edit):
 Playbook: docs/discovery/agent-shell-hard-gates.md section 3
 (agent may teach / update that doc; must not edit wiring without explicit unlock).
 '@
+function Emit-Deny([string]$Message) {
+    Write-Output (@{ permission = 'deny'; user_message = $Message; agent_message = $Message } | ConvertTo-Json -Compress)
+    [Console]::Error.WriteLine($Message)
+    exit 2
+}
+
+function Emit-Allow {
+    Write-Output '{"permission":"allow"}'
+    exit 0
+}
 
 try {
+    [Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
     $raw = [Console]::In.ReadToEnd()
+    if ($null -ne $raw) {
+        $raw = $raw.Trim([char]0, "`r", "`n", " ", "`t")
+    }
     if ([string]::IsNullOrWhiteSpace($raw)) {
-        Write-Output '{"permission":"allow"}'
-        exit 0
+        Emit-Allow
     }
     $payload = $raw | ConvertFrom-Json
 } catch {
-    Write-Output (@{ permission = 'deny'; user_message = $denyMsg; agent_message = "Gate-tamper hook JSON parse failed. $denyMsg" } | ConvertTo-Json -Compress)
-    [Console]::Error.WriteLine($denyMsg)
-    exit 2
+    $err = $_.Exception.Message
+    $rawLog = $raw
+    if ($null -ne $rawLog -and $rawLog.Length -gt 500) { $rawLog = $rawLog.Substring(0, 500) + '...' }
+    $agentMsg = "Gate-tamper hook JSON parse failed: $err. Raw snippet: $rawLog"
+    Emit-Deny $agentMsg
+}
+
+# Allow read-only / searching / listing tools
+$tool = ''
+if ($payload.tool_name) { $tool = [string]$payload.tool_name }
+elseif ($payload.tool) { $tool = [string]$payload.tool }
+if ($tool -and ($tool -match '(?i)(?:view|read|grep|list|search)')) {
+    Emit-Allow
 }
 
 $path = ''
@@ -44,17 +67,6 @@ if (-not $path -and $null -ne $payload.tool_input) {
         elseif ($ti.path) { $path = [string]$ti.path }
         elseif ($ti.target_notebook) { $path = [string]$ti.target_notebook }
     }
-}
-
-function Emit-Deny([string]$Message) {
-    Write-Output (@{ permission = 'deny'; user_message = $Message; agent_message = $Message } | ConvertTo-Json -Compress)
-    [Console]::Error.WriteLine($Message)
-    exit 2
-}
-
-function Emit-Allow {
-    Write-Output '{"permission":"allow"}'
-    exit 0
 }
 
 if ([string]::IsNullOrWhiteSpace($path)) { Emit-Allow }
