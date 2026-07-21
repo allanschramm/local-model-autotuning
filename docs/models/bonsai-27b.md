@@ -55,7 +55,7 @@ Flag notes (from run guide):
 - `Q1_0` is also merged upstream llama.cpp; `Q2_0` ternary needs the fork on CUDA.
 
 ## ⚠️ Known Issue — DSpark drafter fails to load
-Server log with the exact command above:
+Server log with the exact command above (pre-2026-07-21 drafter):
 ```
 loading draft model 'models/draft/Bonsai-27B-dspark-Q4_1.gguf'
 W load: adding 248320 dummy tokens
@@ -63,8 +63,8 @@ E llama_model_load: error loading model: invalid vector subscript
 ```
 - Crash is at **drafter model load** (before any draft round) — the command matches the run guide exactly, so this is not a flag error.
 - `"adding 248320 dummy tokens"` = drafter GGUF `vocab_size` read as ~248320 (real vocab ≈152K); loader pads then indexes out of bounds → `invalid vector subscript`. Points to a **drafter GGUF / build version mismatch**.
-- **Suspected cause:** drafter pulled from `PrismML-Eng/Bonsai-27B` (where models were downloaded), but the run guide's canonical 1-bit repo is the PRIVATE `prism-ml/Bonsai-27B-gguf`. The drafter there may be a different / newer / correct build. The target from `PrismML-Eng/Bonsai-27B` loads fine, but its drafter may not match this build.
-- **Resolution (not yet done — user paused):** re-pull drafter from canonical private repo `prism-ml/Bonsai-27B-gguf` (needs HF token with access), OR dump drafter GGUF header (`vocab_size`, GGUF version) to confirm the mismatch, OR try the Ternary pair.
+- **Suspected cause:** earlier drafter from `PrismML-Eng/Bonsai-27B` vs canonical PRIVATE `prism-ml/Bonsai-27B-gguf`.
+- **2026-07-21:** re-pulled `Bonsai-27B-dspark-Q4_1.gguf` from `prism-ml/Bonsai-27B-gguf` → `models/draft/` (SHA256 `25E73F9F…BEFB1B`, 1787468768 bytes). Load + TPS Trial with PrismML `--spec-type draft-dspark` **not yet re-run**.
 
 ## VITRIOL (MoE split)
 **TBD** — Bonsai-27B MoE vs dense unconfirmed; VITRIOL (`--n-gpu-layers` + `--n-cpu-moe`) not applicable until confirmed.
@@ -110,7 +110,7 @@ Runtime: upstream `llama.cpp/build-cuda` (Q1_0). Use `llama.cpp-prismml` only if
 - Max-TPS matrix (65k–131k): harness cli-bench, this card table — 2026-07-21
 
 ## Open Questions
-- **Drafter load crash** ("invalid vector subscript" / 248320 dummy tokens): resolve via canonical-repo drafter or GGUF header check. Not needed for max TPS (DSpark loses).
+- **Drafter load crash** after canonical re-pull (2026-07-21): re-test PrismML server load + harness TPS with `--spec-type draft-dspark`. Prior target-only keep remains `SPEC_TYPE=None` until Trial beats ~41 t/s.
 - **Architecture**: block_count, expert_count, head_count_kv — **TBD**, run `gguf.GGUFReader`.
 - **VITRIOL**: MoE vs dense — **TBD**.
 - **Ternary variant** `Ternary-Bonsai-27B-Q2_0` (+ its dspark drafter) — separate card `ternary-bonsai-27b.md` **TBD** (spot: 10.6 t/s @ 131k, reject).
