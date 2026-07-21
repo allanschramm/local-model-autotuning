@@ -69,19 +69,37 @@ E llama_model_load: error loading model: invalid vector subscript
 ## VITRIOL (MoE split)
 **TBD** — Bonsai-27B MoE vs dense unconfirmed; VITRIOL (`--n-gpu-layers` + `--n-cpu-moe`) not applicable until confirmed.
 
-## Config Baseline (TBD — drafter not yet loading)
+## Max TPS (RTX 4060 8 GB, ctx band 65k–131k) — 2026-07-21
+
+Harness: `benchmark_search.py --no-agentic-quick --no-agentic-full --no-coding` → `llama-cli` `-n 512`.
+
+| Config | Binary | ctx | KV | bench_tg | Peak VRAM |
+|---|---|---|---|---|---|
+| Q1_0 target-only | upstream CUDA | 65536 | q4_0 | **40.5** | 6.1 GB |
+| Q1_0 target-only | upstream CUDA | 131072 | q4_0 | **41.0–41.2** | 7.2–7.3 GB |
+| Q1_0 target-only | prism CUDA | 131072 | q4_0 | 40.5 | 7.3 GB |
+| Q1_0 + KV f16 | prism | 65536 | f16 | 11.0 (reject) | — |
+| Q1_0 + KV q8_0 | prism | 65536 | q8_0 | 40.7 | 6.9 GB |
+| Ternary Q2_0 | prism | 131072 | q4_0 | 10.6 (reject) | — |
+| Q1_0 + DSpark (prior) | prism | — | — | 19.2 (−48%) | — |
+
+**Keep:** `Bonsai-27B-Q1_0.gguf`, `CTX_SIZE=131072`, `KV=q4_0`, no speculative, upstream `llama.cpp` CUDA. Short-gen TPS flat across 65k↔131k; prefer 131k for usable context. Thread/batch tweaks noise (~±0.2 t/s).
+
+## Config Baseline (max TPS, no draft)
 ```python
-MODEL = 'models/Bonsai-27B-Q1_0.gguf'
-DRAFT = 'models/draft/Bonsai-27B-dspark-Q4_1.gguf'
-CTX_SIZE = 65536            # user test; guide recommends >=16384
-SPEC_TYPE = 'draft-dspark'
-SPEC_DRAFT_N_MAX = 4
-NGL = 999
-NGLD = 999
-FA = 'on'
-NP = 1
+MODEL = 'Bonsai-27B-Q1_0.gguf'
+CTX_SIZE = 131072           # 65k–131k band; same short-gen TPS as 65k
+KV_CACHE_K = 'q4_0'
+KV_CACHE_V = 'q4_0'
+SPEC_TYPE = None            # DSpark slower than target-only on Q1_0
+SPEC_DRAFT_N_MAX = 0
+BATCH_SIZE = 512
+UBATCH_SIZE = 128
+THREADS = 8
+FLASH_ATTN = 'on'
+NO_MMAP = True
 ```
-Target-only at 65K verified fit; full 2-model VRAM **TBD** (drafter load blocks measurement).
+Runtime: upstream `llama.cpp/build-cuda` (Q1_0). Use `llama.cpp-prismml` only if enabling DSpark / Ternary Q2_0.
 
 ## Sources / Verification
 - Run guide + dspark command: https://github.com/PrismML-Eng/Bonsai-demo (README.md, SPECULATIVE.md) — read 2026-07-18
@@ -89,9 +107,10 @@ Target-only at 65K verified fit; full 2-model VRAM **TBD** (drafter load blocks 
 - Context length 262144: verified from local GGUF `Bonsai-27B-Q1_0.gguf` (`qwen35.context_length`) — 2026-07-18
 - VRAM fit at 65K: observed server log (target + KV allocated, warmed up, no OOM) — 2026-07-18
 - Drafter crash: observed server log — 2026-07-18
+- Max-TPS matrix (65k–131k): harness cli-bench, this card table — 2026-07-21
 
 ## Open Questions
-- **Drafter load crash** ("invalid vector subscript" / 248320 dummy tokens): resolve via canonical-repo drafter or GGUF header check. **Blocker** for speculative.
+- **Drafter load crash** ("invalid vector subscript" / 248320 dummy tokens): resolve via canonical-repo drafter or GGUF header check. Not needed for max TPS (DSpark loses).
 - **Architecture**: block_count, expert_count, head_count_kv — **TBD**, run `gguf.GGUFReader`.
 - **VITRIOL**: MoE vs dense — **TBD**.
-- **Ternary variant** `Ternary-Bonsai-27B-Q2_0` (+ its dspark drafter) — separate card `ternary-bonsai-27b.md` **TBD**.
+- **Ternary variant** `Ternary-Bonsai-27B-Q2_0` (+ its dspark drafter) — separate card `ternary-bonsai-27b.md` **TBD** (spot: 10.6 t/s @ 131k, reject).
