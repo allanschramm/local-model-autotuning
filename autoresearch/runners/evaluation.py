@@ -106,6 +106,7 @@ def run_llama_bench_validation(
         "-m", str(model_path),
         "-p", "Write a comprehensive, step-by-step tutorial explaining quantum computing, qubits, superposition, and entanglement, including a detailed Python simulation using NumPy.",
         "-n", str(n_gen),
+        "-c", str(ctx_size),
         "-t", str(threads),
         "-ngl", str(ngl),
         "-b", str(batch_size),
