@@ -1,5 +1,7 @@
 # Currículo do curso: Ensinar qualquer um a rodar IA Local
 
+> 📌 **Portal Interativo do Aluno:** Abra o [teach/index.html](index.html) no navegador para ver o mapa visual de lições e salvar seu progresso.
+
 ## Módulo 0 — Fundação Conceitual do Zero (para leigos)
 
 | Slot | Foco | Lição HTML |

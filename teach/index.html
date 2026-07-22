@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Portal do Curso — Rodando IA Local do Zero</title>
+  <link rel="stylesheet" href="assets/lesson.css" />
+  <style>
+    .progress-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1.2rem;
+      margin: 1.5rem 0;
+    }
+    .progress-bar-bg {
+      height: 1.2rem;
+      width: 100%;
+      background: var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+      margin: 0.5rem 0 0.2rem;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.4s ease;
+    }
+    .module-section {
+      margin-top: 2rem;
+    }
+    .lesson-grid {
+      display: grid;
+      gap: 0.85rem;
+      margin-top: 0.85rem;
+    }
+    .lesson-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1rem 1.1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+    .lesson-card.completed {
+      border-left: 4px solid var(--right);
+      background: #f0fdf4;
+    }
+    .lesson-info h3 {
+      margin: 0 0 0.25rem 0;
+      font-size: 1rem;
+    }
+    .lesson-info p {
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .lesson-action {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-shrink: 0;
+    }
+    .check-btn {
+      font-family: var(--sans);
+      font-size: 0.8rem;
+      padding: 0.4rem 0.7rem;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+    }
+    .check-btn.checked {
+      background: var(--right);
+      color: white;
+      border-color: var(--right);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <p class="eyebrow">Repositório Local-Model-Autotuning · Guia Interativo</p>
+      <h1>Curso Prático: Rodando IA Local do Zero</h1>
+      <p class="lede">
+        Aprenda como funcionam as IAs, qual modelo cabe no seu computador, como resolver erros e como rodar um servidor de API local rápido, privado e sem custo por token.
+      </p>
+    </header>
+
+    <div class="progress-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; font-family: var(--sans);">
+        <strong>Seu Progresso Global:</strong>
+        <span id="progress-text" style="font-weight: bold; color: var(--accent);">0 de 7 lições (0%)</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progress-fill"></div>
+      </div>
+    </div>
+
+    <!-- Módulo 0 -->
+    <div class="module-section">
+      <h2>Módulo 0 — Fundação Conceitual do Zero (Para Leigos)</h2>
+      <div class="lesson-grid">
+        <div class="lesson-card" data-lesson-id="s0d1">
+          <div class="lesson-info">
+            <h3><a href="lessons/s0d1-fundamentos-ia-hardware.html">Módulo 0 · Dia 1 — Como funcionam as IAs e o Hardware do PC</a></h3>
+            <p>Pesos, contexto, tokens, VRAM vs RAM e a analogia da quantização. Inclui Calculadora de VRAM e Tokenizador Interativo.</p>
+          </div>
+          <div class="lesson-action">
+            <button type="button" class="check-btn" data-target="s0d1">Concluir</button>
+          </div>
+        </div>
+
+        <div class="lesson-card" data-lesson-id="s0d2">
+          <div class="lesson-info">
+            <h3><a href="lessons/s0d2-troubleshooting-erros-comuns.html">Módulo 0 · Dia 2 — Troubleshooting & Solução de Erros Comuns</a></h3>
+            <p>Guia de primeiros socorros para OOM (memória esgotada), portas ocupadas (8080), velocidade baixa e loops de texto.</p>
+          </div>
+          <div class="lesson-action">
+            <button type="button" class="check-btn" data-target="s0d2">Concluir</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Semana 1 -->
+    <div class="module-section">
+      <h2>Semana 1 — Desempenho Bruto & llama.cpp (Escopo Fechado)</h2>
+      <div class="lesson-grid">
+        <div class="lesson-card" data-lesson-id="s1d1">
+          <div class="lesson-info">
+            <h3><a href="lessons/s1d1-lmstudio-avisos-motores-api.html">Semana 1 · Dia 1 — Motores de Inferência, GGUF e API Local</a></h3>
+            <p>Entendendo o fluxo completo: Motor → Modelo GGUF → Servidor API Local → Aplicativo.</p>
+          </div>
+          <div class="lesson-action">
+            <button type="button" class="check-btn" data-target="s1d1">Concluir</button>
+          </div>
+        </div>
+
+        <div class="lesson-card" data-lesson-id="s1d2">
+          <div class="lesson-info">
+            <h3><a href="lessons/s1d2-llamacpp-flags-tps.html">Semana 1 · Dia 2 — llama.cpp e Ajuste de Flags (TPS)</a></h3>
+            <p>Otimizando velocidade com -ngl, -t, -c e -fa. Inclui Gerador Interativo de Comandos para Windows.</p>
+          </div>
+          <div class="lesson-action">
+            <button type="button" class="check-btn" data-target="s1d2">Concluir</button>
+          </div>
+        </div>
+
+        <div class="lesson-card" data-lesson-id="s1d3">
+          <div class="lesson-info">
+            <h3><a href="lessons/s1d3-moe-maior-que-a-vram.html">Semana 1 · Dia 3 — Modelos MoE Maiores que a VRAM (Offload)</a></h3>
+            <p>Como rodar modelos MoE gigantes dividindo carga entre VRAM e RAM. Inclui Simulador de Roteamento de Especialistas.</p>
+          </div>
+          <div class="lesson-action">
+            <button type="button" class="check-btn" data-target="s1d3">Concluir</button>
+          </div>
+        </div>
+
+        <div class="lesson-card" data-lesson-id="s1d4">
+          <div class="lesson-info">
+            <h3><a href="lessons/s1d4-usecase-fluxo-zero.html">Semana 1 · Dia 4 — Caso de Uso Prático: Do Zero à Execução</a></h3>
+            <p>Fluxo de trabalho real: planejar o objetivo → dividir em tarefas → executar no servidor local.</p>
+          </div>
+          <div class="lesson-action">
+            <button type="button" class="check-btn" data-target="s1d4">Concluir</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Semana 2 -->
+    <div class="module-section">
+      <h2>Semana 2 — Qualidade dos LLMs & Amostragem (Trilha Avançada)</h2>
+      <div class="lesson-grid">
+        <div class="lesson-card" data-lesson-id="s2d1">
+          <div class="lesson-info">
+            <h3><a href="lessons/s2d1-parametros-qualidade.html">Semana 2 · Dia 1 — Parâmetros de Qualidade e Amostragem</a></h3>
+            <p>Temperatura, Top-P, Top-K e Penalidade de Repetição. Inclui Simulador Interativo de Criatividade vs Determinismo.</p>
+          </div>
+          <div class="lesson-action">
+            <button type="button" class="check-btn" data-target="s2d1">Concluir</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="site">
+      <p><strong>Local-Model-Autotuning · Ambiente Prático de Aprendizado de IA Local.</strong></p>
+    </footer>
+  </div>
+
+  <script>
+    (function() {
+      const STORAGE_KEY = 'teach_course_progress_v1';
+      const checkBtns = document.querySelectorAll('.check-btn');
+      const progressFill = document.getElementById('progress-fill');
+      const progressText = document.getElementById('progress-text');
+      const totalLessons = 7;
+
+      function getCompleted() {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        } catch(e) {
+          return [];
+        }
+      }
+
+      function saveCompleted(arr) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+      }
+
+      function renderProgress() {
+        const completed = getCompleted();
+        const count = completed.length;
+        const pct = Math.round((count / totalLessons) * 100);
+
+        progressFill.style.width = pct + '%';
+        progressText.textContent = `${count} de ${totalLessons} lições (${pct}%)`;
+
+        checkBtns.forEach(btn => {
+          const id = btn.getAttribute('data-target');
+          const card = document.querySelector(`.lesson-card[data-lesson-id="${id}"]`);
+          const isDone = completed.includes(id);
+
+          if (isDone) {
+            btn.textContent = '✓ Concluído';
+            btn.classList.add('checked');
+            if (card) card.classList.add('completed');
+          } else {
+            btn.textContent = 'Marcar Concluído';
+            btn.classList.remove('checked');
+            if (card) card.classList.remove('completed');
+          }
+        });
+      }
+
+      checkBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-target');
+          let completed = getCompleted();
+          if (completed.includes(id)) {
+            completed = completed.filter(x => x !== id);
+          } else {
+            completed.push(id);
+          }
+          saveCompleted(completed);
+          renderProgress();
+        });
+      });
+
+      renderProgress();
+    })();
+  </script>
+</body>
+</html>

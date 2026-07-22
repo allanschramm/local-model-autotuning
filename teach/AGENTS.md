@@ -19,7 +19,7 @@ Course operator / instructors. Not part of the autotuning runtime loop.
 - Keep glossary/definitions accurate (VRAM ≠ “must fit”; offload/MoE = Dia 3).
 
 ## Verification
-- Open lesson HTML in a browser; click quizzes (client-side hash check).
+- Open `index.html` or lesson HTML in a browser; click quizzes (client-side hash check).
 - Confirm `CURRICULUM.md` links resolve.
 
 ## Child DOX Index
