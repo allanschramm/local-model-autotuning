@@ -61,6 +61,16 @@ Output verde = pronto pro autoloop.
 
 ---
 
+## 🎓 Curso Prático & Utilitários para Alunos
+
+Este repositório inclui um curso completo em HTML para ensinar qualquer pessoa a rodar IA Local do zero ao avançado:
+
+* **Portal Interativo:** Abra [teach/index.html](file:///D:/Dev/Nexus-System/local-model-autotuning/teach/index.html) no navegador para acompanhar as 10 lições e quizzes.
+* **Diagnóstico de Hardware:** `python scripts/check_hardware.py` (recomenda o modelo GGUF ideal, `-ngl` e `-c` para seu PC).
+* **Validação de Servidor e TPS:** `python scripts/verify_setup.py` (testa o servidor local e mede a velocidade real em tokens/s).
+
+---
+
 ## Como Funciona
 
 ### O Loop
