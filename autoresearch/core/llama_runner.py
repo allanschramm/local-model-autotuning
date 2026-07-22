@@ -111,8 +111,7 @@ def _candidate_binary(root: Path, name: str) -> tuple[Path, ...]:
 
     if should_prefer_gpu_build():
         return cuda_paths + rocm_paths + cpu_paths + generic_paths
-    else:
-        return cpu_paths + generic_paths + cuda_paths + rocm_paths
+    return cpu_paths + generic_paths + cuda_paths + rocm_paths
 
 
 def _binary_candidates(name: str) -> tuple[Path, ...]:
