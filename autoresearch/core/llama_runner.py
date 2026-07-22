@@ -572,8 +572,6 @@ class LlamaServerRunner:
     def _start_vram_sampler(self) -> None:
         if self.is_cpu_mode:
             return
-        if not should_prefer_gpu_build():
-            return
 
         import ctypes
 
