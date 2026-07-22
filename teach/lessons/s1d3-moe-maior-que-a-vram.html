@@ -10,10 +10,10 @@
   <div class="wrap">
     <header class="site">
       <p class="eyebrow">Semana 1 · Dia 3 · Performance</p>
-      <h1>MoE — modelos maiores que a tua GPU</h1>
+      <h1>MoE — modelos maiores que a sua GPU</h1>
       <p class="lede">
-        Dense mete (quase) tudo na VRAM. <strong>MoE</strong> ativa só alguns especialistas por token —
-        com offload podes correr modelos “grandes demais” para a GPU.
+        Modelos densos colocam (quase) tudo na VRAM. Modelos <strong>MoE</strong> ativam apenas alguns especialistas por token —
+        com a técnica de offload você consegue rodar modelos maiores que a sua placa de vídeo.
       </p>
       <p class="navlinks">
         <a href="s1d2-llamacpp-flags-tps.html">← Dia 2</a>
@@ -22,52 +22,48 @@
       </p>
     </header>
 
-    <h2>Ideia</h2>
+    <h2>Conceito</h2>
     <p>
-      No llama.cpp, combinações típicas: <code>-ngl</code> (camadas na GPU) +
-      <code>--n-cpu-moe</code> / offload de experts (ver técnica VITRIOL no repo).
-      Objetivo da Semana 1: <strong>correr</strong> e manter TPS usável — não pontuar qualidade.
+      No llama.cpp, usamos a combinação de <code>-ngl</code> (camadas na GPU) +
+      <code>--n-cpu-moe</code> / offload de especialistas (técnica VITRIOL no repositório).
+      O objetivo na Semana 1 é <strong>rodar com estabilidade</strong> e manter uma boa velocidade (TPS).
     </p>
     <p>
-      Guia: <a href="../../docs/models/vitriol-technique.md">docs/models/vitriol-technique.md</a>.
+      Guia detalhado: <a href="../../docs/models/vitriol-technique.md">docs/models/vitriol-technique.md</a>.
     </p>
-    <div class="note">
-      Há um <strong>outro motor</strong> que o professor pode mostrar como palinha — surpresa da aula.
-      Não precisas adivinhar o nome aqui; o contrato MoE no llama.cpp basta para o quiz.
-    </div>
 
     <h2>Prática</h2>
     <div class="quiz" data-quiz data-lesson="s1d3-q1"
          data-answer-hash="6da41398b4c370729c5bf095b217e5511cb11b2da17b53134f4f6f6d4523fe57"
-         data-ok="Certo. MoE + offload = caber o que a VRAM sozinha não aguenta."
-         data-bad="Não é fine-tune; é colocar experts/camadas fora da GPU.">
-      <p class="q">Para que serve offload MoE no Dia 3?</p>
+         data-ok="Muito bem! O offload distribui as partes do modelo para conseguir executar modelos que não caberiam apenas na GPU."
+         data-bad="O offload serve para dividir as partes do modelo entre a memória de vídeo e a RAM do computador.">
+      <p class="q">Qual é a principal vantagem de usar a técnica de offload em modelos de IA do tipo MoE?</p>
       <div class="choices">
-        <button type="button" data-choice="A">Correr modelo maior que a VRAM permite sozinha</button>
-        <button type="button" data-choice="B">Treinar um dense 70B do zero em 8GB</button>
-        <button type="button" data-choice="C">Apagar o llama.cpp e usar só LM Studio UI</button>
-        <button type="button" data-choice="D">Medir só a qualidade literária do output</button>
+        <button type="button" data-choice="A">Permitir rodar um modelo maior dividindo a carga entre a placa de vídeo e a memória RAM</button>
+        <button type="button" data-choice="B">Treinar modelos de IA gigantes sem precisar de nenhuma memória</button>
+        <button type="button" data-choice="C">Apagar o motor local e rodar tudo em um editor de código</button>
+        <button type="button" data-choice="D">Fazer a IA responder sem precisar de eletricidade</button>
       </div>
       <p class="feedback" data-feedback></p>
     </div>
 
     <div class="quiz" data-quiz data-lesson="s1d3-q2"
          data-answer-hash="795d7cf91e9a0ff829581f62005225930988ce20a579c2cffe1f3bc6f7152e8f"
-         data-ok="Isso. A surpresa fica para a aula; o núcleo é llama.cpp + MoE."
-         data-bad="O quiz não pede o nome do motor surpresa.">
-      <p class="q">O que este material exige saberes nomear já?</p>
+         data-ok="Isso aí! O essencial é entender como adaptar o tamanho e a distribuição do modelo à sua máquina."
+         data-bad="O objetivo é aprender a adaptar o modelo para rodar de forma fluida no seu próprio computador.">
+      <p class="q">Para quem está aprendendo a rodar IA local do zero, qual é o conceito principal desta lição?</p>
       <div class="choices">
-        <button type="button" data-choice="A">O nome secreto do motor surpresa completo</button>
-        <button type="button" data-choice="B">Todos os papers de MoE desde 2017</button>
-        <button type="button" data-choice="C">Só a temperatura ideal da Semana 2</button>
-        <button type="button" data-choice="D">MoE no llama.cpp com offload para caber</button>
+        <button type="button" data-choice="A">Memorizar todos os nomes secretos de todos os motores do mercado</button>
+        <button type="button" data-choice="B">Saber escrever artigos científicos sobre redes neurais</button>
+        <button type="button" data-choice="C">Aprender a configurar a criatividade da IA antes da velocidade</button>
+        <button type="button" data-choice="D">Entender como dividir o modelo (offload) para adaptar a IA ao hardware da sua máquina</button>
       </div>
       <p class="feedback" data-feedback></p>
     </div>
 
     <h2>Próximo</h2>
     <p><a href="s1-live-mesmo-modelo-varios-harness.html">Live — mesmo modelo, vários harness</a></p>
-    <footer class="site"><p>Dúvida? Levanta na sessão.</p></footer>
+    <footer class="site"><p>Dúvidas? Pergunte na sessão.</p></footer>
   </div>
   <script type="module" src="../assets/quiz.js"></script>
 </body>

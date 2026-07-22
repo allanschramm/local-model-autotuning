@@ -3,17 +3,17 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>S1 Live — Mesmo modelo, vários harness</title>
+  <title>S1 Live — Mesmo modelo, vários ambientes</title>
   <link rel="stylesheet" href="../assets/lesson.css" />
 </head>
 <body>
   <div class="wrap">
     <header class="site">
       <p class="eyebrow">Semana 1 · Live quinta · Performance</p>
-      <h1>Mesmo modelo em vários harness</h1>
+      <h1>Mesmo modelo em vários ambientes</h1>
       <p class="lede">
-        Comparar <strong>performance</strong> (fluidez / TPS / estabilidade) do <em>mesmo</em> GGUF
-        atrás de LM Studio, llama-server, e outros harness — não ranking de “QI” do modelo.
+        Comparar <strong>performance</strong> (fluidez / TPS / estabilidade) do <em>mesmo</em> modelo GGUF
+        em diferentes servidores e configurações de inferência — focando na velocidade real do seu computador.
       </p>
       <p class="navlinks">
         <a href="s1d3-moe-maior-que-a-vram.html">← Dia 3</a>
@@ -24,30 +24,30 @@
 
     <h2>O que observar na live</h2>
     <ul>
-      <li>Mesmo ficheiro de modelo (controlo).</li>
-      <li>Muda o <strong>harness / motor / flags</strong>.</li>
-      <li>Anota TPS, VRAM, crashes, latência percebida.</li>
-      <li>Não transforms a live em debate de qualidade literária (Semana 2).</li>
+      <li>Mesmo arquivo de modelo (controle).</li>
+      <li>Altera o <strong>servidor local / motor / flags</strong>.</li>
+      <li>Anota TPS, consumo de VRAM, estabilidade e latência percebida.</li>
+      <li>Mantenha o foco em velocidade e desempenho prático.</li>
     </ul>
 
     <h2>Prática</h2>
     <div class="quiz" data-quiz data-lesson="s1-live-q1"
          data-answer-hash="a5155e4fc6209ba4ba8164e4162a6fcbf3a892ef061e111ca7df0fa04824f65c"
-         data-ok="Certo. A variável é o harness/setup; o GGUF fica fixo."
-         data-bad="A live controla o modelo e varia o caminho de inferência.">
-      <p class="q">Qual é a variável que a live quer isolar?</p>
+         data-ok="Excelente! Manter o modelo fixo permite medir exatamente qual servidor ou configuração é mais rápido."
+         data-bad="Para um teste justo, mantemos o mesmo modelo e variamos apenas as configurações e servidores locais.">
+      <p class="q">Ao comparar a IA local em diferentes programas ou servidores, qual teste é o mais recomendado?</p>
       <div class="choices">
-        <button type="button" data-choice="A">Trocar o GGUF a cada harness sem anotar</button>
-        <button type="button" data-choice="B">Treinar um modelo novo a meio da live</button>
-        <button type="button" data-choice="C">Mesmo modelo, mudar harness e medir TPS</button>
-        <button type="button" data-choice="D">Só votar qual prosa é mais poética</button>
+        <button type="button" data-choice="A">Trocar de modelo a cada teste sem anotar as diferenças</button>
+        <button type="button" data-choice="B">Tentar treinar o modelo durante a apresentação</button>
+        <button type="button" data-choice="C">Manter o mesmo modelo fixo e comparar a velocidade e estabilidade em cada ambiente</button>
+        <button type="button" data-choice="D">Escolher o ambiente apenas pela cor da interface</button>
       </div>
       <p class="feedback" data-feedback></p>
     </div>
 
     <h2>Próximo</h2>
     <p><a href="s1d4-usecase-fluxo-zero.html">Dia 4 — use-case / fluxo do zero</a></p>
-    <footer class="site"><p>Dúvida? Chat da live / sessão.</p></footer>
+    <footer class="site"><p>Dúvidas? Pergunte no chat da live ou na sessão.</p></footer>
   </div>
   <script type="module" src="../assets/quiz.js"></script>
 </body>

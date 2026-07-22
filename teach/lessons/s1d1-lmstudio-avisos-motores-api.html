@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>S1 Dia 1 — LM Studio, motores, API</title>
+  <title>S1 Dia 1 — Motores, modelos e API local</title>
   <link rel="stylesheet" href="../assets/lesson.css" />
 </head>
 <body>
@@ -12,8 +12,8 @@
       <p class="eyebrow">Semana 1 · Dia 1 · Performance bruta (não qualidade)</p>
       <h1>Motores, baixar modelos e API local</h1>
       <p class="lede">
-        <strong>Hoje não usas este repositório</strong> — só <strong>LM Studio</strong>, para ver o fluxo:
-        motor → modelo → servidor API → qualquer harness. A partir do <strong>Dia 2</strong> entras neste repo
+        <strong>No Dia 1 compreendemos o fluxo basico da IA local</strong>:
+        motor → modelo → servidor API → aplicativo/harness. A partir do <strong>Dia 2</strong> entramos neste repositório
         com llama.cpp. TPS alto vem nos dias seguintes; aqui ainda não julgamos “qual modelo é mais inteligente”.
       </p>
       <p class="navlinks">
@@ -26,94 +26,91 @@
     <h2>1. Mini-glossário</h2>
     <dl>
       <dt>Motor</dt>
-      <dd>Software que carrega pesos e gera tokens (ex.: LM Studio, llama.cpp).</dd>
+      <dd>Software que carrega os pesos e gera tokens (ex.: llama.cpp).</dd>
       <dt>Modelo</dt>
-      <dd>Os pesos no disco — tipicamente um ficheiro <code>.gguf</code>.</dd>
+      <dd>Os pesos no disco — tipicamente um arquivo <code>.gguf</code>.</dd>
       <dt>Quant</dt>
-      <dd>Compressão dos pesos (Q4, Q5, Q8…). Menos bits → menos VRAM, costuma subir TPS.</dd>
+      <dd>Compressão dos pesos (Q4, Q5, Q8…). Menos bits → menos VRAM, costuma aumentar o TPS.</dd>
       <dt>VRAM</dt>
-      <dd>Memória da GPU onde o motor tenta pôr pesos + KV. O que não cabe pode ir para RAM/CPU (<em>offload</em>) — especialmente útil em MoE (Dia 3).</dd>
+      <dd>Memória da GPU onde o motor tenta colocar pesos + KV. O que não couber pode ir para RAM/CPU (<em>offload</em>) — especialmente útil em MoE (Dia 3).</dd>
       <dt>KV / contexto</dt>
       <dd>Memória do histórico da conversa. Mais contexto = mais KV = mais memória.</dd>
       <dt>TPS</dt>
       <dd>Tokens por segundo — métrica de velocidade nesta semana de performance.</dd>
       <dt>API / harness</dt>
-      <dd>API local (estilo OpenAI) em <code>127.0.0.1</code>; harness = script, app ou agente que fala com essa API.</dd>
+      <dd>API local (estilo OpenAI) em <code>127.0.0.1</code>; harness = script, app ou agente que se comunica com essa API.</dd>
     </dl>
-    <p class="note">GGUF fica na máquina — não commits no git.</p>
+    <p class="note">Arquivos GGUF ficam na sua máquina — sem commits no git.</p>
 
     <h2>2. Motores de inferência</h2>
     <p>
-      Um <strong>motor</strong> carrega o modelo e gera tokens.
-      Um <strong>modelo</strong> (ex. ficheiro GGUF) são os pesos.
-      Um <strong>quant</strong> (Q4, Q5, Q8…) é a compressão desses pesos — afeta VRAM e TPS.
+      Um <strong>motor</strong> carrega o modelo e gera os tokens.
+      Um <strong>modelo</strong> (ex.: arquivo GGUF) são os pesos.
+      Um <strong>quant</strong> (Q4, Q5, Q8…) é a compressão desses pesos — afeta a VRAM e o TPS.
     </p>
     <p>
-      Existem vários motores (LM Studio, llama.cpp, outros…).
-      <strong>Dia 1</strong> usamos <a href="https://lmstudio.ai/">LM Studio</a> porque a UI deixa óbvio:
-      carregaste o modelo, ligaste o servidor, a API está viva.
-      <strong>Dia 2</strong> repetimos o mesmo mental model com llama.cpp neste repositório.
+      Existem vários motores de inferência.
+      O conceito fundamental é: carregou o modelo, ativou o servidor local, a API local fica disponível.
+      No <strong>Dia 2</strong> praticamos esse modelo mental diretamente no terminal com llama.cpp neste repositório.
     </p>
 
-    <h2>3. Onde baixar e como escolher (lente performance)</h2>
+    <h2>3. Onde baixar e como escolher (foco em performance)</h2>
     <ul>
-      <li><strong>Onde:</strong> Hugging Face Hub — repos <code>*-GGUF</code> / ficheiros <code>.gguf</code>. No Dia 2, no fluxo deste repo, preferimos <code>hf</code> CLI.</li>
-      <li><strong>Como escolher (hoje):</strong> cabe na VRAM? Quant mais baixo → menos VRAM, tipicamente mais TPS. Ignora o ego do “70B” se tens 8&nbsp;GB.</li>
-      <li>Não escolhas pelo marketing de benchmark de qualidade nesta semana.</li>
+      <li><strong>Onde:</strong> Hugging Face Hub — repositórios <code>*-GGUF</code> / arquivos <code>.gguf</code>. No fluxo deste repo, preferimos a CLI <code>hf</code>.</li>
+      <li><strong>Como escolher:</strong> cabe na VRAM? Quant mais baixo → menos VRAM, tipicamente mais TPS. Ignore modelos gigantes se você tem 8&nbsp;GB de VRAM.</li>
+      <li>Não escolha por marketing de benchmark de qualidade nesta semana.</li>
     </ul>
 
-    <h2>4. Usar o modelo via API (qualquer harness)</h2>
+    <h2>4. Usar o modelo via API (qualquer aplicativo)</h2>
     <p>
-      No LM Studio: carrega o modelo → ativa o <strong>Local Server</strong> (API compatível com estilo OpenAI).
-      Qualquer harness (script, app, agente) aponta para a base URL local e o nome do modelo servido.
+      Ative o <strong>Servidor Local</strong> (API compatível com o padrão OpenAI).
+      Qualquer aplicativo ou script (harness) aponta para a URL local e o nome do modelo servido.
     </p>
     <div class="note">
-      O truque pedagógico do Dia 1: se vês o server “on” na UI, entendeste o contrato que o Dia 2
-      vai repetir com <code>llama-server</code> — só muda a embalagem.
+      O conceito principal do Dia 1: com o servidor local ativo, qualquer aplicativo na sua máquina pode se comunicar com a IA local.
     </div>
-    <p>Docs: <a href="https://lmstudio.ai/docs">lmstudio.ai/docs</a> (secção Local Server / API).</p>
 
     <h2>Prática (valida o conteúdo desta aula)</h2>
-    <p class="note">Quiz = motores, escolha de modelo e API. A UI do LM Studio é a lente da aula; não cai no quiz.</p>
+    <p class="note">Quiz: Conceitos fundamentais de motores, modelos e API local para rodar IA no seu computador.</p>
 
     <div class="quiz" data-quiz data-lesson="s1d1-q1"
          data-answer-hash="84cde295236204ede714014ad12725ada9e652a977eacb7d8a9fd54464acc97c"
-         data-ok="Certo. Motor = software; modelo/quant = pesos no disco."
-         data-bad="Separa motor (software) de modelo/quant (ficheiros de pesos).">
-      <p class="q">O que é um motor de inferência?</p>
+         data-ok="Exato! O motor é o aplicativo que executa os arquivos do modelo na sua máquina."
+         data-bad="Lembre-se: o motor é o programa de execução; o modelo são os dados salvos em arquivo.">
+      <p class="q">O que é um motor de inferência de IA local?</p>
       <div class="choices">
-        <button type="button" data-choice="A">Software que carrega pesos e gera tokens</button>
-        <button type="button" data-choice="B">O próprio ficheiro GGUF no disco</button>
-        <button type="button" data-choice="C">Um dataset de treino no Hugging Face</button>
-        <button type="button" data-choice="D">Uma pasta zip com prints do chat</button>
+        <button type="button" data-choice="A">É o programa (software) que carrega o modelo e gera as respostas no seu computador</button>
+        <button type="button" data-choice="B">É o arquivo de modelo salvo no seu disco rígido</button>
+        <button type="button" data-choice="C">É o site de internet onde a IA é treinada</button>
+        <button type="button" data-choice="D">É um aplicativo de redes sociais</button>
       </div>
       <p class="feedback" data-feedback></p>
     </div>
 
     <div class="quiz" data-quiz data-lesson="s1d1-q2"
          data-answer-hash="d87e2f8a32189d2ee539934f124679b7e1721a038e2509b3fd355efea8ad949b"
-         data-ok="Isso. Cabe na VRAM + quant adequado = lente de performance."
-         data-bad="Hoje escolhes pelo que cabe e pelo quant — não pelo marketing de “inteligência”.">
-      <p class="q">Ao escolher um GGUF com lente de performance, o que importa primeiro?</p>
+         data-ok="Correto! Se o modelo couber na memória de vídeo (VRAM), a velocidade (TPS) será muito maior."
+         data-bad="Para ter bom desempenho, o fator principal é o modelo caber na memória da sua placa de vídeo (VRAM).">
+      <p class="q">O que você deve priorizar ao escolher um modelo para rodar na sua placa de vídeo (GPU)?</p>
       <div class="choices">
-        <button type="button" data-choice="A">O nome mais famoso no Twitter</button>
-        <button type="button" data-choice="B">Cabe na VRAM (e o quant afeta VRAM/TPS)</button>
-        <button type="button" data-choice="C">Só o score de HumanEval do paper</button>
-        <button type="button" data-choice="D">Se o ficheiro está commitado no git</button>
+        <button type="button" data-choice="A">Escolher o modelo com o nome mais famoso nas redes sociais</button>
+        <button type="button" data-choice="B">Garantir que o modelo caiba na memória de vídeo (VRAM) para rodar com boa velocidade</button>
+        <button type="button" data-choice="C">Olhar apenas propagandas e testes teóricos da internet</button>
+        <button type="button" data-choice="D">Verificar se o arquivo está salvo no Git</button>
       </div>
       <p class="feedback" data-feedback></p>
     </div>
 
     <div class="quiz" data-quiz data-lesson="s1d1-q3"
          data-answer-hash="05ef56a4c5bbe6fcb375d5dad9f1af99202708716ec7eefb93099c3de7efbef9"
-         data-ok="Isso. Server local OpenAI-compatible = qualquer harness na máquina."
-         data-bad="O ponto é expor API local — não só o chat da UI.">
-      <p class="q">Para que serve ligar o Local Server?</p>
+         data-ok="Isso mesmo! A API local funciona como uma ponte para qualquer programa usar sua IA."
+         data-bad="O servidor local abre uma porta de comunicação para que outros programas conectem na sua IA.">
+      <p class="q">Qual é a função de ativar o Servidor de API Local no seu computador?</p>
       <div class="choices">
-        <button type="button" data-choice="A">Obriga a fazer fine-tune antes de cada chat</button>
-        <button type="button" data-choice="B">Publica o GGUF automaticamente no git main</button>
-        <button type="button" data-choice="C">Expõe API local para qualquer harness usar</button>
-        <button type="button" data-choice="D">Substitui o GGUF por um PDF no disco</button>
+        <button type="button" data-choice="A">Obrigar o computador a treinar a IA antes de cada conversa</button>
+        <button type="button" data-choice="B">Enviar seus dados pessoais para a nuvem pública</button>
+        <button type="button" data-choice="C">Permitir que outros aplicativos e scripts da sua máquina conversem com a IA local</button>
+        <button type="button" data-choice="D">Converter a IA em um arquivo de texto comum</button>
       </div>
       <p class="feedback" data-feedback></p>
     </div>
@@ -122,11 +119,10 @@
     <p>
       Dia 2: <strong>este repositório</strong> + <strong>llama.cpp</strong> e flags para <strong>tunar TPS</strong> —
       <a href="s1d2-llamacpp-flags-tps.html">abrir Dia 2</a>.
-      (É aí que a sala de aula passa a ser o clone local.)
     </p>
 
     <footer class="site">
-      <p><strong>Professor = a aula + este material.</strong> Dúvida? Levanta na sessão ou no chat do curso.</p>
+      <p><strong>Professor = a aula + este material.</strong> Dúvidas? Pergunte na sessão ou no chat do curso.</p>
     </footer>
   </div>
   <script type="module" src="../assets/quiz.js"></script>

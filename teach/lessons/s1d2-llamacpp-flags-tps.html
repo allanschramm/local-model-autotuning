@@ -12,9 +12,9 @@
       <p class="eyebrow">Semana 1 · Dia 2 · Este repositório</p>
       <h1>llama.cpp — mesmo fluxo, tunar performance</h1>
       <p class="lede">
-        Ontem viste motor + API no LM Studio. Hoje
-        <strong>começa o trabalho neste repositório</strong>:
-        <strong>llama.cpp</strong> + flags que mexem no <strong>TPS</strong>.
+        No Dia 1 você viu a relação entre motor e API. Hoje
+        <strong>começa o trabalho prático neste repositório</strong>:
+        usando <strong>llama.cpp</strong> com parâmetros que ajustam o <strong>TPS</strong> (velocidade).
       </p>
       <p class="navlinks">
         <a href="s1d1-lmstudio-avisos-motores-api.html">← Dia 1</a>
@@ -25,61 +25,61 @@
 
     <h2>Mesmo contrato, outra embalagem</h2>
     <table>
-      <thead><tr><th>Ideia Dia 1</th><th>Dia 2 neste repo</th></tr></thead>
+      <thead><tr><th>Conceito</th><th>Dia 2 neste repo</th></tr></thead>
       <tbody>
-        <tr><td>Motor + UI</td><td><code>llama-cli</code> / <code>llama-server</code> em <code>llama.cpp/build-cuda/bin/</code></td></tr>
+        <tr><td>Motor de Inferência</td><td><code>llama-cli</code> / <code>llama-server</code> em <code>llama.cpp/build-cuda/bin/</code></td></tr>
         <tr><td>Pesos GGUF</td><td><code>models/*.gguf</code> (via <code>hf download</code>)</td></tr>
-        <tr><td>Local Server</td><td><code>llama-server --host 127.0.0.1</code></td></tr>
-        <tr><td>Baseline de flags</td><td><code>autoresearch/core/config.py</code> (não sopa de CLI solta)</td></tr>
+        <tr><td>Servidor de API Local</td><td><code>llama-server --host 127.0.0.1</code></td></tr>
+        <tr><td>Configurações de Flags</td><td><code>autoresearch/core/config.py</code></td></tr>
       </tbody>
     </table>
     <p>Referência de flags: <a href="../../docs/llamacpp-toolset.md">docs/llamacpp-toolset.md</a>.</p>
 
-    <h2>Tunar performance (o que importa na S1)</h2>
+    <h2>Ajustar performance (foco na Semana 1)</h2>
     <ul>
-      <li><code>-ngl</code> — camadas na GPU (mais na GPU → tipicamente mais TPS se couber).</li>
-      <li><code>-fa on</code> — flash attention (neste projeto: ligado).</li>
-      <li><code>-ctk</code> / <code>-ctv</code> — tipo do KV (ex. <code>q4_0</code>); afeta VRAM e velocidade.</li>
-      <li><code>-b</code> / <code>-ub</code> — batch / ubatch (sweet spots por modelo/GPU).</li>
-      <li><code>-c</code> — contexto: maior = mais KV = menos folga de VRAM (pode matar TPS ou dar OOM).</li>
+      <li><code>-ngl</code> — camadas enviadas para a GPU (quanto mais na GPU, maior tende a ser a velocidade).</li>
+      <li><code>-fa on</code> — flash attention (acelera a atenção na GPU).</li>
+      <li><code>-ctk</code> / <code>-ctv</code> — formato de compressão do contexto (KV).</li>
+      <li><code>-b</code> / <code>-ub</code> — tamanho dos lotes de processamento (batch).</li>
+      <li><code>-c</code> — tamanho do contexto da conversa (quanto maior, mais memória consome).</li>
     </ul>
     <div class="note">
-      Ainda <strong>não</strong> é aula de temperatura/top-k. Isso é Semana 2 (qualidade).
-      Hoje: o modelo responde depressa e estável.
+      Ainda não é aula de ajuste de criatividade (temperatura). Isso é Semana 2 (qualidade).
+      Hoje o foco é a IA responder rápido e de forma estável no seu computador.
     </div>
 
     <h2>Prática</h2>
     <div class="quiz" data-quiz data-lesson="s1d2-q1"
          data-answer-hash="58fc2d60f785b5e282d0c202eb04d43bb666d8e661a748a8e727509a6cfe39a4"
-         data-ok="Certo. Dia 2 = llama.cpp neste repo, a repetir o contrato do Dia 1."
-         data-bad="Não voltamos ao treino nem à qualidade HE+.">
-      <p class="q">O que muda do Dia 1 para o Dia 2?</p>
+         data-ok="Certo! O objetivo é otimizar o uso da GPU e garantir respostas rápidas (TPS)."
+         data-bad="Nesta etapa o foco é otimizar a velocidade de resposta (TPS) ajustando as flags do motor.">
+      <p class="q">Qual é o objetivo de ajustar parâmetros (flags) como `-ngl` no motor de IA local?</p>
       <div class="choices">
-        <button type="button" data-choice="A">Passamos a treinar pesos novos no Hub</button>
-        <button type="button" data-choice="B">Repetimos o fluxo com llama.cpp e flags TPS</button>
-        <button type="button" data-choice="C">Avaliamos só a inteligência do modelo</button>
-        <button type="button" data-choice="D">Apagamos a API e usamos só screenshots</button>
+        <button type="button" data-choice="A">Treinar novos modelos de IA do zero na internet</button>
+        <button type="button" data-choice="B">Otimizar o uso da GPU e aumentar a velocidade de resposta (tokens por segundo - TPS)</button>
+        <button type="button" data-choice="C">Mudar o idioma das respostas da IA</button>
+        <button type="button" data-choice="D">Desativar a segurança do sistema operacional</button>
       </div>
       <p class="feedback" data-feedback></p>
     </div>
 
     <div class="quiz" data-quiz data-lesson="s1d2-q2"
          data-answer-hash="85b5a270437a3c45edb747870d5ce9142093b9962773e39d2958493263085238"
-         data-ok="Isso. Contexto grande come VRAM via KV e pode afundar TPS."
-         data-bad="Pensa em KV cache e VRAM — não em fine-tune.">
-      <p class="q">Na lente de performance, o que um <code>-c</code> enorme costuma fazer?</p>
+         data-ok="Exato! Um contexto muito grande exige muita memória e pode afetar a velocidade da sua IA."
+         data-bad="Contexto maior exige mais memória. Se exagerar, a velocidade cai ou o sistema fica sem memória.">
+      <p class="q">Se você definir um tamanho de memória de contexto (`-c`) exageradamente alto, o que pode acontecer?</p>
       <div class="choices">
-        <button type="button" data-choice="A">Treina o modelo automaticamente à noite</button>
-        <button type="button" data-choice="B">Apaga o GGUF do disco para libertar espaço</button>
-        <button type="button" data-choice="C">Aumenta o KV cache e pode matar VRAM/TPS</button>
-        <button type="button" data-choice="D">Troca o motor llama.cpp por Notepad</button>
+        <button type="button" data-choice="A">A IA vai aprender novos assuntos sozinha enquanto você dorme</button>
+        <button type="button" data-choice="B">O arquivo do modelo será apagado para liberar espaço</button>
+        <button type="button" data-choice="C">O consumo de memória (VRAM) vai disparar, podendo desacelerar ou travar a geração</button>
+        <button type="button" data-choice="D">O computador vai desligar a tela automaticamente</button>
       </div>
       <p class="feedback" data-feedback></p>
     </div>
 
     <h2>Próximo</h2>
     <p><a href="s1d3-moe-maior-que-a-vram.html">Dia 3 — MoE maior que a VRAM</a></p>
-    <footer class="site"><p>Dúvida? Levanta na sessão.</p></footer>
+    <footer class="site"><p>Dúvidas? Pergunte na sessão.</p></footer>
   </div>
   <script type="module" src="../assets/quiz.js"></script>
 </body>

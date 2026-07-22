@@ -1,16 +1,16 @@
 # Teach — Course Materials
 
 ## Purpose
-Operator course materials for local LLM performance (Semana 1) then quality (Semana 2). HTML lessons, quizzes, curriculum.
+Course materials to teach anyone to run local AI from scratch: local LLM performance (Semana 1) then quality (Semana 2). HTML lessons, quizzes, curriculum.
 
 ## Ownership
 Course operator / instructors. Not part of the autotuning runtime loop.
 
 ## Local Contracts
-- Dia 1 = LM Studio only (no repo workflow). Dia 2+ = this repo + llama.cpp.
+- Purpose of repo course: teach anyone to run local AI from scratch.
 - Semana 1 scope locked: TPS / performance only — no model-quality scoring.
 - Semana 2 may change; skeletons OK until topics lock.
-- Quizzes: hashed answers only (`assets/QUIZ-HASH.md`); options in pt-BR.
+- Quizzes: hashed answers only (`assets/QUIZ-HASH.md`); options simplified in pt-BR for beginners (no LM Studio references in quizzes).
 - No GGUFs, results, or run logs in this tree.
 
 ## Work Guidance
