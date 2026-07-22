@@ -109,7 +109,7 @@ python benchmark_search.py --list-agentic-benchmarks
 
 ---
 
-## Build do llama.cpp com CUDA
+## Build do llama.cpp (CUDA ou CPU)
 
 Clone dentro da pasta raiz do repo pra detecção automática:
 
@@ -117,6 +117,7 @@ Clone dentro da pasta raiz do repo pra detecção automática:
 git clone https://github.com/ggerganov/llama.cpp.git
 cd llama.cpp
 
+# Opção A: Build com aceleração CUDA (GPU NVIDIA)
 cmake -B build-cuda \
   -DCMAKE_BUILD_TYPE=Release \
   -DGGML_CUDA=ON \
@@ -124,6 +125,14 @@ cmake -B build-cuda \
   -DCMAKE_CUDA_ARCHITECTURES=native
 
 cmake --build build-cuda --config Release -j
+
+# Opção B: Build apenas CPU (sem necessidade de GPU)
+cmake -B build-cpu \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DGGML_CUDA=OFF \
+  -DLLAMA_BUILD_SERVER=ON
+
+cmake --build build-cpu --config Release -j
 ```
 
 Se clonou em outro lugar, exporte o path:
@@ -134,7 +143,7 @@ export AUTORESEARCH_LLAMA_CPP_ROOT="/caminho/pra/llama.cpp"
 
 ### Windows nativo
 
-Depois da migracao do WSL2, o harness tambem resolve builds nativos do Windows:
+Depois da migracao do WSL2, o harness tambem resolve builds nativos do Windows (tanto em `build-cuda` quanto em `build-cpu`):
 
 ```powershell
 $env:AUTORESEARCH_LLAMA_CPP_ROOT = "D:\Dev\Nexus-System\local-model-autotuning\llama.cpp"
@@ -143,7 +152,7 @@ python scripts\serve-config.py print-cmd
 python scripts\serve-config.py serve
 ```
 
-O resolver procura `llama-server.exe` e `llama-bench.exe` em `build-cuda\bin`, `build-cuda\bin\Release`, `build\bin`, `build\bin\Release` e no `PATH`. O diretorio `models\` deve apontar para modelos locais do Windows, nao para paths `/mnt/...` ou WSL.
+O resolver procura `llama-server.exe` e `llama-bench.exe` em `build-cuda\bin`, `build-cpu\bin`, `build\bin` (e subpastas `Release`/`Debug`) e no `PATH`. O diretorio `models\` deve apontar para modelos locais do Windows, nao para paths `/mnt/...` ou WSL.
 
 Runtime canônico: submodule `llama.cpp/` (upstream). Forks externos (TurboQuant/MTP) não ficam no repo — se precisar, clone à parte e aponte `AUTORESEARCH_LLAMA_CPP_ROOT`.
 

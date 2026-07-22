@@ -43,52 +43,78 @@ else
     fail "python3 not found"
 fi
 
-# 2. CUDA / NVIDIA driver
+# 2. CUDA / NVIDIA / AMD driver check
 echo ""
-echo "--- CUDA ---"
+echo "--- GPU / Acceleration ---"
+has_gpu=0
 if command -v nvidia-smi &>/dev/null; then
     gpu_name=$(nvidia-smi --query-gpu=name --format=csv,noheader | head -1)
     vram_mb=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | head -1)
     ok "NVIDIA GPU: $gpu_name (${vram_mb} MB)"
+    has_gpu=1
 elif [[ "$(uname)" == "Darwin" ]]; then
     ok "Apple Silicon detected (Metal backend)"
+    has_gpu=1
 elif command -v rocm-smi &>/dev/null; then
     ok "AMD GPU detected (ROCm)"
+    has_gpu=1
 else
-    fail "No GPU detected (nvidia-smi/Metal/ROCm)"
+    warn "No GPU detected (running in CPU-only mode)"
 fi
 
-# 3. llama.cpp build
-echo ""
-echo "--- llama.cpp build ---"
-if [[ -n "${AUTORESEARCH_LLAMA_CPP_ROOT:-}" ]]; then
-    if [[ -x "$AUTORESEARCH_LLAMA_CPP_ROOT/build-cuda/bin/llama-server" ]] || \
-       [[ -x "$AUTORESEARCH_LLAMA_CPP_ROOT/build/bin/llama-server" ]]; then
-        ok "llama-server at $AUTORESEARCH_LLAMA_CPP_ROOT (env var)"
+# Build resolution candidates list dynamically based on hardware
+CANDIDATES=()
+add_candidates() {
+    local root="$1"
+    local dir
+    local dirs
+    if [[ $has_gpu -eq 1 ]]; then
+        dirs=("build-cuda" "build-rocm" "build-cpu" "build")
     else
-        fail "AUTORESEARCH_LLAMA_CPP_ROOT set but llama-server not found"
+        dirs=("build-cpu" "build" "build-cuda" "build-rocm")
     fi
-elif [[ -x "$REPO_ROOT/llama.cpp/build-cuda/bin/llama-server" ]]; then
-    ok "llama-server at $REPO_ROOT/llama.cpp/build-cuda/"
-elif [[ -x "$REPO_ROOT/../llama.cpp/build-cuda/bin/llama-server" ]]; then
-    ok "llama-server at $REPO_ROOT/../llama.cpp/build-cuda/ (sibling)"
-else
-    fail "llama-server not found. Clone llama.cpp (or fork) and build with CUDA."
-fi
+    for dir in "${dirs[@]}"; do
+        CANDIDATES+=(
+            "$root/$dir/bin/llama-server"
+            "$root/$dir/bin/Release/llama-server"
+            "$root/$dir/bin/Debug/llama-server"
+            "$root/$dir/bin/llama-server.exe"
+            "$root/$dir/bin/Release/llama-server.exe"
+            "$root/$dir/bin/Debug/llama-server.exe"
+        )
+    done
+}
 
-# 4. llama-server flags
-echo ""
-echo "--- llama.cpp flags ---"
+if [[ -n "${AUTORESEARCH_LLAMA_CPP_ROOT:-}" ]]; then
+    if [[ -d "$AUTORESEARCH_LLAMA_CPP_ROOT" ]]; then
+        add_candidates "$AUTORESEARCH_LLAMA_CPP_ROOT"
+    else
+        warn "AUTORESEARCH_LLAMA_CPP_ROOT set to '$AUTORESEARCH_LLAMA_CPP_ROOT' but directory does not exist"
+    fi
+fi
+add_candidates "$REPO_ROOT/llama.cpp"
+add_candidates "$REPO_ROOT/../llama.cpp"
+
 LLAMA_BIN=""
-for candidate in \
-    "${AUTORESEARCH_LLAMA_CPP_ROOT:-}/build-cuda/bin/llama-server" \
-    "$REPO_ROOT/llama.cpp/build-cuda/bin/llama-server" \
-    "$REPO_ROOT/../llama.cpp/build-cuda/bin/llama-server"; do
+for candidate in "${CANDIDATES[@]}"; do
     if [[ -x "$candidate" ]]; then
         LLAMA_BIN="$candidate"
         break
     fi
 done
+
+# 3. llama.cpp build
+echo ""
+echo "--- llama.cpp build ---"
+if [[ -n "$LLAMA_BIN" ]]; then
+    ok "llama-server found at $LLAMA_BIN"
+else
+    fail "llama-server not found. Run python scripts/build-llamacpp.py --cpu (or --cuda)."
+fi
+
+# 4. llama-server flags
+echo ""
+echo "--- llama.cpp flags ---"
 
 if [[ -n "$LLAMA_BIN" ]]; then
     help_out=$("$LLAMA_BIN" --help 2>&1)

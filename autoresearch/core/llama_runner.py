@@ -11,8 +11,10 @@ Encapsulates the lifecycle of a llama.cpp server process, including:
 """
 
 import os
+import platform
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -67,16 +69,50 @@ def _exe(name: str) -> str:
     return f"{name}.exe" if IS_WINDOWS else name
 
 
+def _parse_bool_env(var_name: str, default: bool = False) -> bool:
+    val = os.environ.get(var_name)
+    if val is None:
+        return default
+    return val.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _is_gpu_working(binary_name: str, probe_flag: str) -> bool:
+    tool_path = shutil.which(binary_name)
+    if not tool_path:
+        return False
+    try:
+        res = subprocess.run([tool_path, probe_flag], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return res.returncode == 0
+    except Exception:
+        return False
+
+
+def should_prefer_gpu_build() -> bool:
+    if _parse_bool_env("AUTORESEARCH_PREFER_CPU"):
+        return False
+    if os.environ.get("CUDA_VISIBLE_DEVICES") == "-1":
+        return False
+    if sys.platform == "darwin":
+        return platform.machine() == "arm64"
+    return _is_gpu_working("nvidia-smi", "-L") or _is_gpu_working("rocm-smi", "-i")
+
+
+def _build_dir_candidates(root: Path, build_dir: str, exe: str) -> tuple[Path, ...]:
+    base = root / build_dir / "bin"
+    return (base / exe, base / "Release" / exe, base / "Debug" / exe)
+
+
 def _candidate_binary(root: Path, name: str) -> tuple[Path, ...]:
     exe = _exe(name)
-    return (
-        root / "build-cuda" / "bin" / exe,
-        root / "build-cuda" / "bin" / "Release" / exe,
-        root / "build-cuda" / "bin" / "Debug" / exe,
-        root / "build" / "bin" / exe,
-        root / "build" / "bin" / "Release" / exe,
-        root / "build" / "bin" / "Debug" / exe,
-    )
+    cuda_paths = _build_dir_candidates(root, "build-cuda", exe)
+    rocm_paths = _build_dir_candidates(root, "build-rocm", exe)
+    cpu_paths = _build_dir_candidates(root, "build-cpu", exe)
+    generic_paths = _build_dir_candidates(root, "build", exe)
+
+    if should_prefer_gpu_build():
+        return cuda_paths + rocm_paths + cpu_paths + generic_paths
+    else:
+        return cpu_paths + generic_paths + cuda_paths + rocm_paths
 
 
 def _binary_candidates(name: str) -> tuple[Path, ...]:
@@ -526,7 +562,20 @@ class LlamaServerRunner:
                 time.sleep(delay)
                 delay = min(delay * 2, 0.4)
 
+    @property
+    def is_cpu_mode(self) -> bool:
+        return (
+            "build-cpu" in str(self.llama_server).lower()
+            or (self.intent is not None and self.intent.ngl == 0)
+            or not should_prefer_gpu_build()
+        )
+
     def _start_vram_sampler(self) -> None:
+        if self.is_cpu_mode:
+            return
+        if not should_prefer_gpu_build():
+            return
+
         import ctypes
 
         # Load NVML library using ctypes
@@ -592,7 +641,7 @@ class LlamaServerRunner:
                     current = float(res.strip() or 0.0)
                     _maybe_kill(current)
                 except FileNotFoundError:
-                    print("Error: nvidia-smi not found. VRAM sampling stopped.")
+                    # VRAM sampling unavailable on non-GPU host
                     break
                 except (subprocess.CalledProcessError, ValueError):
                     pass

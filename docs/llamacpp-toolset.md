@@ -13,9 +13,13 @@ Built with CUDA in `build-cuda/` matching the stock config.
 Windows toolchain (installed 2026-07-17): VS 2022 Build Tools (MSVC 14.44, VCTools workload), NVIDIA CUDA Toolkit 13.3, Ninja. nvcc on Windows requires MSVC host compiler; configure must run inside `vcvars64.bat` env. Helper `llama.cpp/rebuild-cuda.bat` (untracked, machine-specific) wraps this: `rebuild-cuda.bat configure` = full configure+build, `rebuild-cuda.bat` = incremental build. Keep `build-cuda/` as a real in-repo directory (no external junctions).
 
 ```bash
-# Full build (all tools) — inside vcvars64 env, CUDA bin on PATH
+# Full build with CUDA — inside vcvars64 env, CUDA bin on PATH
 cmake -S ./llama.cpp -B ./llama.cpp/build-cuda -G Ninja -DGGML_CUDA=ON -DCMAKE_BUILD_TYPE=Release
 cmake --build ./llama.cpp/build-cuda --config Release
+
+# Full build for CPU-only (no GPU hardware required)
+cmake -S ./llama.cpp -B ./llama.cpp/build-cpu -G Ninja -DGGML_CUDA=OFF -DCMAKE_BUILD_TYPE=Release
+cmake --build ./llama.cpp/build-cpu --config Release
 
 # Build single target
 cmake --build ./llama.cpp/build-cuda --target llama-bench
@@ -25,7 +29,7 @@ Targets are prefixed `llama-` (e.g. `llama-quantize`, `llama-perplexity`).
 
 ## Built binaries location
 
-All binaries → `$LLAMA_CPP/build-cuda/bin/` (or `./llama.cpp/build-cuda/bin/` by default)
+All binaries → `$LLAMA_CPP/build-cuda/bin/` or `$LLAMA_CPP/build-cpu/bin/` (or `./llama.cpp/build-cuda/bin/` / `./llama.cpp/build-cpu/bin/` by default)
 
 | Binary | Purpose | Use case |
 |--------|---------|----------|

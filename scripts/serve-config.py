@@ -288,15 +288,11 @@ def cmd_serve() -> int:
         print("ERROR: llama-server binary not found.")
         print()
         print("Resolution order checked:")
-        print("  1. $AUTORESEARCH_LLAMA_CPP_ROOT/build-cuda/bin[/Release]/llama-server[.exe]")
-        print("  2. $AUTORESEARCH_LLAMA_CPP_ROOT/build/bin[/Release]/llama-server[.exe]")
-        print(f"  3. {REPO_ROOT}/llama.cpp/build-cuda/bin[/Release]/llama-server[.exe]")
-        print(f"  4. {REPO_ROOT}/llama.cpp/build/bin[/Release]/llama-server[.exe]")
-        print(f"  5. {REPO_ROOT.parent}/llama.cpp/build-cuda/bin[/Release]/llama-server[.exe]")
-        print("  6. PATH llama-server[.exe]")
+        for idx, candidate in enumerate(_binary_candidates("llama-server"), 1):
+            print(f"  {idx}. {candidate}")
         print()
         print("Either clone llama.cpp (or a fork) into the repo root, or set")
-        print("AUTORESEARCH_LLAMA_CPP_ROOT to the directory containing build-cuda/bin/.")
+        print("AUTORESEARCH_LLAMA_CPP_ROOT to the root llama.cpp directory (containing build-cuda/ or build-cpu/).")
         return 2
 
     LOG.parent.mkdir(parents=True, exist_ok=True)

@@ -24,7 +24,24 @@ class TestLlamaRunner(unittest.TestCase):
 
         self.assertIn(Path("root/build-cuda/bin/llama-server.exe"), paths)
         self.assertIn(Path("root/build-cuda/bin/Release/llama-server.exe"), paths)
+        self.assertIn(Path("root/build-cpu/bin/llama-server.exe"), paths)
+        self.assertIn(Path("root/build-cpu/bin/Release/llama-server.exe"), paths)
         self.assertIn(Path("root/build/bin/Release/llama-server.exe"), paths)
+
+    def _check_binary_priority(self, prefer_gpu: bool) -> tuple[int, int]:
+        with patch.object(llama_runner, "should_prefer_gpu_build", return_value=prefer_gpu):
+            paths = llama_runner._candidate_binary(Path("root"), "llama-server")
+            exe = llama_runner._exe("llama-server")
+            cuda_idx = paths.index(Path(f"root/build-cuda/bin/{exe}"))
+            cpu_idx = paths.index(Path(f"root/build-cpu/bin/{exe}"))
+            return cuda_idx, cpu_idx
+
+    def test_candidate_binary_priority_respects_hardware(self):
+        cuda_idx, cpu_idx = self._check_binary_priority(prefer_gpu=False)
+        self.assertLess(cpu_idx, cuda_idx)
+
+        cuda_idx, cpu_idx = self._check_binary_priority(prefer_gpu=True)
+        self.assertLess(cuda_idx, cpu_idx)
 
     def test_resolve_llama_server_found(self):
         mock_cuda = MagicMock(spec=Path)

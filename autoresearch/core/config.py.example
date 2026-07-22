@@ -23,6 +23,7 @@ class ConfigError(ValueError):
 CONFIG_PATH = Path(__file__).resolve()
 
 # Hardware/Engine/Inference configuration parameters (affect speed and VRAM usage)
+# For CPU-only inference: set N_GPU_LAYERS = 0 (and tune THREADS for physical CPU cores).
 ENGINE_DEFAULTS = {
     'MODEL': 'model.gguf',
     'CTX_SIZE': 131072,
