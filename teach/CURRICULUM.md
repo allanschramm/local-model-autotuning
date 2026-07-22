@@ -4,7 +4,8 @@
 
 | Slot | Foco | Lição HTML |
 |---|---|---|
-| **Fundamentos** | Como funcionam as IAs, Nuvem vs Local, Hardware (CPU/GPU/VRAM), Quantização | [m0](lessons/s0d1-fundamentos-ia-hardware.html) |
+| **Dia 1** | Como funcionam as IAs, Nuvem vs Local, Hardware (CPU/GPU/VRAM), Tokenização | [s0d1](lessons/s0d1-fundamentos-ia-hardware.html) |
+| **Dia 2** | Troubleshooting e Solução de Erros Comuns (OOM, Portas, CUDA, Prompt Templates) | [s0d2](lessons/s0d2-troubleshooting-erros-comuns.html) |
 
 ## Semana 1 — Desempenho bruto (fechada)
 

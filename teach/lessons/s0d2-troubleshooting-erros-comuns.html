@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Módulo 0 · Dia 2 — Troubleshooting e Solução de Erros Comuns</title>
+  <link rel="stylesheet" href="../assets/lesson.css" />
+  <style>
+    .diag-box {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1.2rem;
+      margin: 1.5rem 0;
+    }
+    .diag-buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+    }
+    .diag-btn {
+      font-family: var(--sans);
+      font-size: 0.88rem;
+      padding: 0.6rem 0.8rem;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--bg);
+      cursor: pointer;
+      text-align: left;
+    }
+    .diag-btn:hover {
+      border-color: var(--accent);
+    }
+    .diag-btn.active {
+      border-color: var(--accent);
+      background: #e0f2fe;
+      font-weight: 600;
+    }
+    .solution-panel {
+      background: var(--bg);
+      border-left: 4px solid var(--accent);
+      padding: 1rem;
+      border-radius: 0 4px 4px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <p class="eyebrow">Módulo 0 · Dia 2 · Primeiros Socorros</p>
+      <h1>Troubleshooting — Solução de Erros Comuns</h1>
+      <p class="lede">
+        Erros acontecem quando rodamos modelos locais de IA. Saber interpretar os avisos do terminal e aplicar ajustes rápidos é o superpoder de quem opera IA no próprio computador.
+      </p>
+      <p class="navlinks">
+        <a href="s0d1-fundamentos-ia-hardware.html">← Módulo 0 (Dia 1)</a>
+        <a href="../CURRICULUM.md">Currículo</a>
+        <a href="s1d1-lmstudio-avisos-motores-api.html">Semana 1 · Dia 1 →</a>
+      </p>
+    </header>
+
+    <h2>1. O Guia de Primeiros Socorros</h2>
+    <p>Abaixo estão os 3 erros mais frequentes enfrentados por iniciantes ao executar modelos com llama.cpp ou APIs locais:</p>
+
+    <h3>Erro #1: Out of Memory (OOM / Memória de Vídeo Esgotada)</h3>
+    <p>
+      <strong>Sintoma:</strong> O terminal fecha sozinho do nada ou exibe a mensagem <code>CUDA out of memory</code> ou <code>failed to allocate buffer</code>.
+    </p>
+    <p>
+      <strong>Causa:</strong> Você tentou carregar mais camadas do modelo na VRAM da GPU do que a sua placa consegue armazenar.
+    </p>
+    <p class="note">
+      <strong>Solução rápida:</strong><br />
+      1. Reduza a memória de contexto para <code>-c 4096</code> ou <code>-c 2048</code>.<br />
+      2. Reduza a quantidade de camadas enviadas para a GPU em <code>-ngl</code> (ex.: troque <code>-ngl 99</code> por <code>-ngl 35</code>).<br />
+      3. Baixe uma quantização menor (ex.: troque Q8 por <code>Q4_K_M</code>).
+    </p>
+
+    <h3>Erro #2: Porta de API Ocupada (Address already in use)</h3>
+    <p>
+      <strong>Sintoma:</strong> O servidor de API local falha com a mensagem <code>failed to bind port 8080</code> ou <code>WINSOCK error</code>.
+    </p>
+    <p>
+      <strong>Causa:</strong> Já existe um servidor antigo rodando em segundo plano no seu computador usando essa mesma porta de rede.
+    </p>
+    <p class="note">
+      <strong>Solução rápida:</strong><br />
+      Passe a flag <code>--port 8081</code> no comando para rodar em uma porta livre, ou feche o servidor antigo abrindo o Gerenciador de Tarefas do Windows.
+    </p>
+
+    <h3>Erro #3: A IA gera caracteres estranhos ou repetições infinitas</h3>
+    <p>
+      <strong>Sintoma:</strong> A resposta vira um loop de frases idênticas ou gera símbolos como <code>11111111</code> ou códigos quebrados.
+    </p>
+    <p>
+      <strong>Causa:</strong> O arquivo utilizado não é uma versão de instrução (Instruct/Chat) ou o parâmetro de repetição está desligado.
+    </p>
+    <p class="note">
+      <strong>Solução rápida:</strong><br />
+      Certifique-se de que o nome do arquivo GGUF termina em <code>-Instruct</code> (ex.: <code>Qwen2.5-7B-Instruct-Q4_K_M.gguf</code>) e use a flag <code>--repeat-penalty 1.1</code>.
+    </p>
+
+    <h2>2. Diagnosticador Interativo de Problemas</h2>
+    <p>Clique no sintoma que você está enfrentando no momento para ver o diagnóstico exato:</p>
+
+    <div class="diag-box">
+      <div class="diag-buttons">
+        <button type="button" class="diag-btn active" data-diag="oom">💥 O terminal fechou sozinho (OOM)</button>
+        <button type="button" class="diag-btn" data-diag="port">🚫 Erro "Port 8080 already in use"</button>
+        <button type="button" class="diag-btn" data-diag="slow">🐢 IA gerando respostas muito lentas</button>
+        <button type="button" class="diag-btn" data-diag="junk">🌀 Gerando símbolos estranhos / loops</button>
+      </div>
+
+      <div class="solution-panel" id="diag-solution">
+        <!-- Preenchido via JS -->
+      </div>
+    </div>
+
+    <h2>Prática (Validação do Dia 2)</h2>
+    <p class="note">Quiz de fixação: Solução de problemas de hardware e servidor.</p>
+
+    <div class="quiz" data-quiz data-lesson="s0d2-q1"
+         data-answer-hash="23e88521197c3290eb76a60db9fead161e9bcf2b4925ef64833a385923f9f771"
+         data-ok="Exato! Reduzir o contexto (-c) ou as camadas da GPU (-ngl) libera espaço na VRAM imediatamente."
+         data-bad="Se a memória de vídeo esgotar (OOM), você deve reduzir a carga da GPU diminuindo o contexto (-c) ou as camadas (-ngl).">
+      <p class="q">O que você deve fazer se o comando do llama.cpp fechar com erro de memória de vídeo esgotada (CUDA Out of Memory)?</p>
+      <div class="choices">
+        <button type="button" data-choice="A">Reduzir o tamanho do contexto (`-c`) ou o número de camadas enviadas para a GPU (`-ngl`)</button>
+        <button type="button" data-choice="B">Reiniciar o roteador de internet da casa</button>
+        <button type="button" data-choice="C">Mudar o nome do arquivo para .txt</button>
+        <button type="button" data-choice="D">Comprar uma tela nova para o computador</button>
+      </div>
+      <p class="feedback" data-feedback></p>
+    </div>
+
+    <div class="quiz" data-quiz data-lesson="s0d2-q2"
+         data-answer-hash="3ad435692a66c58a9e88b2e5798fda03070de5f8b852066cf8984b6133a3a33c"
+         data-ok="Correto! Especificar uma porta alternativa como --port 8081 resolve o conflito sem afetar outros programas."
+         data-bad="Para contornar o conflito de porta 8080 em uso, adicione a flag `--port 8081` no seu comando.">
+      <p class="q">Como resolver rapidamente a mensagem de erro "Port 8080 already in use" ao ligar o `llama-server`?</p>
+      <div class="choices">
+        <button type="button" data-choice="A">Adicionar a flag `--port 8081` no comando para rodar em uma porta livre de rede</button>
+        <button type="button" data-choice="B">Desinstalar a placa de vídeo do computador</button>
+        <button type="button" data-choice="C">Apagar a pasta models do projeto</button>
+        <button type="button" data-choice="D">Desligar o Wi-Fi</button>
+      </div>
+      <p class="feedback" data-feedback></p>
+    </div>
+
+    <h2>Próximo Passo</h2>
+    <p>
+      Com a base conceitual e o guia de troubleshooting concluídos, você está pronto para o <strong>Semana 1 · Dia 1</strong> —
+      <a href="s1d1-lmstudio-avisos-motores-api.html">Acessar Semana 1 · Dia 1 →</a>.
+    </p>
+
+    <footer class="site">
+      <p><strong>Curso de IA Local · Módulo 0 · Diagnóstico de Erros.</strong></p>
+    </footer>
+  </div>
+
+  <script>
+    (function() {
+      const diagBtns = document.querySelectorAll('.diag-btn');
+      const solutionEl = document.getElementById('diag-solution');
+
+      const diagData = {
+        "oom": {
+          title: "💥 Out of Memory (Memória VRAM Esgotada)",
+          cause: "O modelo e a janela de contexto exigem mais memória de vídeo do que a sua GPU possui disponível.",
+          fix: "<strong>Como resolver:</strong><br />1. Adicione ou reduza o contexto: <code>-c 4096</code>.<br />2. Reduza o offload para a GPU: de <code>-ngl 99</code> para <code>-ngl 30</code>.<br />3. Se persistir, baixe a versão quantizada <code>Q4_K_M</code>."
+        },
+        "port": {
+          title: "🚫 Porta de API Ocupada (Port 8080 already in use)",
+          cause: "Outro aplicativo ou uma janela antiga do <code>llama-server</code> já está escutando na porta 8080.",
+          fix: "<strong>Como resolver:</strong><br />Inicie o servidor em uma porta alternativa adicionando: <code>--port 8081</code> ou <code>--port 8082</code>."
+        },
+        "slow": {
+          title: "🐢 Respostas Lentíssimas (Poucos TPS)",
+          cause: "O modelo está rodando na CPU (RAM principal) porque as camadas não foram enviadas para a GPU.",
+          fix: "<strong>Como resolver:</strong><br />1. Verifique se o executável em <code>build-cuda</code> foi compilado com suporte a GPU.<br />2. Certifique-se de passar <code>-ngl 99</code> para jogar todas as camadas na VRAM.<br />3. Ative a flag <code>-fa on</code> (Flash Attention)."
+        },
+        "junk": {
+          title: "🌀 Símbolos Estranhos ou Loops Infinitos",
+          cause: "O modelo utilizado é uma versão 'base' sem ajuste de instrução, ou o parâmetro de repetição está desligado.",
+          fix: "<strong>Como resolver:</strong><br />1. Baixe sempre arquivos GGUF com a marcação <code>-Instruct</code>.<br />2. Utilize a flag de penalidade de repetição: <code>--repeat-penalty 1.1</code>."
+        }
+      };
+
+      function setDiag(key) {
+        const item = diagData[key];
+        solutionEl.innerHTML = `
+          <h3 style="margin:0 0 0.4rem; font-size:1rem; font-family:var(--sans);">${item.title}</h3>
+          <p style="margin:0 0 0.5rem; font-size:0.9rem; color:var(--muted);"><strong>Causa:</strong> ${item.cause}</p>
+          <div style="font-size:0.92rem;">${item.fix}</div>
+        `;
+      }
+
+      diagBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          diagBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          setDiag(btn.getAttribute('data-diag'));
+        });
+      });
+
+      setDiag('oom');
+    })();
+  </script>
+  <script type="module" src="../assets/quiz.js"></script>
+</body>
+</html>
