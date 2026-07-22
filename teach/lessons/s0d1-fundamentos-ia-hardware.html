@@ -70,6 +70,120 @@
     </dl>
     <p class="note">Anatomia simples: Pesos no disco (livro de referência) + Contexto na memória (sua pergunta atual) = Resposta gerada token por token.</p>
 
+    <h3>Simulador Interativo: Como a IA enxerga o seu texto (Tokenizador)</h3>
+    <p>Digite qualquer frase abaixo para ver como o texto é fatiado em <strong>tokens</strong> numerados em tempo real:</p>
+
+    <div style="background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 1.2rem; margin: 1.25rem 0;">
+      <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.4rem;">Digite ou selecione um exemplo:</label>
+      
+      <div style="margin-bottom: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <button type="button" class="preset-btn" data-text="Como a IA local funciona no meu computador?" style="font-family: var(--sans); font-size: 0.8rem; padding: 0.3rem 0.6rem; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); cursor: pointer;">Exemplo 1 (Pergunta)</button>
+        <button type="button" class="preset-btn" data-text="print('Olá Mundo! 🚀')" style="font-family: var(--sans); font-size: 0.8rem; padding: 0.3rem 0.6rem; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); cursor: pointer;">Exemplo 2 (Código)</button>
+        <button type="button" class="preset-btn" data-text="A quantização Q4 comprime o arquivo GGUF economizando VRAM." style="font-family: var(--sans); font-size: 0.8rem; padding: 0.3rem 0.6rem; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); cursor: pointer;">Exemplo 3 (Técnico)</button>
+      </div>
+
+      <textarea id="tok-input" rows="3" style="width: 100%; padding: 0.6rem; font-family: var(--sans); font-size: 0.95rem; border: 1px solid var(--line); border-radius: 4px; resize: vertical;" placeholder="Digite aqui...">Como a IA local funciona no meu computador?</textarea>
+
+      <div style="display: flex; gap: 1.5rem; margin: 0.8rem 0; font-family: var(--sans); font-size: 0.85rem; color: var(--muted); flex-wrap: wrap;">
+        <span><strong>Caracteres:</strong> <span id="stat-chars">0</span></span>
+        <span><strong>Palavras:</strong> <span id="stat-words">0</span></span>
+        <span><strong>Tokens Calculados:</strong> <span id="stat-tokens" style="color: var(--accent); font-weight: bold;">0</span></span>
+        <span><strong>Fator PT-BR:</strong> <span id="stat-ratio">1.0x</span></span>
+      </div>
+
+      <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.4rem;">Fatiamento em Tokens (Cores alternadas):</label>
+      <div id="tok-chips" style="min-height: 3rem; padding: 0.75rem; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center;"></div>
+    </div>
+
+    <script>
+      (function() {
+        const inputEl = document.getElementById('tok-input');
+        const chipsEl = document.getElementById('tok-chips');
+        const charsEl = document.getElementById('stat-chars');
+        const wordsEl = document.getElementById('stat-words');
+        const tokensEl = document.getElementById('stat-tokens');
+        const ratioEl = document.getElementById('stat-ratio');
+        const presetBtns = document.querySelectorAll('.preset-btn');
+
+        const colors = [
+          '#dbeafe', '#dcfce7', '#fef9c3', '#fae8ff', '#ffe4e6', '#e0e7ff', '#ccfbf1'
+        ];
+
+        // Simulação didática de BPE tokenizer para PT-BR / Llama / Qwen
+        function tokenizeSim(text) {
+          if (!text) return [];
+          const tokens = [];
+          // Fatia palavras longas, acentos, pontuações e emojis
+          const rawWords = text.match(/[\wáàâãéèêíóòôõúçÁÀÂÃÉÈÊÍÓÒÔÕÚÇ]+|[^\s\wáàâãéèêíóòôõúçÁÀÂÃÉÈÊÍÓÒÔÕÚÇ]|\s+/g) || [text];
+          
+          let colorIdx = 0;
+          rawWords.forEach((word) => {
+            if (word.length > 7 && !/^\s+$/.test(word)) {
+              // Fatia em subwords
+              const half = Math.ceil(word.length / 2);
+              const p1 = word.slice(0, half);
+              const p2 = word.slice(half);
+              tokens.push({ text: p1, bg: colors[colorIdx % colors.length], id: Math.floor(1000 + Math.random() * 80000) });
+              colorIdx++;
+              tokens.push({ text: p2, bg: colors[colorIdx % colors.length], id: Math.floor(1000 + Math.random() * 80000) });
+              colorIdx++;
+            } else {
+              tokens.push({ text: word, bg: colors[colorIdx % colors.length], id: Math.floor(1000 + Math.random() * 80000) });
+              colorIdx++;
+            }
+          });
+          return tokens;
+        }
+
+        function updateTokenizer() {
+          const val = inputEl.value;
+          const tokens = tokenizeSim(val);
+          
+          const chars = val.length;
+          const words = val.trim() ? val.trim().split(/\s+/).length : 0;
+          const numTokens = tokens.length;
+          const ratio = words > 0 ? (numTokens / words).toFixed(2) : "1.00";
+
+          charsEl.textContent = chars;
+          wordsEl.textContent = words;
+          tokensEl.textContent = numTokens;
+          ratioEl.textContent = ratio + "x";
+
+          chipsEl.innerHTML = '';
+          if (tokens.length === 0) {
+            chipsEl.innerHTML = '<span style="color: var(--muted); font-size: 0.85rem;">Digite algo acima para ver a tokenização...</span>';
+            return;
+          }
+
+          tokens.forEach((t) => {
+            const chip = document.createElement('span');
+            chip.style.backgroundColor = t.bg;
+            chip.style.border = '1px solid rgba(0,0,0,0.15)';
+            chip.style.borderRadius = '4px';
+            chip.style.padding = '0.2rem 0.45rem';
+            chip.style.fontFamily = 'var(--mono)';
+            chip.style.fontSize = '0.82rem';
+            chip.style.whiteSpace = 'pre-wrap';
+            chip.title = `Token ID simulado: #${t.id}`;
+
+            const display = t.text.replace(/ /g, '␣').replace(/\n/g, '↵');
+            chip.textContent = display;
+            chipsEl.appendChild(chip);
+          });
+        }
+
+        inputEl.addEventListener('input', updateTokenizer);
+        presetBtns.forEach(btn => {
+          btn.addEventListener('click', () => {
+            inputEl.value = btn.getAttribute('data-text');
+            updateTokenizer();
+          });
+        });
+
+        updateTokenizer();
+      })();
+    </script>
+
     <h2>2. Nuvem vs Local: Por que rodar na sua própria máquina?</h2>
     <table>
       <thead>
