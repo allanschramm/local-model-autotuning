@@ -7,7 +7,6 @@
 | **Dia 1** | Mini-glossário + motores de inferência, baixar/escolher modelos, API local | [s1d1](lessons/s1d1-lmstudio-avisos-motores-api.html) |
 | **Dia 2** | Mesmo fluxo com **llama.cpp** + ajustar parâmetros de velocidade (TPS) | [s1d2](lessons/s1d2-llamacpp-flags-tps.html) |
 | **Dia 3** | **MoE** maior que a GPU (divisão de carga / offload no llama.cpp) | [s1d3](lessons/s1d3-moe-maior-que-a-vram.html) |
-| **Live quinta** | Mesmo modelo em vários ambientes e servidores locais | [s1-live](lessons/s1-live-mesmo-modelo-varios-harness.html) |
 | **Dia 4** | Caso de uso: planejar → dividir tarefas → executar com IA local | [s1d4](lessons/s1d4-usecase-fluxo-zero.html) |
 
 A partir do **Dia 2**, os exercícios são realizados diretamente **neste repositório** para ensinar qualquer pessoa a rodar IA Local do zero.
@@ -19,7 +18,6 @@ A partir do **Dia 2**, os exercícios são realizados diretamente **neste reposi
 | Dia 1 | Parâmetros de qualidade (temperatura, top-k, repetição…) | [s2d1](lessons/s2d1-parametros-qualidade.html) (esqueleto) |
 | Dia 2 | Skills, skills para desenvolvedores, MCPs | [s2d2](lessons/s2d2-skills-mcps.html) (esqueleto) |
 | Dia 3 | Ambientes isolados (sandbox), automações (hooks), portões de qualidade (gates) | [s2d3](lessons/s2d3-sandbox-hooks-gates.html) (esqueleto) |
-| Live quinta | Demonstração ao vivo | — |
 | Dia 4 | Caso de uso com o kit completo | [s2d4](lessons/s2d4-usecase-completo.html) (esqueleto) |
 
 ## Arquivo antigo
