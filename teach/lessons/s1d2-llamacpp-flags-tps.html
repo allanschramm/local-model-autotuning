@@ -48,6 +48,106 @@
       Hoje o foco é a IA responder rápido e de forma estável no seu computador.
     </div>
 
+    <h2>Gerador Interativo de Comandos llama.cpp</h2>
+    <p>Ajuste as opções abaixo para montar a linha de comando perfeita para a sua GPU sem precisar decorá-la:</p>
+
+    <div style="background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 1.2rem; margin: 1.25rem 0;">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+        <div>
+          <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">Executável / Modo:</label>
+          <select id="mode-select" style="width: 100%; padding: 0.4rem; font-family: var(--sans); border: 1px solid var(--line); border-radius: 4px;">
+            <option value="cli">llama-cli (Prompt direto no terminal)</option>
+            <option value="server">llama-server (API Local OpenAI em 127.0.0.1)</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">Camadas GPU (-ngl):</label>
+          <input type="number" id="ngl-input" value="99" min="0" max="99" style="width: 100%; padding: 0.4rem; font-family: var(--sans); border: 1px solid var(--line); border-radius: 4px;" />
+          <span style="font-size: 0.75rem; color: var(--muted);">99 = 100% GPU | 0 = 100% CPU</span>
+        </div>
+        <div>
+          <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">Threads CPU (-t):</label>
+          <input type="number" id="threads-input" value="8" min="1" max="32" style="width: 100%; padding: 0.4rem; font-family: var(--sans); border: 1px solid var(--line); border-radius: 4px;" />
+        </div>
+        <div>
+          <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">Contexto (-c):</label>
+          <select id="ctx-select" style="width: 100%; padding: 0.4rem; font-family: var(--sans); border: 1px solid var(--line); border-radius: 4px;">
+            <option value="2048">2048 (Mínimo ultra-rápido)</option>
+            <option value="4096">4096 (Recomendado para 6-8GB VRAM)</option>
+            <option value="8192" selected>8192 (Padrão para chat)</option>
+            <option value="16384">16384 (Documentos curtos)</option>
+            <option value="32768">32768 (Código / Arquivos longos)</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <label style="font-family: var(--sans); font-size: 0.9rem; cursor: pointer;">
+          <input type="checkbox" id="fa-checkbox" checked /> Ativar Flash Attention (<code>-fa on</code>) — Acelera GPU
+        </label>
+      </div>
+
+      <div style="margin-bottom: 1rem;" id="prompt-container">
+        <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">Prompt (-p):</label>
+        <input type="text" id="prompt-input" value="Explique o que sao tokens de forma simples" style="width: 100%; padding: 0.4rem; font-family: var(--mono); font-size: 0.85rem; border: 1px solid var(--line); border-radius: 4px;" />
+      </div>
+
+      <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">Comando Gerado (pronto para executar):</label>
+      <pre style="margin: 0 0 0.75rem 0; white-space: pre-wrap; word-break: break-all;" id="cmd-output"></pre>
+      <button type="button" id="copy-btn" style="font-family: var(--sans); padding: 0.4rem 0.8rem; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer;">Copiar Comando</button>
+      <span id="copy-status" style="font-family: var(--sans); font-size: 0.85rem; margin-left: 0.5rem; color: var(--right);"></span>
+    </div>
+
+    <script>
+      (function() {
+        const modeEl = document.getElementById('mode-select');
+        const nglEl = document.getElementById('ngl-input');
+        const threadsEl = document.getElementById('threads-input');
+        const ctxEl = document.getElementById('ctx-select');
+        const faEl = document.getElementById('fa-checkbox');
+        const promptEl = document.getElementById('prompt-input');
+        const promptContainer = document.getElementById('prompt-container');
+        const cmdOutput = document.getElementById('cmd-output');
+        const copyBtn = document.getElementById('copy-btn');
+        const copyStatus = document.getElementById('copy-status');
+
+        function updateCmd() {
+          const isServer = modeEl.value === 'server';
+          const exe = isServer ? '.\\llama.cpp\\build-cuda\\bin\\llama-server.exe' : '.\\llama.cpp\\build-cuda\\bin\\llama-cli.exe';
+          const model = 'models/unsloth/Qwen2.5-7B-Instruct-GGUF/Qwen2.5-7B-Instruct-Q4_K_M.gguf';
+          const ngl = nglEl.value;
+          const threads = threadsEl.value;
+          const ctx = ctxEl.value;
+          const fa = faEl.checked ? '-fa on' : '';
+          
+          if (isServer) {
+            promptContainer.style.display = 'none';
+            cmdOutput.textContent = `${exe} -m ${model} -ngl ${ngl} -t ${threads} -c ${ctx} ${fa} --host 127.0.0.1 --port 8080`.replace(/\s+/g, ' ');
+          } else {
+            promptContainer.style.display = 'block';
+            const promptVal = promptEl.value ? ` -p "${promptEl.value}"` : '';
+            cmdOutput.textContent = `${exe} -m ${model} -ngl ${ngl} -t ${threads} -c ${ctx} ${fa}${promptVal}`.replace(/\s+/g, ' ');
+          }
+        }
+
+        modeEl.addEventListener('change', updateCmd);
+        nglEl.addEventListener('input', updateCmd);
+        threadsEl.addEventListener('input', updateCmd);
+        ctxEl.addEventListener('change', updateCmd);
+        faEl.addEventListener('change', updateCmd);
+        promptEl.addEventListener('input', updateCmd);
+
+        copyBtn.addEventListener('click', function() {
+          navigator.clipboard.writeText(cmdOutput.textContent).then(() => {
+            copyStatus.textContent = 'Copiado!';
+            setTimeout(() => { copyStatus.textContent = ''; }, 2000);
+          });
+        });
+
+        updateCmd();
+      })();
+    </script>
+
     <h2>Prática</h2>
     <div class="quiz" data-quiz data-lesson="s1d2-q1"
          data-answer-hash="58fc2d60f785b5e282d0c202eb04d43bb666d8e661a748a8e727509a6cfe39a4"
