@@ -462,11 +462,11 @@ class ExperimentRunner:
             if runner_cls is LlamaServerRunner:
                 runner_kwargs["vram_limit_mb"] = vram_limit_mb
             with runner_cls(intent, **runner_kwargs) as runner:
-                if getattr(runner, "vram_killed", False):
+                if getattr(runner, "vram_killed", False) is True:
                     res.status = "FAIL: VRAM_LIMIT_EXCEEDED"
                     res.outcome = TrialOutcome.MODEL_REJECTED
                     res.diagnostic = "VRAM_LIMIT_EXCEEDED"
-                    res.peak_vram_gb = max(runner.peak_vram_mb, 0.0) / 1024.0
+                    res.peak_vram_gb = max(getattr(runner, "peak_vram_mb", 0.0), 0.0) / 1024.0
                     return res
                 client = LlamaClient(runner.port)
 
@@ -557,7 +557,7 @@ class ExperimentRunner:
         finally:
             if runner is not None:
                 res.peak_vram_gb = max(runner.peak_vram_mb, 0.0) / 1024.0
-                if getattr(runner, "vram_killed", False) and res.outcome == TrialOutcome.OK:
+                if getattr(runner, "vram_killed", False) is True and res.outcome == TrialOutcome.OK:
                     res.status = "FAIL: VRAM_LIMIT_EXCEEDED"
                     res.outcome = TrialOutcome.MODEL_REJECTED
                     res.diagnostic = "VRAM_LIMIT_EXCEEDED"
