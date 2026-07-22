@@ -2,12 +2,23 @@
 
 > 📌 **Portal Interativo do Aluno:** Abra o [teach/index.html](index.html) no navegador para ver o mapa visual de lições e salvar seu progresso.
 
+## 🛠️ Ferramentas de Apoio ao Aluno (CLI)
+
+* **Diagnóstico de Hardware & Recomendação de Modelo:**  
+  `.\venv\Scripts\python.exe scripts/check_hardware.py`
+* **Validação de Servidor & Medição Real de TPS:**  
+  `.\venv\Scripts\python.exe scripts/verify_setup.py`
+
+---
+
 ## Módulo 0 — Fundação Conceitual do Zero (para leigos)
 
 | Slot | Foco | Lição HTML |
 |---|---|---|
 | **Dia 1** | Como funcionam as IAs, Nuvem vs Local, Hardware (CPU/GPU/VRAM), Tokenização | [s0d1](lessons/s0d1-fundamentos-ia-hardware.html) |
 | **Dia 2** | Troubleshooting e Solução de Erros Comuns (OOM, Portas, CUDA, Prompt Templates) | [s0d2](lessons/s0d2-troubleshooting-erros-comuns.html) |
+
+---
 
 ## Semana 1 — Desempenho bruto (fechada)
 
@@ -18,17 +29,13 @@
 | **Dia 3** | **MoE** maior que a GPU (divisão de carga / offload no llama.cpp) | [s1d3](lessons/s1d3-moe-maior-que-a-vram.html) |
 | **Dia 4** | Caso de uso: planejar → dividir tarefas → executar com IA local | [s1d4](lessons/s1d4-usecase-fluxo-zero.html) |
 
-A partir do **Dia 2**, os exercícios são realizados diretamente **neste repositório** para ensinar qualquer pessoa a rodar IA Local do zero.
+---
 
-## Semana 2 — Qualidade dos LLMs (flexível)
+## Semana 2 — Qualidade dos LLMs e Ferramentas (completa)
 
-| Slot | Foco (provisório) | Lição |
+| Slot | Foco | Lição HTML |
 |---|---|---|
-| Dia 1 | Parâmetros de qualidade (temperatura, top-k, repetição…) | [s2d1](lessons/s2d1-parametros-qualidade.html) |
-| Dia 2 | Skills, skills para desenvolvedores, MCPs | [s2d2](lessons/s2d2-skills-mcps.html) (esqueleto) |
-| Dia 3 | Ambientes isolados (sandbox), automações (hooks), portões de qualidade (gates) | [s2d3](lessons/s2d3-sandbox-hooks-gates.html) (esqueleto) |
-| Dia 4 | Caso de uso com o kit completo | [s2d4](lessons/s2d4-usecase-completo.html) (esqueleto) |
-
-## Arquivo antigo
-
-Lições `0001`–`0010` (curso genérico anterior) foram **substituídas** por este mapa. Guias avançados ficam em `reference/` como consulta complementar.
+| **Dia 1** | Parâmetros de qualidade (temperatura, top-k, repetição, simulador) | [s2d1](lessons/s2d1-parametros-qualidade.html) |
+| **Dia 2** | Skills pra dev, MCPs (Model Context Protocol) e ferramentas externas | [s2d2](lessons/s2d2-skills-mcps.html) |
+| **Dia 3** | Ambientes isolados (sandbox), automações (hooks) e portões de segurança (gates) | [s2d3](lessons/s2d3-sandbox-hooks-gates.html) |
+| **Dia 4** | Caso de uso final integrado de ponta a ponta (IA Local + Clientes + MCPs) | [s2d4](lessons/s2d4-usecase-completo.html) |

@@ -3,18 +3,95 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>S2 Dia 3 — Sandbox, hooks, gates (esqueleto)</title>
+  <title>S2 Dia 3 — Sandboxes, Hooks e Gates (Segurança)</title>
   <link rel="stylesheet" href="../assets/lesson.css" />
+  <style>
+    .gate-box {
+      background: var(--card);
+      border-left: 4px solid var(--accent);
+      padding: 1rem 1.2rem;
+      border-radius: 0 6px 6px 0;
+      margin: 1.2rem 0;
+    }
+  </style>
 </head>
 <body>
   <div class="wrap">
     <header class="site">
-      <p class="eyebrow">Semana 2 · Dia 3 · Qualidade (flexível)</p>
-      <h1>Sandbox, hooks e quality gates — esqueleto</h1>
-      <p class="lede">State machine, observabilidade, gates. Conteúdo fecha com a curadoria.</p>
-      <p class="navlinks"><a href="../CURRICULUM.md">Currículo</a></p>
+      <p class="eyebrow">Semana 2 · Dia 3 · Automação e Segurança</p>
+      <h1>Sandboxes, Hooks e Portões de Segurança (Gates)</h1>
+      <p class="lede">
+        Dar autonomia a um agente de IA exige proteção. Hoje aprendemos a criar um ambiente seguro onde a IA pode executar código sem risco de danificar arquivos do sistema ou enviar alterações indesejadas.
+      </p>
+      <p class="navlinks">
+        <a href="s2d2-skills-mcps.html">← Dia 2</a>
+        <a href="../CURRICULUM.md">Currículo</a>
+        <a href="s2d4-usecase-completo.html">Dia 4 →</a>
+      </p>
     </header>
-    <div class="note">Placeholder. Sem quiz até a aula estar fechada.</div>
+
+    <h2>1. O Conceito de Sandbox (Ambiente Isolado)</h2>
+    <p>
+      Um <strong>Sandbox</strong> restringe o acesso do agente de IA apenas ao diretório do projeto atual. Ele impede que o modelo navegue livremente pelo seu disco rígido (ex: <code>C:\Windows</code> ou <code>/etc/</code>) ou execute comandos nocivos no terminal do sistema.
+    </p>
+
+    <h2>2. Pre-Tool Hooks (Gatilhos de Pré-Execução)</h2>
+    <p>
+      Os <strong>Hooks</strong> são verificações automáticas disparadas <em>antes</em> de uma ferramenta ser executada. Se o agente tentar rodar um comando perigoso, o hook intercepta e bloqueia a ação imediatamente.
+    </p>
+
+    <div class="gate-box">
+      <h3>🛡️ Exemplo Prático de Hard Gate neste Repositório</h3>
+      <p>Neste projeto, existem dois scripts de proteção em <code>scripts/hooks/</code>:</p>
+      <ul>
+        <li><code>block-adhoc-eval.ps1</code>: Bloqueia a execução de comandos fora do terminal permitido.</li>
+        <li><code>block-gate-tamper.ps1</code>: Impede que o agente modifique ou apague os próprios arquivos de segurança.</li>
+      </ul>
+    </div>
+
+    <h2>3. Portões de Qualidade (Quality Gates)</h2>
+    <p>
+      Um <strong>Gate</strong> é um critério de aceitação que a IA deve satisfazer antes que uma alteração seja finalizada. Exemplo: "O código modificado passou em 100% dos testes do <code>pytest</code>?" Se falhar, a alteração é descartada.
+    </p>
+
+    <h2>4. Prática (Validação do Dia 3)</h2>
+    <p class="note">Quiz: Mecanismos de Proteção e Hooks.</p>
+
+    <div class="quiz" data-quiz data-lesson="s2d3-q1"
+         data-answer-hash="aacd15839f8de9d677bd0e23d5381b5249d9277418fca26fbbcab86fb94970ce"
+         data-ok="Correto! Um Pre-Tool Hook intercepta e impede ações destrutivas antes da execução."
+         data-bad="O Hook de Pré-Execução valida permissões e bloqueia ações inseguras antes que sejam rodadas no SO.">
+      <p class="q">O que faz um Pre-Tool Hook em um ambiente de desenvolvimento com IA?</p>
+      <div class="choices">
+        <button type="button" data-choice="A">Intercepta e bloqueia um comando antes que ele seja executado caso desobedeça uma regra de segurança</button>
+        <button type="button" data-choice="B">Baixa uma nova versão do modelo automaticamente da internet</button>
+        <button type="button" data-choice="C">Aumentar a memória RAM do computador em 50%</button>
+        <button type="button" data-choice="D">Limpar o histórico do navegador após cada conversa</button>
+      </div>
+      <p class="feedback" data-feedback></p>
+    </div>
+
+    <div class="quiz" data-quiz data-lesson="s2d3-q2"
+         data-answer-hash="94bd7b7c821def5de78e0b6d165bc7493bf3eed2f93834aceb95c2b83c8ab112"
+         data-ok="Isso mesmo! O Sandbox isola a execução da IA no diretório do projeto, protegendo o resto do sistema."
+         data-bad="O Sandbox garante o isolamento seguro da execução de código da IA para não afetar o sistema operacional principal.">
+      <p class="q">Qual é a principal função de um Sandbox para execução de código da IA?</p>
+      <div class="choices">
+        <button type="button" data-choice="A">Acelerar o tempo de download do arquivo GGUF</button>
+        <button type="button" data-choice="B">Restringir a IA ao diretório do projeto, evitando alterações indesejadas no sistema operacional</button>
+        <button type="button" data-choice="C">Conectar o computador do aluno diretamente à nuvem da OpenAI</button>
+        <button type="button" data-choice="D">Desligar a ventoinha da GPU quando a temperatura esquentar</button>
+      </div>
+      <p class="feedback" data-feedback></p>
+    </div>
+
+    <h2>Próximo</h2>
+    <p><a href="s2d4-usecase-completo.html">Dia 4 — Caso de Uso Completo (Projeto Integrado)</a></p>
+
+    <footer class="site">
+      <p><strong>Curso de IA Local · Semana 2 · Automação e Segurança.</strong></p>
+    </footer>
   </div>
+  <script type="module" src="../assets/quiz.js"></script>
 </body>
 </html>

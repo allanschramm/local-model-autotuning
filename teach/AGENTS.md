@@ -10,7 +10,8 @@ Course operator / instructors. Not part of the autotuning runtime loop.
 - Purpose of repo course: teach anyone to run local AI from scratch.
 - Módulo 0: Conceptual foundations for absolute beginners (AI basics, Cloud vs Local, CPU/GPU/VRAM, Quantization, interactive VRAM calculator).
 - Semana 1 scope locked: TPS / performance only — no model-quality scoring.
-- Semana 2 may change; skeletons OK until topics lock.
+- Semana 2 complete: Quality & Sampling (s2d1), Skills & MCPs (s2d2), Sandboxes & Hooks/Gates (s2d3), and Integrated Use Case (s2d4).
+- Student CLI tools: `scripts/check_hardware.py` (GPU/VRAM recommender) and `scripts/verify_setup.py` (server health & TPS benchmark).
 - Quizzes: hashed answers only (`assets/QUIZ-HASH.md`); options simplified in pt-BR for beginners (no LM Studio references in quizzes).
 - No GGUFs, results, or run logs in this tree.
 

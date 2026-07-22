@@ -3,18 +3,101 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>S2 Dia 4 — Use-case completo (esqueleto)</title>
+  <title>S2 Dia 4 — Caso de Uso Completo (Projeto Integrado)</title>
   <link rel="stylesheet" href="../assets/lesson.css" />
+  <style>
+    .checklist-box {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1.2rem;
+      margin: 1.5rem 0;
+    }
+    .checklist-box ul {
+      list-style: none;
+      padding-left: 0;
+    }
+    .checklist-box li {
+      padding: 0.4rem 0;
+      border-bottom: 1px dashed var(--line);
+    }
+    .checklist-box li:last-child {
+      border-bottom: none;
+    }
+  </style>
 </head>
 <body>
   <div class="wrap">
     <header class="site">
-      <p class="eyebrow">Semana 2 · Dia 4 · Qualidade (flexível)</p>
-      <h1>Use-case com kit completo — esqueleto</h1>
-      <p class="lede">Projetos dos alunos com performance (S1) + qualidade (S2).</p>
-      <p class="navlinks"><a href="../CURRICULUM.md">Currículo</a></p>
+      <p class="eyebrow">Semana 2 · Dia 4 · Projeto Integrado Final</p>
+      <h1>Caso de Uso Completo — Autonomia Total em IA Local</h1>
+      <p class="lede">
+        Parabéns! Você chegou ao encerramento do curso. Hoje integramos todo o conhecimento acumulado: do diagnóstico de hardware à automação completa do seu modelo local conectado a aplicativos reais.
+      </p>
+      <p class="navlinks">
+        <a href="s2d3-sandbox-hooks-gates.html">← Dia 3</a>
+        <a href="../CURRICULUM.md">Currículo</a>
+        <a href="../index.html">Portal do Aluno</a>
+      </p>
     </header>
-    <div class="note">Placeholder. Sem quiz até a aula estar fechada.</div>
+
+    <h2>1. O Fluxo de Trabalho de Ponta a Ponta</h2>
+    <p>A jornada completa de implementação da sua IA local resume-se nestes 5 passos estratégicos:</p>
+
+    <div class="checklist-box">
+      <h3>🚀 Checklist da Implementação Local</h3>
+      <ul>
+        <li>✅ <strong>1. Diagnóstico:</strong> Execute <code>.\venv\Scripts\python.exe scripts/check_hardware.py</code> para identificar as flags <code>-ngl</code> e contexto ideais do seu PC.</li>
+        <li>✅ <strong>2. Motor:</strong> Inicie o <code>llama-server</code> com o modelo GGUF ajustado para alta velocidade (TPS).</li>
+        <li>✅ <strong>3. Validação:</strong> Rode <code>.\venv\Scripts\python.exe scripts/verify_setup.py</code> para medir a latência e confirmar se o TPS está ótimo.</li>
+        <li>✅ <strong>4. Amostragem:</strong> Configure a Temperatura em <code>0.0</code> para programação/exatidão ou <code>0.7</code> para conversas gerais.</li>
+        <li>✅ <strong>5. Conexão:</strong> Aponte seu VS Code (Continue/Cline), Open WebUI ou app favorito para <code>http://127.0.0.1:8080/v1</code>.</li>
+      </ul>
+    </div>
+
+    <h2>2. Arquitetura de IA Local Produtiva</h2>
+    <p>
+      Você agora possui privacidade total (dados nunca saem da sua máquina), custo zero por token e desempenho otimizado diretamente na sua placa de vídeo ou processador.
+    </p>
+
+    <h2>3. Prática (Validação Final do Curso)</h2>
+    <p class="note">Quiz: Avaliação do Projeto Integrado.</p>
+
+    <div class="quiz" data-quiz data-lesson="s2d4-q1"
+         data-answer-hash="a8afcf1e6ad3ef694cb5b6a1b973a82d46d5736b1c88e62b5345b13b66a90e81"
+         data-ok="Correto! Apontar para http://127.0.0.1:8080/v1 permite reutilizar qualquer aplicativo compatível com a API OpenAI."
+         data-bad="A API Local compatível com OpenAI roda em 127.0.0.1:8080/v1 para integrar a IA com aplicativos do dia a dia.">
+      <p class="q">Qual é a principal vantagem de expor o servidor local de IA através de uma API compatível com o padrão OpenAI (`/v1`)?</p>
+      <div class="choices">
+        <button type="button" data-choice="A">Permite conectar o modelo local a centenas de aplicativos existentes (VS Code, LibreChat, Open WebUI) sem alterar o código do app</button>
+        <button type="button" data-choice="B">Obrigatório para enviar os seus dados para a nuvem da Microsoft</button>
+        <button type="button" data-choice="C">Desativa o consumo de energia elétrica da GPU</button>
+        <button type="button" data-choice="D">Apaga automaticamente os arquivos de log do computador</button>
+      </div>
+      <p class="feedback" data-feedback></p>
+    </div>
+
+    <div class="quiz" data-quiz data-lesson="s2d4-q2"
+         data-answer-hash="7160266d6e7cb48d6b9cf7780a06d99c991e95cced81929868e1b750033e4d13"
+         data-ok="Excelente! Você concluiu com sucesso todo o ciclo de aprendizado sobre IA Local!"
+         data-bad="A combinação de hardware ajustado, amostragem correta e segurança garante autonomia e qualidade total.">
+      <p class="q">Qual é o papel do script `scripts/verify_setup.py` na jornada do aluno?</p>
+      <div class="choices">
+        <button type="button" data-choice="A">Deletar modelos GGUF antigos do disco</button>
+        <button type="button" data-choice="B">Instalar drivers de placa de vídeo sem permissão</button>
+        <button type="button" data-choice="C">Testar a conexão com o servidor local e medir o TPS real para confirmar a velocidade ideal</button>
+        <button type="button" data-choice="D">Formatar o arquivo de configuração do Windows</button>
+      </div>
+      <p class="feedback" data-feedback></p>
+    </div>
+
+    <h2>Conclusão</h2>
+    <p>Você completou o curso! Retorne ao <a href="../index.html">Portal do Aluno</a> para rever o mapa do conhecimento e checar seu progresso final.</p>
+
+    <footer class="site">
+      <p><strong>Curso de IA Local · Conclusão do Curso.</strong></p>
+    </footer>
   </div>
+  <script type="module" src="../assets/quiz.js"></script>
 </body>
 </html>

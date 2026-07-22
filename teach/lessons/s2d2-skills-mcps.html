@@ -3,18 +3,95 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>S2 Dia 2 — Skills e MCPs (esqueleto)</title>
+  <title>S2 Dia 2 — Skills e MCPs (Ferramentas Externas)</title>
   <link rel="stylesheet" href="../assets/lesson.css" />
+  <style>
+    .mcp-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1rem 1.2rem;
+      margin: 1rem 0;
+    }
+    .mcp-card h3 {
+      margin-top: 0;
+      color: var(--accent);
+    }
+  </style>
 </head>
 <body>
   <div class="wrap">
     <header class="site">
-      <p class="eyebrow">Semana 2 · Dia 2 · Qualidade (flexível)</p>
-      <h1>Skills, skills pra dev e MCPs — esqueleto</h1>
-      <p class="lede">Setup de skills e MCPs. Conteúdo fecha com a curadoria.</p>
-      <p class="navlinks"><a href="../CURRICULUM.md">Currículo</a></p>
+      <p class="eyebrow">Semana 2 · Dia 2 · Qualidade e Ferramentas</p>
+      <h1>Skills e MCPs — Expandindo o Modelo Local</h1>
+      <p class="lede">
+        Um LLM por si só apenas prevê palavras. Para se tornar um verdadeiro assistente, ele precisa de <strong>ferramentas</strong> para ler arquivos, buscar na web e executar comandos. Hoje aprendemos o padrão <strong>MCP (Model Context Protocol)</strong> e a estrutura de <strong>Skills</strong>.
+      </p>
+      <p class="navlinks">
+        <a href="s2d1-parametros-qualidade.html">← Dia 1</a>
+        <a href="../CURRICULUM.md">Currículo</a>
+        <a href="s2d3-sandbox-hooks-gates.html">Dia 3 →</a>
+      </p>
     </header>
-    <div class="note">Placeholder. Sem quiz até a aula estar fechada.</div>
+
+    <h2>1. O que é o MCP (Model Context Protocol)?</h2>
+    <p>
+      O <strong>MCP</strong> é um padrão aberto que conecta modelos de IA (seja no Claude, VS Code ou local) a servidores de dados e ferramentas locais de forma segura. Em vez de escrever integrações manuais para cada banco de dados ou API, o MCP padroniza a comunicação.
+    </p>
+
+    <div class="mcp-card">
+      <h3>🔌 Como Funciona a Arquitetura MCP</h3>
+      <p><strong>[Modelo / Cliente IA]</strong> ↔ (Protocolo JSON-RPC) ↔ <strong>[Servidor MCP Local]</strong> ↔ (Sistema de Arquivos / API / Banco)</p>
+      <ul>
+        <li><strong>Tools (Ferramentas):</strong> Ações que a IA pode executar (ex: <code>read_file</code>, <code>search_web</code>, <code>run_query</code>).</li>
+        <li><strong>Resources (Recursos):</strong> Dados estáticos ou documentos expostos para leitura da IA.</li>
+        <li><strong>Prompts:</strong> Templates prontos para iniciar tarefas complexas.</li>
+      </ul>
+    </div>
+
+    <h2>2. O que são Skills (Habilidades)?</h2>
+    <p>
+      Uma <strong>Skill</strong> é um pacote de instruções estruturadas (geralmente em formato <code>SKILL.md</code>) que ensina a IA como desempenhar um papel específico ou seguir um fluxo detalhado (ex: fazer Code Review, diagnosticar bugs ou criar gráficos).
+    </p>
+
+    <h2>3. Prática (Validação do Dia 2)</h2>
+    <p class="note">Quiz: Conceitos de MCP e Skills.</p>
+
+    <div class="quiz" data-quiz data-lesson="s2d2-q1"
+         data-answer-hash="240e4de4c4c76f4878f9a769430d62f80c593e0eec311873c5b45326fa4ad5fa"
+         data-ok="Correto! O MCP padroniza a conexão entre o cliente de IA e servidores de ferramentas ou dados locais."
+         data-bad="O MCP (Model Context Protocol) é o protocolo padrão para conectar IAs a ferramentas e dados locais de forma segura.">
+      <p class="q">Qual é o objetivo principal do MCP (Model Context Protocol)?</p>
+      <div class="choices">
+        <button type="button" data-choice="A">Padronizar como o cliente de IA acessa ferramentas e dados externos com segurança</button>
+        <button type="button" data-choice="B">Compactar o arquivo GGUF para consumir metade da VRAM</button>
+        <button type="button" data-choice="C">Aumentar a velocidade da CPU durante a inicialização do Windows</button>
+        <button type="button" data-choice="D">Substituir a necessidade de placas de vídeo GPU</button>
+      </div>
+      <p class="feedback" data-feedback></p>
+    </div>
+
+    <div class="quiz" data-quiz data-lesson="s2d2-q2"
+         data-answer-hash="7824d14cecf91f53d630151ecbeb8e0378a8b9bc034c2aa3236bd2fcdf936f54"
+         data-ok="Exato! Uma Skill fornece diretrizes e instruções de alto nível para a IA conduzir fluxos especializados."
+         data-bad="Skills são arquivos de instrução (ex: SKILL.md) que orientam a IA em rotinas complexas.">
+      <p class="q">Em um ambiente de IA agent Inteligente, qual o papel de um arquivo `SKILL.md`?</p>
+      <div class="choices">
+        <button type="button" data-choice="A">Guardar as senhas do sistema operacional do usuário</button>
+        <button type="button" data-choice="B">Guiar a IA com instruções e metodologias para executar um papel específico</button>
+        <button type="button" data-choice="C">Compilar código C++ diretamente na placa gráfica</button>
+        <button type="button" data-choice="D">Formatar o disco rígido caso haja erro de execução</button>
+      </div>
+      <p class="feedback" data-feedback></p>
+    </div>
+
+    <h2>Próximo</h2>
+    <p><a href="s2d3-sandbox-hooks-gates.html">Dia 3 — Sandboxes, Hooks e Gates</a></p>
+
+    <footer class="site">
+      <p><strong>Curso de IA Local · Semana 2 · Qualidade e Ferramentas.</strong></p>
+    </footer>
   </div>
+  <script type="module" src="../assets/quiz.js"></script>
 </body>
 </html>

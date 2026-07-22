@@ -27,6 +27,19 @@
       width: 0%;
       transition: width 0.4s ease;
     }
+    .tools-box {
+      background: var(--card);
+      border-left: 4px solid var(--accent);
+      padding: 1rem 1.2rem;
+      border-radius: 0 6px 6px 0;
+      margin-bottom: 2rem;
+    }
+    .tools-box code {
+      background: #f1f5f9;
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.88rem;
+    }
     .module-section {
       margin-top: 2rem;
     }
@@ -93,11 +106,19 @@
     <div class="progress-card">
       <div style="display: flex; justify-content: space-between; align-items: center; font-family: var(--sans);">
         <strong>Seu Progresso Global:</strong>
-        <span id="progress-text" style="font-weight: bold; color: var(--accent);">0 de 7 lições (0%)</span>
+        <span id="progress-text" style="font-weight: bold; color: var(--accent);">0 de 10 lições (0%)</span>
       </div>
       <div class="progress-bar-bg">
         <div class="progress-bar-fill" id="progress-fill"></div>
       </div>
+    </div>
+
+    <div class="tools-box">
+      <h3 style="margin-top:0">🛠️ Ferramentas CLI para o Aluno</h3>
+      <ul>
+        <li><strong>Diagnóstico de Hardware:</strong> <code>.\venv\Scripts\python.exe scripts/check_hardware.py</code></li>
+        <li><strong>Validação de Servidor e Medição de TPS:</strong> <code>.\venv\Scripts\python.exe scripts/verify_setup.py</code></li>
+      </ul>
     </div>
 
     <!-- Módulo 0 -->
@@ -174,7 +195,7 @@
 
     <!-- Semana 2 -->
     <div class="module-section">
-      <h2>Semana 2 — Qualidade dos LLMs & Amostragem (Trilha Avançada)</h2>
+      <h2>Semana 2 — Qualidade dos LLMs, MCPs & Segurança</h2>
       <div class="lesson-grid">
         <div class="lesson-card" data-lesson-id="s2d1">
           <div class="lesson-info">
@@ -183,6 +204,36 @@
           </div>
           <div class="lesson-action">
             <button type="button" class="check-btn" data-target="s2d1">Concluir</button>
+          </div>
+        </div>
+
+        <div class="lesson-card" data-lesson-id="s2d2">
+          <div class="lesson-info">
+            <h3><a href="lessons/s2d2-skills-mcps.html">Semana 2 · Dia 2 — Skills e MCPs (Model Context Protocol)</a></h3>
+            <p>Expandindo o modelo local com ferramentas para ler arquivos, pesquisar na web e utilizar extensões.</p>
+          </div>
+          <div class="lesson-action">
+            <button type="button" class="check-btn" data-target="s2d2">Concluir</button>
+          </div>
+        </div>
+
+        <div class="lesson-card" data-lesson-id="s2d3">
+          <div class="lesson-info">
+            <h3><a href="lessons/s2d3-sandbox-hooks-gates.html">Semana 2 · Dia 3 — Sandboxes, Pre-Tool Hooks e Quality Gates</a></h3>
+            <p>Protegendo a execução de código do seu sistema contra alterações nocivas com gatilhos de segurança.</p>
+          </div>
+          <div class="lesson-action">
+            <button type="button" class="check-btn" data-target="s2d3">Concluir</button>
+          </div>
+        </div>
+
+        <div class="lesson-card" data-lesson-id="s2d4">
+          <div class="lesson-info">
+            <h3><a href="lessons/s2d4-usecase-completo.html">Semana 2 · Dia 4 — Caso de Uso Completo (Projeto Integrado)</a></h3>
+            <p>O ciclo final de autonomia: hardware afinado, API local ativa, amostragem otimizada e conexão com clientes do dia a dia.</p>
+          </div>
+          <div class="lesson-action">
+            <button type="button" class="check-btn" data-target="s2d4">Concluir</button>
           </div>
         </div>
       </div>
@@ -199,7 +250,7 @@
       const checkBtns = document.querySelectorAll('.check-btn');
       const progressFill = document.getElementById('progress-fill');
       const progressText = document.getElementById('progress-text');
-      const totalLessons = 7;
+      const totalLessons = 10;
 
       function getCompleted() {
         try {
