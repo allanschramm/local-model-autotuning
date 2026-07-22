@@ -155,7 +155,7 @@
     </p>
 
     <footer class="site">
-      <p><strong>Curso de IA Local · Módulo 0 · Diagnóstico de Erros.</strong></p>
+      <p><strong>Workshop AILOCAL Essentials · Módulo 0 · Diagnóstico de Erros.</strong></p>
     </footer>
   </div>
 
@@ -168,17 +168,17 @@
         "oom": {
           title: "💥 Out of Memory (Memória VRAM Esgotada)",
           cause: "O modelo e a janela de contexto exigem mais memória de vídeo do que a sua GPU possui disponível.",
-          fix: "<strong>Como resolver:</strong><br />1. Adicione ou reduza o contexto: <code>-c 4096</code>.<br />2. Reduza o offload para a GPU: de <code>-ngl 99</code> para <code>-ngl 30</code>.<br />3. Se persistir, baixe a versão quantizada <code>Q4_K_M</code>."
+          fix: "<strong>Como resolver:</strong><br />1. Execute o script de recomendação: <code>.\\venv\\Scripts\\python.exe scripts/check_hardware.py</code>.<br />2. Reduza a memória de contexto: <code>-c 4096</code>.<br />3. Reduza o offload para a GPU: de <code>-ngl 99</code> para <code>-ngl 30</code>."
         },
         "port": {
           title: "🚫 Porta de API Ocupada (Port 8080 already in use)",
           cause: "Outro aplicativo ou uma janela antiga do <code>llama-server</code> já está escutando na porta 8080.",
-          fix: "<strong>Como resolver:</strong><br />Inicie o servidor em uma porta alternativa adicionando: <code>--port 8081</code> ou <code>--port 8082</code>."
+          fix: "<strong>Como resolver:</strong><br />1. Inicie o servidor em uma porta alternativa: <code>--port 8081</code>.<br />2. Valide se a API respondeu rodando: <code>.\\venv\\Scripts\\python.exe scripts/verify_setup.py</code>."
         },
         "slow": {
           title: "🐢 Respostas Lentíssimas (Poucos TPS)",
           cause: "O modelo está rodando na CPU (RAM principal) porque as camadas não foram enviadas para a GPU.",
-          fix: "<strong>Como resolver:</strong><br />1. Verifique se o executável em <code>build-cuda</code> foi compilado com suporte a GPU.<br />2. Certifique-se de passar <code>-ngl 99</code> para jogar todas as camadas na VRAM.<br />3. Ative a flag <code>-fa on</code> (Flash Attention)."
+          fix: "<strong>Como resolver:</strong><br />1. Certifique-se de passar <code>-ngl 99</code> para jogar todas as camadas na VRAM.<br />2. Ative a flag <code>-fa on</code> (Flash Attention).<br />3. Meça seu TPS real rodando: <code>.\\venv\\Scripts\\python.exe scripts/verify_setup.py</code>."
         },
         "junk": {
           title: "🌀 Símbolos Estranhos ou Loops Infinitos",

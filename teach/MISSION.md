@@ -1,4 +1,4 @@
-# Missão: Ensinar qualquer um a rodar IA Local
+# Missão: Workshop AILOCAL Essentials
 
 ## Por que existe
 Ensinar qualquer pessoa a **rodar IA Local no próprio computador com alto desempenho** (Semana 1) e, em seguida, **garantir a qualidade de uso** (Semana 2: amostragem, habilidades, validações). O repositório é o ambiente de aprendizado prático.
@@ -28,6 +28,7 @@ Ensinar qualquer pessoa a **rodar IA Local no próprio computador com alto desem
 
 ## Regras e Restrições
 - Material em **pt-BR** simples e didático para leigos
+- Experiência 100% local: o aluno estuda clonando o repo e utilizando o tutor de IA (`/teach`) ou abrindo `teach/index.html` no navegador local (sem portal/servidor remoto)
 - Semana 1: **apenas desempenho / velocidade (TPS)** — sem avaliação de inteligência ou treinamento de modelos
 - Quizzes: gabarito com hash de segurança; opções simples em pt-BR sem menção ao LM Studio
 - O foco do repositório é capacitar qualquer pessoa a rodar IA local do zero em sua própria máquina

@@ -1,13 +1,24 @@
-# Currículo do curso: Ensinar qualquer um a rodar IA Local
+# Currículo: Workshop AILOCAL Essentials
 
-> 📌 **Portal Interativo do Aluno:** Abra o [teach/index.html](index.html) no navegador para ver o mapa visual de lições e salvar seu progresso.
+> 📌 **Guia Interativo do Aluno:** Abra o [teach/index.html](index.html) no navegador para ver o mapa visual de lições e salvar seu progresso.
 
-## 🛠️ Ferramentas de Apoio ao Aluno (CLI)
+## 🚀 Checklist de Preparação Inicial do Aluno (Multiplataforma)
 
-* **Diagnóstico de Hardware & Recomendação de Modelo:**  
-  `.\venv\Scripts\python.exe scripts/check_hardware.py`
-* **Validação de Servidor & Medição Real de TPS:**  
-  `.\venv\Scripts\python.exe scripts/verify_setup.py`
+Siga os 5 passos abaixo no terminal conforme o seu sistema operacional para preparar seu ambiente local:
+
+### 🪟 Windows (PowerShell)
+1. **Instalar Python (se necessário):** `winget install Python.Python.3.12`
+2. **Criar Ambiente Virtual:** `python -m venv venv`
+3. **Instalar Dependências:** `.\venv\Scripts\pip install -r requirements.txt`
+4. **Diagnóstico de Hardware:** `.\venv\Scripts\python.exe scripts/check_hardware.py`
+5. **Validação de TPS e Servidor:** `.\venv\Scripts\python.exe scripts/verify_setup.py`
+
+### 🍎 macOS / 🐧 Linux (Terminal)
+1. **Instalar Python (se necessário):** `brew install python` (Mac) / `sudo apt install python3 python3-venv` (Linux)
+2. **Criar Ambiente Virtual:** `python3 -m venv venv`
+3. **Instalar Dependências:** `./venv/bin/pip install -r requirements.txt`
+4. **Diagnóstico de Hardware:** `./venv/bin/python scripts/check_hardware.py`
+5. **Validação de TPS e Servidor:** `./venv/bin/python scripts/verify_setup.py`
 
 ---
 
