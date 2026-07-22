@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Portal do Curso — Rodando IA Local do Zero</title>
+  <title>Workshop AILOCAL Essentials — Guia Interativo</title>
   <link rel="stylesheet" href="assets/lesson.css" />
   <style>
     .progress-card {
@@ -97,7 +97,7 @@
   <div class="wrap">
     <header class="site">
       <p class="eyebrow">Repositório Local-Model-Autotuning · Guia Interativo</p>
-      <h1>Curso Prático: Rodando IA Local do Zero</h1>
+      <h1>Workshop AILOCAL Essentials</h1>
       <p class="lede">
         Aprenda como funcionam as IAs, qual modelo cabe no seu computador, como resolver erros e como rodar um servidor de API local rápido, privado e sem custo por token.
       </p>
@@ -113,12 +113,37 @@
       </div>
     </div>
 
-    <div class="tools-box">
-      <h3 style="margin-top:0">🛠️ Ferramentas CLI para o Aluno</h3>
-      <ul>
-        <li><strong>Diagnóstico de Hardware:</strong> <code>.\venv\Scripts\python.exe scripts/check_hardware.py</code></li>
-        <li><strong>Validação de Servidor e Medição de TPS:</strong> <code>.\venv\Scripts\python.exe scripts/verify_setup.py</code></li>
-      </ul>
+    <div class="tools-box" style="background: #f8fafc; border-left: 4px solid var(--accent); padding: 1.2rem; border-radius: 6px; margin-bottom: 2rem;">
+      <h3 style="margin-top:0; color: #0f172a;">🚀 Guia de Preparação Inicial (Onboarding em 5 Passos)</h3>
+      <p style="font-size: 0.88rem; color: #475569; margin-bottom: 1rem;">
+        Selecione seu sistema operacional para ver a sequência exata de preparação do seu ambiente local:
+      </p>
+
+      <!-- Botões de SO -->
+      <div style="display: flex; gap: 0.5rem; margin-bottom: 1.2rem;" id="os-tabs">
+        <button type="button" class="os-tab-btn os-btn active" data-os="win" style="font-family:var(--sans); font-size:0.8rem; padding:0.4rem 0.7rem; border:1px solid var(--accent); border-radius:4px; cursor:pointer; background: var(--accent); color: white; font-weight: bold;">🪟 Windows (PowerShell)</button>
+        <button type="button" class="os-tab-btn os-btn" data-os="mac" style="font-family:var(--sans); font-size:0.8rem; padding:0.4rem 0.7rem; border:1px solid var(--line); border-radius:4px; cursor:pointer; background:#fff;">🍎 macOS (Terminal)</button>
+        <button type="button" class="os-tab-btn os-btn" data-os="linux" style="font-family:var(--sans); font-size:0.8rem; padding:0.4rem 0.7rem; border:1px solid var(--line); border-radius:4px; cursor:pointer; background:#fff;">🐧 Linux (Ubuntu/Debian)</button>
+      </div>
+
+      <!-- Conteúdo do Passo a Passo por SO -->
+      <div id="os-content" style="font-size: 0.9rem;">
+        <!-- Preenchido via JS -->
+      </div>
+    </div>
+
+    <!-- Flash Quiz / Treino de Memória Ativa -->
+    <div class="progress-card" style="background: #faf5ff; border-color: #d8b4fe;">
+      <h3 style="margin-top:0; color: #6b21a8;">🧠 Treino de Memória Ativa (Flash Quiz)</h3>
+      <p style="font-size: 0.9rem; color: #581c87; margin-bottom: 1rem;">
+        Fortaleça sua retenção de longo prazo testando conceitos-chave aprendidos nas lições.
+      </p>
+      <div id="flash-quiz-box" style="background: #ffffff; padding: 1rem; border-radius: 6px; border: 1px solid #e9d5ff;">
+        <p id="flash-q-text" style="font-weight: bold; margin-top: 0;"></p>
+        <div id="flash-opts" style="display: grid; gap: 0.5rem; margin-bottom: 1rem;"></div>
+        <div id="flash-feedback" style="font-size: 0.88rem; display: none; padding: 0.6rem; border-radius: 4px; margin-bottom: 0.5rem;"></div>
+        <button type="button" id="flash-next-btn" class="check-btn" style="background: #9333ea; color: white; border: none; display: none;">Próxima Pergunta</button>
+      </div>
     </div>
 
     <!-- Módulo 0 -->
@@ -240,14 +265,14 @@
     </div>
 
     <footer class="site">
-      <p><strong>Local-Model-Autotuning · Ambiente Prático de Aprendizado de IA Local.</strong></p>
+      <p><strong>Workshop AILOCAL Essentials · Ambiente Prático de Aprendizado de IA Local.</strong></p>
     </footer>
   </div>
 
   <script>
     (function() {
       const STORAGE_KEY = 'teach_course_progress_v1';
-      const checkBtns = document.querySelectorAll('.check-btn');
+      const checkBtns = document.querySelectorAll('.lesson-card .check-btn');
       const progressFill = document.getElementById('progress-fill');
       const progressText = document.getElementById('progress-text');
       const totalLessons = 10;
@@ -261,8 +286,112 @@
       }
 
       function saveCompleted(arr) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+        } catch(e) {
+          console.warn('Não foi possível salvar no localStorage:', e);
+        }
       }
+
+      // --- Onboarding Multiplataforma por Sistema Operacional ---
+      const osData = {
+        win: [
+          { label: "1. Instalar Python (se não instalado):", cmd: "winget install Python.Python.3.12" },
+          { label: "2. Criar Ambiente Virtual (venv):", cmd: "python -m venv venv" },
+          { label: "3. Instalar Dependências do Repo:", cmd: ".\\venv\\Scripts\\pip install -r requirements.txt" },
+          { label: "4. Executar Diagnóstico de Hardware:", cmd: ".\\venv\\Scripts\\python.exe scripts/check_hardware.py" },
+          { label: "5. Validar Servidor API Local & TPS:", cmd: ".\\venv\\Scripts\\python.exe scripts/verify_setup.py" }
+        ],
+        mac: [
+          { label: "1. Instalar Python (se não instalado):", cmd: "brew install python" },
+          { label: "2. Criar Ambiente Virtual (venv):", cmd: "python3 -m venv venv" },
+          { label: "3. Instalar Dependências do Repo:", cmd: "./venv/bin/pip install -r requirements.txt" },
+          { label: "4. Executar Diagnóstico de Hardware:", cmd: "./venv/bin/python scripts/check_hardware.py" },
+          { label: "5. Validar Servidor API Local & TPS:", cmd: "./venv/bin/python scripts/verify_setup.py" }
+        ],
+        linux: [
+          { label: "1. Instalar Python (se não instalado):", cmd: "sudo apt update && sudo apt install -y python3 python3-venv" },
+          { label: "2. Criar Ambiente Virtual (venv):", cmd: "python3 -m venv venv" },
+          { label: "3. Instalar Dependências do Repo:", cmd: "./venv/bin/pip install -r requirements.txt" },
+          { label: "4. Executar Diagnóstico de Hardware:", cmd: "./venv/bin/python scripts/check_hardware.py" },
+          { label: "5. Validar Servidor API Local & TPS:", cmd: "./venv/bin/python scripts/verify_setup.py" }
+        ]
+      };
+
+      const osBtns = document.querySelectorAll('.os-btn');
+      const osContent = document.getElementById('os-content');
+
+      function renderOSSteps(osKey) {
+        if (!osContent) return;
+        const steps = osData[osKey] || osData.win;
+        osContent.innerHTML = '';
+
+        const ul = document.createElement('ul');
+        ul.style.listStyle = 'none';
+        ul.style.paddingLeft = '0';
+        ul.style.margin = '0';
+
+        steps.forEach(st => {
+          const li = document.createElement('li');
+          li.style.marginBottom = '0.7rem';
+          li.style.display = 'flex';
+          li.style.alignItems = 'center';
+          li.style.justifyContent = 'space-between';
+          li.style.flexWrap = 'wrap';
+          li.style.gap = '0.5rem';
+          li.style.background = '#ffffff';
+          li.style.padding = '0.6rem 0.8rem';
+          li.style.borderRadius = '4px';
+          li.style.border = '1px solid #e2e8f0';
+
+          const span = document.createElement('span');
+          span.innerHTML = `<strong>${st.label}</strong> <code style="background:#f1f5f9; padding:0.2rem 0.4rem; border-radius:4px;">${st.cmd}</code>`;
+
+          const copyBtn = document.createElement('button');
+          copyBtn.type = 'button';
+          copyBtn.className = 'copy-action-btn';
+          copyBtn.style.fontFamily = 'var(--sans)';
+          copyBtn.style.fontSize = '0.8rem';
+          copyBtn.style.padding = '0.4rem 0.7rem';
+          copyBtn.style.border = '1px solid var(--line)';
+          copyBtn.style.borderRadius = '4px';
+          copyBtn.style.background = '#fff';
+          copyBtn.style.cursor = 'pointer';
+          copyBtn.textContent = 'Copiar';
+          copyBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(st.cmd);
+            copyBtn.textContent = 'Copiado!';
+            setTimeout(() => copyBtn.textContent = 'Copiar', 1500);
+          });
+
+          li.appendChild(span);
+          li.appendChild(copyBtn);
+          ul.appendChild(li);
+        });
+
+        osContent.appendChild(ul);
+      }
+
+      osBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          osBtns.forEach(b => {
+            b.classList.remove('active');
+            b.style.background = '#fff';
+            b.style.color = 'inherit';
+            b.style.borderColor = 'var(--line)';
+            b.style.fontWeight = 'normal';
+          });
+          btn.classList.add('active');
+          btn.style.background = 'var(--accent)';
+          btn.style.color = 'white';
+          btn.style.borderColor = 'var(--accent)';
+          btn.style.fontWeight = 'bold';
+
+          renderOSSteps(btn.getAttribute('data-os'));
+        });
+      });
+
+      renderOSSteps('win');
 
       function renderProgress() {
         const completed = getCompleted();
@@ -304,6 +433,121 @@
       });
 
       renderProgress();
+
+      // --- Flash Quiz Logic (Retrieval Practice) ---
+      const flashQuestions = [
+        {
+          q: "O que acontece quando você tenta carregar um modelo GGUF maior que a sua VRAM sem offloading de CPU?",
+          opts: [
+            { text: "A velocidade TPS aumenta automaticamente", correct: false },
+            { text: "Ocorre erro de CUDA Out of Memory (OOM) ou queda para RAM", correct: true },
+            { text: "O modelo se compacta sozinho no disco rígido", correct: false },
+            { text: "A memória RAM da máquina é desativada", correct: false }
+          ],
+          explain: "Correto! Se o modelo não couber na GPU e você tentar forçar 100% de offload, a GPU esgota a VRAM (OOM) ou força swap drástico para a memória do sistema."
+        },
+        {
+          q: "Qual é a função da flag -ngl (ou --n-gpu-layers) no llama.cpp?",
+          opts: [
+            { text: "Definir a quantidade de threads de CPU utilizadas", correct: false },
+            { text: "Transferir camadas de cálculo do modelo para a GPU", correct: true },
+            { text: "Limitar o número máximo de tokens de resposta", correct: false },
+            { text: "Configurar a temperatura de geração do modelo", correct: false }
+          ],
+          explain: "Correto! A flag `-ngl 99` orienta o motor a enviar todas as camadas possíveis para a placa de vídeo, garantindo a velocidade máxima em TPS."
+        },
+        {
+          q: "Por que a quantização Q4_K_M é a mais popular para rodar LLMs locais?",
+          opts: [
+            { text: "Ela requer supercomputadores com 8 GPUs", correct: false },
+            { text: "Reduz o uso de VRAM drasticamente mantendo alta inteligência", correct: true },
+            { text: "Ela altera o código-fonte da API da OpenAI", correct: false },
+            { text: "Ela transforma modelos de texto em geradores de imagem", correct: false }
+          ],
+          explain: "Correto! A quantização Q4 reduz os pesos de 16 bits para 4 bits, permitindo rodar modelos de 7B/8B em GPUs populares com 6GB a 8GB de VRAM."
+        },
+        {
+          q: "Qual parâmetro controla o nível de aleatoriedade/criatividade nas respostas de um LLM?",
+          opts: [
+            { text: "Context Size (-c)", correct: false },
+            { text: "Temperatura (temp)", correct: true },
+            { text: "Top-K", correct: false },
+            { text: "Repeat Penalty", correct: false }
+          ],
+          explain: "Correto! Temperaturas baixas (~0.2) deixam a resposta previsível e exata; temperaturas altas (~0.8) aumentam a criatividade."
+        },
+        {
+          q: "O que é o protocolo MCP (Model Context Protocol)?`",
+          opts: [
+            { text: "Um formato de compressão de áudio para redes neurais", correct: false },
+            { text: "Um padrão aberto para conectar LLMs a ferramentas e arquivos", correct: true },
+            { text: "Um comando do terminal para formatar a GPU", correct: false },
+            { text: "Um parâmetro de amostragem de contexto", correct: false }
+          ],
+          explain: "Correto! O MCP permite que o LLM acesse sistemas de arquivos, APIs de busca web e ferramentas externas com segurança."
+        }
+      ];
+
+      let currentQIndex = 0;
+      const qText = document.getElementById('flash-q-text');
+      const optsBox = document.getElementById('flash-opts');
+      const feedbackBox = document.getElementById('flash-feedback');
+      const nextBtn = document.getElementById('flash-next-btn');
+
+      function loadFlashQ(idx) {
+        if (!qText) return;
+        const q = flashQuestions[idx];
+        qText.textContent = `Pergunta ${idx + 1} de ${flashQuestions.length}: ${q.q}`;
+        optsBox.innerHTML = '';
+        feedbackBox.style.display = 'none';
+        nextBtn.style.display = 'none';
+
+        q.opts.forEach((opt, oIdx) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'check-btn';
+          btn.style.textAlign = 'left';
+          btn.style.width = '100%';
+          btn.style.padding = '0.6rem 0.8rem';
+          btn.textContent = `${String.fromCharCode(65 + oIdx)}) ${opt.text}`;
+
+          btn.addEventListener('click', () => {
+            const allBtns = optsBox.querySelectorAll('button');
+            allBtns.forEach(b => b.disabled = true);
+
+            if (opt.correct) {
+              btn.style.background = '#dcfce7';
+              btn.style.borderColor = '#22c55e';
+              btn.style.color = '#15803d';
+              feedbackBox.style.background = '#f0fdf4';
+              feedbackBox.style.color = '#166534';
+              feedbackBox.style.border = '1px solid #bbf7d0';
+              feedbackBox.textContent = q.explain;
+            } else {
+              btn.style.background = '#fee2e2';
+              btn.style.borderColor = '#ef4444';
+              btn.style.color = '#b91c1c';
+              feedbackBox.style.background = '#fef2f2';
+              feedbackBox.style.color = '#991b1b';
+              feedbackBox.style.border = '1px solid #fecaca';
+              feedbackBox.textContent = 'Incorreto. Tente novamente na próxima pergunta!';
+            }
+            feedbackBox.style.display = 'block';
+            nextBtn.style.display = 'inline-block';
+          });
+
+          optsBox.appendChild(btn);
+        });
+      }
+
+      if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+          currentQIndex = (currentQIndex + 1) % flashQuestions.length;
+          loadFlashQ(currentQIndex);
+        });
+      }
+
+      loadFlashQ(0);
     })();
   </script>
 </body>
