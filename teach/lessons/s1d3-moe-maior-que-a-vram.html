@@ -22,15 +22,143 @@
       </p>
     </header>
 
-    <h2>Conceito</h2>
+    <h2>Como funciona o MoE (Mixture of Experts)?</h2>
     <p>
-      No llama.cpp, usamos a combinação de <code>-ngl</code> (camadas na GPU) +
-      <code>--n-cpu-moe</code> / offload de especialistas (técnica VITRIOL no repositório).
-      O objetivo na Semana 1 é <strong>rodar com estabilidade</strong> e manter uma boa velocidade (TPS).
+      Em um modelo tradicional (denso), todo o conhecimento do arquivo é processado para cada palavra. Em um modelo <strong>MoE</strong>, o modelo é dividido em vários "Especialistas". Para cada token gerado, o <strong>Roteador</strong> escolhe apenas os 2 melhores especialistas para responder.
     </p>
-    <p>
-      Guia detalhado: <a href="../../docs/models/vitriol-technique.md">docs/models/vitriol-technique.md</a>.
-    </p>
+
+    <h3>Simulador 1: O Roteador de Especialistas em Ação</h3>
+    <p>Escolha um tipo de pergunta para ver o Roteador ativando apenas 2 de 8 especialistas em tempo real:</p>
+
+    <div style="background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 1.2rem; margin: 1.25rem 0;">
+      <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.5rem;">Escolha o assunto da pergunta:</label>
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
+        <button type="button" class="moe-topic-btn active" data-topic="code" style="font-family: var(--sans); font-size: 0.85rem; padding: 0.4rem 0.7rem; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; background: var(--bg);">💻 Código Python</button>
+        <button type="button" class="moe-topic-btn" data-topic="math" style="font-family: var(--sans); font-size: 0.85rem; padding: 0.4rem 0.7rem; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; background: var(--bg);">🧮 Cálculo Matemático</button>
+        <button type="button" class="moe-topic-btn" data-topic="lang" style="font-family: var(--sans); font-size: 0.85rem; padding: 0.4rem 0.7rem; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; background: var(--bg);">🌐 Tradução de Idioma</button>
+        <button type="button" class="moe-topic-btn" data-topic="creative" style="font-family: var(--sans); font-size: 0.85rem; padding: 0.4rem 0.7rem; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; background: var(--bg);">✍️ Redação Criativa</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-bottom: 1rem;" id="expert-grid">
+        <!-- 8 especialistas renderizados pelo JS -->
+      </div>
+
+      <p class="calc-result" id="moe-status" style="margin: 0; font-size: 0.9rem;"></p>
+    </div>
+
+    <h3>Simulador 2: Alocação e Offload (VRAM + RAM)</h3>
+    <p>Ajuste o slider de VRAM da sua placa de vídeo para ver como o modelo MoE de 30GB é alocado entre a VRAM rápida e a RAM do sistema:</p>
+
+    <div style="background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 1.2rem; margin: 1.25rem 0;">
+      <label for="moe-vram-slider" style="font-family: var(--sans); font-weight: 600; display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 0.4rem;">
+        <span>VRAM Dedicada da sua GPU:</span>
+        <span id="moe-vram-val" style="color: var(--accent);">8 GB</span>
+      </label>
+      <input type="range" id="moe-vram-slider" min="4" max="24" step="2" value="8" style="width: 100%; margin-bottom: 1rem;" />
+
+      <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.4rem;">Distribuição da Memória do Modelo MoE (30 GB Total):</label>
+
+      <div style="height: 2rem; width: 100%; background: var(--line); border-radius: 4px; overflow: hidden; display: flex; margin-bottom: 0.8rem;">
+        <div id="bar-vram" style="height: 100%; background: #0f766e; color: white; display: flex; align-items: center; justify-content: center; font-family: var(--sans); font-size: 0.75rem; font-weight: bold; transition: width 0.3s;">VRAM: 8 GB</div>
+        <div id="bar-ram" style="height: 100%; background: #0284c7; color: white; display: flex; align-items: center; justify-content: center; font-family: var(--sans); font-size: 0.75rem; font-weight: bold; transition: width 0.3s;">RAM: 22 GB (Offload)</div>
+      </div>
+
+      <div id="offload-desc" style="font-size: 0.9rem; color: var(--muted);"></div>
+    </div>
+
+    <script>
+      (function() {
+        // Simulador 1: Roteador
+        const topicBtns = document.querySelectorAll('.moe-topic-btn');
+        const gridEl = document.getElementById('expert-grid');
+        const statusEl = document.getElementById('moe-status');
+
+        const expertNames = [
+          "1. Lógica & Código", "2. Matemática", "3. Gramática", "4. Criatividade",
+          "5. Conhecimento Geral", "6. Tradução", "7. Raciocínio Passo a Passo", "8. Síntese"
+        ];
+
+        const topicMap = {
+          "code": [0, 6],
+          "math": [1, 6],
+          "lang": [2, 5],
+          "creative": [3, 7]
+        };
+
+        function renderExperts(activeIdxs) {
+          gridEl.innerHTML = '';
+          expertNames.forEach((name, idx) => {
+            const isActive = activeIdxs.includes(idx);
+            const card = document.createElement('div');
+            card.style.border = isActive ? '2px solid var(--accent)' : '1px solid var(--line)';
+            card.style.background = isActive ? '#dcfce7' : 'var(--bg)';
+            card.style.borderRadius = '4px';
+            card.style.padding = '0.5rem 0.3rem';
+            card.style.textAlign = 'center';
+            card.style.fontFamily = 'var(--sans)';
+            card.style.fontSize = '0.78rem';
+            card.style.fontWeight = isActive ? 'bold' : 'normal';
+            card.style.color = isActive ? 'var(--right)' : 'var(--muted)';
+            card.textContent = (isActive ? '⚡ ' : '💤 ') + name;
+            gridEl.appendChild(card);
+          });
+        }
+
+        topicBtns.forEach(btn => {
+          btn.addEventListener('click', () => {
+            topicBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const topic = btn.getAttribute('data-topic');
+            const active = topicMap[topic];
+            renderExperts(active);
+            statusEl.innerHTML = `<strong>Roteador ativou:</strong> Especialistas <code>#${active[0]+1}</code> e <code>#${active[1]+1}</code>. Os outros 6 especialistas permaneceram dormindo sem gastar tempo de GPU.`;
+          });
+        });
+
+        renderExperts([0, 6]);
+        statusEl.innerHTML = `<strong>Roteador ativou:</strong> Especialistas <code>#1</code> e <code>#7</code> para código.`;
+
+        // Simulador 2: Offload VRAM
+        const slider = document.getElementById('moe-vram-slider');
+        const vramVal = document.getElementById('moe-vram-val');
+        const barVram = document.getElementById('bar-vram');
+        const barRam = document.getElementById('bar-ram');
+        const descEl = document.getElementById('offload-desc');
+
+        function updateOffload() {
+          const vram = parseInt(slider.value);
+          const totalModel = 30;
+          vramVal.textContent = vram + " GB";
+
+          const vramUsed = Math.min(vram, totalModel);
+          const ramUsed = totalModel - vramUsed;
+
+          const vramPct = (vramUsed / totalModel) * 100;
+          const ramPct = (ramUsed / totalModel) * 100;
+
+          barVram.style.width = vramPct + "%";
+          barVram.textContent = `VRAM: ${vramUsed} GB (${Math.round(vramPct)}%)`;
+
+          if (ramPct > 0) {
+            barRam.style.display = 'flex';
+            barRam.style.width = ramPct + "%";
+            barRam.textContent = `RAM: ${ramUsed} GB (${Math.round(ramPct)}%)`;
+          } else {
+            barRam.style.display = 'none';
+          }
+
+          let estTps = 0;
+          if (vramPct >= 100) estTps = "~45-60 TPS (Velocidade Máxima 100% GPU)";
+          else if (vramPct >= 50) estTps = "~20-30 TPS (Fluido - Offload Parcial)";
+          else estTps = "~8-15 TPS (Estável na RAM principal)";
+
+          descEl.innerHTML = `<strong>Velocidade Estimada:</strong> ${estTps}.<br /><em>O offload VITRIOL garante que os especialistas ativos rodem na GPU enquanto a RAM armazena o restante sem estourar o sistema.</em>`;
+        }
+
+        slider.addEventListener('input', updateOffload);
+        updateOffload();
+      })();
+    </script>
 
     <h2>Prática</h2>
     <div class="quiz" data-quiz data-lesson="s1d3-q1"
