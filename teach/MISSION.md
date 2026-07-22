@@ -31,6 +31,7 @@ Ensinar qualquer pessoa a **rodar IA Local no próprio computador com alto desem
 - Experiência 100% local: o aluno estuda clonando o repo e utilizando o tutor de IA (`/teach`) ou abrindo `teach/index.html` no navegador local (sem portal/servidor remoto)
 - Semana 1: **apenas desempenho / velocidade (TPS)** — sem avaliação de inteligência ou treinamento de modelos
 - Quizzes: gabarito com hash de segurança; opções simples em pt-BR sem menção ao LM Studio
+- Progresso no guia: Concluir só após passar todos os quizzes da lição (gate local)
 - O foco do repositório é capacitar qualquer pessoa a rodar IA local do zero em sua própria máquina
 
 ## Fora de Escopo (Semana 1)

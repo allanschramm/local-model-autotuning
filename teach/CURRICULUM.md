@@ -1,6 +1,8 @@
 # Currículo: Workshop AILOCAL Essentials
 
 > 📌 **Guia Interativo do Aluno:** Abra o [teach/index.html](index.html) no navegador para ver o mapa visual de lições e salvar seu progresso.
+>
+> **Gate:** “Concluir” só libera depois de acertar todos os quizzes da lição.
 
 ## 🚀 Checklist de Preparação Inicial do Aluno (Multiplataforma)
 

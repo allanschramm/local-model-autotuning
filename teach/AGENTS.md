@@ -15,15 +15,17 @@ Course operator / instructors. Not part of the autotuning runtime loop.
 - Student CLI tools: `scripts/check_hardware.py` (GPU/VRAM recommender) and `scripts/verify_setup.py` (server health & TPS benchmark).
 - Agent guidance: During `/teach` sessions, agent acts as interactive tutor. Follow 5-step onboarding: (1) Check/install Python, (2) Create `venv`, (3) Install `requirements.txt`, (4) Run `check_hardware.py`, (5) Run `verify_setup.py`. Then proceed to Module 0.
 - Quizzes: hashed answers only (`assets/QUIZ-HASH.md`); options simplified in pt-BR for beginners (no LM Studio references in quizzes).
+- **Quiz gate:** `index.html` “Concluir” unlocks only after every quiz in that lesson slot is passed (`assets/progress.js` + `localStorage` key `teach_quiz_pass_v1`). Wrong answers allow retry. Already-completed lessons stay completed (grandfather).
 - No GGUFs, results, or run logs in this tree.
 
 ## Work Guidance
 - Prefer editing lesson HTML + `CURRICULUM.md` / `MISSION.md` together.
 - Keep glossary/definitions accurate (VRAM ≠ “must fit”; offload/MoE = Dia 3).
-- Ensure interactive HTML elements (quizzes, calculators, troubleshooting wizards) work 100% offline in static browser view.
+- Ensure interactive HTML elements (quizzes, calculators, troubleshooting wizards) work 100% offline in static browser view (`file://`). Quiz/progress scripts are classic (no ES modules) for that reason.
 
 ## Verification
 - Open `index.html` or lesson HTML in a browser; click quizzes (client-side hash check).
+- Confirm “Concluir” stays locked until all quizzes in the lesson pass; wrong answer still allows retry.
 - Confirm `CURRICULUM.md` links resolve.
 
 ## Child DOX Index

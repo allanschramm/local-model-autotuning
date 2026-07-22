@@ -111,6 +111,9 @@
       <div class="progress-bar-bg">
         <div class="progress-bar-fill" id="progress-fill"></div>
       </div>
+      <p id="gate-hint" style="font-family: var(--sans); font-size: 0.85rem; color: var(--muted); margin: 0.65rem 0 0;">
+        <strong>Gate de quizzes:</strong> o botão Concluir só libera depois que você acertar todos os quizzes daquela lição.
+      </p>
     </div>
 
     <div class="tools-box" style="background: #f8fafc; border-left: 4px solid var(--accent); padding: 1.2rem; border-radius: 6px; margin-bottom: 2rem;">
@@ -269,13 +272,23 @@
     </footer>
   </div>
 
+  <script src="assets/progress.js"></script>
   <script>
     (function() {
+      const TP = window.TeachProgress;
       const STORAGE_KEY = 'teach_course_progress_v1';
       const checkBtns = document.querySelectorAll('.lesson-card .check-btn');
       const progressFill = document.getElementById('progress-fill');
       const progressText = document.getElementById('progress-text');
       const totalLessons = 10;
+
+      function isLessonCleared(id) {
+        return TP && TP.isLessonCleared(id);
+      }
+
+      function quizPassCount(id) {
+        return TP ? TP.quizPassCount(id) : { done: 0, total: 0 };
+      }
 
       function getCompleted() {
         try {
@@ -405,11 +418,24 @@
           const id = btn.getAttribute('data-target');
           const card = document.querySelector(`.lesson-card[data-lesson-id="${id}"]`);
           const isDone = completed.includes(id);
+          const cleared = isLessonCleared(id);
+          const { done, total } = quizPassCount(id);
+
+          btn.disabled = false;
+          btn.classList.remove('locked');
+          btn.title = '';
 
           if (isDone) {
             btn.textContent = '✓ Concluído';
             btn.classList.add('checked');
             if (card) card.classList.add('completed');
+          } else if (!cleared) {
+            btn.textContent = total ? `Quizzes ${done}/${total}` : 'Quizzes pendentes';
+            btn.classList.remove('checked');
+            btn.classList.add('locked');
+            btn.disabled = true;
+            btn.title = 'Acerte todos os quizzes da lição para desbloquear';
+            if (card) card.classList.remove('completed');
           } else {
             btn.textContent = 'Marcar Concluído';
             btn.classList.remove('checked');
@@ -425,11 +451,20 @@
           if (completed.includes(id)) {
             completed = completed.filter(x => x !== id);
           } else {
+            if (!isLessonCleared(id)) {
+              return;
+            }
             completed.push(id);
           }
           saveCompleted(completed);
           renderProgress();
         });
+      });
+
+      // Re-read gate when returning from a lesson tab
+      window.addEventListener('focus', renderProgress);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) renderProgress();
       });
 
       renderProgress();
