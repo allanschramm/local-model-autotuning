@@ -21,7 +21,7 @@ A partir do **Dia 2**, os exercícios são realizados diretamente **neste reposi
 
 | Slot | Foco (provisório) | Lição |
 |---|---|---|
-| Dia 1 | Parâmetros de qualidade (temperatura, top-k, repetição…) | [s2d1](lessons/s2d1-parametros-qualidade.html) (esqueleto) |
+| Dia 1 | Parâmetros de qualidade (temperatura, top-k, repetição…) | [s2d1](lessons/s2d1-parametros-qualidade.html) |
 | Dia 2 | Skills, skills para desenvolvedores, MCPs | [s2d2](lessons/s2d2-skills-mcps.html) (esqueleto) |
 | Dia 3 | Ambientes isolados (sandbox), automações (hooks), portões de qualidade (gates) | [s2d3](lessons/s2d3-sandbox-hooks-gates.html) (esqueleto) |
 | Dia 4 | Caso de uso com o kit completo | [s2d4](lessons/s2d4-usecase-completo.html) (esqueleto) |

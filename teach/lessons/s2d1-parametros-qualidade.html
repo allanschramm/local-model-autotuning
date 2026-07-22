@@ -3,19 +3,196 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>S2 Dia 1 — Parâmetros de qualidade (esqueleto)</title>
+  <title>S2 Dia 1 — Parâmetros de Qualidade e Amostragem</title>
   <link rel="stylesheet" href="../assets/lesson.css" />
+  <style>
+    .sampler-sim {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1.2rem;
+      margin: 1.5rem 0;
+    }
+    .slider-group {
+      margin-bottom: 1rem;
+    }
+    .slider-group label {
+      font-family: var(--sans);
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      margin-bottom: 0.3rem;
+    }
+    .slider-group input[type="range"] {
+      width: 100%;
+    }
+    .profile-box {
+      background: var(--bg);
+      border-left: 3px solid var(--accent);
+      padding: 0.85rem 1rem;
+      border-radius: 0 4px 4px 0;
+      margin-top: 1rem;
+    }
+  </style>
 </head>
 <body>
   <div class="wrap">
     <header class="site">
-      <p class="eyebrow">Semana 2 · Dia 1 · Qualidade (flexível)</p>
-      <h1>Parâmetros de qualidade — esqueleto</h1>
-      <p class="lede">Temp, top-k, top-p, repetition penalty, etc. Conteúdo fecha com a curadoria — Semana 2 pode mudar.</p>
-      <p class="navlinks"><a href="../CURRICULUM.md">Currículo</a> · <a href="s1d4-usecase-fluxo-zero.html">← Semana 1</a></p>
+      <p class="eyebrow">Semana 2 · Dia 1 · Qualidade e Amostragem</p>
+      <h1>Parâmetros de Qualidade — Otimizando Respostas</h1>
+      <p class="lede">
+        Na Semana 1 ajustamos o motor para rodar o modelo o mais rápido possível (TPS). Hoje aprendemos a controlar a <strong>amostragem (sampling)</strong>: como fazer a IA alternar entre respostas exatas para código/matemática e respostas criativas para escrita.
+      </p>
+      <p class="navlinks">
+        <a href="s1d4-usecase-fluxo-zero.html">← Semana 1</a>
+        <a href="../CURRICULUM.md">Currículo</a>
+        <a href="s2d2-skills-mcps.html">Dia 2 →</a>
+      </p>
     </header>
-    <div class="note">Placeholder. Sem quiz até a aula estar fechada.</div>
-    <footer class="site"><p>Volta quando o Dia 1 da Semana 2 estiver publicado.</p></footer>
+
+    <h2>1. Como a IA escolhe a próxima palavra (Amostragem)</h2>
+    <p>
+      Para cada palavra/token gerado, a IA não decide imediatamente uma única resposta. Ela calcula uma lista de probabilidade contendo milhares de palavras candidatas. Os <strong>parâmetros de amostragem</strong> filtram essa lista e determinam qual candidata será escolhida.
+    </p>
+
+    <h2>2. Os 4 Parâmetros de Qualidade Principais</h2>
+    <dl>
+      <dt>Temperatura (<code>--temp</code>)</dt>
+      <dd>Controla a aleatoriedade. Em <code>0.0</code>, a IA escolhe sempre a palavra #1 mais provável (100% determinístico). Conforme a temperatura sobe (ex.: <code>0.8</code> ou <code>1.2</code>), escolhas menos prováveis ganham chance, aumentando a criatividade.</dd>
+
+      <dt>Top-P (Nucleus Sampling / <code>--top-p</code>)</dt>
+      <dd>Filtra o "núcleo" das melhores opções. Um <code>top-p 0.9</code> considera apenas as palavras cujas probabilidades somadas atingem 90%, descartando os 10% de palavras mais estranhas ou fora de contexto.</dd>
+
+      <dt>Top-K (<code>--top-k</code>)</dt>
+      <dd>Limita a escolha estritamente às K palavras mais prováveis (ex.: <code>top-k 40</code> ignora qualquer palavra abaixo da 40ª posição).</dd>
+
+      <dt>Penalidade de Repetição (<code>--repeat-penalty</code>)</dt>
+      <dd>Impede que a IA entre em loops infinitos repetindo a mesma frase. Um valor como <code>1.1</code> penaliza levemente tokens recém-usados, forçando o modelo a diversificar o vocabulário.</dd>
+    </dl>
+
+    <h2>3. Simulador Interativo de Amostragem</h2>
+    <p>Mova os seletores abaixo para entender o comportamento do modelo em tempo real:</p>
+
+    <div class="sampler-sim">
+      <div class="slider-group">
+        <label for="temp-range">
+          <span>Temperatura (<code>--temp</code>):</span>
+          <span id="temp-val">0.7</span>
+        </label>
+        <input type="range" id="temp-range" min="0.0" max="1.5" step="0.1" value="0.7" />
+      </div>
+
+      <div class="slider-group">
+        <label for="topp-range">
+          <span>Top-P (<code>--top-p</code>):</span>
+          <span id="topp-val">0.9</span>
+        </label>
+        <input type="range" id="topp-range" min="0.1" max="1.0" step="0.05" value="0.9" />
+      </div>
+
+      <div class="slider-group">
+        <label for="rep-range">
+          <span>Penalidade de Repetição (<code>--repeat-penalty</code>):</span>
+          <span id="rep-val">1.1</span>
+        </label>
+        <input type="range" id="rep-range" min="1.0" max="1.5" step="0.05" value="1.1" />
+      </div>
+
+      <div class="profile-box" id="profile-output">
+        <!-- Preenchido via JS -->
+      </div>
+    </div>
+
+    <h2>Prática (Validação do Dia 1)</h2>
+    <p class="note">Quiz: Controle de Amostragem e Parâmetros de Qualidade.</p>
+
+    <div class="quiz" data-quiz data-lesson="s2d1-q1"
+         data-answer-hash="7f97bd2cfdbbe7f08bd94a6a7e2b2dc8f55982fcd6517978b5e72dace11646d7"
+         data-ok="Correto! Temperatura 0.0 garante respostas 100% consistentes e sem invenções para código e matemática."
+         data-bad="Para tarefas exatas como código ou matemática, a temperatura ideal é 0.0 (determinística).">
+      <p class="q">Qual configuração de Temperatura é recomendada para gerar código de programação ou resolver cálculos exatos?</p>
+      <div class="choices">
+        <button type="button" data-choice="A">Temperatura 0.0 (modo determinístico / exato)</button>
+        <button type="button" data-choice="B">Temperatura 1.5 (máxima aleatoriedade)</button>
+        <button type="button" data-choice="C">Temperatura 5.0 (poética)</button>
+        <button type="button" data-choice="D">Qualquer temperatura ativada no Git</button>
+      </div>
+      <p class="feedback" data-feedback></p>
+    </div>
+
+    <div class="quiz" data-quiz data-lesson="s2d1-q2"
+         data-answer-hash="f20ea5ee7a319271bedae0b23d08eca1483c5f6372f7ccc4d29ea6d35b5802f7"
+         data-ok="Isso mesmo! A penalidade de repetição evita que a IA fique presa repetindo as mesmas frases."
+         data-bad="A penalidade de repetição serve para evitar que a IA entre em loops de frases repetidas.">
+      <p class="q">Qual é o papel principal do parâmetro Penalidade de Repetição (`--repeat-penalty`)?</p>
+      <div class="choices">
+        <button type="button" data-choice="A">Desligar a GPU se o texto for muito longo</button>
+        <button type="button" data-choice="B">Desencorajar a IA de repetir as mesmas palavras e frases em loop</button>
+        <button type="button" data-choice="C">Apagar as mensagens antigas da conversa</button>
+        <button type="button" data-choice="D">Aumentar a memória VRAM do computador</button>
+      </div>
+      <p class="feedback" data-feedback></p>
+    </div>
+
+    <h2>Próximo</h2>
+    <p><a href="s2d2-skills-mcps.html">Dia 2 — Skills e MCPs</a></p>
+
+    <footer class="site">
+      <p><strong>Curso de IA Local · Semana 2 · Qualidade e Amostragem.</strong></p>
+    </footer>
   </div>
+
+  <script>
+    (function() {
+      const tempRange = document.getElementById('temp-range');
+      const toppRange = document.getElementById('topp-range');
+      const repRange = document.getElementById('rep-range');
+      
+      const tempVal = document.getElementById('temp-val');
+      const toppVal = document.getElementById('topp-val');
+      const repVal = document.getElementById('rep-val');
+      const profileOut = document.getElementById('profile-output');
+
+      function updateSim() {
+        const temp = parseFloat(tempRange.value);
+        const topp = parseFloat(toppRange.value);
+        const rep = parseFloat(repRange.value);
+
+        tempVal.textContent = temp.toFixed(1);
+        toppVal.textContent = topp.toFixed(2);
+        repVal.textContent = rep.toFixed(2);
+
+        let modeName = "";
+        let desc = "";
+
+        if (temp === 0.0) {
+          modeName = "🎯 Modo Exato / Código & Matemática";
+          desc = "A IA escolhe estritamente os tokens de maior probabilidade. Respostas 100% previsíveis, perfeitas para programação, lógica e extração de dados.";
+        } else if (temp <= 0.5) {
+          modeName = "📘 Modo Técnico / Artigo";
+          desc = "Respostas focadas e formais com baixíssima variação. Excelente para resumos precisos e tradução literal.";
+        } else if (temp <= 0.9) {
+          modeName = "💬 Modo Conversa Equilibrada (Padrão)";
+          desc = "O equilíbrio ideal para assistentes gerais: mantém o contexto correto com fluência natural e respostas variadas.";
+        } else {
+          modeName = "🎨 Modo Brainstorming & Escrita Criativa";
+          desc = "Alta aleatoriedade. A IA explora palavras incomuns. Excelente para criar nomes, poemas ou enredos de ficção.";
+        }
+
+        profileOut.innerHTML = `
+          <p style="margin:0 0 0.3rem"><strong>${modeName}</strong></p>
+          <p style="margin:0"><em>${desc}</em></p>
+        `;
+      }
+
+      tempRange.addEventListener('input', updateSim);
+      toppRange.addEventListener('input', updateSim);
+      repRange.addEventListener('input', updateSim);
+
+      updateSim();
+    })();
+  </script>
+  <script type="module" src="../assets/quiz.js"></script>
 </body>
 </html>
