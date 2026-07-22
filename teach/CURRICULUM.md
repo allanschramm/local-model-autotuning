@@ -1,5 +1,11 @@
 # Currículo do curso: Ensinar qualquer um a rodar IA Local
 
+## Módulo 0 — Fundação Conceitual do Zero (para leigos)
+
+| Slot | Foco | Lição HTML |
+|---|---|---|
+| **Fundamentos** | Como funcionam as IAs, Nuvem vs Local, Hardware (CPU/GPU/VRAM), Quantização | [m0](lessons/s0d1-fundamentos-ia-hardware.html) |
+
 ## Semana 1 — Desempenho bruto (fechada)
 
 | Slot | Foco | Lição HTML |

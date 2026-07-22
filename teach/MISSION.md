@@ -4,6 +4,13 @@
 Ensinar qualquer pessoa a **rodar IA Local no próprio computador com alto desempenho** (Semana 1) e, em seguida, **garantir a qualidade de uso** (Semana 2: amostragem, habilidades, validações). O repositório é o ambiente de aprendizado prático.
 
 ## Como é o sucesso
+### Módulo 0 — Fundação Conceitual do Zero (para leigos)
+- O que é um LLM de forma intuitiva (pesos no disco, contexto na memória, tokens)
+- Nuvem vs Local (privacidade, custo zero por token, controle, offline)
+- Hardware 101 (CPU vs GPU, RAM vs VRAM, o papel crítico da memória de vídeo)
+- O milagre da Quantização (GGUF Q4 vs Q8 - analogia com compressão de imagem)
+- Calculadora interativa de compatibilidade de VRAM
+
 ### Semana 1 — Desempenho bruto (escopo fechado)
 - Mini-glossário Dia 1 (motor, modelo, quant, VRAM, KV, TPS, API/harness) — simplificado para leigos
 - Distinguir **motor de inferência** vs **modelo** vs **quant**

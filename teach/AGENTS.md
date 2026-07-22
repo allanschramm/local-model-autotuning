@@ -1,13 +1,14 @@
 # Teach — Course Materials
 
 ## Purpose
-Course materials to teach anyone to run local AI from scratch: local LLM performance (Semana 1) then quality (Semana 2). HTML lessons, quizzes, curriculum.
+Course materials to teach anyone to run local AI from scratch: conceptual foundations for beginners (Módulo 0), local LLM performance (Semana 1), then quality (Semana 2). HTML lessons, quizzes, curriculum.
 
 ## Ownership
 Course operator / instructors. Not part of the autotuning runtime loop.
 
 ## Local Contracts
 - Purpose of repo course: teach anyone to run local AI from scratch.
+- Módulo 0: Conceptual foundations for absolute beginners (AI basics, Cloud vs Local, CPU/GPU/VRAM, Quantization, interactive VRAM calculator).
 - Semana 1 scope locked: TPS / performance only — no model-quality scoring.
 - Semana 2 may change; skeletons OK until topics lock.
 - Quizzes: hashed answers only (`assets/QUIZ-HASH.md`); options simplified in pt-BR for beginners (no LM Studio references in quizzes).

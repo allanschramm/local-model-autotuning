@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Módulo 0 — Como funcionam as IAs e o Hardware do PC</title>
+  <link rel="stylesheet" href="../assets/lesson.css" />
+  <style>
+    .vram-calc {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1.2rem;
+      margin: 1.5rem 0;
+    }
+    .vram-calc label {
+      font-family: var(--sans);
+      font-weight: 600;
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+    .vram-calc select {
+      font-family: var(--sans);
+      font-size: 1rem;
+      padding: 0.5rem;
+      width: 100%;
+      max-width: 20rem;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      margin-bottom: 1rem;
+    }
+    .calc-result {
+      background: var(--bg);
+      border-left: 3px solid var(--accent);
+      padding: 0.85rem 1rem;
+      border-radius: 0 4px 4px 0;
+      font-size: 0.95rem;
+    }
+    .calc-result strong {
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <p class="eyebrow">Módulo 0 · Fundação Conceitual · Do Zero Absoluto</p>
+      <h1>Como funcionam as IAs e o Hardware do seu PC</h1>
+      <p class="lede">
+        Antes de baixar qualquer programa ou modelo, entenda o que acontece por trás dos panos: como uma IA "pensa", por que a memória da placa de vídeo (VRAM) é o fator mais valioso, e como rodar modelos 100% locais sem depender de servidores na nuvem.
+      </p>
+      <p class="navlinks">
+        <a href="../CURRICULUM.md">Currículo</a>
+        <a href="../MISSION.md">Missão</a>
+        <a href="s1d1-lmstudio-avisos-motores-api.html">Dia 1 →</a>
+      </p>
+    </header>
+
+    <h2>1. O que é uma IA (LLM) de forma intuitiva?</h2>
+    <p>
+      Esqueça a ideia de um "cérebro consciente". Um <strong>LLM (Large Language Model)</strong> é um sistema estatístico ultra-avançado de <em>autocompletar texto</em>.
+    </p>
+    <dl>
+      <dt>Pesos do Modelo (Conhecimento congelado)</dt>
+      <dd>Salvos em um arquivo no disco (ex.: <code>.gguf</code>). São bilhões de conexões matemáticas pré-treinadas a partir de livros, sites e dados da internet.</dd>
+      <dt>Janela de Contexto (Mesa de trabalho)</dt>
+      <dd>A memória temporária da conversa atual. Tudo o que você digita e o que a IA responde fica registrado aqui enquanto a sessão durar.</dd>
+      <dt>Tokens (As peças do quebra-cabeça)</dt>
+      <dd>A IA não lê letras nem palavras inteiras. Ela divide o texto em pedaços chamados <strong>tokens</strong> (1 token ≈ 4 caracteres ou 0.75 palavras em inglês/português).</dd>
+    </dl>
+    <p class="note">Anatomia simples: Pesos no disco (livro de referência) + Contexto na memória (sua pergunta atual) = Resposta gerada token por token.</p>
+
+    <h2>2. Nuvem vs Local: Por que rodar na sua própria máquina?</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Característica</th>
+          <th>IA na Nuvem (ChatGPT, Claude)</th>
+          <th>IA Local (Seu Computador)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Privacidade</strong></td>
+          <td>Dados trafegam pela internet e podem ser auditados.</td>
+          <td><strong>100% privada.</strong> Nenhum dado sai do seu computador.</td>
+        </tr>
+        <tr>
+          <td><strong>Custo</strong></td>
+          <td>Assinatura mensal ou cobrança por token.</td>
+          <td><strong>R$ 0 por token.</strong> Funciona sem custo recorrente.</td>
+        </tr>
+        <tr>
+          <td><strong>Conectividade</strong></td>
+          <td>Exige internet estável e servidores ativos.</td>
+          <td><strong>Funciona 100% offline.</strong> Sem dependência externa.</td>
+        </tr>
+        <tr>
+          <td><strong>Controle</strong></td>
+          <td>Sujeita a limites de taxa e filtros da empresa.</td>
+          <td>Controle total de parâmetros, velocidade e modelos.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>3. Hardware 101: A anatomia do computador para IA</h2>
+    <p>Para rodar IA local com bom desempenho, 3 componentes principais importam:</p>
+    <ul>
+      <li><strong>CPU (Processador):</strong> O "gerente geral". Excelente para tarefas sequenciais, mas lento para calcular bilhões de números em paralelo.</li>
+      <li><strong>GPU (Placa de Vídeo):</strong> A "fábrica massiva". Possui milhares de núcleos pequenos operando ao mesmo tempo. É o motor principal da IA.</li>
+      <li><strong>VRAM (Memória de Vídeo):</strong> O terreno mais nobre e rápido do seu computador. É a memória dedicada da placa de vídeo onde a IA precisa ficar armazenada para rodar rápido.</li>
+    </ul>
+
+    <p><strong>E a RAM do sistema?</strong> Se o modelo não couber na VRAM da GPU, ele pode ser dividido com a RAM principal (chamamos isso de <em>offload</em>). No entanto, a RAM é muito mais lenta que a VRAM, o que reduz a velocidade de geração (TPS).</p>
+
+    <h3>O milagre da Quantização (GGUF)</h3>
+    <p>
+      Um modelo original em precisão total exige dezenas ou centenas de Gigabytes de VRAM. A <strong>quantização</strong> reduz a precisão matemática de cada peso (ex.: de 16-bit para 4-bit, como <code>Q4_K_M</code>).
+    </p>
+    <p class="note">
+      <strong>Analogia da foto:</strong> A quantização é como converter uma imagem PNG 4K pesada em um JPG otimizado: ocupa 75% menos espaço na VRAM mantendo 95% da nitidez e qualidade original.
+    </p>
+
+    <h2>4. Widget Interativo: Qual modelo sua GPU aguenta?</h2>
+    <p>Selecione a memória dedicada de vídeo (VRAM) da sua GPU para ver a recomendação prática:</p>
+
+    <div class="vram-calc">
+      <label for="vram-select">Selecione sua VRAM da GPU:</label>
+      <select id="vram-select">
+        <option value="4">4 GB de VRAM (GPUs de entrada / Notebooks)</option>
+        <option value="6">6 GB de VRAM (GPUs intermediárias leves)</option>
+        <option value="8" selected>8 GB de VRAM (GPUs populares: RTX 3060/4060, RX 6600)</option>
+        <option value="12">12 GB de VRAM (RTX 3060 12GB / 4070)</option>
+        <option value="16">16 GB de VRAM (RTX 4060 Ti 16GB / 4080)</option>
+        <option value="24">24 GB de VRAM (RTX 3090 / 4090 / Mac M-Series 32GB+)</option>
+      </select>
+
+      <div class="calc-result" id="calc-output">
+        <!-- JS preenche aqui -->
+      </div>
+    </div>
+
+    <h2>Prática (Validação do Módulo 0)</h2>
+    <p class="note">Quiz de fixação: Conceitos de IA, Hardware e Quantização.</p>
+
+    <div class="quiz" data-quiz data-lesson="s0d1-q1"
+         data-answer-hash="c39dc1c8bb3d06ec870c7b98df34ef4e7e7a6bb083a82ca2b2a31963009b6dba"
+         data-ok="Exato! Os pesos do modelo são o arquivo estático com o conhecimento aprendido."
+         data-bad="Lembre-se: os pesos do modelo são o arquivo salvo no disco rígido.">
+      <p class="q">O que representam os "pesos" de um modelo de IA local (arquivo .gguf)?</p>
+      <div class="choices">
+        <button type="button" data-choice="A">O arquivo estático no disco com as conexões matemáticas aprendidas no treinamento</button>
+        <button type="button" data-choice="B">O peso físico do computador em quilos</button>
+        <button type="button" data-choice="C">O valor da conta de luz mensal do computador</button>
+        <button type="button" data-choice="D">A lista de mensagens temporárias da conversa atual</button>
+      </div>
+      <p class="feedback" data-feedback></p>
+    </div>
+
+    <div class="quiz" data-quiz data-lesson="s0d1-q2"
+         data-answer-hash="702eb3a31de7679ba9e2efdd7aa1edbb51216ab4e1ba09e91f52ef6de0141926"
+         data-ok="Correto! A VRAM é a memória ultrarrápida da placa de vídeo onde o modelo deve ser mantido."
+         data-bad="O fator principal para a alta velocidade (TPS) é colocar o modelo na memória ultrarrápida da GPU (VRAM).">
+      <p class="q">Por que a VRAM da placa de vídeo (GPU) é o recurso mais crítico para o desempenho da IA local?</p>
+      <div class="choices">
+        <button type="button" data-choice="A">Porque a VRAM armazena fotos e vídeos pessoais do usuário</button>
+        <button type="button" data-choice="B">Porque a VRAM é a memória ultrarrápida onde a GPU lê bilhões de parâmetros por segundo</button>
+        <button type="button" data-choice="C">Porque sem VRAM o computador não consegue ligar na tomada</button>
+        <button type="button" data-choice="D">Porque a VRAM substitui o acesso à internet</button>
+      </div>
+      <p class="feedback" data-feedback></p>
+    </div>
+
+    <div class="quiz" data-quiz data-lesson="s0d1-q3"
+         data-answer-hash="93b4b9033e9ee9f4c79cca926da5df0fe3fe9a3a2e0330eb6a5d2cb9318a1a59"
+         data-ok="Isso mesmo! Quantização comprime os pesos reduzindo a VRAM necessária com perda imperceptível de qualidade."
+         data-bad="A quantização comprime o arquivo do modelo para usar menos memória (VRAM).">
+      <p class="q">O que a quantização (ex.: transformar um modelo em Q4_K_M) faz com o arquivo da IA?</p>
+      <div class="choices">
+        <button type="button" data-choice="A">Deleta respostas incorretas da IA</button>
+        <button type="button" data-choice="B">Aumenta o tamanho do arquivo em 10 vezes</button>
+        <button type="button" data-choice="C">Comprime a precisão dos dados para ocupar menos VRAM mantendo ótima qualidade</button>
+        <button type="button" data-choice="D">Traduza o modelo automaticamente para português</button>
+      </div>
+      <p class="feedback" data-feedback></p>
+    </div>
+
+    <h2>Próximo Passo</h2>
+    <p>
+      Agora que você compreende a base conceitual e o hardware, avance para o <strong>Semana 1 · Dia 1</strong> para ver como colocar isso em prática com motores de inferência e API local —
+      <a href="s1d1-lmstudio-avisos-motores-api.html">Ir para o Dia 1 →</a>.
+    </p>
+
+    <footer class="site">
+      <p><strong>Curso de IA Local do Zero · Módulo 0 de Aprendizado Fundamental.</strong></p>
+    </footer>
+  </div>
+
+  <script>
+    const vramData = {
+      "4": {
+        recommended: "Modelos compactos de 1B a 3B parâmetros (ex.: Qwen2.5-3B Q4_K_M, Llama-3.2-3B Q4_K_M).",
+        tps: "Rápido (~30-60 TPS) em 100% VRAM.",
+        note: "Ideal para tarefas diretas, resumos e código simples em máquinas de entrada."
+      },
+      "6": {
+        recommended: "Modelos de 3B a 7B parâmetros (ex.: Qwen2.5-3B Q8 ou Qwen2.5-7B Q4_K_S).",
+        tps: "Excelente (~35-50 TPS).",
+        note: "Modelos de 7B em Q4 vão rodar quase inteiros na VRAM."
+      },
+      "8": {
+        recommended: "Modelos de 7B a 8B parâmetros (ex.: Llama-3.1-8B Q4_K_M, Qwen2.5-7B Q4_K_M).",
+        tps: "Excelente (~40-60 TPS).",
+        note: "O 'sweet spot' clássico para IA local doméstica em 100% VRAM."
+      },
+      "12": {
+        recommended: "Modelos de 8B a 14B parâmetros (ex.: Qwen2.5-14B Q4_K_M) ou 8B em alta precisão (Q8).",
+        tps: "Ultra rápido (~45-70 TPS).",
+        note: "Espaço confortável para contexto longo (16k+ tokens) sem estourar memória."
+      },
+      "16": {
+        recommended: "Modelos de 14B a 32B (Q4) ou modelos MoE com offload parcial.",
+        tps: "Muito rápido (~35-65 TPS).",
+        note: "Permite modelos de raciocínio avançado mantendo a maior parte na VRAM."
+      },
+      "24": {
+        recommended: "Modelos de 32B (ex.: Qwen2.5-32B Q4_K_M) ou MoE (ex.: Mixtral 8x7B / DeepSeek-R1-Distill-32B).",
+        tps: "Desempenho máximo (~40-80 TPS).",
+        note: "Capacidade de nível profissional no seu próprio computador."
+      }
+    };
+
+    const selectEl = document.getElementById('vram-select');
+    const outputEl = document.getElementById('calc-output');
+
+    function updateCalc() {
+      const val = selectEl.value;
+      const data = vramData[val];
+      outputEl.innerHTML = `
+        <p style="margin:0 0 0.3rem"><strong>Recomendação:</strong> ${data.recommended}</p>
+        <p style="margin:0 0 0.3rem"><strong>Velocidade Estimada:</strong> ${data.tps}</p>
+        <p style="margin:0"><em>${data.note}</em></p>
+      `;
+    }
+
+    selectEl.addEventListener('change', updateCalc);
+    updateCalc();
+  </script>
+
+  <script type="module" src="../assets/quiz.js"></script>
+</body>
+</html>
