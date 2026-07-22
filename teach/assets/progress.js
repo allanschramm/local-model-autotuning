@@ -1,10 +1,11 @@
 /**
- * Shared lesson progress + quiz gate (localStorage).
+ * Shared published-lesson progress, quiz gate, and practice gate (localStorage).
  * Classic script (no ES modules) so file:// works offline.
- * "Concluir" on index.html unlocks only after every quiz in the lesson slot passes.
+ * "Concluir" on index.html unlocks after quiz + practice for published lessons.
  */
 (function (global) {
   const QUIZ_PASS_KEY = "teach_quiz_pass_v1";
+  const PRACTICE_PASS_KEY = "teach_practice_pass_v1";
 
   /** lessonSlot → required quiz ids (must match data-lesson on each .quiz) */
   const LESSON_QUIZZES = {
@@ -52,27 +53,13 @@
       href: "lessons/s1d4-usecase-fluxo-zero.html",
       title: "Semana 1 · Dia 4 — Caso de uso",
     },
-    {
-      id: "s2d1",
-      href: "lessons/s2d1-parametros-qualidade.html",
-      title: "Semana 2 · Dia 1 — Amostragem",
-    },
-    {
-      id: "s2d2",
-      href: "lessons/s2d2-skills-mcps.html",
-      title: "Semana 2 · Dia 2 — Skills e MCPs",
-    },
-    {
-      id: "s2d3",
-      href: "lessons/s2d3-sandbox-hooks-gates.html",
-      title: "Semana 2 · Dia 3 — Sandbox / hooks / gates",
-    },
-    {
-      id: "s2d4",
-      href: "lessons/s2d4-usecase-completo.html",
-      title: "Semana 2 · Dia 4 — Projeto integrado",
-    },
   ];
+
+  function isPublishedLesson(lessonSlot) {
+    return LESSON_ORDER.some(function (lesson) {
+      return lesson.id === lessonSlot;
+    });
+  }
 
   function lessonSlotFromQuizId(quizId) {
     return String(quizId || "").replace(/-q\d+$/, "");
@@ -102,6 +89,32 @@
 
   function isQuizPassed(quizId) {
     return getPassedQuizzes().includes(quizId);
+  }
+
+  function getPracticeModes() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(PRACTICE_PASS_KEY) || "{}");
+      return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function getPracticeMode(lessonSlot) {
+    const mode = getPracticeModes()[lessonSlot];
+    return mode === "real" || mode === "simulated" ? mode : null;
+  }
+
+  function markPractice(lessonSlot, mode) {
+    if (mode !== "real" && mode !== "simulated") return null;
+    const practices = getPracticeModes();
+    practices[lessonSlot] = mode;
+    try {
+      localStorage.setItem(PRACTICE_PASS_KEY, JSON.stringify(practices));
+    } catch (e) {
+      console.warn("Não foi possível salvar a prática:", e);
+    }
+    return mode;
   }
 
   function isLessonCleared(lessonSlot) {
@@ -137,6 +150,21 @@
     return "Quizzes: " + counts.done + "/" + counts.total + " — acerte todos para desbloquear Concluir";
   }
 
+  function isLessonReady(lessonSlot) {
+    return isPublishedLesson(lessonSlot) && isLessonCleared(lessonSlot) && Boolean(getPracticeMode(lessonSlot));
+  }
+
+  function lessonProgressLabel(lessonSlot) {
+    const counts = quizPassCount(lessonSlot);
+    const practice = getPracticeMode(lessonSlot);
+    if (counts.done < counts.total) {
+      return "Quizzes: " + counts.done + "/" + counts.total + " — acerte todos para continuar";
+    }
+    if (!practice) return "Quizzes OK — conclua a missão prática";
+    if (practice === "simulated") return "Aula liberada — prática simulada; execução real pendente";
+    return "Aula liberada — quizzes e prática real concluídos";
+  }
+
   /** First lesson in curriculum order not yet marked Concluído. */
   function getNextLesson(completedIds) {
     const done = {};
@@ -151,15 +179,21 @@
 
   global.TeachProgress = {
     QUIZ_PASS_KEY: QUIZ_PASS_KEY,
+    PRACTICE_PASS_KEY: PRACTICE_PASS_KEY,
     LESSON_QUIZZES: LESSON_QUIZZES,
     LESSON_ORDER: LESSON_ORDER,
+    isPublishedLesson: isPublishedLesson,
     lessonSlotFromQuizId: lessonSlotFromQuizId,
     getPassedQuizzes: getPassedQuizzes,
     markQuizPassed: markQuizPassed,
     isQuizPassed: isQuizPassed,
+    getPracticeMode: getPracticeMode,
+    markPractice: markPractice,
     isLessonCleared: isLessonCleared,
     quizPassCount: quizPassCount,
     quizProgressLabel: quizProgressLabel,
+    isLessonReady: isLessonReady,
+    lessonProgressLabel: lessonProgressLabel,
     getNextLesson: getNextLesson,
   };
 })(typeof window !== "undefined" ? window : globalThis);

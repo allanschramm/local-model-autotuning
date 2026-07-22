@@ -60,6 +60,12 @@
       </p>
     </header>
 
+    <section class="lesson-meta" aria-label="Resumo da aula">
+      <p><strong>Resultado:</strong><br />Diagnosticar OOM, conflito de porta e saída quebrada.</p>
+      <p><strong>Duração:</strong><br />20–30 minutos.</p>
+      <p><strong>Pré-requisito:</strong><br />Módulo 0 · Dia 1.</p>
+    </section>
+
     <h2>1. O Guia de Primeiros Socorros</h2>
     <p>Abaixo estão os 3 erros mais frequentes enfrentados por iniciantes ao executar modelos com llama.cpp ou APIs locais:</p>
 
@@ -68,25 +74,25 @@
       <strong>Sintoma:</strong> O terminal fecha sozinho do nada ou exibe a mensagem <code>CUDA out of memory</code> ou <code>failed to allocate buffer</code>.
     </p>
     <p>
-      <strong>Causa:</strong> Você tentou carregar mais camadas do modelo na VRAM da GPU do que a sua placa consegue armazenar.
+      <strong>Causa:</strong> Modelo, contexto e KV exigem mais VRAM física do que a GPU possui.
     </p>
     <p class="note">
       <strong>Solução rápida:</strong><br />
-      1. Reduza a memória de contexto para <code>-c 4096</code> ou <code>-c 2048</code>.<br />
-      2. Reduza a quantidade de camadas enviadas para a GPU em <code>-ngl</code> (ex.: troque <code>-ngl 99</code> por <code>-ngl 35</code>).<br />
-      3. Baixe uma quantização menor (ex.: troque Q8 por <code>Q4_K_M</code>).
+      1. Reduza o <code>CTX_SIZE</code> configurado, sem passar do mínimo 2048.<br />
+      2. Use KV quantizado e remova draft especulativo, se estiver ativo.<br />
+      3. Escolha um GGUF menor. Modelo denso deve caber inteiro na VRAM física; não reduza <code>-ngl</code> para derramar camadas na RAM.
     </p>
 
     <h3>Erro #2: Porta de API Ocupada (Address already in use)</h3>
     <p>
-      <strong>Sintoma:</strong> O servidor de API local falha com a mensagem <code>failed to bind port 8080</code> ou <code>WINSOCK error</code>.
+      <strong>Sintoma:</strong> O servidor de API local falha com a mensagem <code>failed to bind port 18080</code> ou <code>WINSOCK error</code>.
     </p>
     <p>
       <strong>Causa:</strong> Já existe um servidor antigo rodando em segundo plano no seu computador usando essa mesma porta de rede.
     </p>
     <p class="note">
       <strong>Solução rápida:</strong><br />
-      Passe a flag <code>--port 8081</code> no comando para rodar em uma porta livre, ou feche o servidor antigo abrindo o Gerenciador de Tarefas do Windows.
+      Pare a instância antiga com <code>.\venv\Scripts\python.exe scripts\serve-config.py stop</code> e suba novamente com <code>serve-config.py serve</code>. Se outro aplicativo possuir a porta, ajuste a configuração desse serviço conscientemente.
     </p>
 
     <h3>Erro #3: A IA gera caracteres estranhos ou repetições infinitas</h3>
@@ -107,7 +113,7 @@
     <div class="diag-box">
       <div class="diag-buttons">
         <button type="button" class="diag-btn active" data-diag="oom">💥 O terminal fechou sozinho (OOM)</button>
-        <button type="button" class="diag-btn" data-diag="port">🚫 Erro "Port 8080 already in use"</button>
+        <button type="button" class="diag-btn" data-diag="port">🚫 Erro "Port 18080 already in use"</button>
         <button type="button" class="diag-btn" data-diag="slow">🐢 IA gerando respostas muito lentas</button>
         <button type="button" class="diag-btn" data-diag="junk">🌀 Gerando símbolos estranhos / loops</button>
       </div>
@@ -117,16 +123,26 @@
       </div>
     </div>
 
-    <h2>Prática (Validação do Dia 2)</h2>
+    <section class="practice" data-practice data-lesson="s0d2">
+      <h2>Missão prática</h2>
+      <p><strong>Rota real:</strong> use o diagnosticador para classificar um sintoma que você encontrou. <strong>Rota simulada:</strong> selecione OOM e explique por que reduzir contexto ou modelo é mais seguro que dividir um denso com a RAM.</p>
+      <div class="practice-actions">
+        <button type="button" data-practice-mode="real" aria-pressed="false">Diagnostiquei um caso real</button>
+        <button type="button" data-practice-mode="simulated" aria-pressed="false">Concluí o cenário simulado</button>
+      </div>
+      <p class="practice-status" data-practice-feedback role="status"></p>
+    </section>
+
+    <h2>Quiz de validação</h2>
     <p class="note">Quiz de fixação: Solução de problemas de hardware e servidor.</p>
 
     <div class="quiz" data-quiz data-lesson="s0d2-q1"
          data-answer-hash="23e88521197c3290eb76a60db9fead161e9bcf2b4925ef64833a385923f9f771"
-         data-ok="Exato! Reduzir o contexto (-c) ou as camadas da GPU (-ngl) libera espaço na VRAM imediatamente."
-         data-bad="Se a memória de vídeo esgotar (OOM), você deve reduzir a carga da GPU diminuindo o contexto (-c) ou as camadas (-ngl).">
+         data-ok="Exato! Reduza contexto/KV ou escolha um modelo menor que caiba inteiro na VRAM física."
+         data-bad="Modelo denso não deve derramar para RAM: reduza contexto/KV ou escolha um GGUF menor.">
       <p class="q">O que você deve fazer se o comando do llama.cpp fechar com erro de memória de vídeo esgotada (CUDA Out of Memory)?</p>
       <div class="choices">
-        <button type="button" data-choice="A">Reduzir o tamanho do contexto (`-c`) ou o número de camadas enviadas para a GPU (`-ngl`)</button>
+        <button type="button" data-choice="A">Reduzir contexto/KV ou escolher um modelo denso menor que caiba inteiro na VRAM física</button>
         <button type="button" data-choice="B">Reiniciar o roteador de internet da casa</button>
         <button type="button" data-choice="C">Mudar o nome do arquivo para .txt</button>
         <button type="button" data-choice="D">Comprar uma tela nova para o computador</button>
@@ -136,11 +152,11 @@
 
     <div class="quiz" data-quiz data-lesson="s0d2-q2"
          data-answer-hash="3ad435692a66c58a9e88b2e5798fda03070de5f8b852066cf8984b6133a3a33c"
-         data-ok="Correto! Especificar uma porta alternativa como --port 8081 resolve o conflito sem afetar outros programas."
-         data-bad="Para contornar o conflito de porta 8080 em uso, adicione a flag `--port 8081` no seu comando.">
-      <p class="q">Como resolver rapidamente a mensagem de erro "Port 8080 already in use" ao ligar o `llama-server`?</p>
+         data-ok="Correto! Pare a instância antiga ou escolha conscientemente outra porta no serviço."
+         data-bad="Descubra quem usa a porta; pare a instância antiga ou configure outra porta no serviço.">
+      <p class="q">Como resolver rapidamente a mensagem de erro "Port 18080 already in use" ao ligar o servidor?</p>
       <div class="choices">
-        <button type="button" data-choice="A">Adicionar a flag `--port 8081` no comando para rodar em uma porta livre de rede</button>
+        <button type="button" data-choice="A">Parar a instância antiga ou configurar conscientemente outra porta livre no serviço</button>
         <button type="button" data-choice="B">Desinstalar a placa de vídeo do computador</button>
         <button type="button" data-choice="C">Apagar a pasta models do projeto</button>
         <button type="button" data-choice="D">Desligar o Wi-Fi</button>
@@ -154,8 +170,10 @@
       <a href="s1d1-lmstudio-avisos-motores-api.html">Acessar Semana 1 · Dia 1 →</a>.
     </p>
 
+    <p class="source-note"><strong>Fonte oficial opcional:</strong> <a href="https://github.com/ggml-org/llama.cpp/blob/master/docs/build.md">memória e build no llama.cpp</a>.</p>
+
     <footer class="site">
-      <p><strong>Workshop AILOCAL Essentials · Módulo 0 · Diagnóstico de Erros.</strong></p>
+      <p><strong>Workshop AILOCAL Essentials · Módulo 0.</strong> Ficou alguma dúvida? Pergunte ao tutor.</p>
     </footer>
   </div>
 
@@ -168,17 +186,17 @@
         "oom": {
           title: "💥 Out of Memory (Memória VRAM Esgotada)",
           cause: "O modelo e a janela de contexto exigem mais memória de vídeo do que a sua GPU possui disponível.",
-          fix: "<strong>Como resolver:</strong><br />1. Execute o script de recomendação: <code>.\\venv\\Scripts\\python.exe scripts/check_hardware.py</code>.<br />2. Reduza a memória de contexto: <code>-c 4096</code>.<br />3. Reduza o offload para a GPU: de <code>-ngl 99</code> para <code>-ngl 30</code>."
+          fix: "<strong>Como resolver:</strong><br />1. Rode <code>.\\venv\\Scripts\\python.exe scripts/check_hardware.py</code>.<br />2. Reduza <code>CTX_SIZE</code>/KV ou remova o draft.<br />3. Se for denso, escolha um GGUF menor que caiba inteiro na VRAM física."
         },
         "port": {
-          title: "🚫 Porta de API Ocupada (Port 8080 already in use)",
-          cause: "Outro aplicativo ou uma janela antiga do <code>llama-server</code> já está escutando na porta 8080.",
-          fix: "<strong>Como resolver:</strong><br />1. Inicie o servidor em uma porta alternativa: <code>--port 8081</code>.<br />2. Valide se a API respondeu rodando: <code>.\\venv\\Scripts\\python.exe scripts/verify_setup.py</code>."
+          title: "🚫 Porta de API Ocupada (Port 18080 already in use)",
+          cause: "Outro aplicativo ou uma janela antiga do <code>llama-server</code> já está escutando na porta 18080.",
+          fix: "<strong>Como resolver:</strong><br />1. Pare a instância antiga com <code>.\\venv\\Scripts\\python.exe scripts/serve-config.py stop</code>.<br />2. Suba a configuração atual novamente com <code>serve-config.py serve</code>."
         },
         "slow": {
           title: "🐢 Respostas Lentíssimas (Poucos TPS)",
-          cause: "O modelo está rodando na CPU (RAM principal) porque as camadas não foram enviadas para a GPU.",
-          fix: "<strong>Como resolver:</strong><br />1. Certifique-se de passar <code>-ngl 99</code> para jogar todas as camadas na VRAM.<br />2. Ative a flag <code>-fa on</code> (Flash Attention).<br />3. Meça seu TPS real rodando: <code>.\\venv\\Scripts\\python.exe scripts/verify_setup.py</code>."
+          cause: "A configuração pode exceder a VRAM física, usar contexto excessivo ou estar sem aceleração disponível.",
+          fix: "<strong>Como resolver:</strong><br />1. Confirme que o denso cabe inteiro na VRAM física.<br />2. Mantenha Flash Attention ativo e reduza contexto/KV se necessário.<br />3. Meça o TPS com <code>.\\venv\\Scripts\\python.exe scripts/verify_setup.py</code>."
         },
         "junk": {
           title: "🌀 Símbolos Estranhos ou Loops Infinitos",

@@ -113,8 +113,13 @@
   function updateGateBanner(slot) {
     const el = document.getElementById("quiz-gate-banner");
     if (!el || !slot) return;
-    el.textContent = TP.quizProgressLabel(slot);
-    el.classList.toggle("cleared", TP.isLessonCleared(slot));
+    el.textContent = TP.isPublishedLesson(slot)
+      ? TP.lessonProgressLabel(slot)
+      : TP.quizProgressLabel(slot);
+    el.classList.toggle(
+      "cleared",
+      TP.isPublishedLesson(slot) ? TP.isLessonReady(slot) : TP.isLessonCleared(slot),
+    );
   }
 
   function ensureGateBanner(slot) {
@@ -135,7 +140,7 @@
     const link = document.createElement("p");
     link.className = "quiz-gate-link";
     link.innerHTML =
-      '<a href="../index.html">Voltar ao guia</a> para marcar Concluído (só libera com quizzes OK).';
+      '<a href="../index.html">Voltar ao guia</a> para marcar Concluído (libera com quiz + prática).';
     el.after(link);
     updateGateBanner(slot);
     return el;
@@ -199,5 +204,36 @@
     });
   }
 
+  function renderPractice(root) {
+    const slot = root.dataset.lesson;
+    const mode = TP.getPracticeMode(slot);
+    const feedback = root.querySelector("[data-practice-feedback]");
+    root.querySelectorAll("[data-practice-mode]").forEach(function (button) {
+      const selected = button.dataset.practiceMode === mode;
+      button.setAttribute("aria-pressed", selected ? "true" : "false");
+      button.classList.toggle("selected", selected);
+    });
+    if (feedback) {
+      feedback.textContent =
+        mode === "real"
+          ? "Prática real registrada."
+          : mode === "simulated"
+            ? "Simulação registrada; a execução real continua pendente."
+            : "Escolha uma rota depois de concluir a missão.";
+    }
+    updateGateBanner(slot);
+  }
+
+  function mountPractice(root) {
+    root.querySelectorAll("[data-practice-mode]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        TP.markPractice(root.dataset.lesson, button.dataset.practiceMode);
+        renderPractice(root);
+      });
+    });
+    renderPractice(root);
+  }
+
   document.querySelectorAll("[data-quiz]").forEach(mountQuiz);
+  document.querySelectorAll("[data-practice]").forEach(mountPractice);
 })();

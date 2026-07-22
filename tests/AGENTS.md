@@ -1,7 +1,7 @@
 # `tests/` — Test Suite Contract
 
 ## Purpose
-Verification of all autotuning orchestrations, search strategy algorithms, configuration parsers, and client-server communication.
+Verification of autotuning orchestration, search strategy, configuration, client-server communication, and student utilities.
 
 ## Ownership
 Repository developers.
@@ -15,6 +15,7 @@ Repository developers.
 ## Work Guidance
 - Run `.\venv\Scripts\python.exe -m pytest tests/` locally before completing tasks. All collected tests must pass.
 - Add tests for any new options, features, or regression bugs.
+- Run `node --test teach/progress.test.js` for browser progress-contract changes.
 
 ## Verification
 - All tests must pass with `.\venv\Scripts\python.exe -m pytest tests/`.

@@ -64,9 +64,14 @@
       <p class="navlinks">
         <a href="s1d3-moe-maior-que-a-vram.html">← Dia 3</a>
         <a href="../index.html">Guia</a>
-        <a href="s2d1-parametros-qualidade.html">Semana 2 · Dia 1 →</a>
       </p>
     </header>
+
+    <section class="lesson-meta" aria-label="Resumo da aula">
+      <p><strong>Resultado:</strong><br />Planejar, executar e validar um fluxo pela API local.</p>
+      <p><strong>Duração:</strong><br />20–30 minutos.</p>
+      <p><strong>Pré-requisito:</strong><br />Semana 1 · Dias 1–3.</p>
+    </section>
 
     <h2>1. O Recap Consolidado dos Primeiros Dias</h2>
     <p>Antes de integrar sua aplicação, revise a fundação técnica construída no curso:</p>
@@ -79,15 +84,15 @@
         </div>
         <div class="recap-item">
           <h4>⚡ VRAM vs RAM</h4>
-          <p>A GPU (VRAM) dá velocidade máxima (TPS). Para modelos gigantes (MoE), o <strong>offload</strong> divide as camadas mantendo a estabilidade.</p>
+          <p>Denso deve caber inteiro na VRAM física. Em MoE, <strong>N_CPU_MOE</strong> mantém especialistas na CPU/RAM.</p>
         </div>
         <div class="recap-item">
           <h4>📉 Quantização (GGUF)</h4>
-          <p>Reduz a precisão (ex.: <code>Q4_K_M</code>), economizando até 75% de memória com perda imperceptível de qualidade em relação ao modelo original.</p>
+          <p>Reduz a precisão (ex.: <code>Q4_K_M</code>) e a memória necessária, com perda mensurável que depende do modelo.</p>
         </div>
         <div class="recap-item">
           <h4>🛠️ Resolução de Erros</h4>
-          <p>OOM se resolve diminuindo o contexto (<code>-c</code>) ou offload (<code>-ngl</code>). Conflito de porta 8080 se resolve alterando para <code>--port 8081</code>.</p>
+          <p>OOM denso se resolve reduzindo contexto/KV, removendo draft ou escolhendo GGUF menor. Não derrame camadas na RAM.</p>
         </div>
       </div>
     </div>
@@ -98,7 +103,7 @@
       <span class="step-badge">Passo 1</span>
       <h3 style="margin:0 0 0.5rem 0;">Escolher o Modelo Ideal para seu Hardware</h3>
       <p style="margin:0 0 0.5rem 0; font-size:0.92rem;">
-        Garantir que o modelo caiba na memória dedicada da sua placa de vídeo. Para GPUs com 8 GB de VRAM, escolha modelos de 7B a 8B parâmetros quantizados em <code>Q4_K_M</code> (ex.: <code>Qwen2.5-7B-Instruct-Q4_K_M.gguf</code>).
+        Garanta que modelo, contexto e KV caibam na VRAM física. Use <code>scripts/check_hardware.py</code> como ponto de partida e confirme no model card.
       </p>
     </div>
 
@@ -106,16 +111,17 @@
       <span class="step-badge">Passo 2</span>
       <h3 style="margin:0 0 0.5rem 0;">Iniciar o Servidor de API Local</h3>
       <p style="margin:0 0 0.5rem 0; font-size:0.92rem;">
-        Execute o <code>llama-server</code> no terminal configurando as flags otimizadas para GPU e suporte a Flash Attention:
+        Ajuste <code>autoresearch/core/config.py</code> e use o helper canônico do repositório:
       </p>
-      <pre style="margin:0.5rem 0 0 0;">.\llama.cpp\build-cuda\bin\llama-server.exe -m models/unsloth/Qwen2.5-7B-Instruct-GGUF/Qwen2.5-7B-Instruct-Q4_K_M.gguf -ngl 99 -c 8192 -fa on --host 127.0.0.1 --port 8080</pre>
+      <pre style="margin:0.5rem 0 0 0;">.\venv\Scripts\python.exe scripts\serve-config.py print-cmd
+.\venv\Scripts\python.exe scripts\serve-config.py serve</pre>
     </div>
 
     <div class="step-card">
       <span class="step-badge">Passo 3</span>
       <h3 style="margin:0 0 0.5rem 0;">Conectar seu Código ao Servidor Local</h3>
       <p style="margin:0 0 0.5rem 0; font-size:0.92rem;">
-        O servidor local expõe uma API HTTP compatível com o padrão OpenAI em <code>http://127.0.0.1:8080/v1/chat/completions</code>. Qualquer script ou app pode enviar requisições JSON simples.
+        O helper expõe uma API HTTP compatível em <code>http://127.0.0.1:18080/v1/chat/completions</code>. Qualquer script ou app pode enviar requisições JSON simples.
       </p>
     </div>
 
@@ -123,7 +129,7 @@
       <span class="step-badge">Passo 4</span>
       <h3 style="margin:0 0 0.5rem 0;">Validar Velocidade e Ajustar Desempenho</h3>
       <p style="margin:0 0 0.5rem 0; font-size:0.92rem;">
-        Verifique o log do servidor para garantir que a geração mantém uma taxa alta de tokens por segundo (TPS). Se a velocidade cair, ajuste o contexto (<code>-c</code>) ou reduza as camadas na GPU.
+        Rode <code>.\venv\Scripts\python.exe scripts\verify_setup.py --port 18080</code>. Se o TPS estiver baixo, reduza contexto/KV ou escolha um denso menor; não reduza camadas para usar RAM compartilhada.
       </p>
     </div>
 
@@ -134,7 +140,7 @@
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
         <div>
           <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">URL do Servidor Local:</label>
-          <input type="text" id="py-url" value="http://127.0.0.1:8080/v1/chat/completions" style="width: 100%; padding: 0.4rem; font-family: var(--mono); font-size: 0.85rem; border: 1px solid var(--line); border-radius: 4px;" />
+          <input type="text" id="py-url" value="http://127.0.0.1:18080/v1/chat/completions" style="width: 100%; padding: 0.4rem; font-family: var(--mono); font-size: 0.85rem; border: 1px solid var(--line); border-radius: 4px;" />
         </div>
         <div>
           <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">Pergunta / Prompt:</label>
@@ -148,7 +154,17 @@
       <span id="copy-py-status" style="font-family: var(--sans); font-size: 0.85rem; margin-left: 0.5rem; color: var(--right);"></span>
     </div>
 
-    <h2>Prática (Validação de Fim da Semana 1)</h2>
+    <section class="practice" data-practice data-lesson="s1d4">
+      <h2>Missão prática</h2>
+      <p><strong>Rota real:</strong> defina um objetivo, divida-o em tarefas, execute uma chamada pela API local e valide a resposta. <strong>Rota simulada:</strong> gere o cliente acima e percorra uma resposta fornecida pelo tutor.</p>
+      <div class="practice-actions">
+        <button type="button" data-practice-mode="real" aria-pressed="false">Validei um fluxo real</button>
+        <button type="button" data-practice-mode="simulated" aria-pressed="false">Concluí o fluxo simulado</button>
+      </div>
+      <p class="practice-status" data-practice-feedback role="status"></p>
+    </section>
+
+    <h2>Quiz de validação</h2>
     <p class="note">Quiz de consolidação da Semana 1: Arquitetura, planejamento e desempenho.</p>
 
     <div class="quiz" data-quiz data-lesson="s1d4-q1"
@@ -181,12 +197,13 @@
 
     <h2>Conclusão da Semana 1</h2>
     <p>
-      Parabéns por dominar a base conceitual e o desempenho bruto! A partir de agora você pode prosseguir para a <strong>Semana 2 · Dia 1</strong> (Ajuste de Parâmetros de Qualidade) —
-      <a href="s2d1-parametros-qualidade.html">Ir para Semana 2 · Dia 1 →</a>.
+      Você concluiu a trilha publicada. Volte ao <a href="../index.html">Guia</a> para revisar o progresso e o Flash Quiz. A Semana 2 permanece em construção.
     </p>
 
+    <p class="source-note"><strong>Fonte oficial opcional:</strong> <a href="https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md">API compatível do llama-server</a>.</p>
+
     <footer class="site">
-      <p><strong>Workshop AILOCAL Essentials · Semana 1 Concluída.</strong></p>
+      <p><strong>Workshop AILOCAL Essentials · Semana 1 concluída.</strong> Ficou alguma dúvida? Pergunte ao tutor.</p>
     </footer>
   </div>
 
@@ -199,7 +216,7 @@
       const copyStatus = document.getElementById('copy-py-status');
 
       function updatePyCode() {
-        const url = urlInput.value || 'http://127.0.0.1:8080/v1/chat/completions';
+      const url = urlInput.value || 'http://127.0.0.1:18080/v1/chat/completions';
         const prompt = promptInput.value || 'Sua pergunta aqui';
 
         codeOutput.textContent = `import urllib.request

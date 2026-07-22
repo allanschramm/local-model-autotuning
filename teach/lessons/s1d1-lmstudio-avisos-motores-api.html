@@ -23,6 +23,12 @@
       </p>
     </header>
 
+    <section class="lesson-meta" aria-label="Resumo da aula">
+      <p><strong>Resultado:</strong><br />Explicar e percorrer motor → modelo → servidor → cliente.</p>
+      <p><strong>Duração:</strong><br />20–30 minutos.</p>
+      <p><strong>Pré-requisito:</strong><br />Módulo 0 concluído.</p>
+    </section>
+
     <h2>1. Mini-glossário</h2>
     <dl>
       <dt>Motor</dt>
@@ -32,7 +38,7 @@
       <dt>Quant</dt>
       <dd>Compressão dos pesos (Q4, Q5, Q8…). Menos bits → menos VRAM, costuma aumentar o TPS.</dd>
       <dt>VRAM</dt>
-      <dd>Memória da GPU onde o motor tenta colocar pesos + KV. O que não couber pode ir para RAM/CPU (<em>offload</em>) — especialmente útil em MoE (Dia 3).</dd>
+      <dd>Memória física da GPU para pesos + KV. Modelo denso deve caber inteiro; apenas especialistas MoE podem usar o offload ensinado no Dia 3.</dd>
       <dt>KV / contexto</dt>
       <dd>Memória do histórico da conversa. Mais contexto = mais KV = mais memória.</dd>
       <dt>TPS</dt>
@@ -67,7 +73,7 @@
         <tr><td>Escolher / baixar modelo</td><td>Lista / botão Download</td><td><code>hf download</code> → <code>models/…/*.gguf</code></td></tr>
         <tr><td>Carregar na GPU</td><td>Slider “GPU layers”</td><td>Flag <code>-ngl</code></td></tr>
         <tr><td>Tamanho do contexto</td><td>Campo Context Length</td><td>Flag <code>-c</code></td></tr>
-        <tr><td>Ligar API local</td><td>Toggle “Local Server”</td><td><code>llama-server --host 127.0.0.1 --port 8080</code></td></tr>
+        <tr><td>Ligar API local</td><td>Toggle “Local Server”</td><td><code>scripts/serve-config.py serve</code> (porta 18080)</td></tr>
         <tr><td>Usar no app / agente</td><td>URL <code>http://127.0.0.1:…/v1</code></td><td>Mesma URL — harness aponta para cá</td></tr>
       </tbody>
     </table>
@@ -92,7 +98,17 @@
       O conceito principal do Dia 1: com o servidor local ativo, qualquer aplicativo na sua máquina pode se comunicar com a IA local.
     </div>
 
-    <h2>Prática (valida o conteúdo desta aula)</h2>
+    <section class="practice" data-practice data-lesson="s1d1">
+      <h2>Missão prática</h2>
+      <p><strong>Rota real:</strong> carregue no LM Studio um GGUF que caiba na VRAM, inicie o servidor apenas em localhost e envie um prompt. <strong>Rota simulada:</strong> percorra a tabela e identifique motor, modelo, servidor e cliente.</p>
+      <div class="practice-actions">
+        <button type="button" data-practice-mode="real" aria-pressed="false">Enviei um prompt local</button>
+        <button type="button" data-practice-mode="simulated" aria-pressed="false">Concluí o fluxo simulado</button>
+      </div>
+      <p class="practice-status" data-practice-feedback role="status"></p>
+    </section>
+
+    <h2>Quiz de validação</h2>
     <p class="note">Quiz: Conceitos fundamentais de motores, modelos e API local para rodar IA no seu computador.</p>
 
     <div class="quiz" data-quiz data-lesson="s1d1-q1"
@@ -143,8 +159,10 @@
       <a href="s1d2-llamacpp-flags-tps.html">abrir Dia 2</a>.
     </p>
 
+    <p class="source-note"><strong>Fonte oficial opcional:</strong> <a href="https://lmstudio.ai/docs/developer/core/server">LM Studio como servidor local</a>.</p>
+
     <footer class="site">
-      <p><strong>Professor = a aula + este material.</strong> Dúvidas? Pergunte na sessão ou no chat do curso.</p>
+      <p><strong>Professor = a aula + este material.</strong> Ficou alguma dúvida? Pergunte ao tutor.</p>
     </footer>
   </div>
   <script src="../assets/progress.js"></script>

@@ -29,7 +29,7 @@ Tokens por segundo — métrica de velocidade da Semana 1.
 _Avoid_: “inteligência”, “Elo”, “benchmark de qualidade”
 
 **API local**:
-HTTP na máquina (ex.: `127.0.0.1:8080`), em geral formato OpenAI-compatível.
+HTTP na máquina (ex.: `127.0.0.1:18080`), em geral formato OpenAI-compatível.
 
 **Harness**:
 Cliente da API (script, app, agente, IDE).
@@ -38,4 +38,4 @@ Cliente da API (script, app, agente, IDE).
 Parte do modelo fora da VRAM. Dense: evitar. MoE: ferramenta do Dia 3.
 
 **OOM**:
-Memória esgotada. Cortar contexto/camadas/quant — não “spill and hope” em dense.
+Memória esgotada. Em denso, cortar contexto/KV, remover draft ou escolher GGUF menor — nunca “spill and hope”.

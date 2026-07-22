@@ -1,7 +1,7 @@
 # 0004. Aprimoramento da Jornada do Aluno Leigo até a IA Local Completa
 
 - **Data:** 2026-07-22
-- **Status:** Aceito
+- **Status:** Substituído por 0008
 
 ## Contexto
 A transição do aluno leigo do ambiente gráfico (LM Studio no Dia 1) para a linha de comando (`llama.cpp` no Dia 2) era o principal gargalo de atrito. Além disso, faltava uma ferramenta de verificação do ambiente e a Semana 2 do curso continha apenas esqueletos das lições de automação, ferramentas e qualidade.
@@ -17,4 +17,4 @@ A transição do aluno leigo do ambiente gráfico (LM Studio no Dia 1) para a li
 
 ## Consequências
 - A jornada do aluno leigo agora possui um feedback loop fechado com diagnósticos de terminal amigáveis.
-- O curso de IA local está com 100% dos seus módulos e lições finalizados e funcionais.
+- Esta conclusão foi substituída: somente Módulo 0 e Semana 1 estão publicados; a Semana 2 voltou ao estado de desenho curricular.

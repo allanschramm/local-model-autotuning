@@ -23,121 +23,93 @@
       </p>
     </header>
 
+    <section class="lesson-meta" aria-label="Resumo da aula">
+      <p><strong>Resultado:</strong><br />Configurar um Baseline local e medir TPS pelo fluxo oficial.</p>
+      <p><strong>Duração:</strong><br />20–30 minutos.</p>
+      <p><strong>Pré-requisito:</strong><br />Semana 1 · Dia 1 e um GGUF local.</p>
+    </section>
+
     <h2>Mesmo contrato, outra embalagem</h2>
     <table>
       <thead><tr><th>Conceito</th><th>App com interface (Dia 1)</th><th>Dia 2 neste repo</th></tr></thead>
       <tbody>
         <tr><td>Motor</td><td>App que carrega o GGUF</td><td><code>llama-cli</code> / <code>llama-server</code> em <code>llama.cpp/build-cuda/bin/</code></td></tr>
         <tr><td>Pesos GGUF</td><td>Biblioteca do app</td><td><code>models/*.gguf</code> (via <code>hf download</code>)</td></tr>
-        <tr><td>Camadas GPU</td><td>Slider GPU offload</td><td><code>-ngl</code></td></tr>
-        <tr><td>Contexto</td><td>Context length</td><td><code>-c</code></td></tr>
-        <tr><td>Servidor API</td><td>Toggle Local Server</td><td><code>llama-server --host 127.0.0.1 --port 8080</code></td></tr>
-        <tr><td>Baseline / flags</td><td>Painéis do app</td><td><code>autoresearch/core/config.py</code> + flags CLI</td></tr>
+        <tr><td>Modelo denso</td><td>GPU offload completo</td><td>Deve caber inteiro na VRAM física</td></tr>
+        <tr><td>Contexto</td><td>Context length</td><td><code>CTX_SIZE</code> em <code>config.py</code></td></tr>
+        <tr><td>Servidor API</td><td>Toggle Local Server</td><td><code>scripts/serve-config.py serve</code></td></tr>
+        <tr><td>Baseline</td><td>Painéis do app</td><td><code>autoresearch/core/config.py</code>, sem flags temporárias</td></tr>
       </tbody>
     </table>
     <p>Cola de flags (HTML, funciona em <code>file://</code>): <a href="../reference/llamacpp-flags.html">reference/llamacpp-flags.html</a>.</p>
 
     <h2>Ajustar performance (foco na Semana 1)</h2>
     <ul>
-      <li><code>-ngl</code> — camadas enviadas para a GPU (quanto mais na GPU, maior tende a ser a velocidade).</li>
-      <li><code>-fa on</code> — flash attention (acelera a atenção na GPU).</li>
-      <li><code>-ctk</code> / <code>-ctv</code> — formato de compressão do contexto (KV).</li>
-      <li><code>-b</code> / <code>-ub</code> — tamanho dos lotes de processamento (batch).</li>
-      <li><code>-c</code> — tamanho do contexto da conversa (quanto maior, mais memória consome).</li>
+      <li><code>MODEL</code> — basename do GGUF dentro do armazenamento local.</li>
+      <li><code>CTX_SIZE</code> — começa em 131072; o aluno pode reduzir até 2048 para trocar contexto por velocidade/memória.</li>
+      <li><code>KV_CACHE_K</code> / <code>KV_CACHE_V</code> — compressão do contexto.</li>
+      <li><code>BATCH_SIZE</code> / <code>UBATCH_SIZE</code> — lotes de processamento.</li>
+      <li><code>FLASH_ATTN</code> — permanece <code>on</code>.</li>
     </ul>
     <div class="note">
       Ainda não é aula de ajuste de criatividade (temperatura). Isso é Semana 2 (qualidade).
       Hoje o foco é a IA responder rápido e de forma estável no seu computador.
     </div>
 
-    <h2>Gerador Interativo de Comandos llama.cpp</h2>
-    <p>Ajuste as opções abaixo para montar a linha de comando perfeita para a sua GPU sem precisar decorá-la:</p>
+    <h2>Gerador de Baseline local</h2>
+    <p>Ajuste os valores abaixo e copie apenas estas linhas para o dicionário <code>ENGINE_DEFAULTS</code> de <code>autoresearch/core/config.py</code>.</p>
 
     <div style="background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 1.2rem; margin: 1.25rem 0;">
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
         <div>
-          <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">Executável / Modo:</label>
-          <select id="mode-select" style="width: 100%; padding: 0.4rem; font-family: var(--sans); border: 1px solid var(--line); border-radius: 4px;">
-            <option value="cli">llama-cli (Prompt direto no terminal)</option>
-            <option value="server">llama-server (API Local OpenAI em 127.0.0.1)</option>
-          </select>
+          <label for="model-input" style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">MODEL (somente basename):</label>
+          <input type="text" id="model-input" value="model.gguf" style="width: 100%; padding: 0.4rem; font-family: var(--mono); border: 1px solid var(--line); border-radius: 4px;" />
         </div>
         <div>
-          <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">Camadas GPU (-ngl):</label>
-          <input type="number" id="ngl-input" value="99" min="0" max="99" style="width: 100%; padding: 0.4rem; font-family: var(--sans); border: 1px solid var(--line); border-radius: 4px;" />
-          <span style="font-size: 0.75rem; color: var(--muted);">99 = 100% GPU | 0 = 100% CPU</span>
+          <label for="ctx-input" style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">CTX_SIZE:</label>
+          <input type="number" id="ctx-input" value="131072" min="2048" step="2048" style="width: 100%; padding: 0.4rem; font-family: var(--sans); border: 1px solid var(--line); border-radius: 4px;" />
         </div>
         <div>
-          <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">Threads CPU (-t):</label>
+          <label for="threads-input" style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">THREADS:</label>
           <input type="number" id="threads-input" value="8" min="1" max="32" style="width: 100%; padding: 0.4rem; font-family: var(--sans); border: 1px solid var(--line); border-radius: 4px;" />
         </div>
         <div>
-          <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">Contexto (-c):</label>
-          <select id="ctx-select" style="width: 100%; padding: 0.4rem; font-family: var(--sans); border: 1px solid var(--line); border-radius: 4px;">
-            <option value="2048">2048 (Mínimo ultra-rápido)</option>
-            <option value="4096">4096 (Recomendado para 6-8GB VRAM)</option>
-            <option value="8192" selected>8192 (Padrão para chat)</option>
-            <option value="16384">16384 (Documentos curtos)</option>
-            <option value="32768">32768 (Código / Arquivos longos)</option>
+          <label for="kv-select" style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">KV cache:</label>
+          <select id="kv-select" style="width: 100%; padding: 0.4rem; font-family: var(--sans); border: 1px solid var(--line); border-radius: 4px;">
+            <option value="q4_0" selected>q4_0 (menos memória)</option>
+            <option value="q8_0">q8_0 (mais precisão)</option>
+            <option value="f16">f16 (mais memória)</option>
           </select>
         </div>
       </div>
 
-      <div style="margin-bottom: 1rem;">
-        <label style="font-family: var(--sans); font-size: 0.9rem; cursor: pointer;">
-          <input type="checkbox" id="fa-checkbox" checked /> Ativar Flash Attention (<code>-fa on</code>) — Acelera GPU
-        </label>
-      </div>
-
-      <div style="margin-bottom: 1rem;" id="prompt-container">
-        <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">Prompt (-p):</label>
-        <input type="text" id="prompt-input" value="Explique o que sao tokens de forma simples" style="width: 100%; padding: 0.4rem; font-family: var(--mono); font-size: 0.85rem; border: 1px solid var(--line); border-radius: 4px;" />
-      </div>
-
-      <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">Comando Gerado (pronto para executar):</label>
+      <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">Linhas geradas:</label>
       <pre style="margin: 0 0 0.75rem 0; white-space: pre-wrap; word-break: break-all;" id="cmd-output"></pre>
-      <button type="button" id="copy-btn" style="font-family: var(--sans); padding: 0.4rem 0.8rem; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer;">Copiar Comando</button>
+      <button type="button" id="copy-btn" style="font-family: var(--sans); padding: 0.4rem 0.8rem; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer;">Copiar valores</button>
       <span id="copy-status" style="font-family: var(--sans); font-size: 0.85rem; margin-left: 0.5rem; color: var(--right);"></span>
+      <p class="note">Depois: <code>.\venv\Scripts\python.exe scripts\serve-config.py print-cmd</code> → <code>serve</code> → <code>.\venv\Scripts\python.exe scripts\verify_setup.py</code>.</p>
     </div>
 
     <script>
       (function() {
-        const modeEl = document.getElementById('mode-select');
-        const nglEl = document.getElementById('ngl-input');
+        const modelEl = document.getElementById('model-input');
         const threadsEl = document.getElementById('threads-input');
-        const ctxEl = document.getElementById('ctx-select');
-        const faEl = document.getElementById('fa-checkbox');
-        const promptEl = document.getElementById('prompt-input');
-        const promptContainer = document.getElementById('prompt-container');
+        const ctxEl = document.getElementById('ctx-input');
+        const kvEl = document.getElementById('kv-select');
         const cmdOutput = document.getElementById('cmd-output');
         const copyBtn = document.getElementById('copy-btn');
         const copyStatus = document.getElementById('copy-status');
 
         function updateCmd() {
-          const isServer = modeEl.value === 'server';
-          const exe = isServer ? '.\\llama.cpp\\build-cuda\\bin\\llama-server.exe' : '.\\llama.cpp\\build-cuda\\bin\\llama-cli.exe';
-          const model = 'models/unsloth/Qwen2.5-7B-Instruct-GGUF/Qwen2.5-7B-Instruct-Q4_K_M.gguf';
-          const ngl = nglEl.value;
-          const threads = threadsEl.value;
-          const ctx = ctxEl.value;
-          const fa = faEl.checked ? '-fa on' : '';
-          
-          if (isServer) {
-            promptContainer.style.display = 'none';
-            cmdOutput.textContent = `${exe} -m ${model} -ngl ${ngl} -t ${threads} -c ${ctx} ${fa} --host 127.0.0.1 --port 8080`.replace(/\s+/g, ' ');
-          } else {
-            promptContainer.style.display = 'block';
-            const promptVal = promptEl.value ? ` -p "${promptEl.value}"` : '';
-            cmdOutput.textContent = `${exe} -m ${model} -ngl ${ngl} -t ${threads} -c ${ctx} ${fa}${promptVal}`.replace(/\s+/g, ' ');
-          }
+          const model = modelEl.value.trim() || 'model.gguf';
+          const ctx = Math.max(2048, Number(ctxEl.value) || 131072);
+          cmdOutput.textContent = `'MODEL': '${model}',\n'CTX_SIZE': ${ctx},\n'KV_CACHE': '${kvEl.value}',\n'KV_CACHE_K': '${kvEl.value}',\n'KV_CACHE_V': '${kvEl.value}',\n'THREADS': ${threadsEl.value},\n'FLASH_ATTN': 'on',`;
         }
 
-        modeEl.addEventListener('change', updateCmd);
-        nglEl.addEventListener('input', updateCmd);
+        modelEl.addEventListener('input', updateCmd);
         threadsEl.addEventListener('input', updateCmd);
-        ctxEl.addEventListener('change', updateCmd);
-        faEl.addEventListener('change', updateCmd);
-        promptEl.addEventListener('input', updateCmd);
+        ctxEl.addEventListener('input', updateCmd);
+        kvEl.addEventListener('change', updateCmd);
 
         copyBtn.addEventListener('click', function() {
           navigator.clipboard.writeText(cmdOutput.textContent).then(() => {
@@ -150,17 +122,27 @@
       })();
     </script>
 
-    <h2>Prática</h2>
+    <section class="practice" data-practice data-lesson="s1d2">
+      <h2>Missão prática</h2>
+      <p><strong>Rota real:</strong> ajuste o Baseline em <code>config.py</code>, suba-o com <code>serve-config.py</code> e registre o TPS de <code>verify_setup.py</code>. <strong>Rota simulada:</strong> gere as linhas acima e explique o efeito de contexto e KV.</p>
+      <div class="practice-actions">
+        <button type="button" data-practice-mode="real" aria-pressed="false">Medi meu TPS real</button>
+        <button type="button" data-practice-mode="simulated" aria-pressed="false">Interpretei a configuração</button>
+      </div>
+      <p class="practice-status" data-practice-feedback role="status"></p>
+    </section>
+
+    <h2>Quiz de validação</h2>
     <div class="quiz" data-quiz data-lesson="s1d2-q1"
          data-answer-hash="58fc2d60f785b5e282d0c202eb04d43bb666d8e661a748a8e727509a6cfe39a4"
-         data-ok="Certo! O objetivo é otimizar o uso da GPU e garantir respostas rápidas (TPS)."
-         data-bad="Nesta etapa o foco é otimizar a velocidade de resposta (TPS) ajustando as flags do motor.">
-      <p class="q">Qual é o objetivo de ajustar parâmetros (flags) como `-ngl` no motor de IA local?</p>
+         data-ok="Certo! config.py é a única superfície mutável do Baseline local."
+         data-bad="O Baseline local é configurado em autoresearch/core/config.py, sem sopa de flags.">
+      <p class="q">Onde o aluno deve ajustar os parâmetros do Baseline local?</p>
       <div class="choices">
-        <button type="button" data-choice="A">Treinar novos modelos de IA do zero na internet</button>
-        <button type="button" data-choice="B">Otimizar o uso da GPU e aumentar a velocidade de resposta (tokens por segundo - TPS)</button>
-        <button type="button" data-choice="C">Mudar o idioma das respostas da IA</button>
-        <button type="button" data-choice="D">Desativar a segurança do sistema operacional</button>
+        <button type="button" data-choice="A">No arquivo fixo program.md</button>
+        <button type="button" data-choice="B">No arquivo local autoresearch/core/config.py</button>
+        <button type="button" data-choice="C">Em várias flags temporárias da CLI</button>
+        <button type="button" data-choice="D">Diretamente no arquivo results.tsv</button>
       </div>
       <p class="feedback" data-feedback></p>
     </div>
@@ -181,7 +163,8 @@
 
     <h2>Próximo</h2>
     <p><a href="s1d3-moe-maior-que-a-vram.html">Dia 3 — MoE maior que a VRAM</a></p>
-    <footer class="site"><p>Dúvidas? Pergunte na sessão.</p></footer>
+    <p class="source-note"><strong>Fontes oficiais opcionais:</strong> <a href="https://github.com/ggml-org/llama.cpp">llama.cpp</a> e <a href="https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md">llama-server</a>.</p>
+    <footer class="site"><p>Ficou alguma dúvida? Pergunte ao tutor.</p></footer>
   </div>
   <script src="../assets/progress.js"></script>
   <script src="../assets/quiz.js"></script>

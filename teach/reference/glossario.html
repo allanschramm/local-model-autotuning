@@ -48,13 +48,13 @@
       <dt>Offload</dt>
       <dd>Colocar parte do modelo fora da VRAM (CPU/RAM). Em dense: evitar. Em MoE: ferramenta do Dia 3.</dd>
       <dt>OOM</dt>
-      <dd>Out of Memory — VRAM (ou RAM) esgotada. Corte <code>-c</code> / <code>-ngl</code> / quant, não “force spill” em dense.</dd>
+      <dd>Out of Memory — VRAM (ou RAM) esgotada. Em denso, corte contexto/KV, remova draft ou escolha GGUF menor; não force spill.</dd>
     </dl>
 
     <h2>API e uso</h2>
     <dl>
       <dt>API local</dt>
-      <dd>Servidor HTTP na sua máquina (ex.: <code>127.0.0.1:8080</code>), em geral compatível com o formato OpenAI.</dd>
+      <dd>Servidor HTTP na sua máquina (ex.: <code>127.0.0.1:18080</code>), em geral compatível com o formato OpenAI.</dd>
       <dt>Harness</dt>
       <dd>Cliente que fala com a API: script, app, agente ou IDE.</dd>
       <dt>Amostragem</dt>

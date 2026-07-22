@@ -62,6 +62,19 @@
       border-left: 4px solid var(--right);
       background: #f0fdf4;
     }
+    .lesson-card.draft {
+      background: #fffbeb;
+      border-style: dashed;
+    }
+    .status-pill {
+      font: 600 0.75rem var(--sans);
+      color: #92400e;
+      background: #fef3c7;
+      border: 1px solid #fcd34d;
+      border-radius: 999px;
+      padding: 0.3rem 0.6rem;
+      white-space: nowrap;
+    }
     .lesson-info h3 {
       margin: 0 0 0.25rem 0;
       font-size: 1rem;
@@ -110,7 +123,7 @@
     <div class="progress-card">
       <div style="display: flex; justify-content: space-between; align-items: center; font-family: var(--sans);">
         <strong>Seu Progresso Global:</strong>
-        <span id="progress-text" style="font-weight: bold; color: var(--accent);">0 de 10 lições (0%)</span>
+        <span id="progress-text" style="font-weight: bold; color: var(--accent);">0 de 6 lições (0%)</span>
       </div>
       <div class="progress-bar-bg">
         <div class="progress-bar-fill" id="progress-fill"></div>
@@ -129,7 +142,7 @@
     <div class="tools-box" style="background: #f8fafc; border-left: 4px solid var(--accent); padding: 1.2rem; border-radius: 6px; margin-bottom: 2rem;">
       <h3 style="margin-top:0; color: #0f172a;">🚀 Guia de Preparação Inicial (Onboarding em 5 Passos)</h3>
       <p style="font-size: 0.88rem; color: #475569; margin-bottom: 1rem;">
-        Passos 1–4 agora. Passo 5 só depois de subir o servidor de API (Semana 1 · Dia 1/2) — sem servidor na porta 8080 o verify falha de propósito.
+        Passos 1–4 agora. Passo 5 só depois de subir o servidor de API (Semana 1 · Dia 1/2) — sem servidor na porta 18080 o verify falha de propósito.
       </p>
 
       <!-- Botões de SO -->
@@ -176,7 +189,7 @@
         <div class="lesson-card" data-lesson-id="s0d2">
           <div class="lesson-info">
             <h3><a href="lessons/s0d2-troubleshooting-erros-comuns.html">Módulo 0 · Dia 2 — Troubleshooting & Solução de Erros Comuns</a></h3>
-            <p>Guia de primeiros socorros para OOM (memória esgotada), portas ocupadas (8080), velocidade baixa e loops de texto.</p>
+            <p>Guia de primeiros socorros para OOM (memória esgotada), portas ocupadas (18080), velocidade baixa e loops de texto.</p>
           </div>
           <div class="lesson-action">
             <button type="button" class="check-btn" data-target="s0d2">Concluir</button>
@@ -231,48 +244,41 @@
       </div>
     </div>
 
-    <!-- Semana 2 -->
+    <!-- Semana 2: visível como roadmap, fora da trilha publicada -->
     <div class="module-section">
-      <h2>Semana 2 — Qualidade dos LLMs, MCPs & Segurança</h2>
+      <h2>Semana 2 — Em construção</h2>
+      <p class="note">O currículo ainda está sendo desenhado. Estes temas não entram no progresso nem no próximo passo.</p>
       <div class="lesson-grid">
-        <div class="lesson-card" data-lesson-id="s2d1">
+        <div class="lesson-card draft">
           <div class="lesson-info">
-            <h3><a href="lessons/s2d1-parametros-qualidade.html">Semana 2 · Dia 1 — Parâmetros de Qualidade e Amostragem</a></h3>
+            <h3>Semana 2 · Dia 1 — Parâmetros de Qualidade e Amostragem</h3>
             <p>Temperatura, Top-P, Top-K e Penalidade de Repetição. Inclui Simulador Interativo de Criatividade vs Determinismo.</p>
           </div>
-          <div class="lesson-action">
-            <button type="button" class="check-btn" data-target="s2d1">Concluir</button>
-          </div>
+          <span class="status-pill">Em construção</span>
         </div>
 
-        <div class="lesson-card" data-lesson-id="s2d2">
+        <div class="lesson-card draft">
           <div class="lesson-info">
-            <h3><a href="lessons/s2d2-skills-mcps.html">Semana 2 · Dia 2 — Skills e MCPs (Model Context Protocol)</a></h3>
+            <h3>Semana 2 · Dia 2 — Skills e MCPs (Model Context Protocol)</h3>
             <p>Expandindo o modelo local com ferramentas para ler arquivos, pesquisar na web e utilizar extensões.</p>
           </div>
-          <div class="lesson-action">
-            <button type="button" class="check-btn" data-target="s2d2">Concluir</button>
-          </div>
+          <span class="status-pill">Em construção</span>
         </div>
 
-        <div class="lesson-card" data-lesson-id="s2d3">
+        <div class="lesson-card draft">
           <div class="lesson-info">
-            <h3><a href="lessons/s2d3-sandbox-hooks-gates.html">Semana 2 · Dia 3 — Sandboxes, Pre-Tool Hooks e Quality Gates</a></h3>
+            <h3>Semana 2 · Dia 3 — Sandboxes, Pre-Tool Hooks e Quality Gates</h3>
             <p>Protegendo a execução de código do seu sistema contra alterações nocivas com gatilhos de segurança.</p>
           </div>
-          <div class="lesson-action">
-            <button type="button" class="check-btn" data-target="s2d3">Concluir</button>
-          </div>
+          <span class="status-pill">Em construção</span>
         </div>
 
-        <div class="lesson-card" data-lesson-id="s2d4">
+        <div class="lesson-card draft">
           <div class="lesson-info">
-            <h3><a href="lessons/s2d4-usecase-completo.html">Semana 2 · Dia 4 — Caso de Uso Completo (Projeto Integrado)</a></h3>
+            <h3>Semana 2 · Dia 4 — Caso de Uso Completo (Projeto Integrado)</h3>
             <p>O ciclo final de autonomia: hardware afinado, API local ativa, amostragem otimizada e conexão com clientes do dia a dia.</p>
           </div>
-          <div class="lesson-action">
-            <button type="button" class="check-btn" data-target="s2d4">Concluir</button>
-          </div>
+          <span class="status-pill">Em construção</span>
         </div>
       </div>
     </div>
@@ -290,10 +296,11 @@
       const checkBtns = document.querySelectorAll('.lesson-card .check-btn');
       const progressFill = document.getElementById('progress-fill');
       const progressText = document.getElementById('progress-text');
-      const totalLessons = 10;
+      const publishedIds = TP.LESSON_ORDER.map(lesson => lesson.id);
+      const totalLessons = publishedIds.length;
 
       function isLessonCleared(id) {
-        return TP && TP.isLessonCleared(id);
+        return TP && TP.isLessonReady(id);
       }
 
       function quizPassCount(id) {
@@ -302,7 +309,8 @@
 
       function getCompleted() {
         try {
-          return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+          const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+          return Array.isArray(stored) ? stored : [];
         } catch(e) {
           return [];
         }
@@ -323,21 +331,21 @@
           { label: "2. Criar Ambiente Virtual (venv):", cmd: "python -m venv venv" },
           { label: "3. Instalar Dependências do Repo:", cmd: ".\\venv\\Scripts\\pip install -r requirements.txt" },
           { label: "4. Executar Diagnóstico de Hardware:", cmd: ".\\venv\\Scripts\\python.exe scripts/check_hardware.py" },
-          { label: "5. (Depois do server na 8080) Validar API & TPS — pule até a Semana 1:", cmd: ".\\venv\\Scripts\\python.exe scripts/verify_setup.py", optional: true }
+          { label: "5. (Depois do server na 18080) Validar API & TPS — pule até a Semana 1:", cmd: ".\\venv\\Scripts\\python.exe scripts/verify_setup.py --port 18080", optional: true }
         ],
         mac: [
           { label: "1. Instalar Python (se não instalado):", cmd: "brew install python" },
           { label: "2. Criar Ambiente Virtual (venv):", cmd: "python3 -m venv venv" },
           { label: "3. Instalar Dependências do Repo:", cmd: "./venv/bin/pip install -r requirements.txt" },
           { label: "4. Executar Diagnóstico de Hardware:", cmd: "./venv/bin/python scripts/check_hardware.py" },
-          { label: "5. (Depois do server na 8080) Validar API & TPS — pule até a Semana 1:", cmd: "./venv/bin/python scripts/verify_setup.py", optional: true }
+          { label: "5. (Depois do server na 18080) Validar API & TPS — pule até a Semana 1:", cmd: "./venv/bin/python scripts/verify_setup.py --port 18080", optional: true }
         ],
         linux: [
           { label: "1. Instalar Python (se não instalado):", cmd: "sudo apt update && sudo apt install -y python3 python3-venv" },
           { label: "2. Criar Ambiente Virtual (venv):", cmd: "python3 -m venv venv" },
           { label: "3. Instalar Dependências do Repo:", cmd: "./venv/bin/pip install -r requirements.txt" },
           { label: "4. Executar Diagnóstico de Hardware:", cmd: "./venv/bin/python scripts/check_hardware.py" },
-          { label: "5. (Depois do server na 8080) Validar API & TPS — pule até a Semana 1:", cmd: "./venv/bin/python scripts/verify_setup.py", optional: true }
+          { label: "5. (Depois do server na 18080) Validar API & TPS — pule até a Semana 1:", cmd: "./venv/bin/python scripts/verify_setup.py --port 18080", optional: true }
         ]
       };
 
@@ -398,7 +406,7 @@
         skipNote.style.fontSize = '0.85rem';
         skipNote.style.color = '#92400e';
         skipNote.style.margin = '0.85rem 0 0';
-        skipNote.innerHTML = 'Sem servidor local ainda? Ignore o passo 5 e siga o <strong>CTA Próximo passo</strong> acima (Módulo 0). Volte ao verify depois de <code>llama-server</code> / API na 8080.';
+        skipNote.innerHTML = 'Sem servidor local ainda? Ignore o passo 5 e siga para o <strong>Próximo passo</strong> acima (Módulo 0). Volte ao verify depois de iniciar a API na porta 18080.';
         osContent.appendChild(skipNote);
       }
 
@@ -431,7 +439,10 @@
 
         const next = TP.getNextLesson(getCompleted());
         if (!next) {
-          titleEl.textContent = 'Curso completo — revise o Flash Quiz ou o glossário.';
+          const simulated = publishedIds.filter(id => TP.getPracticeMode(id) === 'simulated').length;
+          titleEl.textContent = simulated
+            ? `Trilha publicada concluída — ${simulated} prática(s) real(is) pendente(s).`
+            : 'Trilha publicada concluída — revise o Flash Quiz ou o glossário.';
           btnEl.href = 'reference/glossario.html';
           btnEl.textContent = 'Abrir glossário';
           if (card) card.style.borderLeftColor = 'var(--right)';
@@ -445,7 +456,7 @@
 
       function renderProgress() {
         const completed = getCompleted();
-        const count = completed.length;
+        const count = completed.filter(id => publishedIds.includes(id)).length;
         const pct = Math.round((count / totalLessons) * 100);
 
         progressFill.style.width = pct + '%';
@@ -463,15 +474,20 @@
           btn.title = '';
 
           if (isDone) {
-            btn.textContent = '✓ Concluído';
+            btn.textContent = TP.getPracticeMode(id) === 'simulated'
+              ? '✓ Concluído · simulado'
+              : '✓ Concluído';
             btn.classList.add('checked');
             if (card) card.classList.add('completed');
           } else if (!cleared) {
-            btn.textContent = total ? `Quizzes ${done}/${total}` : 'Quizzes pendentes';
+            const quizzesDone = total > 0 && done >= total;
+            btn.textContent = quizzesDone ? 'Prática pendente' : `Quizzes ${done}/${total}`;
             btn.classList.remove('checked');
             btn.classList.add('locked');
             btn.disabled = true;
-            btn.title = 'Acerte todos os quizzes da lição para desbloquear';
+            btn.title = quizzesDone
+              ? 'Registre a prática real ou simulada na lição para desbloquear'
+              : 'Acerte todos os quizzes da lição para desbloquear';
             if (card) card.classList.remove('completed');
           } else {
             btn.textContent = 'Marcar Concluído';
@@ -511,54 +527,64 @@
       // --- Flash Quiz Logic (Retrieval Practice) ---
       const flashQuestions = [
         {
-          q: "O que acontece quando você tenta carregar um modelo GGUF maior que a sua VRAM sem offloading de CPU?",
+          lesson: "s0d1",
+          q: "O que a quantização faz com um modelo?",
           opts: [
-            { text: "A velocidade TPS aumenta automaticamente", correct: false },
-            { text: "Ocorre erro de CUDA Out of Memory (OOM) ou queda para RAM", correct: true },
-            { text: "O modelo se compacta sozinho no disco rígido", correct: false },
-            { text: "A memória RAM da máquina é desativada", correct: false }
+            { text: "Reduz a precisão dos pesos e economiza memória", correct: true },
+            { text: "Aumenta a velocidade da internet e cria dados", correct: false },
+            { text: "Transforma o modelo de texto em imagens locais", correct: false }
           ],
-          explain: "Correto! Se o modelo não couber na GPU e você tentar forçar 100% de offload, a GPU esgota a VRAM (OOM) ou força swap drástico para a memória do sistema."
+          explain: "Correto! Menos bits por peso reduzem o arquivo e a memória necessária, com alguma perda mensurável de precisão."
         },
         {
-          q: "Qual é a função da flag -ngl (ou --n-gpu-layers) no llama.cpp?",
+          lesson: "s0d2",
+          q: "Qual é uma correção segura para OOM com modelo denso?",
           opts: [
-            { text: "Definir a quantidade de threads de CPU utilizadas", correct: false },
-            { text: "Transferir camadas de cálculo do modelo para a GPU", correct: true },
-            { text: "Limitar o número máximo de tokens de resposta", correct: false },
-            { text: "Configurar a temperatura de geração do modelo", correct: false }
+            { text: "Reduzir o contexto ou escolher um modelo menor", correct: true },
+            { text: "Dividir o modelo denso entre GPU e RAM", correct: false },
+            { text: "Repetir o comando até o erro desaparecer sozinho", correct: false }
           ],
-          explain: "Correto! A flag `-ngl 99` orienta o motor a enviar todas as camadas possíveis para a placa de vídeo, garantindo a velocidade máxima em TPS."
+          explain: "Correto! Modelo denso deve caber na VRAM física; reduza contexto/KV ou use modelo menor."
         },
         {
-          q: "Por que a quantização Q4_K_M é a mais popular para rodar LLMs locais?",
+          lesson: "s1d1",
+          q: "Para que serve uma API local de inferência?",
           opts: [
-            { text: "Ela requer supercomputadores com 8 GPUs", correct: false },
-            { text: "Reduz o uso de VRAM drasticamente mantendo alta inteligência", correct: true },
-            { text: "Ela altera o código-fonte da API da OpenAI", correct: false },
-            { text: "Ela transforma modelos de texto em geradores de imagem", correct: false }
+            { text: "Permitir que aplicativos conversem com o modelo local", correct: true },
+            { text: "Treinar novamente todos os pesos do modelo local", correct: false },
+            { text: "Converter automaticamente qualquer modelo de texto em imagens", correct: false }
           ],
-          explain: "Correto! A quantização Q4 reduz os pesos de 16 bits para 4 bits, permitindo rodar modelos de 7B/8B em GPUs populares com 6GB a 8GB de VRAM."
+          explain: "Correto! O servidor expõe um endereço local que clientes e scripts podem chamar."
         },
         {
-          q: "Qual parâmetro controla o nível de aleatoriedade/criatividade nas respostas de um LLM?",
+          lesson: "s1d2",
+          q: "Onde devem ficar os parâmetros do Baseline?",
           opts: [
-            { text: "Context Size (-c)", correct: false },
-            { text: "Temperatura (temp)", correct: true },
-            { text: "Top-K", correct: false },
-            { text: "Repeat Penalty", correct: false }
+            { text: "No config.py local antes de usar o harness", correct: true },
+            { text: "Na linha de comando como várias flags temporárias", correct: false },
+            { text: "No arquivo program.md junto das regras do agente", correct: false }
           ],
-          explain: "Correto! Temperaturas baixas (~0.2) deixam a resposta previsível e exata; temperaturas altas (~0.8) aumentam a criatividade."
+          explain: "Correto! config.py é a única superfície mutável do Baseline local."
         },
         {
-          q: "O que é o protocolo MCP (Model Context Protocol)?`",
+          lesson: "s1d3",
+          q: "Qual offload é permitido para modelos MoE?",
           opts: [
-            { text: "Um formato de compressão de áudio para redes neurais", correct: false },
-            { text: "Um padrão aberto para conectar LLMs a ferramentas e arquivos", correct: true },
-            { text: "Um comando do terminal para formatar a GPU", correct: false },
-            { text: "Um parâmetro de amostragem de contexto", correct: false }
+            { text: "Especialistas na CPU usando a opção n-cpu-moe", correct: true },
+            { text: "Camadas densas na RAM usando a opção ngl", correct: false },
+            { text: "Pesos principais no disco durante cada resposta", correct: false }
           ],
-          explain: "Correto! O MCP permite que o LLM acesse sistemas de arquivos, APIs de busca web e ferramentas externas com segurança."
+          explain: "Correto! O VITRIOL mantém atenção e roteamento na GPU e especialistas MoE na CPU/RAM."
+        },
+        {
+          lesson: "s1d4",
+          q: "Qual sequência fecha um fluxo útil com IA local?",
+          opts: [
+            { text: "Planejar tarefas, executar localmente e validar o resultado", correct: true },
+            { text: "Executar primeiro, ignorar erros e planejar no final", correct: false },
+            { text: "Treinar pesos, publicar dados e evitar qualquer validação", correct: false }
+          ],
+          explain: "Correto! Um fluxo confiável começa com objetivo e tarefas claras, executa localmente e valida a saída."
         }
       ];
 
@@ -568,13 +594,24 @@
       const feedbackBox = document.getElementById('flash-feedback');
       const nextBtn = document.getElementById('flash-next-btn');
 
+      function eligibleFlashQuestions() {
+        const completed = getCompleted();
+        return flashQuestions.filter(question => completed.includes(question.lesson));
+      }
+
       function loadFlashQ(idx) {
         if (!qText) return;
-        const q = flashQuestions[idx];
-        qText.textContent = `Pergunta ${idx + 1} de ${flashQuestions.length}: ${q.q}`;
+        const questions = eligibleFlashQuestions();
         optsBox.innerHTML = '';
         feedbackBox.style.display = 'none';
         nextBtn.style.display = 'none';
+        if (!questions.length) {
+          qText.textContent = 'Conclua a primeira aula para liberar perguntas de revisão.';
+          return;
+        }
+        currentQIndex = idx % questions.length;
+        const q = questions[currentQIndex];
+        qText.textContent = `Pergunta ${currentQIndex + 1} de ${questions.length}: ${q.q}`;
 
         q.opts.forEach((opt, oIdx) => {
           const btn = document.createElement('button');
@@ -616,7 +653,7 @@
 
       if (nextBtn) {
         nextBtn.addEventListener('click', () => {
-          currentQIndex = (currentQIndex + 1) % flashQuestions.length;
+          currentQIndex += 1;
           loadFlashQ(currentQIndex);
         });
       }

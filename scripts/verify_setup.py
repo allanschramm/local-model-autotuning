@@ -3,13 +3,22 @@ verify_setup.py — Validação Automática de IA Local e Medição de TPS
 Testa se o seu servidor de IA Local (llama-server ou LM Studio) está rodando e mede o desempenho real (TPS).
 """
 
+import argparse
 import sys
 import time
 import urllib.request
 import urllib.error
 import json
 
-def check_server(port=8080, host="127.0.0.1"):
+def performance_advice(tps):
+    if tps >= 30:
+        return "🎉 EXCELENTE! Desempenho alto. Pronto para agente e dev!"
+    if tps >= 15:
+        return "👍 BOM! Velocidade confortável para chat e código."
+    return "⚠️ TPS baixo: reduza o contexto ou a KV cache; se necessário, escolha um modelo menor que caiba na VRAM física."
+
+
+def check_server(port=18080, host="127.0.0.1"):
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
 
@@ -29,11 +38,11 @@ def check_server(port=8080, host="127.0.0.1"):
             model_id = models[0]["id"] if models else "modelo-local"
             print(f" [OK] Servidor ativo! Modelo detectado: {model_id}")
     except urllib.error.URLError:
-        print(" [X] Servidor NÃO encontrado na porta 8080.")
+        print(f" [X] Servidor NÃO encontrado na porta {port}.")
         print("\n💡 Como resolver:")
         print(" 1. Inicie o llama-server ou LM Studio Local Server.")
         print(f" 2. Verifique se a porta configurada é a {port}.")
-        print(" 3. Exemplo: llama-server.exe -m models/seu-modelo.gguf -ngl 33 -c 4096")
+        print(" 3. Configure autoresearch/core/config.py e inicie com scripts/serve-config.py serve.")
         print("=" * 60)
         sys.exit(1)
 
@@ -73,12 +82,7 @@ def check_server(port=8080, host="127.0.0.1"):
             print(f" • Desempenho real: {tps:.1f} TPS (tokens por segundo)")
             print("-" * 60)
 
-            if tps >= 30:
-                print(" 🎉 EXCELENTE! Desempenho alto. Pronto para agente e dev!")
-            elif tps >= 15:
-                print(" 👍 BOM! Velocidade confortável para chat e código.")
-            else:
-                print(" ⚠️ ATENÇÃO: TPS baixo (<15 TPS). Dica: aumente a flag -ngl para colocar mais camadas na GPU.")
+            print(f" {performance_advice(tps)}")
             print("=" * 60)
 
     except Exception as e:
@@ -86,4 +90,8 @@ def check_server(port=8080, host="127.0.0.1"):
         sys.exit(1)
 
 if __name__ == "__main__":
-    check_server()
+    parser = argparse.ArgumentParser(description="Valida uma API local compatível com OpenAI.")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=18080)
+    args = parser.parse_args()
+    check_server(port=args.port, host=args.host)

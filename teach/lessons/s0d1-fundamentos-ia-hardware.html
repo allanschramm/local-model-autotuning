@@ -55,6 +55,12 @@
       </p>
     </header>
 
+    <section class="lesson-meta" aria-label="Resumo da aula">
+      <p><strong>Resultado:</strong><br />Identificar GPU, VRAM e uma faixa segura de GGUF.</p>
+      <p><strong>Duração:</strong><br />20–30 minutos.</p>
+      <p><strong>Pré-requisito:</strong><br />Nenhum.</p>
+    </section>
+
     <h2>1. O que é uma IA (LLM) de forma intuitiva?</h2>
     <p>
       Esqueça a ideia de um "cérebro consciente". Um <strong>LLM (Large Language Model)</strong> é um sistema estatístico ultra-avançado de <em>autocompletar texto</em>.
@@ -224,14 +230,14 @@
       <li><strong>VRAM (Memória de Vídeo):</strong> O terreno mais nobre e rápido do seu computador. É a memória dedicada da placa de vídeo onde a IA precisa ficar armazenada para rodar rápido.</li>
     </ul>
 
-    <p><strong>E a RAM do sistema?</strong> Se o modelo não couber na VRAM da GPU, ele pode ser dividido com a RAM principal (chamamos isso de <em>offload</em>). No entanto, a RAM é muito mais lenta que a VRAM, o que reduz a velocidade de geração (TPS).</p>
+    <p><strong>E a RAM do sistema?</strong> Ela atende a CPU. Neste curso, um modelo <strong>denso</strong> deve caber inteiro na VRAM física: dividi-lo com a RAM compartilhada pode congelar o computador. A exceção é o offload de <strong>especialistas MoE</strong>, apresentado no Dia 3.</p>
 
     <h3>O milagre da Quantização (GGUF)</h3>
     <p>
       Um modelo original em precisão total exige dezenas ou centenas de Gigabytes de VRAM. A <strong>quantização</strong> reduz a precisão matemática de cada peso (ex.: de 16-bit para 4-bit, como <code>Q4_K_M</code>).
     </p>
     <p class="note">
-      <strong>Analogia da foto:</strong> A quantização é como converter uma imagem PNG 4K pesada em um JPG otimizado: ocupa 75% menos espaço na VRAM mantendo 95% da nitidez e qualidade original.
+      <strong>Analogia da foto:</strong> A quantização lembra converter uma imagem pesada para um formato compacto: ocupa menos espaço, mas existe perda mensurável. O equilíbrio depende do modelo e do quant escolhido.
     </p>
 
     <h2>4. Widget Interativo: Qual modelo sua GPU aguenta?</h2>
@@ -253,7 +259,17 @@
       </div>
     </div>
 
-    <h2>Prática (Validação do Módulo 0)</h2>
+    <section class="practice" data-practice data-lesson="s0d1">
+      <h2>Missão prática</h2>
+      <p><strong>Rota real:</strong> rode <code>.\venv\Scripts\python.exe scripts\check_hardware.py</code> e identifique GPU, VRAM e faixa segura. <strong>Rota simulada:</strong> use a calculadora acima com um perfil de VRAM disponível.</p>
+      <div class="practice-actions">
+        <button type="button" data-practice-mode="real" aria-pressed="false">Executei no meu ambiente</button>
+        <button type="button" data-practice-mode="simulated" aria-pressed="false">Concluí no simulador</button>
+      </div>
+      <p class="practice-status" data-practice-feedback role="status"></p>
+    </section>
+
+    <h2>Quiz de validação</h2>
     <p class="note">Quiz de fixação: Conceitos de IA, Hardware e Quantização.</p>
 
     <div class="quiz" data-quiz data-lesson="s0d1-q1"
@@ -305,42 +321,38 @@
       Depois: <a href="../index.html">voltar ao Guia</a>.
     </p>
 
+    <p class="source-note"><strong>Fonte oficial opcional:</strong> <a href="https://huggingface.co/docs/tokenizers/main/index">tokenização no Hugging Face</a> e <a href="https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md">quantização no llama.cpp</a>.</p>
+
     <footer class="site">
-      <p><strong>Workshop AILOCAL Essentials · Módulo 0 de Aprendizado Fundamental.</strong></p>
+      <p><strong>Workshop AILOCAL Essentials · Módulo 0.</strong> Ficou alguma dúvida? Pergunte ao tutor.</p>
     </footer>
   </div>
 
   <script>
     const vramData = {
       "4": {
-        recommended: "Modelos compactos de 1B a 3B parâmetros (ex.: Qwen2.5-3B Q4_K_M, Llama-3.2-3B Q4_K_M).",
-        tps: "Rápido (~30-60 TPS) em 100% VRAM.",
-        note: "Ideal para tarefas diretas, resumos e código simples em máquinas de entrada."
+        recommended: "Comece por um GGUF denso de 1B a 3B em Q4.",
+        note: "Modelo, contexto e KV precisam caber juntos na VRAM física."
       },
       "6": {
-        recommended: "Modelos de 3B a 7B parâmetros (ex.: Qwen2.5-3B Q8 ou Qwen2.5-7B Q4_K_S).",
-        tps: "Excelente (~35-50 TPS).",
-        note: "Modelos de 7B em Q4 vão rodar quase inteiros na VRAM."
+        recommended: "Comece por um GGUF denso de 3B em Q4 ou Q8.",
+        note: "Não use RAM compartilhada para completar um modelo denso."
       },
       "8": {
-        recommended: "Modelos de 7B a 8B parâmetros (ex.: Llama-3.1-8B Q4_K_M, Qwen2.5-7B Q4_K_M).",
-        tps: "Excelente (~40-60 TPS).",
-        note: "O 'sweet spot' clássico para IA local doméstica em 100% VRAM."
+        recommended: "Comece por um GGUF denso de 7B a 8B em Q4.",
+        note: "Reserve espaço para contexto e KV; reduza-os se necessário."
       },
       "12": {
-        recommended: "Modelos de 8B a 14B parâmetros (ex.: Qwen2.5-14B Q4_K_M) ou 8B em alta precisão (Q8).",
-        tps: "Ultra rápido (~45-70 TPS).",
-        note: "Espaço confortável para contexto longo (16k+ tokens) sem estourar memória."
+        recommended: "Comece por 8B em Q8 ou teste 14B em Q4.",
+        note: "Confirme o uso físico de VRAM antes de aumentar o contexto."
       },
       "16": {
-        recommended: "Modelos de 14B a 32B (Q4) ou modelos MoE com offload parcial.",
-        tps: "Muito rápido (~35-65 TPS).",
-        note: "Permite modelos de raciocínio avançado mantendo a maior parte na VRAM."
+        recommended: "Comece por um GGUF denso de 14B em Q4.",
+        note: "MoE pode usar offload de especialistas; denso não pode derramar para RAM."
       },
       "24": {
-        recommended: "Modelos de 32B (ex.: Qwen2.5-32B Q4_K_M) ou MoE (ex.: Mixtral 8x7B / DeepSeek-R1-Distill-32B).",
-        tps: "Desempenho máximo (~40-80 TPS).",
-        note: "Capacidade de nível profissional no seu próprio computador."
+        recommended: "Comece por um GGUF denso de até 32B em Q4, verificando o tamanho real.",
+        note: "A recomendação é ponto de partida; meça a sua configuração."
       }
     };
 
@@ -352,7 +364,6 @@
       const data = vramData[val];
       outputEl.innerHTML = `
         <p style="margin:0 0 0.3rem"><strong>Recomendação:</strong> ${data.recommended}</p>
-        <p style="margin:0 0 0.3rem"><strong>Velocidade Estimada:</strong> ${data.tps}</p>
         <p style="margin:0"><em>${data.note}</em></p>
       `;
     }

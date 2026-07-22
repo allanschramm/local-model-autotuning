@@ -95,6 +95,69 @@ pre {
   font-size: 0.95rem;
 }
 
+.lesson-meta,
+.practice,
+.draft-banner {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1rem 1.1rem;
+  margin: 1.25rem 0;
+}
+
+.lesson-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+  font-family: var(--sans);
+  font-size: 0.88rem;
+}
+
+.lesson-meta p,
+.practice p,
+.draft-banner p { margin: 0; }
+
+.practice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.9rem;
+}
+
+.practice-actions button {
+  font: 600 0.85rem var(--sans);
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.practice-actions button.selected {
+  color: #fff;
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.practice-status {
+  margin-top: 0.65rem !important;
+  color: var(--muted);
+  font: 0.85rem var(--sans);
+}
+
+.source-note {
+  font: 0.88rem var(--sans);
+  color: var(--muted);
+}
+
+.draft-banner {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  font-family: var(--sans);
+  color: #78350f;
+}
+
 dl {
   margin: 1rem 0 1.25rem;
 }

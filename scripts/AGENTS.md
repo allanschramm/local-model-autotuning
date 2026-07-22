@@ -16,8 +16,8 @@ Repository operators and developers.
 ## Work Guidance
 - Use `serve-config.py` as the preferred CLI helper to start/stop the llama-server daemon based on the mutable Baseline in `config.py`.
 - Use `build-llamacpp.py` (`python scripts/build-llamacpp.py --cpu` or `--cuda`) to build runtime binaries for local inference.
-- Use `check_hardware.py` to diagnose local GPU/VRAM/RAM and output recommended GGUF quants, `-ngl` layers, and context sizes.
-- Use `verify_setup.py` to validate local API server health and benchmark real-time TPS.
+- Use `check_hardware.py` to diagnose local GPU/VRAM/RAM and give conservative GGUF/context guidance. Dense models must fit physical VRAM and use full GPU placement; never suggest partial dense offload.
+- Use `verify_setup.py` to validate local API server health and benchmark real-time TPS. Its default port matches `serve-config.py` (18080).
 - Maintain helper commands documented in README.md.
 
 ## Verification

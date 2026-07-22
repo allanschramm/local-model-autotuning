@@ -1,7 +1,7 @@
 # Missão: Workshop AILOCAL Essentials
 
 ## Por que existe
-Ensinar qualquer pessoa a **rodar IA Local no próprio computador com alto desempenho** (Semana 1) e, em seguida, **garantir a qualidade de uso** (Semana 2: amostragem, habilidades, validações). O repositório é o ambiente de aprendizado prático.
+Ensinar qualquer pessoa a **rodar IA Local no próprio computador com alto desempenho**. Módulo 0 e Semana 1 formam a jornada publicada; a Semana 2 está em desenho curricular.
 
 ## Como é o sucesso
 ### Módulo 0 — Fundação Conceitual do Zero (para leigos)
@@ -20,7 +20,7 @@ Ensinar qualquer pessoa a **rodar IA Local no próprio computador com alto desem
 - No Dia 3: rodar **modelos MoE maiores que a memória de vídeo** (offload) no llama.cpp
 - No Dia 4: executar um **caso de uso prático** com planejamento → tarefas → IA local
 
-### Semana 2 — Qualidade (flexível)
+### Semana 2 — Qualidade (em construção, não publicada)
 - Parâmetros de geração (temperatura, top-k, repetição)
 - Skills / MCPs para desenvolvedores
 - Ambientes isolados (sandbox), automações (hooks) e portões de qualidade (gates)
@@ -31,7 +31,7 @@ Ensinar qualquer pessoa a **rodar IA Local no próprio computador com alto desem
 - Experiência 100% local: o aluno estuda clonando o repo e utilizando o tutor de IA (`/teach`) ou abrindo `teach/index.html` no navegador local (sem portal/servidor remoto)
 - Semana 1: **apenas desempenho / velocidade (TPS)** — sem avaliação de inteligência ou treinamento de modelos
 - Quizzes: gabarito com hash de segurança; opções simples em pt-BR sem menção ao LM Studio
-- Progresso no guia: Concluir só após passar todos os quizzes da lição (gate local)
+- Progresso no guia: Concluir exige quiz e prática; a rota simulada conta, mas fica sinalizada como prática real pendente
 - O foco do repositório é capacitar qualquer pessoa a rodar IA local do zero em sua própria máquina
 
 ## Fora de Escopo (Semana 1)
