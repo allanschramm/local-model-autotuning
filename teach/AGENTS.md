@@ -12,6 +12,7 @@ Course operator / instructors. Not part of the autotuning runtime loop.
 - Semana 1 scope locked: TPS / performance only — no model-quality scoring.
 - Semana 2 complete: Quality & Sampling (s2d1), Skills & MCPs (s2d2), Sandboxes & Hooks/Gates (s2d3), and Integrated Use Case (s2d4).
 - Student workflow: 100% local inside git checkout. Entrypoints: (1) Agent mode via `/teach` skill in CLI/IDE, (2) Browser mode via local `teach/index.html`.
+- Lesson HTML nav: always link `../index.html` as **Guia**; prev/next lesson HTML only. Never link `MISSION.md` / `CURRICULUM.md` from student-facing HTML (`file://` shows raw markdown).
 - Student CLI tools: `scripts/check_hardware.py` (GPU/VRAM recommender) and `scripts/verify_setup.py` (server health & TPS benchmark).
 - Agent guidance: During `/teach` sessions, agent acts as interactive tutor. Follow 5-step onboarding: (1) Check/install Python, (2) Create `venv`, (3) Install `requirements.txt`, (4) Run `check_hardware.py`, (5) Run `verify_setup.py`. Then proceed to Module 0.
 - Quizzes: hashed answers only (`assets/QUIZ-HASH.md`); options simplified in pt-BR for beginners (no LM Studio references in quizzes).
@@ -26,7 +27,7 @@ Course operator / instructors. Not part of the autotuning runtime loop.
 ## Verification
 - Open `index.html` or lesson HTML in a browser; click quizzes (client-side hash check).
 - Confirm “Concluir” stays locked until all quizzes in the lesson pass; wrong answer still allows retry.
-- Confirm `CURRICULUM.md` links resolve.
+- Confirm lesson headers link to `index.html` (Guia) and prev/next HTML lessons — no `.md` in student nav.
 
 ## Child DOX Index
 - (none — flat under `teach/`)
