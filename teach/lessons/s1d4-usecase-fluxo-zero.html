@@ -3,39 +3,154 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>S1 Dia 4 — Caso de uso do zero</title>
+  <title>S1 Dia 4 — Manual de Implementação de IA Local & Recap</title>
   <link rel="stylesheet" href="../assets/lesson.css" />
+  <style>
+    .recap-box {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1.2rem;
+      margin: 1.5rem 0;
+    }
+    .recap-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-top: 0.75rem;
+    }
+    .recap-item {
+      background: var(--bg);
+      border-left: 3px solid var(--accent);
+      padding: 0.8rem;
+      border-radius: 0 4px 4px 0;
+      font-size: 0.9rem;
+    }
+    .recap-item h4 {
+      margin: 0 0 0.3rem 0;
+      font-family: var(--sans);
+      color: var(--ink);
+    }
+    .step-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1rem 1.2rem;
+      margin-bottom: 1rem;
+    }
+    .step-badge {
+      font-family: var(--sans);
+      font-size: 0.75rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+      background: #e0f2fe;
+      padding: 0.2rem 0.5rem;
+      border-radius: 3px;
+      display: inline-block;
+      margin-bottom: 0.4rem;
+    }
+  </style>
 </head>
 <body>
   <div class="wrap">
     <header class="site">
-      <p class="eyebrow">Semana 1 · Dia 4 · Performance aplicada</p>
-      <h1>Caso de uso — fluxo de trabalho do zero</h1>
+      <p class="eyebrow">Semana 1 · Dia 4 · Consolidação & Produção</p>
+      <h1>Manual de Implementação de Soluções de IA & Recap</h1>
       <p class="lede">
-        Se você trouxer um problema real, o professor demonstra como
-        <strong>planejar → dividir tarefas → executar</strong> com a IA local em funcionamento (API / llama.cpp).
-        O foco da Semana 1 continua: a IA precisa <em>responder rápido o suficiente</em> para manter seu fluxo produtivo.
+        O guia definitivo para sair do zero: consolidação dos conceitos essenciais e o passo a passo para conectar seu aplicativo ao servidor de IA local com máxima velocidade.
       </p>
       <p class="navlinks">
         <a href="s1d3-moe-maior-que-a-vram.html">← Dia 3</a>
         <a href="../CURRICULUM.md">Currículo</a>
-        <a href="s2d1-parametros-qualidade.html">Semana 2 →</a>
+        <a href="../index.html">Início / Progresso</a>
       </p>
     </header>
 
-    <h2>Fluxo prático</h2>
-    <ol>
-      <li><strong>Objetivo</strong> claro em uma frase.</li>
-      <li><strong>Dividir</strong> o problema em tarefas menores e verificáveis.</li>
-      <li><strong>Garantir</strong> motor + modelo + API rodando no computador (Dias 1–3).</li>
-      <li><strong>Executar</strong> tarefa por tarefa utilizando a IA local.</li>
-      <li><strong>Medir</strong> se a velocidade (TPS) e a latência mantêm o processo ágil — caso contrário, reajuste os parâmetros de desempenho (Dia 2 ou 3).</li>
-    </ol>
-    <div class="note">
-      Ainda não é aula de automações avançadas (Semana 2). Hoje o foco principal é a execução prática com a IA local.
+    <h2>1. O Recap Consolidado dos Primeiros Dias</h2>
+    <p>Antes de integrar sua aplicação, revise a fundação técnica construída no curso:</p>
+
+    <div class="recap-box">
+      <div class="recap-grid">
+        <div class="recap-item">
+          <h4>🧠 Anatomia da IA</h4>
+          <p>Modelos são arquivos estáticos (<code>.gguf</code>). A conversa vive na <strong>Janela de Contexto</strong> e o texto é fatiado em <strong>tokens</strong> numerados.</p>
+        </div>
+        <div class="recap-item">
+          <h4>⚡ VRAM vs RAM</h4>
+          <p>A GPU (VRAM) dá velocidade máxima (TPS). Para modelos gigantes (MoE), o <strong>offload</strong> divide as camadas mantendo a estabilidade.</p>
+        </div>
+        <div class="recap-item">
+          <h4>📉 Quantização (GGUF)</h4>
+          <p>Reduz a precisão (ex.: <code>Q4_K_M</code>), economizando até 75% de memória com perda imperceptível de qualidade em relação ao modelo original.</p>
+        </div>
+        <div class="recap-item">
+          <h4>🛠️ Resolução de Erros</h4>
+          <p>OOM se resolve diminuindo o contexto (<code>-c</code>) ou offload (<code>-ngl</code>). Conflito de porta 8080 se resolve alterando para <code>--port 8081</code>.</p>
+        </div>
+      </div>
     </div>
 
-    <h2>Prática</h2>
+    <h2>2. Manual de Implementação em 4 Passos</h2>
+
+    <div class="step-card">
+      <span class="step-badge">Passo 1</span>
+      <h3 style="margin:0 0 0.5rem 0;">Escolher o Modelo Ideal para seu Hardware</h3>
+      <p style="margin:0 0 0.5rem 0; font-size:0.92rem;">
+        Garantir que o modelo caiba na memória dedicada da sua placa de vídeo. Para GPUs com 8 GB de VRAM, escolha modelos de 7B a 8B parâmetros quantizados em <code>Q4_K_M</code> (ex.: <code>Qwen2.5-7B-Instruct-Q4_K_M.gguf</code>).
+      </p>
+    </div>
+
+    <div class="step-card">
+      <span class="step-badge">Passo 2</span>
+      <h3 style="margin:0 0 0.5rem 0;">Iniciar o Servidor de API Local</h3>
+      <p style="margin:0 0 0.5rem 0; font-size:0.92rem;">
+        Execute o <code>llama-server</code> no terminal configurando as flags otimizadas para GPU e suporte a Flash Attention:
+      </p>
+      <pre style="margin:0.5rem 0 0 0;">.\llama.cpp\build-cuda\bin\llama-server.exe -m models/unsloth/Qwen2.5-7B-Instruct-GGUF/Qwen2.5-7B-Instruct-Q4_K_M.gguf -ngl 99 -c 8192 -fa on --host 127.0.0.1 --port 8080</pre>
+    </div>
+
+    <div class="step-card">
+      <span class="step-badge">Passo 3</span>
+      <h3 style="margin:0 0 0.5rem 0;">Conectar seu Código ao Servidor Local</h3>
+      <p style="margin:0 0 0.5rem 0; font-size:0.92rem;">
+        O servidor local expõe uma API HTTP compatível com o padrão OpenAI em <code>http://127.0.0.1:8080/v1/chat/completions</code>. Qualquer script ou app pode enviar requisições JSON simples.
+      </p>
+    </div>
+
+    <div class="step-card">
+      <span class="step-badge">Passo 4</span>
+      <h3 style="margin:0 0 0.5rem 0;">Validar Velocidade e Ajustar Desempenho</h3>
+      <p style="margin:0 0 0.5rem 0; font-size:0.92rem;">
+        Verifique o log do servidor para garantir que a geração mantém uma taxa alta de tokens por segundo (TPS). Se a velocidade cair, ajuste o contexto (<code>-c</code>) ou reduza as camadas na GPU.
+      </p>
+    </div>
+
+    <h2>3. Gerador Interativo de Script de Conexão Python</h2>
+    <p>Ajuste os parâmetros abaixo para gerar o código Python nativo pronto para conversar com a sua IA local sem precisar de bibliotecas externas pesadas:</p>
+
+    <div style="background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 1.2rem; margin: 1.25rem 0;">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+        <div>
+          <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">URL do Servidor Local:</label>
+          <input type="text" id="py-url" value="http://127.0.0.1:8080/v1/chat/completions" style="width: 100%; padding: 0.4rem; font-family: var(--mono); font-size: 0.85rem; border: 1px solid var(--line); border-radius: 4px;" />
+        </div>
+        <div>
+          <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">Pergunta / Prompt:</label>
+          <input type="text" id="py-prompt" value="Resuma em 3 tópicos os benefícios de usar IA local." style="width: 100%; padding: 0.4rem; font-family: var(--sans); font-size: 0.9rem; border: 1px solid var(--line); border-radius: 4px;" />
+        </div>
+      </div>
+
+      <label style="font-family: var(--sans); font-weight: 600; display: block; font-size: 0.9rem; margin-bottom: 0.3rem;">Código Python Gerado (Pronto para copiar e rodar):</label>
+      <pre style="margin: 0 0 0.75rem 0; white-space: pre-wrap;" id="py-code"></pre>
+      <button type="button" id="copy-py-btn" style="font-family: var(--sans); padding: 0.4rem 0.8rem; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer;">Copiar Código Python</button>
+      <span id="copy-py-status" style="font-family: var(--sans); font-size: 0.85rem; margin-left: 0.5rem; color: var(--right);"></span>
+    </div>
+
+    <h2>Prática (Validação de Fim da Semana 1)</h2>
+    <p class="note">Quiz de consolidação da Semana 1: Arquitetura, planejamento e desempenho.</p>
+
     <div class="quiz" data-quiz data-lesson="s1d4-q1"
          data-answer-hash="2611a1c17cfa2d9c7f58d5a718c683f1e474f94beda473ea33249406b03523d7"
          data-ok="Perfeito! Primeiro você planeja, divide em etapas pequenas e depois coloca a IA local para executar."
@@ -64,10 +179,66 @@
       <p class="feedback" data-feedback></p>
     </div>
 
-    <h2>Fim da Semana 1</h2>
-    <p>Semana 2 (qualidade) começa em <a href="s2d1-parametros-qualidade.html">S2 Dia 1</a>.</p>
-    <footer class="site"><p>Dúvidas? Pergunte na sessão ou no Discord do curso.</p></footer>
+    <h2>Conclusão da Semana 1</h2>
+    <p>
+      Parabéns por dominar a base conceitual e o desempenho bruto! A partir de agora você pode prosseguir para a <strong>Semana 2 · Dia 1</strong> (Ajuste de Parâmetros de Qualidade) —
+      <a href="s2d1-parametros-qualidade.html">Ir para Semana 2 · Dia 1 →</a>.
+    </p>
+
+    <footer class="site">
+      <p><strong>Curso de IA Local · Semana 1 Concluída.</strong></p>
+    </footer>
   </div>
+
+  <script>
+    (function() {
+      const urlInput = document.getElementById('py-url');
+      const promptInput = document.getElementById('py-prompt');
+      const codeOutput = document.getElementById('py-code');
+      const copyBtn = document.getElementById('copy-py-btn');
+      const copyStatus = document.getElementById('copy-py-status');
+
+      function updatePyCode() {
+        const url = urlInput.value || 'http://127.0.0.1:8080/v1/chat/completions';
+        const prompt = promptInput.value || 'Sua pergunta aqui';
+
+        codeOutput.textContent = `import urllib.request
+import json
+
+url = "${url}"
+payload = {
+    "model": "local-model",
+    "messages": [
+        {"role": "user", "content": "${prompt}"}
+    ],
+    "temperature": 0.7
+}
+
+data = json.dumps(payload).encode('utf-8')
+req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
+
+try:
+    with urllib.request.urlopen(req) as response:
+        res = json.loads(response.read().decode())
+        answer = res['choices'][0]['message']['content']
+        print("Resposta da IA Local:\\n", answer)
+except Exception as e:
+    print("Erro ao conectar na API local:", e)`;
+      }
+
+      urlInput.addEventListener('input', updatePyCode);
+      promptInput.addEventListener('input', updatePyCode);
+
+      copyBtn.addEventListener('click', function() {
+        navigator.clipboard.writeText(codeOutput.textContent).then(() => {
+          copyStatus.textContent = 'Código copiado!';
+          setTimeout(() => { copyStatus.textContent = ''; }, 2000);
+        });
+      });
+
+      updatePyCode();
+    })();
+  </script>
   <script type="module" src="../assets/quiz.js"></script>
 </body>
 </html>
