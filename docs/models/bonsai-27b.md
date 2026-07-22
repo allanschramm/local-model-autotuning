@@ -50,7 +50,7 @@ Flag notes (from run guide):
 - `llama-cli` has no draft support; one-shot binary is `llama-speculative-simple`.
 
 ## Fork Requirement
-- Needs **PrismML-Eng/llama.cpp** fork, branch `prism` (submodule `./llama.cpp-prismml`, commit `9fcaed763` = tag `prism-b9596`), built CUDA.
+- Q2_0 and DSpark need the external **PrismML-Eng/llama.cpp** fork, branch `prism` (tested commit `9fcaed763` = tag `prism-b9596`), built with CUDA. The fork is not vendored in this repository.
 - **No Windows CUDA prebuilt binary** exists in the fork releases (only Windows CPU). Windows CUDA must build from `prism` source.
 - `Q1_0` is also merged upstream llama.cpp; `Q2_0` ternary needs the fork on CUDA.
 
@@ -101,7 +101,7 @@ THREADS = 8
 FLASH_ATTN = 'on'
 NO_MMAP = True
 ```
-Runtime: upstream `llama.cpp/build-cuda` (Q1_0). Use `llama.cpp-prismml` only if enabling DSpark / Ternary Q2_0.
+Runtime: upstream `llama.cpp/build-cuda` (Q1_0). DSpark / Ternary Q2_0 requires a separate external PrismML checkout.
 
 ## Sources / Verification
 - Run guide + dspark command: https://github.com/PrismML-Eng/Bonsai-demo (README.md, SPECULATIVE.md) — read 2026-07-18

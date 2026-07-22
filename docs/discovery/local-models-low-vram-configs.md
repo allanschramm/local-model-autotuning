@@ -75,7 +75,7 @@ Ternary (1-bit / 2-bit) quantizations compress 27B parameter models down to unde
 
 #### 2. Ternary-Bonsai-27B-Q2_0.gguf
 *   **Path:** [Ternary-Bonsai-27B-Q2_0.gguf](file:///D:/Dev/Nexus-System/local-model-autotuning/models/local/Ternary-Bonsai-27B-Q2_0/Ternary-Bonsai-27B-Q2_0.gguf)
-*   **VRAM Strategy:** Fits on GPU. Needs PrismML-Eng fork (`llama.cpp-prismml`) to load Q2_0 ternary formats on CUDA.
+*   **VRAM Strategy:** Fits on GPU. Q2_0 ternary CUDA requires the external PrismML-Eng fork, which is not vendored in this repository.
 *   **Optimal Flags:**
     ```bash
     -ngl 99 -c 65536 -fa on -ctk q4_0 -ctv q4_0 --spec-type none
@@ -130,7 +130,7 @@ Standard host operating system allocators introduce multi-threaded lock contenti
 ### B. PrismML Ternary Q2_0 Format Details
 Ternary (1.58-bit) representation constrains model weights to $\{-s, 0, +s\}$, saving significant VRAM memory footprint.
 *   **Layout mechanics:** Quantized group scaling maps blocks of `128` weights to share a single FP16 scale factor. 2-bit codes represent ternary configurations (~1.58 bpw effective size).
-*   **Execution constraint:** Upstream standard `llama.cpp` does not support group-wise `g128` ternary layouts. The [llama.cpp-prismml](file:///D:/Dev/Nexus-System/local-model-autotuning/llama.cpp-prismml/) custom build is required to run the `Q2_0` binary formats on CUDA.
+*   **Execution constraint:** Upstream standard `llama.cpp` does not support group-wise `g128` ternary layouts. The external [PrismML-Eng/llama.cpp](https://github.com/PrismML-Eng/llama.cpp) custom build is required to run the `Q2_0` binary formats on CUDA; it is not a repository submodule.
 
 ### C. Unified Memory System Fallback
 *   **Environment Variable:** On Linux setups running NVIDIA GPUs, set:
@@ -139,4 +139,3 @@ Ternary (1.58-bit) representation constrains model weights to $\{-s, 0, +s\}$, s
     ```
     This enables CUDA Unified Memory allocation. If allocation requests overflow physical VRAM, memory slides to system RAM without raising an out-of-memory crash.
 *   **Windows equivalent:** Windows drivers enable unified memory fallback automatically. If memory paging occurs, generation speed drops to ~2 t/s. Monitor VRAM headroom using `nvidia-smi` to ensure active VRAM usage does not exceed **7.5 GB** of physical capacity.
-

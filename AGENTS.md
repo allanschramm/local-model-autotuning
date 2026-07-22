@@ -151,6 +151,5 @@ When the user requests a durable behavior change, record it here or in the relev
 - [teach/AGENTS.md](teach/AGENTS.md) — Course materials (Semana 1 TPS / Semana 2 quality); Dia 1 LM Studio, Dia 2+ this repo.
 - External source submodules:
   - [llama.cpp/](llama.cpp/) - Upstream llama.cpp runtime source.
-  - [llama.cpp-prismml/](llama.cpp-prismml/) - PrismML fork (bonsai model runtime).
   - [claw-eval/](claw-eval/) - Claw-Eval autonomous-agent benchmark harness source.
 

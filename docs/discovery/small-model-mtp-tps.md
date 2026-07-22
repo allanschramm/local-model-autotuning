@@ -93,7 +93,7 @@ For Gemma MTP, keep `SPEC_DRAFT_MODEL='draft/mtp-gemma-4-E4B-it.gguf'` (path rel
 ## 5. Hard rules (this rig)
 
 1. Upstream KV only: `q4_0` (etc). Never `turbo*` — not in upstream `llama.cpp`.
-2. PrismML binary = Bonsai/DSpark only — not for Gemma/Qwen baselines.
+2. External PrismML binary = Bonsai/DSpark only — not vendored here and not for Gemma/Qwen baselines.
 3. One validation/bench at a time.
 4. `CTX_SIZE` never changed without explicit user permission; cli TPS gate does not pass `-c` anyway.
 5. Filename contains `MTP` ≠ automatic win (Mythos). Always measure.

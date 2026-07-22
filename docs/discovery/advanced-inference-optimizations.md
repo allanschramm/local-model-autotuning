@@ -68,4 +68,4 @@ As discovered in our Qwen3.6-35B-A3B and Bonsai-27B speculative decoding benchma
 | **Small Models (<10B) on GPU** | `llama.cpp` / `vLLM` | `--cuda-graph`, `-fa on` | tcmalloc, MTP active |
 | **Large Models (>20B) fully on GPU** | `llama.cpp` | `-ctk q4_0 -ctv q4_0`, `-fa on` | MTP active |
 | **MoE Models with CPU expert offloading** | `llama.cpp` | `--n-cpu-moe <N>`, `--spec-type none` | Disable speculative decoding |
-| **Ultra low-bit Quantization (e.g. Q1_0)** | `llama.cpp-prismml` | `--spec-type none` | Disable speculative decoding |
+| **Ultra low-bit Quantization (e.g. Q1_0)** | `llama.cpp` | `--spec-type none` | Disable speculative decoding |
