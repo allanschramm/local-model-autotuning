@@ -3,6 +3,8 @@
 > 📌 **Guia Interativo do Aluno:** Abra o [teach/index.html](index.html) no navegador para ver o mapa visual de lições e salvar seu progresso.
 >
 > **Gate:** “Concluir” só libera depois de acertar todos os quizzes da lição.
+>
+> **Referências HTML:** [Glossário](reference/glossario.html) · [Flags llama.cpp](reference/llamacpp-flags.html)
 
 ## 🚀 Checklist de Preparação Inicial do Aluno (Multiplataforma)
 
@@ -13,14 +15,14 @@ Siga os 5 passos abaixo no terminal conforme o seu sistema operacional para prep
 2. **Criar Ambiente Virtual:** `python -m venv venv`
 3. **Instalar Dependências:** `.\venv\Scripts\pip install -r requirements.txt`
 4. **Diagnóstico de Hardware:** `.\venv\Scripts\python.exe scripts/check_hardware.py`
-5. **Validação de TPS e Servidor:** `.\venv\Scripts\python.exe scripts/verify_setup.py`
+5. **Validação de TPS e Servidor (depois da Semana 1):** `.\venv\Scripts\python.exe scripts/verify_setup.py` — **pule agora** se ainda não subiu o server na porta 8080.
 
 ### 🍎 macOS / 🐧 Linux (Terminal)
 1. **Instalar Python (se necessário):** `brew install python` (Mac) / `sudo apt install python3 python3-venv` (Linux)
 2. **Criar Ambiente Virtual:** `python3 -m venv venv`
 3. **Instalar Dependências:** `./venv/bin/pip install -r requirements.txt`
 4. **Diagnóstico de Hardware:** `./venv/bin/python scripts/check_hardware.py`
-5. **Validação de TPS e Servidor:** `./venv/bin/python scripts/verify_setup.py`
+5. **Validação de TPS e Servidor (depois da Semana 1):** `./venv/bin/python scripts/verify_setup.py` — **pule agora** se ainda não subiu o server na porta 8080.
 
 ---
 

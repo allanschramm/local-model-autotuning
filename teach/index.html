@@ -101,6 +101,10 @@
       <p class="lede">
         Aprenda como funcionam as IAs, qual modelo cabe no seu computador, como resolver erros e como rodar um servidor de API local rápido, privado e sem custo por token.
       </p>
+      <p class="navlinks">
+        <a href="reference/glossario.html">Glossário</a>
+        <a href="reference/llamacpp-flags.html">Flags llama.cpp</a>
+      </p>
     </header>
 
     <div class="progress-card">
@@ -116,10 +120,16 @@
       </p>
     </div>
 
+    <div class="progress-card" id="next-cta-card" style="border-left: 4px solid var(--accent);">
+      <p class="eyebrow" style="margin: 0 0 0.35rem;">Próximo passo</p>
+      <h2 id="next-cta-title" style="margin: 0 0 0.75rem; font-size: 1.15rem;">Carregando…</h2>
+      <a id="next-cta-btn" class="check-btn" href="lessons/s0d1-fundamentos-ia-hardware.html" style="display: inline-block; background: var(--accent); color: #fff; border-color: var(--accent); text-decoration: none; padding: 0.55rem 1rem;">Abrir próxima lição</a>
+    </div>
+
     <div class="tools-box" style="background: #f8fafc; border-left: 4px solid var(--accent); padding: 1.2rem; border-radius: 6px; margin-bottom: 2rem;">
       <h3 style="margin-top:0; color: #0f172a;">🚀 Guia de Preparação Inicial (Onboarding em 5 Passos)</h3>
       <p style="font-size: 0.88rem; color: #475569; margin-bottom: 1rem;">
-        Selecione seu sistema operacional para ver a sequência exata de preparação do seu ambiente local:
+        Passos 1–4 agora. Passo 5 só depois de subir o servidor de API (Semana 1 · Dia 1/2) — sem servidor na porta 8080 o verify falha de propósito.
       </p>
 
       <!-- Botões de SO -->
@@ -313,21 +323,21 @@
           { label: "2. Criar Ambiente Virtual (venv):", cmd: "python -m venv venv" },
           { label: "3. Instalar Dependências do Repo:", cmd: ".\\venv\\Scripts\\pip install -r requirements.txt" },
           { label: "4. Executar Diagnóstico de Hardware:", cmd: ".\\venv\\Scripts\\python.exe scripts/check_hardware.py" },
-          { label: "5. Validar Servidor API Local & TPS:", cmd: ".\\venv\\Scripts\\python.exe scripts/verify_setup.py" }
+          { label: "5. (Depois do server na 8080) Validar API & TPS — pule até a Semana 1:", cmd: ".\\venv\\Scripts\\python.exe scripts/verify_setup.py", optional: true }
         ],
         mac: [
           { label: "1. Instalar Python (se não instalado):", cmd: "brew install python" },
           { label: "2. Criar Ambiente Virtual (venv):", cmd: "python3 -m venv venv" },
           { label: "3. Instalar Dependências do Repo:", cmd: "./venv/bin/pip install -r requirements.txt" },
           { label: "4. Executar Diagnóstico de Hardware:", cmd: "./venv/bin/python scripts/check_hardware.py" },
-          { label: "5. Validar Servidor API Local & TPS:", cmd: "./venv/bin/python scripts/verify_setup.py" }
+          { label: "5. (Depois do server na 8080) Validar API & TPS — pule até a Semana 1:", cmd: "./venv/bin/python scripts/verify_setup.py", optional: true }
         ],
         linux: [
           { label: "1. Instalar Python (se não instalado):", cmd: "sudo apt update && sudo apt install -y python3 python3-venv" },
           { label: "2. Criar Ambiente Virtual (venv):", cmd: "python3 -m venv venv" },
           { label: "3. Instalar Dependências do Repo:", cmd: "./venv/bin/pip install -r requirements.txt" },
           { label: "4. Executar Diagnóstico de Hardware:", cmd: "./venv/bin/python scripts/check_hardware.py" },
-          { label: "5. Validar Servidor API Local & TPS:", cmd: "./venv/bin/python scripts/verify_setup.py" }
+          { label: "5. (Depois do server na 8080) Validar API & TPS — pule até a Semana 1:", cmd: "./venv/bin/python scripts/verify_setup.py", optional: true }
         ]
       };
 
@@ -352,10 +362,10 @@
           li.style.justifyContent = 'space-between';
           li.style.flexWrap = 'wrap';
           li.style.gap = '0.5rem';
-          li.style.background = '#ffffff';
+          li.style.background = st.optional ? '#fffbeb' : '#ffffff';
           li.style.padding = '0.6rem 0.8rem';
           li.style.borderRadius = '4px';
-          li.style.border = '1px solid #e2e8f0';
+          li.style.border = st.optional ? '1px solid #fcd34d' : '1px solid #e2e8f0';
 
           const span = document.createElement('span');
           span.innerHTML = `<strong>${st.label}</strong> <code style="background:#f1f5f9; padding:0.2rem 0.4rem; border-radius:4px;">${st.cmd}</code>`;
@@ -383,6 +393,13 @@
         });
 
         osContent.appendChild(ul);
+
+        const skipNote = document.createElement('p');
+        skipNote.style.fontSize = '0.85rem';
+        skipNote.style.color = '#92400e';
+        skipNote.style.margin = '0.85rem 0 0';
+        skipNote.innerHTML = 'Sem servidor local ainda? Ignore o passo 5 e siga o <strong>CTA Próximo passo</strong> acima (Módulo 0). Volte ao verify depois de <code>llama-server</code> / API na 8080.';
+        osContent.appendChild(skipNote);
       }
 
       osBtns.forEach(btn => {
@@ -405,6 +422,26 @@
       });
 
       renderOSSteps('win');
+
+      function renderNextCta() {
+        const titleEl = document.getElementById('next-cta-title');
+        const btnEl = document.getElementById('next-cta-btn');
+        const card = document.getElementById('next-cta-card');
+        if (!titleEl || !btnEl || !TP || !TP.getNextLesson) return;
+
+        const next = TP.getNextLesson(getCompleted());
+        if (!next) {
+          titleEl.textContent = 'Curso completo — revise o Flash Quiz ou o glossário.';
+          btnEl.href = 'reference/glossario.html';
+          btnEl.textContent = 'Abrir glossário';
+          if (card) card.style.borderLeftColor = 'var(--right)';
+          return;
+        }
+        titleEl.textContent = next.title;
+        btnEl.href = next.href;
+        btnEl.textContent = 'Abrir próxima lição';
+        if (card) card.style.borderLeftColor = 'var(--accent)';
+      }
 
       function renderProgress() {
         const completed = getCompleted();
@@ -442,6 +479,8 @@
             if (card) card.classList.remove('completed');
           }
         });
+
+        renderNextCta();
       }
 
       checkBtns.forEach(btn => {

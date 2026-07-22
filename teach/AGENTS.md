@@ -13,6 +13,9 @@ Course operator / instructors. Not part of the autotuning runtime loop.
 - Semana 2 complete: Quality & Sampling (s2d1), Skills & MCPs (s2d2), Sandboxes & Hooks/Gates (s2d3), and Integrated Use Case (s2d4).
 - Student workflow: 100% local inside git checkout. Entrypoints: (1) Agent mode via `/teach` skill in CLI/IDE, (2) Browser mode via local `teach/index.html`.
 - Lesson HTML nav: always link `../index.html` as **Guia**; prev/next lesson HTML only. Never link `MISSION.md` / `CURRICULUM.md` from student-facing HTML (`file://` shows raw markdown).
+- Student references stay HTML under `reference/` (glossário, flags). Prefer those over `docs/*.md` links in lesson bodies.
+- Guia CTA: `index.html` “Próximo passo” uses `TeachProgress.getNextLesson` (first incomplete in curriculum order).
+- Onboarding step 5 (`verify_setup.py`) is optional until a local server listens on 8080 (after Semana 1 Dia 1/2).
 - Student CLI tools: `scripts/check_hardware.py` (GPU/VRAM recommender) and `scripts/verify_setup.py` (server health & TPS benchmark).
 - Agent guidance: During `/teach` sessions, agent acts as interactive tutor. Follow 5-step onboarding: (1) Check/install Python, (2) Create `venv`, (3) Install `requirements.txt`, (4) Run `check_hardware.py`, (5) Run `verify_setup.py`. Then proceed to Module 0.
 - Quizzes: hashed answers only (`assets/QUIZ-HASH.md`); options simplified in pt-BR for beginners (no LM Studio references in quizzes).
@@ -30,4 +33,6 @@ Course operator / instructors. Not part of the autotuning runtime loop.
 - Confirm lesson headers link to `index.html` (Guia) and prev/next HTML lessons — no `.md` in student nav.
 
 ## Child DOX Index
-- (none — flat under `teach/`)
+- [GLOSSARY.md](GLOSSARY.md) — Canonical terms (HTML: `reference/glossario.html`).
+- [reference/llamacpp-flags.html](reference/llamacpp-flags.html) — Student flag cheat sheet (`file://`).
+- (otherwise flat under `teach/`)

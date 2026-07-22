@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Glossário — Workshop AILOCAL Essentials</title>
+  <link rel="stylesheet" href="../assets/lesson.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <p class="eyebrow">Referência · Terminologia do curso</p>
+      <h1>Glossário</h1>
+      <p class="lede">
+        Definições curtas usadas em todas as lições. Em caso de dúvida, esta página manda — não o marketing do Hugging Face.
+      </p>
+      <p class="navlinks">
+        <a href="../index.html">Guia</a>
+        <a href="llamacpp-flags.html">Flags llama.cpp</a>
+        <a href="inference-cheat-sheet.html">Inferência</a>
+      </p>
+    </header>
+
+    <h2>Peças do sistema</h2>
+    <dl>
+      <dt>Motor</dt>
+      <dd>Programa que carrega os pesos e gera tokens (ex.: <code>llama-server</code>). Não é o arquivo do modelo.</dd>
+      <dt>Modelo</dt>
+      <dd>Pesos no disco — tipicamente um arquivo <code>.gguf</code>.</dd>
+      <dt>Quant (quantização)</dt>
+      <dd>Compressão dos pesos (Q4, Q5, Q8…). Menos bits → menos VRAM; TPS costuma subir. Não é “treinar de novo”.</dd>
+      <dt>GGUF</dt>
+      <dd>Formato de arquivo de modelo para motores tipo llama.cpp.</dd>
+      <dt>Draft / MTP</dt>
+      <dd>Arquivo auxiliar de especulação (fora do escopo da Semana 1 de TPS básico).</dd>
+    </dl>
+
+    <h2>Memória e velocidade</h2>
+    <dl>
+      <dt>VRAM</dt>
+      <dd>Memória da GPU. Pesos + KV competem por ela. Dense deve caber na VRAM física neste curso; MoE pode offload (Dia 3).</dd>
+      <dt>RAM</dt>
+      <dd>Memória do sistema (CPU). Offload de especialistas MoE pode usar RAM — não é “free speed”.</dd>
+      <dt>KV / contexto</dt>
+      <dd>Memória do histórico da conversa. Mais <code>-c</code> → mais KV → mais memória.</dd>
+      <dt>TPS</dt>
+      <dd>Tokens por segundo — métrica de velocidade da Semana 1. Não mede “inteligência”.</dd>
+      <dt>Offload</dt>
+      <dd>Colocar parte do modelo fora da VRAM (CPU/RAM). Em dense: evitar. Em MoE: ferramenta do Dia 3.</dd>
+      <dt>OOM</dt>
+      <dd>Out of Memory — VRAM (ou RAM) esgotada. Corte <code>-c</code> / <code>-ngl</code> / quant, não “force spill” em dense.</dd>
+    </dl>
+
+    <h2>API e uso</h2>
+    <dl>
+      <dt>API local</dt>
+      <dd>Servidor HTTP na sua máquina (ex.: <code>127.0.0.1:8080</code>), em geral compatível com o formato OpenAI.</dd>
+      <dt>Harness</dt>
+      <dd>Cliente que fala com a API: script, app, agente ou IDE.</dd>
+      <dt>Amostragem</dt>
+      <dd>Como o motor escolhe o próximo token (temperatura, top-k…). Semana 2 — qualidade, não TPS.</dd>
+      <dt>MCP</dt>
+      <dd>Model Context Protocol — protocolo para o agente usar ferramentas externas (Semana 2).</dd>
+      <dt>Hook / gate</dt>
+      <dd>Automação ou portão que bloqueia ações perigosas / Trial inválido (Semana 2).</dd>
+    </dl>
+
+    <h2>Flags que você vai digitar</h2>
+    <p>Cola rápida: <a href="llamacpp-flags.html">reference/llamacpp-flags.html</a>.</p>
+
+    <footer class="site">
+      <p><a href="../index.html">← Voltar ao Guia</a></p>
+    </footer>
+  </div>
+</body>
+</html>

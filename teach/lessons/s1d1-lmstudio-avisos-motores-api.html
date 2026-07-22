@@ -40,7 +40,7 @@
       <dt>API / harness</dt>
       <dd>API local (estilo OpenAI) em <code>127.0.0.1</code>; harness = script, app ou agente que se comunica com essa API.</dd>
     </dl>
-    <p class="note">Arquivos GGUF ficam na sua máquina — sem commits no git.</p>
+    <p class="note">Arquivos GGUF ficam na sua máquina — sem commits no git. Glossário completo: <a href="../reference/glossario.html">reference/glossario.html</a>.</p>
 
     <h2>2. Motores de inferência</h2>
     <p>
@@ -53,6 +53,28 @@
       O conceito fundamental é: carregou o modelo, ativou o servidor local, a API local fica disponível.
       No <strong>Dia 2</strong> praticamos esse modelo mental diretamente no terminal com llama.cpp neste repositório.
     </p>
+
+    <h2>2b. Ponte: interface visual → terminal (Dia 2)</h2>
+    <p>
+      Se você usa um app com interface (ex.: LM Studio) no Dia 1, os <em>mesmos conceitos</em> reaparecem no CLI.
+      Nada muda na lógica — só a embalagem.
+    </p>
+    <table>
+      <thead>
+        <tr><th>Ação</th><th>App com interface</th><th>Neste repo (Dia 2+)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Escolher / baixar modelo</td><td>Lista / botão Download</td><td><code>hf download</code> → <code>models/…/*.gguf</code></td></tr>
+        <tr><td>Carregar na GPU</td><td>Slider “GPU layers”</td><td>Flag <code>-ngl</code></td></tr>
+        <tr><td>Tamanho do contexto</td><td>Campo Context Length</td><td>Flag <code>-c</code></td></tr>
+        <tr><td>Ligar API local</td><td>Toggle “Local Server”</td><td><code>llama-server --host 127.0.0.1 --port 8080</code></td></tr>
+        <tr><td>Usar no app / agente</td><td>URL <code>http://127.0.0.1:…/v1</code></td><td>Mesma URL — harness aponta para cá</td></tr>
+      </tbody>
+    </table>
+    <div class="note">
+      Dia 2 não é “outra IA”. É o mesmo contrato (motor → GGUF → API) com flags que você controla no terminal.
+      Cola de flags: <a href="../reference/llamacpp-flags.html">reference/llamacpp-flags.html</a>.
+    </div>
 
     <h2>3. Onde baixar e como escolher (foco em performance)</h2>
     <ul>

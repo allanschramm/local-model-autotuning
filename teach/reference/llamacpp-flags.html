@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flags llama.cpp — cola rápida</title>
+  <link rel="stylesheet" href="../assets/lesson.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="site">
+      <p class="eyebrow">Referência · Semana 1 · Performance</p>
+      <h1>Flags llama.cpp (TPS)</h1>
+      <p class="lede">
+        Só o que o aluno precisa no terminal. Detalhe de build/operador fica no repo docs — esta página é para <code>file://</code>.
+      </p>
+      <p class="navlinks">
+        <a href="../index.html">Guia</a>
+        <a href="glossario.html">Glossário</a>
+        <a href="../lessons/s1d2-llamacpp-flags-tps.html">Lição S1D2</a>
+      </p>
+    </header>
+
+    <h2>Binários neste checkout</h2>
+    <pre>llama.cpp/build-cuda/bin/llama-cli
+llama.cpp/build-cuda/bin/llama-server</pre>
+    <p class="note">Sem CUDA: use <code>build-cpu/bin/</code>. Host da API: <code>127.0.0.1</code>.</p>
+
+    <h2>Flags de velocidade (Semana 1)</h2>
+    <table>
+      <thead><tr><th>Flag</th><th>Significado</th><th>Dica</th></tr></thead>
+      <tbody>
+        <tr><td><code>-m</code></td><td>Caminho do GGUF</td><td>Arquivo em <code>models/…</code></td></tr>
+        <tr><td><code>-ngl</code></td><td>Camadas na GPU</td><td><code>99</code> ≈ tudo na GPU se couber</td></tr>
+        <tr><td><code>-t</code></td><td>Threads CPU</td><td>Útil quando há offload/CPU</td></tr>
+        <tr><td><code>-c</code></td><td>Contexto (tokens)</td><td>Maior = mais KV = mais VRAM</td></tr>
+        <tr><td><code>-fa on</code></td><td>Flash attention</td><td>Costuma ajudar TPS na GPU</td></tr>
+        <tr><td><code>-ctk</code> / <code>-ctv</code></td><td>Tipo do KV</td><td>Quantizar KV libera VRAM</td></tr>
+        <tr><td><code>-b</code> / <code>-ub</code></td><td>Batch</td><td>Afinar throughput</td></tr>
+        <tr><td><code>--host</code> / <code>--port</code></td><td>Bind do server</td><td>Padrão curso: <code>127.0.0.1:8080</code></td></tr>
+      </tbody>
+    </table>
+
+    <h2>Exemplo mínimo (server)</h2>
+    <pre>llama-server -m models\publisher\model\file.gguf -ngl 99 -c 8192 -fa on --host 127.0.0.1 --port 8080</pre>
+
+    <h2>Depois de subir o server</h2>
+    <p>No Windows (venv do repo):</p>
+    <pre>.\venv\Scripts\python.exe scripts/verify_setup.py</pre>
+
+    <footer class="site">
+      <p><a href="../index.html">← Guia</a> · <a href="glossario.html">Glossário</a></p>
+    </footer>
+  </div>
+</body>
+</html>

@@ -25,15 +25,17 @@
 
     <h2>Mesmo contrato, outra embalagem</h2>
     <table>
-      <thead><tr><th>Conceito</th><th>Dia 2 neste repo</th></tr></thead>
+      <thead><tr><th>Conceito</th><th>App com interface (Dia 1)</th><th>Dia 2 neste repo</th></tr></thead>
       <tbody>
-        <tr><td>Motor de Inferência</td><td><code>llama-cli</code> / <code>llama-server</code> em <code>llama.cpp/build-cuda/bin/</code></td></tr>
-        <tr><td>Pesos GGUF</td><td><code>models/*.gguf</code> (via <code>hf download</code>)</td></tr>
-        <tr><td>Servidor de API Local</td><td><code>llama-server --host 127.0.0.1</code></td></tr>
-        <tr><td>Configurações de Flags</td><td><code>autoresearch/core/config.py</code></td></tr>
+        <tr><td>Motor</td><td>App que carrega o GGUF</td><td><code>llama-cli</code> / <code>llama-server</code> em <code>llama.cpp/build-cuda/bin/</code></td></tr>
+        <tr><td>Pesos GGUF</td><td>Biblioteca do app</td><td><code>models/*.gguf</code> (via <code>hf download</code>)</td></tr>
+        <tr><td>Camadas GPU</td><td>Slider GPU offload</td><td><code>-ngl</code></td></tr>
+        <tr><td>Contexto</td><td>Context length</td><td><code>-c</code></td></tr>
+        <tr><td>Servidor API</td><td>Toggle Local Server</td><td><code>llama-server --host 127.0.0.1 --port 8080</code></td></tr>
+        <tr><td>Baseline / flags</td><td>Painéis do app</td><td><code>autoresearch/core/config.py</code> + flags CLI</td></tr>
       </tbody>
     </table>
-    <p>Referência de flags: <a href="../../docs/llamacpp-toolset.md">docs/llamacpp-toolset.md</a>.</p>
+    <p>Cola de flags (HTML, funciona em <code>file://</code>): <a href="../reference/llamacpp-flags.html">reference/llamacpp-flags.html</a>.</p>
 
     <h2>Ajustar performance (foco na Semana 1)</h2>
     <ul>
