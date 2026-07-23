@@ -19,7 +19,7 @@ This repo evaluates local models across two tiers:
 - Rule-based scoring only (no `llm_judge` — fully local, no API keys)
 - Quick tier: `difficulty=easy`, ≤2 mock services — observational smoke (no score-floor reject), not fair cross-model score
 - Full tier: `difficulty=easy` first, then fills with `medium` — canonical Val Score
-- Discovered at runtime from `claw-eval/tasks/` submodule
+- Discovered at runtime from `claw-eval/tasks/` (local vendor tree)
 
 ## Current Code Hook
 
@@ -57,7 +57,7 @@ No Docker, remote judges, or external APIs.
 
 ## Approved Targets
 
-`claw-eval/claw-eval` — checked out as submodule `claw-eval/`. 300 human-verified
+`claw-eval/` — local vendor checkout (not a git submodule; gitignored). 300 human-verified
 autonomous-agent tasks across general, multimodal, and multi-turn splits.
 
 Quick tier sample (auto-discovered, may vary):

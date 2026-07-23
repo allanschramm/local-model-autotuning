@@ -25,6 +25,7 @@ Repository-wide agent guidelines are owned by the repository developers.
 - Ask first, ship never: When user asks "can we do X?", answer yes/no only. Do not implement unless user explicitly says "do it" / "implement" / "go ahead".
 - Never assume. When uncertain whether a file is scratch, a decision is right, or a path is safe — ask the user or yourself explicitly before acting.
 - NEVER commit and/or push without explicit user command. Wait for "commit", "commit and push", or equivalent. Do not infer intent.
+- **Never edit upstream/vendor trees:** `llama.cpp/` (submodule), local `claw-eval/`, `llama.cpp-nanbeige42/`, `llama.cpp-prismml/`, and any other third-party checkout are read-only for agents. No Edit/Write/Delete/patch inside them. Work around via env (`PYTHONUTF8=1`), harness code owned by this repo, or ask the user.
 
 ## Work Guidance
 - Use `/caveman lite|full|ultra|wenyan` for communication style constraint.
@@ -131,6 +132,7 @@ When the user requests a durable behavior change, record it here or in the relev
 - **Portable agent hard-gates only**: Ship Cursor/Claude project hooks in-repo so any clone benefits. Do **not** require OS ACL (`icacls`), chmod lockdowns, or enterprise managed hooks for normal users (including non-devs).
 - **Dense = no shared-memory offload**: Never partially offload dense GGUFs (layers to CPU / Windows shared GPU memory). That path freezes the whole PC. Only MoE may use expert offload (`--n-cpu-moe` / VITRIOL). Dense must fit in **physical** VRAM (cut `CTX_SIZE` / KV quant / drop draft) or reject the Trial — never “spill and hope”.
 - **Virtual environment execution**: ALWAYS use the project's dedicated virtual environment (`.\venv\Scripts\python.exe` / `.\venv\Scripts\pytest.exe` on Windows, `./venv/bin/python` on Linux/macOS) for all python scripts, tests, and tool commands. NEVER run system-global `python` or `pip`, and NEVER install packages globally.
+- **Upstream/vendor trees are read-only**: Never modify `llama.cpp/` (only remaining submodule), nor local vendor checkouts `claw-eval/`, `llama.cpp-nanbeige42/`, `llama.cpp-prismml/`. UTF-8 / Windows mock issues → `PYTHONUTF8=1` (or harness-owned env injection), never patch upstream files.
 
 ## Child DOX Index
 - [autoresearch/AGENTS.md](autoresearch/AGENTS.md) — Core autotuning package (config, runners, benchmarks).
@@ -149,7 +151,8 @@ When the user requests a durable behavior change, record it here or in the relev
 - [scripts/AGENTS.md](scripts/AGENTS.md) — Operator scripts (setup, monitoring, server daemon).
 - [tests/AGENTS.md](tests/AGENTS.md) — Unit and integration test suite.
 - [teach/AGENTS.md](teach/AGENTS.md) — Course materials (Semana 1 TPS / Semana 2 quality); Dia 1 LM Studio, Dia 2+ this repo.
-- External source submodules:
-  - [llama.cpp/](llama.cpp/) - Upstream llama.cpp runtime source.
-  - [claw-eval/](claw-eval/) - Claw-Eval autonomous-agent benchmark harness source.
+- External sources (**agent read-only — never edit**):
+  - [llama.cpp/](llama.cpp/) — upstream runtime (**git submodule**).
+  - [claw-eval/](claw-eval/) — Claw-Eval harness (**local vendor tree**, gitignored; not a submodule).
+  - `llama.cpp-nanbeige42/`, `llama.cpp-prismml/` — arch forks (**local vendor trees**, gitignored).
 

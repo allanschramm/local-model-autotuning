@@ -71,6 +71,11 @@ run_nexus_only.py
 # Models folder is entirely local/offline
 /models/
 
+# Local vendor trees (not git submodules — keep on disk, do not commit)
+/claw-eval/
+/llama.cpp-nanbeige42/
+/llama.cpp-prismml/
+
 # Local mutable Baseline (seed from config.py.example)
 autoresearch/core/config.py
 
