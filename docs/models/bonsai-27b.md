@@ -81,6 +81,7 @@ Harness: `benchmark_search.py --no-agentic-quick --no-agentic-full --no-coding` 
 | Q1_0 target-only | prism CUDA | 131072 | q4_0 | 40.5 | 7.3 GB |
 | Q1_0 + KV f16 | prism | 65536 | f16 | 11.0 (reject) | — |
 | Q1_0 + KV q8_0 | prism | 65536 | q8_0 | 40.7 | 6.9 GB |
+| Ternary Q2_0 | prism | 32768 | q4_0 | **10.6** (reject; GGUF deleted 2026-07-23) | — |
 | Ternary Q2_0 | prism | 131072 | q4_0 | 10.6 (reject) | — |
 | Q1_0 + DSpark (prior) | prism | — | — | 19.2 (−48%) | — |
 | Q1_0 + DSpark canonical | prism | 65536 | q4_0 | **39.2** | 7.6 GB |
@@ -115,4 +116,4 @@ Runtime: upstream `llama.cpp/build-cuda` (Q1_0). DSpark / Ternary Q2_0 requires 
 - **DSpark speedup**: canonical drafter loads (39.2 t/s @ 65k / 7.6 GB) but still loses to target-only ~41. Acceptance rate / PrismML kernel path TBD if chasing speculative wins.
 - **Architecture**: block_count, expert_count, head_count_kv — **TBD**, run `gguf.GGUFReader`.
 - **VITRIOL**: MoE vs dense — treat as **dense** (no shared-memory offload; VRAM guard applies).
-- **Ternary variant** `Ternary-Bonsai-27B-Q2_0` (+ its dspark drafter) — separate card `ternary-bonsai-27b.md` **TBD** (spot: 10.6 t/s @ 131k, reject).
+- **Ternary variant** `Ternary-Bonsai-27B-Q2_0` — **REJECTED / GGUF deleted 2026-07-23**. PrismML loads; **10.6 t/s** @ ctx 32k (`TPS_FLOOR` 15). See [ternary-bonsai-27b.md](ternary-bonsai-27b.md). Keep Q1_0 only.

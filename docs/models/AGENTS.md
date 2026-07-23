@@ -50,6 +50,8 @@ One markdown file per GGUF model we run on this rig. Cards are the canonical loc
 ## Child DOX Index
 - [`README.md`](./README.md) — index and summary of available GGUF model cards.
 - [`bonsai-27b.md`](./bonsai-27b.md) — Bonsai 27B model card.
+- [`ternary-bonsai-27b.md`](./ternary-bonsai-27b.md) — Ternary Q2_0 (rejected/deleted; PrismML; ~10.6 t/s).
+- [`lfm2.5-8b-a1b.md`](./lfm2.5-8b-a1b.md) — LFM2.5-8B-A1B MoE hybrid (`lfm2moe`); full VRAM `n-cpu-moe 0`.
 - [`gemma-4-12b.md`](./gemma-4-12b.md) — Gemma 4 12B model card.
 - [`gemma-4-26b-a4b.md`](./gemma-4-26b-a4b.md) — Gemma 4 26B A4B MoE model card.
 - [`gemma-4-e4b.md`](./gemma-4-e4b.md) — Gemma 4 E4B model card.

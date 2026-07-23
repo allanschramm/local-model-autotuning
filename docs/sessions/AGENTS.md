@@ -42,3 +42,4 @@ Single-day empirical session logs. Captures what was run, on which hardware, wit
 - [`2026-07-20-root-memory-archive.md`](./2026-07-20-root-memory-archive.md) — Root memory archive and empirical notes.
 - [`2026-07-20-small-model-tps-matrix.md`](./2026-07-20-small-model-tps-matrix.md) — Small-model MTP TPS empirical matrix (8 GB).
 - [`2026-07-23-nanbeige42-tps-matrix.md`](./2026-07-23-nanbeige42-tps-matrix.md) — Nanbeige4.2-3B arch fork + KV/batch TPS matrix (8 GB).
+- [`2026-07-23-lfm2.5-8b-a1b-validation.md`](./2026-07-23-lfm2.5-8b-a1b-validation.md) — LFM2.5-8B-A1B Q4_K_M validation + full-VRAM vs exps→CPU A/B.

@@ -10,7 +10,7 @@ For a GPU with 8 GB VRAM, models are categorized into three operational classes:
 
 | Class | Model Examples | GPU Layers (`-ngl`) | expert split (`--n-cpu-moe`) | KV Cache Quant (`-ctk`/`-ctv`) | Speculative Decoding (`--spec-type`) |
 | :--- | :--- | :---: | :---: | :---: | :---: |
-| **A: Small Dense (<10B)** | Qwen3.5-9B, Qwythos-9B, LFM-1.2B | `99` (Full) | N/A | `q4_0` | `draft-mtp` (if supported) or `none` |
+| **A: Small Dense / small MoE (<10B)** | Qwen3.5-9B, Qwythos-9B, LFM2.5-1.2B, **LFM2.5-8B-A1B** | `99` (Full) | N/A dense; **`0` for LFM 8B** (fits) | `q4_0` (1.2B: `f16`) | `draft-mtp` if embedded, else `none` |
 | **B: Ternary / Packed (27B)** | Bonsai-27B Q1_0 / Q2_0 | `99` (Full) | N/A | `q4_0` | `none` (prevents speed inversion) |
 | **C: Mixture-of-Experts (35B)** | Qwen3.6-35B, Ornith-1.0-35B | `99` (Hybrid) | `32` to `40` (CPU) | `q4_0` | `none` (prevents CPU sync bottleneck) |
 
@@ -47,13 +47,25 @@ These models run entirely in VRAM. The primary low-VRAM concern is preventing co
     *   **Performance:** Delivers **51.2 t/s** with 7.5 GB peak VRAM usage under full 131k context.
 
 #### 3. LFM2.5-1.2B-Instruct-Q8_0.gguf
-*   **Path:** [LFM2.5-1.2B-Instruct-Q8_0.gguf](file:///D:/Dev/Nexus-System/local-model-autotuning/models/lmstudio-community/LFM2.5-1.2B-Instruct-GGUF/LFM2.5-1.2B-Instruct-Q8_0.gguf)
-*   **VRAM Strategy:** Extremely small footprint (~1.16 GB).
+*   **Path:** `models/lmstudio-community/LFM2.5-1.2B-Instruct-GGUF/LFM2.5-1.2B-Instruct-Q8_0.gguf`
+*   **VRAM Strategy:** Extremely small footprint (~1.16 GB). Alias `lfm2.5-1.2b`.
 *   **Optimal Flags:**
     ```bash
-    -ngl 99 -c 8192 -fa on
+    -ngl 99 -c 8192 -fa on -ctk f16 -ctv f16
     ```
-*   **Why this works:** Fits 100% inside VRAM with unquantized (FP16) KV Cache. Speculative decoding is unnecessary due to its high base execution speed.
+*   **Why this works:** Fits 100% inside VRAM with FP16 KV. Speculative decoding unnecessary.
+*   **Measured (2026-07-23):** **173.3 t/s**, claw-quick **0.80**, peak VRAM ~2.9 GB.
+
+#### 4. LFM2.5-8B-A1B-Q4_K_M.gguf
+*   **Path:** `models/LiquidAI/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-Q4_K_M.gguf` (~5.16 GB)
+*   **VRAM Strategy:** Hybrid MoE (`lfm2moe`, 32 experts / 4 active). **Fits full GPU** — use `--n-cpu-moe 0`. Alias `lfm2.5-8b-a1b`.
+*   **Optimal Flags:**
+    ```bash
+    -ngl 99 -c 65536 -fa on -ctk q4_0 -ctv q4_0 --n-cpu-moe 0 --jinja --cont-batching
+    # sampler (Liquid): --temp 0.2 --top-k 80 --repeat-penalty 1.05
+    ```
+*   **Why this works:** Active ~1.5B → ~174 t/s. Harness `N_CPU_MOE=None` auto-dumps experts to CPU (peak ~2.3 GB) and slows agentic; `0` keeps experts on GPU (peak **6.5 GB**, agentic ~3× faster). Bench tg unchanged (~174) because it already ran full-GPU.
+*   **Measured (2026-07-23):** KEEP; claw-quick **0.20** (tool-call format suspect). Card: [lfm2.5-8b-a1b.md](../models/lfm2.5-8b-a1b.md).
 
 ---
 
@@ -73,14 +85,9 @@ Ternary (1-bit / 2-bit) quantizations compress 27B parameter models down to unde
     *   `--no-mmap` avoids memory paging bottlenecks during model load.
     *   **Performance:** Achieves **41.2 t/s** at 131k context while using only 7.3 GB of peak VRAM.
 
-#### 2. Ternary-Bonsai-27B-Q2_0.gguf
-*   **Path:** [Ternary-Bonsai-27B-Q2_0.gguf](file:///D:/Dev/Nexus-System/local-model-autotuning/models/local/Ternary-Bonsai-27B-Q2_0/Ternary-Bonsai-27B-Q2_0.gguf)
-*   **VRAM Strategy:** Fits on GPU. Q2_0 ternary CUDA requires the external PrismML-Eng fork, which is not vendored in this repository.
-*   **Optimal Flags:**
-    ```bash
-    -ngl 99 -c 65536 -fa on -ctk q4_0 -ctv q4_0 --spec-type none
-    ```
-*   **Why this works:** Same as Q1_0, but limit context to 65k because the model weights are larger (6.67 GB). Speculative decoding must remain disabled.
+#### 2. Ternary-Bonsai-27B-Q2_0.gguf — **deleted locally (2026-07-23)**
+*   **Status:** Rejected. PrismML CUDA loads the quant, but **bench_tg ≈ 10.6 t/s** @ ctx 32k on RTX 4060 8 GB — below `TPS_FLOOR` 15. Prefer [Bonsai-27B-Q1_0](#1-bonsai-27b-q1_0gguf) (~41 t/s). Full note: [ternary-bonsai-27b.md](../models/ternary-bonsai-27b.md).
+*   **If re-acquiring:** needs `llama.cpp-prismml`; start with `-c 32768` (65k fails VRAM preflight ~8.5 GB est).
 
 ---
 
