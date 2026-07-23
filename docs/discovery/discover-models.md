@@ -104,7 +104,7 @@ The autoloop hill-climbs around the baseline, saves the best `config.py`, and ap
 - Each trial writes 1 row to `results.tsv` with score / VRAM / status
 - On keep, `config.py` rewrites with the better config
 - SIGINT handler saves state — kill it any time, resume tomorrow
-- 20 TPS floor: configs that drop TPS below 20 are auto-discarded
+- TPS Floor (`TPS_FLOOR` in Baseline `config.py`, default 20): configs below the floor are auto-discarded; lower it for large MoE on constrained VRAM
 
 ## Quick checklist
 

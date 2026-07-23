@@ -48,7 +48,7 @@ Library-call and API-heavy programming tasks.
 ### Val Score & Throughput
 Claw-Eval full supplies the canonical `Val Score`. HumanEval+, MBPP+, LiveCodeBench, and BigCodeBench Hard are optional preflight checks; when enabled, each runs exactly 10 tasks and does not replace the agentic Val Score.
 
-If a Trial falls below the **TPS Floor** (default 20.0 TPS), the `Val Score` is aggressively zeroed to ensure runtime viability for interactive agent usage.
+If a Trial falls below the **TPS Floor** (Baseline `TPS_FLOOR`, default 20.0 TPS), the `Val Score` is aggressively zeroed to ensure runtime viability for interactive agent usage. Lower it for large MoE on constrained VRAM when measured speed is still usable.
 
 ### Constraints
 - **Hardware target:** Agnostic (optimize for your local GPU/VRAM).

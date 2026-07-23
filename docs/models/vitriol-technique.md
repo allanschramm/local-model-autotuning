@@ -34,7 +34,7 @@ For a 40-layer MoE, `--n-cpu-moe 40` keeps all experts on CPU. Lower N = move so
 | RAM | 16 GB | 16 GB |
 | GPU | GTX 1070 8GB | RTX 4060 8GB |
 | Result | 18 tok/s @ 132k ctx | Qwen3.6 35B: **22.15 t/s** @ 65k ctx (`--n-cpu-moe 40`). Gemma-4 26B: **19.00 t/s** @ 65k ctx (`--n-cpu-moe 30`). |
-| Floor | nosso TPS Floor é 20 (autoresearch) | Qwen3.6 35B passa o floor (22.15 t/s). Gemma-4 26B chega muito perto (19.00 t/s). |
+| Floor | nosso `TPS_FLOOR` default é 20 (Baseline `config.py`) | Qwen3.6 35B passa o floor (22.15 t/s). Gemma-4 26B chega muito perto (19.00 t/s) — baixe `TPS_FLOOR` pra MoE se precisar. |
 
 ## Related flags (from our llama-server build)
 - `--n-cpu-moe-draft N` / `-ncmoed` — same for MTP draft model

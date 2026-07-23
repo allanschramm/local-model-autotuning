@@ -46,6 +46,8 @@ ENGINE_DEFAULTS = {
     'CONT_BATCHING': False,
     'N_CPU_MOE': None,
     'VRAM_LIMIT_MB': 7900,
+    # Min tg t/s for Trial keep. MoE on 8GB often lands 15–19 — lower per model if needed.
+    'TPS_FLOOR': 20.0,
 }
 
 # Generation/Sampling configuration parameters (affect quality and token selection)
@@ -102,6 +104,12 @@ def validate_config(cfg: dict) -> dict:
         vram_limit = float(vram_limit)
         if not math.isfinite(vram_limit) or vram_limit <= 0:
             raise ConfigError(f"VRAM_LIMIT_MB must be a positive finite number; got {vram_limit}")
+    tps_floor = normalized.get("tps_floor", normalized.get("TPS_FLOOR", DEFAULTS.get("TPS_FLOOR", 20.0)))
+    if tps_floor is None:
+        tps_floor = 20.0
+    tps_floor = float(tps_floor)
+    if not math.isfinite(tps_floor) or tps_floor <= 0:
+        raise ConfigError(f"TPS_FLOOR must be a positive finite number; got {tps_floor}")
     for key, value in normalized.items():
         if isinstance(value, float) and not math.isfinite(value):
             raise ConfigError(f"{key} must be finite")
@@ -109,6 +117,7 @@ def validate_config(cfg: dict) -> dict:
     normalized["FLASH_ATTN"] = flash
     if vram_limit is not None:
         normalized["VRAM_LIMIT_MB"] = vram_limit
+    normalized["TPS_FLOOR"] = tps_floor
     return normalized
 
 STATE_SCHEMA_VERSION = 2

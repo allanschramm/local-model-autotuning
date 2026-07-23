@@ -100,7 +100,7 @@ Este repositório inclui uma jornada publicada de 6 aulas em HTML (Módulo 0 + S
 
 O Claw-Eval full é a métrica canônica para decisões de keep/discard. HE+, MBPP+, LCB e BigCodeBench são preflight opcional e, quando ativados, sempre usam 10 tarefas por dataset.
 
-TPS Floor = 20 tok/s. Abaixo disso -> score zerado.
+TPS Floor = `TPS_FLOOR` no Baseline (`config.py`, default 20 tok/s). Abaixo disso -> score zerado. MoE grande em 8GB: baixe o floor (ex.: 15).
 
 ### Preflight coding
 

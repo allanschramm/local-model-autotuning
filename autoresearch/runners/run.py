@@ -13,7 +13,7 @@ from autoresearch.core import config
 from autoresearch.benchmarks import bench_config
 from autoresearch.benchmarks import format_agentic_benchmarks, format_claw_tiers
 
-from autoresearch.runners.evaluation import ExperimentRunner, BENCH_TPS_THRESHOLD
+from autoresearch.runners.evaluation import ExperimentRunner, resolve_tps_floor
 
 BASE_DIR = Path(__file__).resolve().parent
 RESULTS_FILE = BASE_DIR.parent.parent / "results.tsv"
@@ -105,8 +105,8 @@ def parse_args():
         help="Validation mode: run llama-bench + Claw quick smoke evaluation. "
              "Validates model load, throughput, and basic agentic behavior. "
              "No extended eval, no keep/discard. Useful for quick config sanity checks.")
-    parser.add_argument("--bench-tts-threshold", type=float, default=BENCH_TPS_THRESHOLD,
-        help=f"Minimum text generation t/s from llama-bench validation (default: {BENCH_TPS_THRESHOLD})")
+    parser.add_argument("--bench-tts-threshold", type=float, default=resolve_tps_floor(),
+        help="Minimum text generation t/s (default: Baseline TPS_FLOOR; config.py-only)")
     parser.add_argument("--no-mmap", action="store_true", default=config.NO_MMAP, help="Disable mmap")
     parser.add_argument("--jinja", action="store_true", default=config.JINJA, help="Enable Jinja chat template engine")
     parser.add_argument("--reasoning-budget", type=int, default=config.REASONING_BUDGET, help="Thinking budget tokens limit")
@@ -408,7 +408,7 @@ def handle_single_run(args):
     print(f"  HumanEval+:     {res.get('he_val', 0.0):.4f}")
     print(f"  MBPP+:          {res.get('mbpp_val', 0.0):.4f}")
     print(f"  BigCode Hard:   {res.get('bigcode_val', 0.0):.4f}")
-    print(f"Combined TPS:     {res['avg_tps']:.1f} (Threshold: >= 20.0)")
+    print(f"Combined TPS:     {res['avg_tps']:.1f} (Threshold: >= {resolve_tps_floor():.1f})")
     print(f"Bench tg:         {res.get('bench_tg_tps', 0.0):.1f} t/s")
     print(f"Peak VRAM:        {res['peak_vram_gb']:.1f} GB")
     print(f"Current Score:    {val_score:.6f}")

@@ -79,6 +79,23 @@ class TestRuntimeInvariants(unittest.TestCase):
         with self.assertRaises(ConfigError):
             validate_config(cfg)
 
+    def test_tps_floor_in_engine_defaults(self):
+        from autoresearch.core.config import ENGINE_DEFAULTS
+        self.assertIn("TPS_FLOOR", ENGINE_DEFAULTS)
+        self.assertEqual(ENGINE_DEFAULTS["TPS_FLOOR"], 20.0)
+
+    def test_validate_config_accepts_custom_tps_floor(self):
+        cfg = load_config()
+        cfg["TPS_FLOOR"] = 15.0
+        out = validate_config(cfg)
+        self.assertEqual(out["TPS_FLOOR"], 15.0)
+
+    def test_rejects_non_positive_tps_floor(self):
+        cfg = load_config()
+        cfg["TPS_FLOOR"] = 0.0
+        with self.assertRaises(ConfigError):
+            validate_config(cfg)
+
     def test_rejects_invalid_lowercase_override(self):
         cfg = load_config()
         cfg["ctx_size"] = 1024

@@ -18,7 +18,7 @@
 *   **Dense = physical VRAM only**: Never partially offload dense GGUFs (layers → CPU / Windows shared GPU memory). That path freezes the PC. Dense must fit physical VRAM (cut `CTX_SIZE` / KV quant / drop draft) or the Trial is rejected. Only MoE may use `--n-cpu-moe` / VITRIOL.
 *   **Pre-flight Estimation**: `estimate_vram_mb` (weights + optional draft file + KV + overhead) runs before `llama-cli` / `llama-server`. Skip/reject any config with estimate `> VRAM_LIMIT_MB` (default 7900 on 8GB). Override via `ENGINE_DEFAULTS['VRAM_LIMIT_MB']` or `AUTORESEARCH_VRAM_LIMIT_MB`.
 *   **Runtime NVML kill (dense)**: While `llama-server` runs, the VRAM sampler kills the process if `used_mb > VRAM_LIMIT_MB` and records `VRAM_LIMIT_EXCEEDED` — belt-and-suspenders when the estimate undercounts.
-*   **TPS Floor**: Hard floor is 20 TPS. Below this, `val_score` is zeroed.
+*   **TPS Floor**: User-set in Baseline `ENGINE_DEFAULTS['TPS_FLOOR']` (default **20.0**). Below this, `val_score` is zeroed / Trial rejects. MoE on 8GB often needs **15–18** — lower the floor per model; do not hardcode in harness.
 *   **Shared Memory Mitigation**: Driver fallback to shared system memory freezes dense workloads. Do not rely on the TPS floor alone — preflight + NVML kill are the primary guards.
 *   **Loop Resilience**: All model server startup failures, bad configurations, or exceptions are caught at the Trial level. They log a `FAIL` status to `results.tsv` and proceed to the next candidate configuration instead of crashing the search loop.
 *   **NVML Failsafe**: If NVML query fails mid-run, set `nvml = None` in the exception block immediately to avoid repetitive CDLL calling overhead.
@@ -47,7 +47,7 @@
 
 Every Trial runs a **2-step validation** before the full eval:
 
-1. **llama-bench speed check** (`prompt=512`, `gen=128`, 3 repeats). If `tg_tps < TPS Floor` (20.0), Trial FAILs immediately — no server spin-up, no agentic eval.
+1. **llama-bench speed check** (`prompt=512`, `gen=128`, 3 repeats). If `tg_tps < TPS Floor` (Baseline `TPS_FLOOR`, default 20.0), Trial FAILs immediately — no server spin-up, no agentic eval.
 2. **Claw-Eval quick smoke**. Reports local tool-use score under the config — not just fast garbage. **No score floor**: low smoke scores are recorded, not rejected. Only the TPS Floor rejects.
 
 **Validation mode** (`python3 benchmark_search.py --validation`): runs steps 1-2 and exits. No extended eval, no keep/discard. For quick config sanity checks.
@@ -74,7 +74,7 @@ When asked to "validate a model", follow this exact procedure:
    - Logs results to results.tsv
 
 3. **What the --validation flag does** — Two steps, always both:
-   - **Step 1 (speed check)**: `llama-bench` with `prompt=512`, `gen=128`, 3 repeats. If `tg_tps < 20.0`, FAILs immediately — no agentic eval runs.
+   - **Step 1 (speed check)**: `llama-bench` with `prompt=512`, `gen=128`, 3 repeats. If `tg_tps < TPS_FLOOR` (config.py; default 20.0), FAILs immediately — no agentic eval runs.
    - **Step 2 (agentic smoke)**: Claw-Eval quick scores local tool use with deterministic rule-based grading (no pass/fail cut on that score). Optional direct-coding preflight always uses exactly 10 tasks per dataset.
 
 4. **One model at a time** — Never run multiple validations in parallel. All models share the same GPU (CUDA device 0) and default port 18080. Each validation must finish (PASS or FAIL) before the next starts.

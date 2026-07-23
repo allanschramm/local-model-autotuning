@@ -61,7 +61,7 @@ The single scalar metric used for keep/discard decisions. Claw-Eval full is cano
 _Avoid_: score, result, metric
 
 **TPS Floor**:
-The minimum throughput (tokens per second) a Trial must achieve. Below this, Val Score is forced to zero regardless of accuracy.
+The minimum throughput (tokens per second) a Trial must achieve, set via Baseline `ENGINE_DEFAULTS['TPS_FLOOR']` (default 20.0). Below this, Val Score is forced to zero regardless of accuracy. User-tunable per model (large MoE on 8GB often needs a lower floor).
 _Avoid_: threshold, minimum TPS
 
 ### Benchmarks

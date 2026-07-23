@@ -25,6 +25,7 @@ from autoresearch.core.llama_runner import (
 )
 from autoresearch.core.sglang_runner import SGLangServerRunner, run_sglang_bench_validation
 from autoresearch.core.llama_client import LlamaClient, GenerationParams
+from autoresearch.core import config as core_config
 from autoresearch.benchmarks.benchmark_coding import run_benchmark as run_coding
 from autoresearch.benchmarks.agentic_benchmarks import get_quick_tier_tasks, get_full_tier_tasks
 from autoresearch.benchmarks.agentic_runner import run_agentic_eval
@@ -32,9 +33,22 @@ from autoresearch.benchmarks.agentic_runner import run_agentic_eval
 BASE_DIR = Path(__file__).resolve().parent
 
 # ── llama-bench defaults ────────────────────────────────────────────────
-BENCH_TPS_THRESHOLD = 20.0  # min tg t/s from llama-bench
+# Fallback only when Baseline omits TPS_FLOOR (legacy local config.py).
+BENCH_TPS_THRESHOLD = 20.0
 BENCH_N_PROMPT = 512
 BENCH_N_GEN = 512
+
+
+def resolve_tps_floor(norm: dict[str, Any] | None = None) -> float:
+    """TPS Floor from Trial norm / Baseline. User sets ENGINE_DEFAULTS['TPS_FLOOR']."""
+    if norm:
+        for key in ("bench_tts_threshold", "tps_floor"):
+            if key in norm and norm[key] is not None:
+                return float(norm[key])
+    try:
+        return float(core_config.DEFAULTS.get("TPS_FLOOR", BENCH_TPS_THRESHOLD))
+    except Exception:
+        return BENCH_TPS_THRESHOLD
 
 
 class TrialOutcome(str, Enum):
@@ -279,7 +293,7 @@ class ExperimentRunner:
         task_limit_val = norm.get("coding_task_limit", 10)
         lcb_limit_val = norm.get("lcb_task_limit", 10)
         bigcode_limit_val = norm.get("bigcode_task_limit", 10)
-        bench_tts_threshold = norm.get("bench_tts_threshold", BENCH_TPS_THRESHOLD)
+        bench_tts_threshold = resolve_tps_floor(norm)
         is_validation = norm.get("validation", False)
         # Accept both CLI keys (agentic_*) and bench_config keys (include_agentic_*).
         agentic_quick = bool(
@@ -433,7 +447,7 @@ class ExperimentRunner:
         if include_perplexity and not include_coding and not agentic_quick and not agentic_full:
             res.avg_tps = res.bench_tg_tps
             res.tps_source = "backend-bench"
-            if res.avg_tps < 20.0:
+            if res.avg_tps < bench_tts_threshold:
                 res.val_score = 0.0
                 res.outcome = TrialOutcome.MODEL_REJECTED
                 return res
@@ -521,15 +535,18 @@ class ExperimentRunner:
                     avg_tps = sum(tps_list) / len(tps_list)
                     res.avg_tps = avg_tps
                     res.tps_source = "coding-generation"
-                    if avg_tps < 20.0:
-                        print(f"  [WARNING] Combined TPS {avg_tps:.2f} is below 20.0! Score set to 0.0.")
+                    if avg_tps < bench_tts_threshold:
+                        print(
+                            f"  [WARNING] Combined TPS {avg_tps:.2f} is below "
+                            f"{bench_tts_threshold:.1f}! Score set to 0.0."
+                        )
                         res.val_score = 0.0
                         res.outcome = TrialOutcome.MODEL_REJECTED
                         return res
                 elif not skip_bench:
                     res.avg_tps = res.bench_tg_tps
                     res.tps_source = "backend-bench"
-                    if res.avg_tps < 20.0:
+                    if res.avg_tps < bench_tts_threshold:
                         res.val_score = 0.0
                         res.outcome = TrialOutcome.MODEL_REJECTED
                         return res
