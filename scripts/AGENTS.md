@@ -8,6 +8,7 @@ Repository operators and developers.
 
 ## Local Contracts
 - Scripts must be runnable from the repository root.
+- `model_up.py` (global `model-up`) must work from any cwd: resolve `--model` and draft path flags (`--spec-draft-model` / `-md` / `--model-draft`) to absolute paths, and spawn `llama-server` with `cwd=REPO_ROOT`.
 - `setup-check.sh` is the canonical readiness verification script (supports GPU acceleration and CPU-only builds).
 - `hooks/block-adhoc-eval.ps1` — shell policy (python allowlist, config-only Baseline, cwd, no gate rewrite).
 - `hooks/block-gate-tamper.ps1` — deny Edit/Write/Delete on gate wiring paths.

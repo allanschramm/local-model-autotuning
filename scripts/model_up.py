@@ -180,6 +180,29 @@ def _resolve_model_path(raw: str) -> Path:
     return resolve_model_path(models_dir, ref)
 
 
+# llama-server aliases that take a GGUF path; resolve relative → absolute so
+# launching from any cwd (e.g. user home via global model-up) still finds drafts.
+_PATH_FLAGS = frozenset({"--spec-draft-model", "-md", "--model-draft"})
+
+
+def _expand_flag_tokens(flag: str) -> list[str]:
+    tokens = shlex.split(flag)
+    out: list[str] = []
+    i = 0
+    while i < len(tokens):
+        tok = tokens[i]
+        out.append(tok)
+        if tok in _PATH_FLAGS and i + 1 < len(tokens):
+            path = _resolve_model_path(tokens[i + 1])
+            if not path.exists():
+                raise FileNotFoundError(f"draft model not found: {path}")
+            out.append(str(path))
+            i += 2
+            continue
+        i += 1
+    return out
+
+
 def _resolve_alias_server(cfg: AliasConfig) -> Path:
     if not cfg.llama_cpp_root:
         return resolve_llama_server()
@@ -219,7 +242,7 @@ def build_command(cfg: AliasConfig) -> tuple[list[str], Path]:
         str(cfg.port),
     ]
     for flag in cfg.flags:
-        cmd.extend(shlex.split(flag))
+        cmd.extend(_expand_flag_tokens(flag))
     return cmd, model_path
 
 
@@ -400,6 +423,7 @@ def cmd_start(alias_name: str | None) -> int:
             stderr=subprocess.STDOUT,
             stdin=subprocess.DEVNULL,
             close_fds=True,
+            cwd=str(REPO_ROOT),
             **_server_kwargs(),
         )
         _write_state(RunningState(proc.pid, cfg.name, cfg.alias or cfg.name, cfg.port, cfg.host))
