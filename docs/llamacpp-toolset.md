@@ -40,7 +40,10 @@ All binaries → `$LLAMA_CPP/build-cuda/bin/` or `$LLAMA_CPP/build-cpu/bin/` (or
 ## Hardware
 
 - GPU: RTX 4060 (8 GB VRAM, CUDA 8.9) — adapt paths and flags for your hardware
-- Optional external forks: clone elsewhere and set `AUTORESEARCH_LLAMA_CPP_ROOT` (not vendored in this repo)
+- Optional external forks (regular dirs under repo root, **not** git submodules):
+  - `llama.cpp-nanbeige42/` — Nanbeige Looped Transformer (`Nanbeige/llama.cpp` @ `nanbeige42`). Required for [Nanbeige4.2-3B](models/nanbeige4.2-3b.md).
+  - `llama.cpp-prismml/` — PrismML / Bonsai path when upstream is insufficient.
+  - Point harness via `AUTORESEARCH_LLAMA_CPP_ROOT`, or pin per-alias with `llama_cpp_root` in `models/aliases/<name>/config.yaml` (`model-up`).
 
 ---
 
