@@ -83,6 +83,43 @@ def test_model_up_resolves_nested_lmstudio_layout(tmp_path, monkeypatch):
     assert model_path == model_file
 
 
+def test_model_up_uses_llama_cpp_root_for_fork_binary(tmp_path, monkeypatch):
+    alias_dir = tmp_path / "models" / "aliases" / "forked"
+    alias_dir.mkdir(parents=True)
+    model_file = tmp_path / "models" / "demo.gguf"
+    model_file.write_text("x", encoding="utf-8")
+    fork_bin = tmp_path / "llama.cpp-fork" / "build-cuda" / "bin"
+    fork_bin.mkdir(parents=True)
+    server = fork_bin / ("llama-server.exe" if model_up.IS_WINDOWS else "llama-server")
+    server.write_text("x", encoding="utf-8")
+    alias_file = alias_dir / "config.yaml"
+    alias_file.write_text(
+        "\n".join(
+            [
+                "alias: forked-demo",
+                "model: models/demo.gguf",
+                "llama_cpp_root: llama.cpp-fork",
+                "port: 18080",
+                "host: 127.0.0.1",
+                "flags:",
+                "  - --jinja",
+                "status: ready",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(model_up, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(model_up, "ALIASES_DIR", tmp_path / "models" / "aliases")
+
+    cfg = model_up.load_alias_config(alias_file)
+    cmd, model_path = model_up.build_command(cfg)
+
+    assert cfg.llama_cpp_root == "llama.cpp-fork"
+    assert model_path == model_file
+    assert Path(cmd[0]) == server.resolve()
+
+
 def test_model_up_adds_repo_root_to_sys_path(monkeypatch):
     repo_root = str(model_up.REPO_ROOT)
     monkeypatch.setattr(model_up.sys, "path", [p for p in model_up.sys.path if p != repo_root])

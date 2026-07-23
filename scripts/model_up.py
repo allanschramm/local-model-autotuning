@@ -44,6 +44,9 @@ class AliasConfig:
     alias: str | None = None
     flags: tuple[str, ...] = ()
     path: Path | None = None
+    # Optional repo-relative (or absolute) llama.cpp tree with build-cuda/bin.
+    # Needed for arch forks (e.g. llama.cpp-nanbeige42) that upstream cannot load.
+    llama_cpp_root: str | None = None
 
 
 @dataclass(frozen=True)
@@ -140,7 +143,7 @@ def load_alias_config(path: Path) -> AliasConfig:
         if key == "flags":
             in_flags = True
             continue
-        if key in {"alias", "model", "host", "description", "status"}:
+        if key in {"alias", "model", "host", "description", "status", "llama_cpp_root"}:
             data[key] = value
         elif key == "port":
             data[key] = int(value)
@@ -150,6 +153,7 @@ def load_alias_config(path: Path) -> AliasConfig:
     if not model:
         raise ValueError(f"{path}: missing model")
 
+    llama_root = data.get("llama_cpp_root")
     return AliasConfig(
         name=path.parent.name,
         model=model,
@@ -158,6 +162,7 @@ def load_alias_config(path: Path) -> AliasConfig:
         alias=alias,
         flags=tuple(flags),
         path=path,
+        llama_cpp_root=str(llama_root) if llama_root else None,
     )
 
 
@@ -175,8 +180,29 @@ def _resolve_model_path(raw: str) -> Path:
     return resolve_model_path(models_dir, ref)
 
 
+def _resolve_alias_server(cfg: AliasConfig) -> Path:
+    if not cfg.llama_cpp_root:
+        return resolve_llama_server()
+    root = Path(cfg.llama_cpp_root)
+    if not root.is_absolute():
+        root = REPO_ROOT / root
+    exe = "llama-server.exe" if IS_WINDOWS else "llama-server"
+    for candidate in (
+        root / "build-cuda" / "bin" / exe,
+        root / "build-cuda" / "bin" / "Release" / exe,
+        root / "build-cpu" / "bin" / exe,
+        root / "build" / "bin" / exe,
+    ):
+        if candidate.exists():
+            return candidate.resolve()
+    raise FileNotFoundError(
+        f"llama-server not found under llama_cpp_root={cfg.llama_cpp_root!r} "
+        f"(looked in {root}/build-cuda|build-cpu|build/bin)"
+    )
+
+
 def build_command(cfg: AliasConfig) -> tuple[list[str], Path]:
-    binary = resolve_llama_server()
+    binary = _resolve_alias_server(cfg)
     model_path = _resolve_model_path(cfg.model)
     if not model_path.exists():
         raise FileNotFoundError(f"model not found: {model_path}")
