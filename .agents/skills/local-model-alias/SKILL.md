@@ -69,7 +69,8 @@ Plug em Pi/Hermes: model=<alias_name>, base_url=http://127.0.0.1:<port>/v1
 ## Não fazer
 
 - Não criar alias sem teste empírico que valide o TPS.
-- Não duplicar alias existente.
+- Não duplicar alias existente **nem segundo alias do mesmo modelo** (outro quant) — um preferred por família; substitua o config se o quant mudar.
+- Não listar no INDEX alias cujo GGUF basename não resolve sob `models/`.
 - Não hardcodar paths Windows (`C:\...`) — sempre caminhos relativos ou env vars.
 - Não tocar `~/.local/bin/model-up` — é o launcher, não muda por alias.
 

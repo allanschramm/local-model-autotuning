@@ -109,7 +109,7 @@ Since the model is ~5.6 GB and we have 8 GB of VRAM, we can run with maximum GPU
 
 ### 2026-07-19 Update (Unsloth Dynamic 4-bit XL Quant)
 - Upgraded local model to the newly released `Ornith-1.0-9B-UD-Q4_K_XL.gguf` (5.98 GB) from Unsloth.
-- Alias `o9` updated.
+- Alias: `ornith-9b` (INDEX name; old `o9` retired 2026-07-23).
 - Performance/TPS results pending benchmark.
 
 ## Open questions

@@ -108,7 +108,7 @@ See [IQ3_M variant card](ornith-1.0-35b-iq3_m.md) for detailed testing results.
 
 ### 2026-07-19 Update (Unsloth Dynamic 4-bit XL Quant)
 - Upgraded local model to the newly released `Ornith-1.0-35B-UD-Q4_K_XL.gguf` (22.32 GB) from Unsloth.
-- Alias `o35` updated.
+- Alias: `ornith-35b` (INDEX name; old `o35` retired 2026-07-23). Prefer UD-Q4_K_XL — do not keep a parallel Q3_K_XL alias.
 - Performance/TPS results pending benchmark.
 
 ## Open questions

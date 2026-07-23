@@ -77,6 +77,7 @@ Fits entirely in 8 GB with 131k context and flash-attn.
 ## Qwythos-9B-v2 (same card family)
 - Local: `Qwythos-9B-v2-Q4_K_M.gguf` — fair matrix base **40.1 t/s**
 - **No CUDA GGUF MTP** on Hub as of 2026-07-20 (MLX-only MTP exists — useless here)
+- **Agentic champion (historical):** `Qwythos-9B-v2-MTP-Q4_K_M.gguf` scored **agentic_full=0.5333** KEEP in `results.tsv` (TPS 34.5, VRAM 7.9 GB). File **missing on disk** as of 2026-07-23; cannot promote until re-acquired (Hub still lacks useful CUDA MTP GGUF). Notes: [session](../sessions/2026-07-23-nanbeige42-tps-matrix.md).
 
 ## Validation Bench (2 tasks each, 2026-06-30)
 
