@@ -298,9 +298,14 @@ class TestRun(unittest.TestCase):
     @patch("autoresearch.runners.evaluation.run_llama_bench_validation", return_value=17.0)
     @patch("autoresearch.runners.evaluation.LlamaServerRunner")
     def test_default_tps_floor_rejects_moe_speed(self, mock_runner, mock_bench, _mock_vram):
-        """Default TPS Floor 20 rejects 17 t/s (typical MoE on 8GB)."""
+        """TPS Floor 20 rejects 17 t/s (typical MoE on 8GB)."""
         res = run.run_evaluation(
-            {"MODEL": "gemma-4-26B-A4B.gguf", "CTX_SIZE": 65536, "FLASH_ATTN": "on"},
+            {
+                "MODEL": "gemma-4-26B-A4B.gguf",
+                "CTX_SIZE": 65536,
+                "FLASH_ATTN": "on",
+                "TPS_FLOOR": 20.0,
+            },
             include_coding=False,
             agentic_quick=False,
             agentic_full=False,

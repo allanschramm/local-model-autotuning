@@ -63,7 +63,7 @@ def test_available_gguf_names_skips_draft_vision(tmp_path: Path):
     assert _available_gguf_names(models) == ["main.gguf"]
 
 
-def test_from_config_resolves_nested_model_and_draft(tmp_path: Path):
+def test_from_config_resolves_nested_model_and_draft(tmp_path: Path, monkeypatch):
     models = tmp_path / "models"
     main = models / "lmstudio-community" / "gemma-4-e4b-it-gguf" / "main.gguf"
     draft = models / "draft" / "mtp.gguf"
@@ -71,6 +71,12 @@ def test_from_config_resolves_nested_model_and_draft(tmp_path: Path):
     draft.parent.mkdir(parents=True)
     main.write_bytes(b"m")
     draft.write_bytes(b"d")
+
+    # Stub bytes are not a real GGUF; skip auto block_count read.
+    monkeypatch.setattr(
+        "autoresearch.core.llama_runner.resolve_n_cpu_moe",
+        lambda _path, n: (n, False),
+    )
 
     intent, _ = ServerIntent.from_config(
         {

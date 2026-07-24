@@ -26,7 +26,11 @@ class TestSearchState(unittest.TestCase):
 
     def test_update_baseline_delegates_to_write_baseline(self):
         with patch("autoresearch.core.state.write_baseline") as mock_write:
-            self.state.update_baseline({"MODEL": "custom.gguf", "CTX_SIZE": 8192})
+            self.state.update_baseline({
+                "MODEL": "custom.gguf",
+                "CTX_SIZE": 8192,
+                "N_CPU_MOE": None,
+            })
             mock_write.assert_called_once()
             written = mock_write.call_args[0][0]
             self.assertEqual(written["MODEL"], "custom.gguf")
@@ -38,6 +42,7 @@ class TestSearchState(unittest.TestCase):
                 "MODEL": "custom.gguf",
                 "CTX_SIZE": 8192,
                 "FLASH_ATTN": "on",
+                "N_CPU_MOE": None,
                 "UNKNOWN_KEY": "should_be_filtered",
             })
             written = mock_write.call_args[0][0]
@@ -105,7 +110,7 @@ class TestWriteBaseline(unittest.TestCase):
             "    'REASONING_BUDGET_MESSAGE': None,\n"
             "    'REASONING': None,\n"
             "    'CONT_BATCHING': True,\n"
-            "    'N_CPU_MOE': 32,\n"
+            "    'N_CPU_MOE': None,\n"
             "}\n"
             "SAMPLER_DEFAULTS = {\n"
             "    'TEMP': 0.4,\n"
@@ -120,6 +125,8 @@ class TestWriteBaseline(unittest.TestCase):
         )
         self._engine_backup = dict(ENGINE_DEFAULTS)
         self._sampler_backup = dict(SAMPLER_DEFAULTS)
+        ENGINE_DEFAULTS["N_CPU_MOE"] = None
+        config._refresh_defaults()
 
     def tearDown(self):
         ENGINE_DEFAULTS.clear()

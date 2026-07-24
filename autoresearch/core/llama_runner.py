@@ -29,7 +29,8 @@ _MODEL_SEARCH_SKIP = frozenset({".cache", "aliases", "huggingface"})
 import math
 from autoresearch.core import config
 
-from autoresearch.core.config import ConfigError, validate_config, is_dense_model, is_moe_model
+from autoresearch.core.config import ConfigError, validate_config, is_dense_model
+from autoresearch.core.model_arch import resolve_n_cpu_moe
 
 
 def resolve_model_path(models_dir: Path, ref: str | Path) -> Path:
@@ -185,9 +186,21 @@ class ServerIntent:
             or norm.get("spec_draft_model_file")
         )
         draft_path = str(resolve_model_path(models_dir, draft_ref)) if draft_ref else None
+        model_path = resolve_model_path(models_dir, model_fn)
+        # Baseline None is dropped from norm; read raw merged for explicit 0 vs auto.
+        raw_n_cpu_moe = merged.get("N_CPU_MOE", merged.get("n_cpu_moe"))
+        try:
+            resolved_n_cpu_moe, n_cpu_moe_auto = resolve_n_cpu_moe(model_path, raw_n_cpu_moe)
+        except ValueError as exc:
+            raise ConfigError(str(exc)) from exc
+        if n_cpu_moe_auto:
+            print(
+                f"  [VITRIOL] auto n-cpu-moe={resolved_n_cpu_moe} "
+                f"from GGUF block_count for {model_path.name}"
+            )
 
         intent = cls(
-            model_path=resolve_model_path(models_dir, model_fn),
+            model_path=model_path,
             ctx_size=norm.get("ctx_size", 131072),
             kv_cache=kv_cache,
             flash_attn=norm.get("flash_attn", "on"),
@@ -210,7 +223,7 @@ class ServerIntent:
             cont_batching=norm.get("cont_batching", False),
             spec_type=norm.get("spec_type"),
             spec_draft_model=draft_path,
-            n_cpu_moe=norm.get("n_cpu_moe"),
+            n_cpu_moe=resolved_n_cpu_moe,
         )
 
         return intent, norm
@@ -489,14 +502,13 @@ class LlamaServerRunner:
                     draft_path = self.intent.model_path.parent / draft_path
                 cmd += ["--spec-draft-model", str(draft_path)]
 
-        # VITRIOL: MoE expert offload only. Dense must never spill to shared memory.
-        if is_moe_model(self.intent.model_path):
-            if self.intent.n_cpu_moe is not None:
-                print(f"  [VITRIOL] MoE Expert Streaming: --n-cpu-moe {self.intent.n_cpu_moe} for {self.intent.model_path.name}.")
-                cmd += ["--n-cpu-moe", str(self.intent.n_cpu_moe)]
-            else:
-                print(f"  [VITRIOL] MoE Expert Streaming enabled for {self.intent.model_path.name}. Offloading experts to CPU.")
-                cmd += ["--override-tensor", ".*exps.*=CPU"]
+        # VITRIOL: MoE expert offload only (resolved in from_config). Dense: no flag.
+        if self.intent.n_cpu_moe is not None:
+            print(
+                f"  [VITRIOL] MoE Expert Streaming: --n-cpu-moe {self.intent.n_cpu_moe} "
+                f"for {self.intent.model_path.name}."
+            )
+            cmd += ["--n-cpu-moe", str(self.intent.n_cpu_moe)]
 
         return cmd
 

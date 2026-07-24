@@ -46,6 +46,7 @@ ENGINE_DEFAULTS = {
     'REASONING_BUDGET_MESSAGE': None,
     'REASONING': None,
     'CONT_BATCHING': False,
+    # MoE: None = auto --n-cpu-moe {GGUF block_count}; 0 = full GPU; N>0 = manual.
     'N_CPU_MOE': None,
     'VRAM_LIMIT_MB': 7900,
     # Min tg t/s for Trial keep. MoE on 8GB often lands 15–19 — lower per model if needed.
@@ -69,6 +70,7 @@ DEFAULTS = {**ENGINE_DEFAULTS, **SAMPLER_DEFAULTS}
 MIN_CTX_SIZE = 2048
 
 # Architecture class (MoE vs dense): GGUF metadata via model_arch — not filenames.
+# MoE N_CPU_MOE=None → harness auto-uses GGUF block_count (see resolve_n_cpu_moe).
 
 
 def validate_config(cfg: dict) -> dict:

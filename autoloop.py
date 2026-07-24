@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from autoresearch.core.llama_runner import resolve_model_path, estimate_vram_mb
+from autoresearch.core.model_arch import resolve_n_cpu_moe
 from autoresearch.core.config import (
     ENGINE_DEFAULTS,
     SAMPLER_DEFAULTS,
@@ -202,10 +203,11 @@ def preflight_vram_ok(cfg: dict[str, Any], vram_limit: float | None) -> bool:
         kv_v = "q4_0"
     draft = cfg.get("SPEC_DRAFT_MODEL")
     draft_path = resolve_model_path(MODELS_DIR, draft) if draft else None
-    n_cpu_moe = cfg.get("N_CPU_MOE")
+    model_path = resolve_model_path(MODELS_DIR, model)
+    n_cpu_moe, _ = resolve_n_cpu_moe(model_path, cfg.get("N_CPU_MOE"))
     # Prefer module-level estimate_vram_mb so tests can patch autoloop.estimate_vram_mb.
     est = estimate_vram_mb(
-        resolve_model_path(MODELS_DIR, model),
+        model_path,
         ctx,
         kv_k,
         kv_v,

@@ -85,20 +85,73 @@ class TestLlamaRunner(unittest.TestCase):
         self.assertIn("--spec-type", cmd)
         self.assertIn("mtp", cmd)
 
-    @patch("autoresearch.core.llama_runner.is_moe_model", return_value=True)
     @patch("autoresearch.core.llama_runner.resolve_llama_server")
-    def test_build_cmd_vitriol_moe(self, mock_resolve, _mock_moe):
+    def test_build_cmd_vitriol_moe(self, mock_resolve):
         mock_resolve.return_value = Path("/bin/llama-server")
         intent = ServerIntent(
             model_path=Path("models/DeepSeek-V3-MoE-A3B.gguf"),
             ctx_size=2048,
             kv_cache="q4_0",
-            flash_attn="on"
+            flash_attn="on",
+            n_cpu_moe=40,
         )
         runner = LlamaServerRunner(intent)
         cmd = runner._build_cmd(18080)
-        self.assertIn("--override-tensor", cmd)
-        self.assertIn(".*exps.*=CPU", cmd)
+        self.assertIn("--n-cpu-moe", cmd)
+        self.assertEqual(cmd[cmd.index("--n-cpu-moe") + 1], "40")
+        self.assertNotIn("--override-tensor", cmd)
+
+    @patch("autoresearch.core.llama_runner.resolve_llama_server")
+    def test_build_cmd_vitriol_moe_full_gpu(self, mock_resolve):
+        mock_resolve.return_value = Path("/bin/llama-server")
+        intent = ServerIntent(
+            model_path=Path("models/LFM2.5-8B-A1B.gguf"),
+            ctx_size=2048,
+            kv_cache="q4_0",
+            flash_attn="on",
+            n_cpu_moe=0,
+        )
+        runner = LlamaServerRunner(intent)
+        cmd = runner._build_cmd(18080)
+        self.assertIn("--n-cpu-moe", cmd)
+        self.assertEqual(cmd[cmd.index("--n-cpu-moe") + 1], "0")
+
+    @patch("autoresearch.core.llama_runner.resolve_n_cpu_moe", return_value=(40, True))
+    @patch("autoresearch.core.llama_runner.resolve_model_path")
+    def test_from_config_auto_n_cpu_moe_from_block_count(self, mock_path, _mock_resolve_n):
+        mock_path.return_value = Path("models/moe.gguf")
+        intent, _ = ServerIntent.from_config(
+            {
+                "MODEL": "moe.gguf",
+                "CTX_SIZE": 4096,
+                "FLASH_ATTN": "on",
+                "BATCH_SIZE": 512,
+                "UBATCH_SIZE": 128,
+                "N_CPU_MOE": None,
+            },
+            Path("models"),
+        )
+        self.assertEqual(intent.n_cpu_moe, 40)
+
+    @patch("autoresearch.core.config.is_dense_model", return_value=False)
+    @patch("autoresearch.core.llama_runner.resolve_n_cpu_moe", return_value=(0, False))
+    @patch("autoresearch.core.llama_runner.resolve_model_path")
+    def test_from_config_keeps_explicit_zero(self, mock_path, mock_resolve_n, _mock_dense):
+        mock_path.return_value = Path("models/moe.gguf")
+        intent, _ = ServerIntent.from_config(
+            {
+                "MODEL": "moe.gguf",
+                "CTX_SIZE": 4096,
+                "FLASH_ATTN": "on",
+                "BATCH_SIZE": 512,
+                "UBATCH_SIZE": 128,
+                "N_CPU_MOE": 0,
+            },
+            Path("models"),
+        )
+        self.assertEqual(intent.n_cpu_moe, 0)
+        mock_resolve_n.assert_called_once()
+        self.assertEqual(mock_resolve_n.call_args.args[1], 0)
 
     @patch("autoresearch.core.llama_runner.resolve_llama_server")
     def test_build_cmd_traditional_speculative(self, mock_resolve):
@@ -396,6 +449,67 @@ class TestLlamaRunner(unittest.TestCase):
                 "N_CPU_MOE": 32,
             })
         self.assertIn("MoE-only", str(ctx.exception))
+
+    def test_resolve_n_cpu_moe_auto_block_count(self):
+        from autoresearch.core import model_arch
+        with tempfile.NamedTemporaryFile(suffix=".gguf", delete=False) as tmp:
+            path = Path(tmp.name)
+        try:
+            with patch.object(model_arch, "_gguf_arch_info", return_value=(True, 41)):
+                n, auto = model_arch.resolve_n_cpu_moe(path, None)
+            self.assertEqual(n, 41)
+            self.assertTrue(auto)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_resolve_n_cpu_moe_explicit_and_dense(self):
+        from autoresearch.core import model_arch
+        with tempfile.NamedTemporaryFile(suffix=".gguf", delete=False) as tmp:
+            path = Path(tmp.name)
+        try:
+            with patch.object(model_arch, "_gguf_arch_info", return_value=(True, 41)):
+                n, auto = model_arch.resolve_n_cpu_moe(path, 0)
+            self.assertEqual(n, 0)
+            self.assertFalse(auto)
+            with patch.object(model_arch, "_gguf_arch_info", return_value=(False, 22)):
+                n, auto = model_arch.resolve_n_cpu_moe(path, None)
+            self.assertIsNone(n)
+            self.assertFalse(auto)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_resolve_n_cpu_moe_missing_file_skips_auto(self):
+        from autoresearch.core import model_arch
+        n, auto = model_arch.resolve_n_cpu_moe(Path("missing-moe.gguf"), None)
+        self.assertIsNone(n)
+        self.assertFalse(auto)
+        n, auto = model_arch.resolve_n_cpu_moe(Path("missing-moe.gguf"), 32)
+        self.assertEqual(n, 32)
+        self.assertFalse(auto)
+
+    def test_resolve_n_cpu_moe_moe_without_block_count_fails(self):
+        from autoresearch.core import model_arch
+        with tempfile.NamedTemporaryFile(suffix=".gguf", delete=False) as tmp:
+            path = Path(tmp.name)
+        try:
+            with patch.object(model_arch, "_gguf_arch_info", return_value=(True, None)):
+                with self.assertRaises(ValueError) as ctx:
+                    model_arch.resolve_n_cpu_moe(path, None)
+            self.assertIn("block_count", str(ctx.exception))
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_resolve_n_cpu_moe_unreadable_file_fails_auto(self):
+        from autoresearch.core import model_arch
+        with tempfile.NamedTemporaryFile(suffix=".gguf", delete=False) as tmp:
+            path = Path(tmp.name)
+        try:
+            with patch.object(model_arch, "_gguf_arch_info", side_effect=OSError("bad gguf")):
+                with self.assertRaises(ValueError) as ctx:
+                    model_arch.resolve_n_cpu_moe(path, None)
+            self.assertIn("cannot read GGUF", str(ctx.exception))
+        finally:
+            path.unlink(missing_ok=True)
 
     def test_vram_sampler_kills_dense_over_limit(self):
         from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent

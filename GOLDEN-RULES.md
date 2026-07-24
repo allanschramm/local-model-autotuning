@@ -9,7 +9,7 @@
     *   Turboquant and similar forks typically accept `--spec-type mtp` (NOT `draft-mtp`). The autoloop's `llama_runner.py` probes `--help` at runtime and picks whichever value the build supports.
     *   Speculative draft tokens (`--spec-draft-n-max` between `1` and `4`) accelerate generation if accepted. Speedup is **1.15–1.25× for MoE**, **1.4–2.0× for dense**.
     *   **Architectural caveat**: speculative decoding with a separate draft model (e.g., Qwen-3.5-800M as drafter) does **not** help MoE+SSM models — verification becomes PCIe-bound. MTP (draft heads built into the model) is a different mechanism and does help.
-*   **Offloading (`-ngl`)**: Default to maximum (`99` or `999`) for full GPU. Dense models must stay fully on GPU — never partial layer offload to shared memory. MoE may use `--n-cpu-moe` (VITRIOL) when experts do not fit.
+*   **Offloading (`-ngl`)**: Default to maximum (`99` or `999`) for full GPU. Dense models must stay fully on GPU — never partial layer offload to shared memory. MoE may use `--n-cpu-moe` (VITRIOL) when experts do not fit. Baseline `N_CPU_MOE=None` auto-uses GGUF `block_count`; set `0` only when the MoE fits physical VRAM.
 *   **Batching (`-b` / `-ub`)**: Micro-batch (`-ub`) and batch (`-b`) sizes balance GPU Tensor Core utilization during prefill against VRAM overhead.
 *   **Threading (`-t`)**: CPU threads must match physical CPU core boundaries to avoid thrashing and context-switch latency.
 

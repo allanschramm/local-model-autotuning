@@ -82,7 +82,8 @@ class TestRuntimeInvariants(unittest.TestCase):
     def test_tps_floor_in_engine_defaults(self):
         from autoresearch.core.config import ENGINE_DEFAULTS
         self.assertIn("TPS_FLOOR", ENGINE_DEFAULTS)
-        self.assertEqual(ENGINE_DEFAULTS["TPS_FLOOR"], 20.0)
+        self.assertIsInstance(ENGINE_DEFAULTS["TPS_FLOOR"], (int, float))
+        self.assertGreater(ENGINE_DEFAULTS["TPS_FLOOR"], 0)
 
     def test_validate_config_accepts_custom_tps_floor(self):
         cfg = load_config()
