@@ -102,6 +102,8 @@ O Claw-Eval full é a métrica canônica para decisões de keep/discard. HE+, MB
 
 TPS Floor = `TPS_FLOOR` no Baseline (`config.py`, default 20 tok/s). Abaixo disso -> score zerado. MoE grande em 8GB: baixe o floor (ex.: 15).
 
+Ranking local atual (8 GB): [docs/discovery/claw-eval-leaderboard.md](docs/discovery/claw-eval-leaderboard.md) — líder claw-full: Laguna-XS **0.6667** (2026-07-24).
+
 ### Preflight coding
 
 HE+/MBPP+/LCB/BigCode ficam como preflight rápido opcional, não como medida final de agente:

@@ -118,4 +118,4 @@ Runtime for Trials / `model-up`: set `AUTORESEARCH_LLAMA_CPP_ROOT=llama.cpp-nanb
 
 ## Open questions
 
-- None blocking local use. Optional later: re-run claw-full under f16 Baseline to refresh Val Score vs 0.2667 (q4_0-era).
+- None blocking local use. Optional later: re-run claw-full under f16 Baseline to refresh Val Score vs 0.2667 (q4_0-era). Superseded as Val Score leader by Laguna-XS **0.6667** (2026-07-24) — see [claw-eval-leaderboard.md](../discovery/claw-eval-leaderboard.md).

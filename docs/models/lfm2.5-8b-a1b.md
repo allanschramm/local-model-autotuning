@@ -131,7 +131,7 @@ Harness: `benchmark_search.py --validation` (claw-quick only; coding off). Runti
 
 Only T010_contact_lookup passed in both runs. TPS identical because Combined TPS comes from `llama-cli` bench (already GPU); VRAM/wall-time change is server-side expert placement.
 
-Related tiny dense sibling: alias `lfm2.5-1.2b` — claw-quick **0.80**, ~173 t/s @ ctx 8k f16 (same day queue).
+Related tiny dense sibling: alias `lfm2.5-1.2b` — claw-quick **0.80**, **180.6 t/s** @ ctx **65k** f16 (2026-07-24 matrix; 128k needs q4/q8). Card: [lfm2.5-1.2b.md](lfm2.5-1.2b.md).
 
 ## Sources / Verification
 

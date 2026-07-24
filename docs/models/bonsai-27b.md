@@ -86,21 +86,27 @@ Harness: `benchmark_search.py --no-agentic-quick --no-agentic-full --no-coding` 
 | Q1_0 + DSpark (prior) | prism | — | — | 19.2 (−48%) | — |
 | Q1_0 + DSpark canonical | prism | 65536 | q4_0 | **39.2** | 7.6 GB |
 
-**Keep (max TPS):** `Bonsai-27B-Q1_0.gguf`, `CTX_SIZE=131072`, `KV=q4_0`, no speculative, upstream `llama.cpp` CUDA (~41 t/s). Canonical DSpark loads and stays under 8GB at ctx=65k but does not beat target-only.
+**Keep (max TPS short-gen):** `Bonsai-27B-Q1_0.gguf`, `CTX_SIZE=131072`, `KV=q4_0`, no speculative (~41 t/s). **Agentic claw-full needs ctx 65k** — 131k VRAM-killed mid-eval (7906>7900).
 
-## Config Baseline (max TPS, no draft)
+### Claw-Eval full (2026-07-24)
+- **Val Score 0.4667** (7/15) @ ctx **65536**, bench_tg **40.2**, peak **6.5 GB**. Alias `bonsai` locked to 65k for agentic.
+
+## Config Baseline (agentic / claw-full)
 ```python
 MODEL = 'Bonsai-27B-Q1_0.gguf'
-CTX_SIZE = 131072           # 65k–131k band; same short-gen TPS as 65k
+CTX_SIZE = 65536            # 131k OK for short-gen; agentic overflows VRAM_LIMIT 7900
 KV_CACHE_K = 'q4_0'
 KV_CACHE_V = 'q4_0'
-SPEC_TYPE = None            # DSpark slower than target-only on Q1_0
+SPEC_TYPE = None
 SPEC_DRAFT_N_MAX = 0
 BATCH_SIZE = 512
 UBATCH_SIZE = 128
 THREADS = 8
+THREADS_BATCH = 12
 FLASH_ATTN = 'on'
 NO_MMAP = True
+CONT_BATCHING = False
+TPS_FLOOR = 15.0
 ```
 Runtime: upstream `llama.cpp/build-cuda` (Q1_0). DSpark / Ternary Q2_0 requires a separate external PrismML checkout.
 

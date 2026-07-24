@@ -109,7 +109,10 @@ See [IQ3_M variant card](ornith-1.0-35b-iq3_m.md) for detailed testing results.
 ### 2026-07-19 Update (Unsloth Dynamic 4-bit XL Quant)
 - Upgraded local model to the newly released `Ornith-1.0-35B-UD-Q4_K_XL.gguf` (22.32 GB) from Unsloth.
 - Alias: `ornith-35b` (INDEX name; old `o35` retired 2026-07-23). Prefer UD-Q4_K_XL — do not keep a parallel Q3_K_XL alias.
-- Performance/TPS results pending benchmark.
+
+### Claw-Eval full + VITRIOL (2026-07-24)
+- A/B: `n-cpu-moe=block_count(40)` beats prior 32 on smoke (28.9 vs 27.0 t/s).
+- **Val Score 0.6000** (9/15) @ ctx **65536**, `n-cpu-moe 40`, bench_tg **25.7**, peak **4.9 GB**. Prior claw-quick 0.80.
 
 ## Open questions
 - None (baseline verified).

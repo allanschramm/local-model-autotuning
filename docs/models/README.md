@@ -27,10 +27,14 @@ Cards:
 - [Ornith-1.0-9B](ornith-1.0-9b.md) — UD base + Hub MTP GGUF
 - [Ornith-1.0-35B](ornith-1.0-35b.md) — Q4_K_M (primary) + IQ3_M variant
 - [Ornith-1.0-35B IQ3_M](ornith-1.0-35b-iq3_m.md) — IQ3_M variant (rejected: slower than Q4_K_M)
-- [Bonsai-27B](bonsai-27b.md) — Q1_0 keep (~41 t/s @ 131k); Ternary Q2_0 rejected
+- [Laguna-XS-2.1](laguna-xs-2.1.md) — MoE 256×2.2B; **best claw-full Val Score 0.6667** on this rig
+- [Bonsai-27B](bonsai-27b.md) — Q1_0; agentic @ 65k (131k VRAM-kill); Ternary Q2_0 rejected
 - [Ternary-Bonsai-27B](ternary-bonsai-27b.md) — **deleted** (10.6 t/s < floor; PrismML)
+- [LFM2.5-1.2B](lfm2.5-1.2b.md) — tiny dense; alias **65k f16** (180.6 t/s, claw-quick 0.80); 128k needs KV quant
 - [LFM2.5-8B-A1B](lfm2.5-8b-a1b.md) — MoE hybrid; ~174 t/s; full VRAM (`n-cpu-moe 0`); claw-quick 0.20
 - [VITRIOL technique](vitriol-technique.md) — Codacus MoE-split strategy (`N_CPU_MOE=None` ≠ no offload in harness)
+
+Claw-Eval ranks (all models): [docs/discovery/claw-eval-leaderboard.md](../discovery/claw-eval-leaderboard.md).
 
 ## Open extraction tasks
 Unsloth's web docs return ~5k chars per `web_extract` call, truncating longer pages. The following sections are still missing from our cards and should be re-extracted via `browser_navigate` or a longer timeout when needed:

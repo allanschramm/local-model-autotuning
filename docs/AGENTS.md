@@ -38,6 +38,6 @@ Durable documentation for this repo: model cards, technique notes, architecture 
 - [docs/models/AGENTS.md](models/AGENTS.md) — model card schema + per-model index.
 - [docs/adr/AGENTS.md](adr/AGENTS.md) — architecture decision records contract + index (ADRs 0001–0005).
 - [docs/discovery/AGENTS.md](discovery/AGENTS.md) — user-facing guides (tooling, quantization, inference engines, speculative formats).
-- [docs/sessions/AGENTS.md](sessions/AGENTS.md) — single-day empirical session logs index (2026-06-19 to 2026-07-23).
+- [docs/sessions/AGENTS.md](sessions/AGENTS.md) — single-day empirical session logs index (2026-06-19 to 2026-07-24).
 - [docs/architecture.html](architecture.html) — interactive architecture diagram (HTML exception under docs/).
 - [docs/llamacpp-toolset.md](llamacpp-toolset.md) — llama.cpp toolset reference: build, binaries, flags, bench/server/quantize/perplexity/imatrix commands; local arch forks.

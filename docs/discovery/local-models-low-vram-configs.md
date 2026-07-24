@@ -11,8 +11,8 @@ For a GPU with 8 GB VRAM, models are categorized into three operational classes:
 | Class | Model Examples | GPU Layers (`-ngl`) | expert split (`--n-cpu-moe`) | KV Cache Quant (`-ctk`/`-ctv`) | Speculative Decoding (`--spec-type`) |
 | :--- | :--- | :---: | :---: | :---: | :---: |
 | **A: Small Dense / small MoE (<10B)** | Qwen3.5-9B, Qwythos-9B, LFM2.5-1.2B, **LFM2.5-8B-A1B** | `99` (Full) | N/A dense; **`0` for LFM 8B** (fits) | `q4_0` (1.2B: `f16`) | `draft-mtp` if embedded, else `none` |
-| **B: Ternary / Packed (27B)** | Bonsai-27B Q1_0 / Q2_0 | `99` (Full) | N/A | `q4_0` | `none` (prevents speed inversion) |
-| **C: Mixture-of-Experts (35B)** | Qwen3.6-35B, Ornith-1.0-35B | `99` (Hybrid) | `32` to `40` (CPU) | `q4_0` | `none` (prevents CPU sync bottleneck) |
+| **B: Ternary / Packed (27B)** | Bonsai-27B Q1_0 | `99` (Full) | N/A | `q4_0` | `none` (prevents speed inversion) |
+| **C: Mixture-of-Experts** | Qwen3.6-35B, Ornith-1.0-35B, **Laguna-XS-2.1** | `99` (Hybrid) | **`block_count`** (40 on these GGUFs) | `q4_0` | `none` (prevents CPU sync bottleneck) |
 
 ---
 
@@ -48,13 +48,16 @@ These models run entirely in VRAM. The primary low-VRAM concern is preventing co
 
 #### 3. LFM2.5-1.2B-Instruct-Q8_0.gguf
 *   **Path:** `models/lmstudio-community/LFM2.5-1.2B-Instruct-GGUF/LFM2.5-1.2B-Instruct-Q8_0.gguf`
-*   **VRAM Strategy:** Extremely small footprint (~1.16 GB). Alias `lfm2.5-1.2b`.
-*   **Optimal Flags:**
+*   **VRAM Strategy:** Extremely small footprint (~1.16 GB). Alias `lfm2.5-1.2b`. GGUF max ctx 128k.
+*   **Optimal Flags (alias — best TPS):**
     ```bash
-    -ngl 99 -c 8192 -fa on -ctk f16 -ctv f16
+    -ngl 99 -c 65536 -fa on -ctk f16 -ctv f16 --no-mmap
     ```
-*   **Why this works:** Fits 100% inside VRAM with FP16 KV. Speculative decoding unnecessary.
-*   **Measured (2026-07-23):** **173.3 t/s**, claw-quick **0.80**, peak VRAM ~2.9 GB.
+*   **Measured (2026-07-24 claw-quick matrix):**
+    *   **Preferred:** ctx **65k** KV **f16** — **0.80**, **180.6 t/s**, peak 3.3 GB
+    *   128k f16 — preflight FAIL (est 11.5 GB)
+    *   128k q4_0 — 0.60, 178.6 t/s, peak 3.4 GB
+    *   128k q8_0 — 0.60, 177.6 t/s, peak 3.7 GB
 
 #### 4. LFM2.5-8B-A1B-Q4_K_M.gguf
 *   **Path:** `models/LiquidAI/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-Q4_K_M.gguf` (~5.16 GB)
@@ -74,16 +77,21 @@ These models run entirely in VRAM. The primary low-VRAM concern is preventing co
 Ternary (1-bit / 2-bit) quantizations compress 27B parameter models down to under 7 GB, enabling them to run entirely on a consumer GPU.
 
 #### 1. Bonsai-27B-Q1_0.gguf
-*   **Path:** [Bonsai-27B-Q1_0.gguf](file:///D:/Dev/Nexus-System/local-model-autotuning/models/local/Bonsai-27B-Q1_0/Bonsai-27B-Q1_0.gguf)
+*   **Path:** `models/local/Bonsai-27B-Q1_0/Bonsai-27B-Q1_0.gguf`
 *   **VRAM Strategy:** Ultra-low weight size (3.53 GiB) due to 1-bit quantization. Run with upstream `llama.cpp` (stock CUDA is faster than specialized forks for this format).
-*   **Optimal Flags:**
+*   **Optimal Flags (TPS / short-gen):**
     ```bash
     -ngl 99 -c 131072 -fa on -ctk q4_0 -ctv q4_0 --spec-type none --no-mmap
     ```
+*   **Agentic / claw-full Flags (required on 8 GB):**
+    ```bash
+    -ngl 99 -c 65536 -fa on -ctk q4_0 -ctv q4_0 --spec-type none --no-mmap
+    ```
 *   **Why this works:**
-    *   `--spec-type none` is critical. Enabling DSpark speculative decoding (`Bonsai-27B-dspark-Q4_1.gguf`) triggers **Quantization-Speed Inversion**; the 1-bit target model runs so fast on CUDA that verifying draft tokens from a heavier 4-bit draft model slows throughput by **48%** (dropping from 40.5 t/s to 19.2 t/s).
+    *   `--spec-type none` is critical. Enabling DSpark speculative decoding triggers **Quantization-Speed Inversion** (−48% TPS).
     *   `--no-mmap` avoids memory paging bottlenecks during model load.
-    *   **Performance:** Achieves **41.2 t/s** at 131k context while using only 7.3 GB of peak VRAM.
+    *   **131k agentic VRAM-kill (2026-07-24):** mid-full `used=7906MB > limit=7900MB` — alias `bonsai` locked to **65k** for Claw-Eval. Short-gen @ 131k still ~41 t/s.
+    *   **Measured claw-full @ 65k:** Val Score **0.4667**, bench_tg **40.2**, peak **6.5 GB**. Card: [bonsai-27b.md](../models/bonsai-27b.md).
 
 #### 2. Ternary-Bonsai-27B-Q2_0.gguf — **deleted locally (2026-07-23)**
 *   **Status:** Rejected. PrismML CUDA loads the quant, but **bench_tg ≈ 10.6 t/s** @ ctx 32k on RTX 4060 8 GB — below `TPS_FLOOR` 15. Prefer [Bonsai-27B-Q1_0](#1-bonsai-27b-q1_0gguf) (~41 t/s). Full note: [ternary-bonsai-27b.md](../models/ternary-bonsai-27b.md).
@@ -108,15 +116,26 @@ MoE models exceed the 8 GB physical VRAM limit. However, because they only activ
     *   **Performance:** Expected throughput of **~22–25 t/s** on modern host CPUs (e.g. 12th+ Gen Intel/AMD) with DDR5 RAM.
 
 #### 2. Ornith-1.0-35B-UD-Q4_K_XL.gguf
-*   **Path:** [Ornith-1.0-35B-UD-Q4_K_XL.gguf](file:///D:/Dev/Nexus-System/local-model-autotuning/models/local/Ornith-1.0-35B-UD-Q4_K_XL/Ornith-1.0-35B-UD-Q4_K_XL.gguf)
-*   **VRAM Strategy:** Hybrid offloading. Part of the expert layers can be kept on GPU because the UD format allocates parameters optimally.
+*   **Path:** `models/local/Ornith-1.0-35B-UD-Q4_K_XL/Ornith-1.0-35B-UD-Q4_K_XL.gguf` (or nested publisher layout)
+*   **VRAM Strategy:** MoE VITRIOL — offload experts for all layers (`block_count=40`).
 *   **Optimal Flags:**
     ```bash
-    -ngl 99 --n-cpu-moe 32 -c 131072 -fa on -ctk q4_0 -ctv q4_0 --spec-type none
+    -ngl 99 --n-cpu-moe 40 -c 65536 -fa on -ctk q4_0 -ctv q4_0 --spec-type none -b 1024 -ub 256
     ```
 *   **Why this works:**
-    *   `--n-cpu-moe 32` offloads the routed experts of the first 32 layers to CPU, while keeping the experts of the final 8 layers on the GPU. This fills the 8 GB VRAM buffer perfectly without spilling into Shared Memory.
-    *   **Performance:** Achieves **31.5 t/s** at **7.7 GB Peak VRAM** with `q4_0` KV cache.
+    *   A/B (2026-07-24): `n-cpu-moe=40` (= `block_count`) beat prior **32** — **28.9 vs 27.0 t/s**, peak VRAM **4.3 vs 7.8 GB**, claw-quick 0.80 both.
+    *   Prefer **65k** for agentic (131k preflight / headroom risk on 8 GB).
+    *   **Measured claw-full:** Val Score **0.6000**, bench_tg **25.7**, peak **4.9 GB**. Alias `ornith-35b`. Card: [ornith-1.0-35b.md](../models/ornith-1.0-35b.md).
+
+#### 3. Laguna-XS-2.1-Q3_K_XL.gguf
+*   **Path:** `models/bartowski/laguna-xs-2.1-gguf/Laguna-XS-2.1-Q3_K_XL.gguf` (~16.3 GB)
+*   **VRAM Strategy:** MoE (`laguna`, 256 experts / 8 active). Full expert offload `n-cpu-moe 40`.
+*   **Optimal Flags:**
+    ```bash
+    -ngl 99 --n-cpu-moe 40 -c 65536 -fa on -ctk q4_0 -ctv q4_0 --jinja --cont-batching --no-mmap
+    ```
+*   **Why this works:** Attention/routing on GPU; experts on CPU. Lowest VRAM among top Val Score models.
+*   **Measured (2026-07-24):** claw-quick **1.00**; claw-full **0.6667** (best Val Score on this rig); bench_tg **37.2**; peak **3.6 GB**. Alias `laguna-xs`. Card: [laguna-xs-2.1.md](../models/laguna-xs-2.1.md). Leaderboard: [claw-eval-leaderboard.md](claw-eval-leaderboard.md).
 
 ---
 
