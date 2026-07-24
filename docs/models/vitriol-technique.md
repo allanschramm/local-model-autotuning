@@ -22,6 +22,12 @@ The 2 flags compose:
 
 For a 40-layer MoE, `--n-cpu-moe 40` keeps all experts on CPU. Lower N = move some experts to GPU (eats VRAM, may or may not help speed — needs testing).
 
+## Preflight note (harness)
+`estimate_vram_mb` / VRAM preflight **must** pass `n_cpu_moe`. Without it, the estimator charges the full GGUF size to VRAM and falsely rejects 14–20 GB MoE files on 8 GB cards. With `--n-cpu-moe N>0`, weight charge shrinks toward non-expert footprint (~28% of file when N≈32).
+
+## Architecture class
+MoE vs dense is decided by **GGUF metadata** (`autoresearch/core/model_arch.py`: `expert_count > 1` or arch name contains `moe`). Filename tokens are not used. Model cards under `docs/models/` must document the same class.
+
 ## When does it help vs not?
 - Helps: large MoE models (35B+ total, ≤5B active) on ≤16GB VRAM rigs.
 - Doesn't help: small dense models, or when you have enough VRAM to fit the full active path.

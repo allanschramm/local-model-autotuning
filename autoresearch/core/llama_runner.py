@@ -237,6 +237,10 @@ VRAM_QUANT_FACTORS = {
 }
 """KV cache quantization type memory usage scaling factors relative to f16."""
 
+# VITRIOL preflight: MoE expert tensors dominate file size; --n-cpu-moe keeps them on CPU.
+VRAM_MOE_NON_EXPERT_FRAC = 0.28
+VRAM_MOE_OFFLOAD_LAYER_REF = 32.0
+
 DEFAULT_VRAM_LIMIT_MB = 7900.0
 
 
@@ -257,11 +261,19 @@ def estimate_vram_mb(
     kv_cache_v: str | None = None,
     base_kv_cache: str = "q4_0",
     draft_path: Path | str | None = None,
+    n_cpu_moe: int | None = None,
 ) -> float:
     try:
         model_size_mb = model_path.stat().st_size / (1024 * 1024)
     except Exception:
         model_size_mb = 4000.0
+
+    if n_cpu_moe is not None and int(n_cpu_moe) > 0:
+        offload = min(1.0, float(n_cpu_moe) / VRAM_MOE_OFFLOAD_LAYER_REF)
+        expert_frac = 1.0 - VRAM_MOE_NON_EXPERT_FRAC
+        model_size_mb = model_size_mb * (
+            VRAM_MOE_NON_EXPERT_FRAC + expert_frac * (1.0 - offload)
+        )
 
     draft_mb = 0.0
     if draft_path:
@@ -306,6 +318,7 @@ def preflight_vram(
     kv_cache_v: str | None = None,
     draft_path: Path | str | None = None,
     vram_limit_mb: float | None = None,
+    n_cpu_moe: int | None = None,
 ) -> tuple[bool, float, str]:
     """Return (ok, estimate_mb, reason). reason non-empty when rejected."""
     limit = resolve_vram_limit_mb(vram_limit_mb)
@@ -315,6 +328,7 @@ def preflight_vram(
         kv_cache_k=kv_cache_k,
         kv_cache_v=kv_cache_v,
         draft_path=draft_path,
+        n_cpu_moe=n_cpu_moe,
     )
     if est > limit:
         return False, est, f"VRAM_PREFLIGHT est={est:.0f}MB > limit={limit:.0f}MB"
@@ -332,6 +346,7 @@ def preflight_vram_for_intent(
         kv_cache_v=intent.kv_cache_v or intent.kv_cache,
         draft_path=intent.spec_draft_model,
         vram_limit_mb=vram_limit_mb,
+        n_cpu_moe=intent.n_cpu_moe,
     )
 
 
@@ -475,10 +490,7 @@ class LlamaServerRunner:
                 cmd += ["--spec-draft-model", str(draft_path)]
 
         # VITRIOL: MoE expert offload only. Dense must never spill to shared memory.
-        model_name_up = self.intent.model_path.name.upper()
-        is_small_dense = any(f"-{x}B" in model_name_up for x in ["2", "4", "6", "7", "8", "9", "12"]) and not is_moe_model(self.intent.model_path.name)
-
-        if is_moe_model(self.intent.model_path.name) and not is_small_dense:
+        if is_moe_model(self.intent.model_path):
             if self.intent.n_cpu_moe is not None:
                 print(f"  [VITRIOL] MoE Expert Streaming: --n-cpu-moe {self.intent.n_cpu_moe} for {self.intent.model_path.name}.")
                 cmd += ["--n-cpu-moe", str(self.intent.n_cpu_moe)]
@@ -596,7 +608,7 @@ class LlamaServerRunner:
             nvml = None
             print("  [VRAM] NVML initialization failed. Falling back to subprocess nvidia-smi (200ms).")
 
-        dense = is_dense_model(self.intent.model_path.name)
+        dense = is_dense_model(self.intent.model_path)
         limit = self.vram_limit_mb
 
         def _maybe_kill(current: float) -> None:

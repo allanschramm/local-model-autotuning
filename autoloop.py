@@ -202,6 +202,7 @@ def preflight_vram_ok(cfg: dict[str, Any], vram_limit: float | None) -> bool:
         kv_v = "q4_0"
     draft = cfg.get("SPEC_DRAFT_MODEL")
     draft_path = resolve_model_path(MODELS_DIR, draft) if draft else None
+    n_cpu_moe = cfg.get("N_CPU_MOE")
     # Prefer module-level estimate_vram_mb so tests can patch autoloop.estimate_vram_mb.
     est = estimate_vram_mb(
         resolve_model_path(MODELS_DIR, model),
@@ -209,6 +210,7 @@ def preflight_vram_ok(cfg: dict[str, Any], vram_limit: float | None) -> bool:
         kv_k,
         kv_v,
         draft_path=draft_path,
+        n_cpu_moe=n_cpu_moe,
     )
     return est <= vram_limit
 

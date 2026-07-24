@@ -15,6 +15,7 @@ One markdown file per GGUF model we run on this rig. Cards are the canonical loc
 - **Filename:** lowercase, dashes, matches the model id minus the `-GGUF` suffix and the quant suffix. Example: `qwen3.6-35b-a3b.md`, not `Qwen3.6-35B-A3B-UD-Q4_K_M.md`.
 - **One model per file.** Technique notes (e.g. `vitriol-technique.md`) are separate from model cards; reference them via link, don't merge.
 - **Verify from the GGUF, not the HF card.** Use `gguf.GGUFReader` to read the local file's header — that gives the truth (architecture name, block_count, expert_count, tensor prefixes). The HF card is marketing; the GGUF is what's running.
+- **Architecture class (MoE vs dense):** state it explicitly in the Architecture section (`expert_count > 1` ⇒ MoE). Harness `is_moe_model` / VITRIOL / `N_CPU_MOE` gates read **GGUF metadata only** — never filename tokens (`A3B`, `ORNITH`, `LAGUNA`, …). Cards must match the GGUF; do not invent a parallel name filter.
 - **Mark TBDs explicitly.** Anything we couldn't verify (extraction truncated, doc missing) gets a `**TBD:**` marker and a row in the "Open questions" section. Never invent values.
 
 ## Work Guidance

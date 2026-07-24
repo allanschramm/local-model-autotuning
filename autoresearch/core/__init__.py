@@ -15,7 +15,7 @@ from autoresearch.core.llama_runner import (
     resolve_llama_server,
     resolve_llama_bench,
 )
-from autoresearch.core.config import is_dense_model, is_moe_model
+from autoresearch.core.model_arch import is_dense_model, is_moe_model
 from autoresearch.core.llama_client import (
     LlamaClient,
     GenerationParams,

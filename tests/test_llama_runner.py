@@ -85,8 +85,9 @@ class TestLlamaRunner(unittest.TestCase):
         self.assertIn("--spec-type", cmd)
         self.assertIn("mtp", cmd)
 
+    @patch("autoresearch.core.llama_runner.is_moe_model", return_value=True)
     @patch("autoresearch.core.llama_runner.resolve_llama_server")
-    def test_build_cmd_vitriol_moe(self, mock_resolve):
+    def test_build_cmd_vitriol_moe(self, mock_resolve, _mock_moe):
         mock_resolve.return_value = Path("/bin/llama-server")
         intent = ServerIntent(
             model_path=Path("models/DeepSeek-V3-MoE-A3B.gguf"),
@@ -301,6 +302,16 @@ class TestLlamaRunner(unittest.TestCase):
             )
             self.assertAlmostEqual(with_draft - base, 10.0, places=1)
 
+    def test_estimate_vram_mb_n_cpu_moe_shrinks_weight(self):
+        from autoresearch.core.llama_runner import estimate_vram_mb
+        with tempfile.TemporaryDirectory() as tmp:
+            model = Path(tmp) / "moe.gguf"
+            model.write_bytes(b"x" * (10 * 1024 * 1024 * 1024))  # 10 GiB
+            full = estimate_vram_mb(model, 2048, "q4_0", "q4_0")
+            vitriol = estimate_vram_mb(model, 2048, "q4_0", "q4_0", n_cpu_moe=32)
+            self.assertLess(vitriol, full * 0.4)
+            self.assertGreater(vitriol, 1000.0)
+
     def test_preflight_vram_rejects_over_limit(self):
         from autoresearch.core.llama_runner import preflight_vram
         ok, est, reason = preflight_vram(
@@ -313,6 +324,22 @@ class TestLlamaRunner(unittest.TestCase):
         self.assertFalse(ok)
         self.assertGreater(est, 1.0)
         self.assertIn("VRAM_PREFLIGHT", reason)
+
+    def test_preflight_vram_passes_large_moe_with_n_cpu_moe(self):
+        from autoresearch.core.llama_runner import preflight_vram
+        with tempfile.TemporaryDirectory() as tmp:
+            model = Path(tmp) / "moe.gguf"
+            model.write_bytes(b"x" * (14 * 1024 * 1024 * 1024))  # 14 GiB file
+            ok, est, reason = preflight_vram(
+                model,
+                65536,
+                kv_cache_k="q4_0",
+                kv_cache_v="q4_0",
+                vram_limit_mb=7900.0,
+                n_cpu_moe=30,
+            )
+            self.assertTrue(ok, reason)
+            self.assertLessEqual(est, 7900.0)
 
     def test_dense_n_cpu_moe_rejected(self):
         from autoresearch.core.config import validate_config, ConfigError
@@ -330,7 +357,7 @@ class TestLlamaRunner(unittest.TestCase):
     def test_moe_n_cpu_moe_allowed(self):
         from autoresearch.core.config import validate_config
         cfg = validate_config({
-            "MODEL": "Qwen3.6-35B-A3B.gguf",
+            "MODEL": "Qwen3.6-35B-A3B-UD-Q3_K_XL.gguf",
             "CTX_SIZE": 65536,
             "FLASH_ATTN": "on",
             "BATCH_SIZE": 512,
@@ -339,6 +366,36 @@ class TestLlamaRunner(unittest.TestCase):
             "VRAM_LIMIT_MB": 7900,
         })
         self.assertEqual(cfg["N_CPU_MOE"], 32)
+
+    def test_ornith_moe_via_gguf_not_filename(self):
+        from autoresearch.core.config import validate_config
+        from autoresearch.core.model_arch import is_moe_model
+        # Filename has no A3B/MOE token — classification must come from GGUF.
+        self.assertTrue(is_moe_model("Ornith-1.0-35B-UD-Q4_K_XL.gguf"))
+        self.assertTrue(is_moe_model("Laguna-XS-2.1-Q3_K_XL.gguf"))
+        cfg = validate_config({
+            "MODEL": "Ornith-1.0-35B-UD-Q4_K_XL.gguf",
+            "CTX_SIZE": 65536,
+            "FLASH_ATTN": "on",
+            "BATCH_SIZE": 512,
+            "UBATCH_SIZE": 128,
+            "N_CPU_MOE": 32,
+            "VRAM_LIMIT_MB": 7900,
+        })
+        self.assertEqual(cfg["N_CPU_MOE"], 32)
+
+    def test_missing_gguf_treated_dense_for_n_cpu_moe(self):
+        from autoresearch.core.config import validate_config, ConfigError
+        with self.assertRaises(ConfigError) as ctx:
+            validate_config({
+                "MODEL": "Totally-Fake-MoE-A3B.gguf",
+                "CTX_SIZE": 65536,
+                "FLASH_ATTN": "on",
+                "BATCH_SIZE": 512,
+                "UBATCH_SIZE": 128,
+                "N_CPU_MOE": 32,
+            })
+        self.assertIn("MoE-only", str(ctx.exception))
 
     def test_vram_sampler_kills_dense_over_limit(self):
         from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent
