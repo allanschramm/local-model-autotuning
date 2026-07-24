@@ -474,5 +474,73 @@ class TestRun(unittest.TestCase):
             # With a model that doesn't exist yet, returns 0.0
             self.assertEqual(run.get_previous_best(Path("dummy.tsv"), "ornith-1.0-35b-Q4_K_M.gguf"), 0.0)
 
+    def test_moe_full_gpu_vram_reject_message(self):
+        import tempfile
+        from autoresearch.runners.evaluation import ExperimentRunner, TrialOutcome, ServerIntent
+
+        with tempfile.NamedTemporaryFile(suffix=".gguf", delete=False) as tmp:
+            path = Path(tmp.name)
+        try:
+            intent = ServerIntent(
+                model_path=path,
+                ctx_size=65536,
+                kv_cache="q4_0",
+                flash_attn="on",
+                n_cpu_moe=0,
+                n_cpu_moe_auto=False,
+            )
+            with patch(
+                "autoresearch.runners.evaluation.ServerIntent.from_config",
+                return_value=(intent, {"vram_limit_mb": 7900}),
+            ):
+                with patch(
+                    "autoresearch.runners.evaluation.preflight_vram_for_intent",
+                    return_value=(False, 16000.0, "VRAM_PREFLIGHT est=16000MB > limit=7900MB"),
+                ):
+                    with patch("autoresearch.runners.evaluation.gguf_is_moe", return_value=True):
+                        with patch("autoresearch.runners.evaluation.gguf_block_count", return_value=40):
+                            res = ExperimentRunner(Path("models")).run_trial({"MODEL": "moe.gguf"})
+            self.assertEqual(res.outcome, TrialOutcome.MODEL_REJECTED)
+            self.assertIn("MoE full-GPU", res.status)
+            self.assertIn("N_CPU_MOE=None", res.diagnostic)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_format_arch_line_modes(self):
+        import tempfile
+        from autoresearch.runners.evaluation import _format_arch_line, ServerIntent
+
+        with tempfile.NamedTemporaryFile(suffix=".gguf", delete=False) as tmp:
+            path = Path(tmp.name)
+        try:
+            with patch("autoresearch.runners.evaluation.gguf_is_moe", return_value=True):
+                with patch("autoresearch.runners.evaluation.gguf_block_count", return_value=30):
+                    auto = ServerIntent(
+                        model_path=path, ctx_size=4096, kv_cache="q4_0", flash_attn="on",
+                        n_cpu_moe=30, n_cpu_moe_auto=True,
+                    )
+                    line = _format_arch_line(auto)
+                    self.assertIn("moe", line)
+                    self.assertIn("block_count=30", line)
+                    self.assertIn("(auto)", line)
+
+                    explicit = ServerIntent(
+                        model_path=path, ctx_size=4096, kv_cache="q4_0", flash_attn="on",
+                        n_cpu_moe=0, n_cpu_moe_auto=False,
+                    )
+                    line = _format_arch_line(explicit)
+                    self.assertIn("n-cpu-moe=0", line)
+                    self.assertIn("(explicit)", line)
+
+                    dense = ServerIntent(
+                        model_path=path, ctx_size=4096, kv_cache="q4_0", flash_attn="on",
+                    )
+                    with patch("autoresearch.runners.evaluation.gguf_is_moe", return_value=False):
+                        line = _format_arch_line(dense)
+                    self.assertIn("dense", line)
+                    self.assertIn("(dense)", line)
+        finally:
+            path.unlink(missing_ok=True)
+
 if __name__ == "__main__":
     unittest.main()

@@ -132,6 +132,7 @@ class TestLlamaRunner(unittest.TestCase):
             Path("models"),
         )
         self.assertEqual(intent.n_cpu_moe, 40)
+        self.assertTrue(intent.n_cpu_moe_auto)
 
     @patch("autoresearch.core.config.is_dense_model", return_value=False)
     @patch("autoresearch.core.llama_runner.resolve_n_cpu_moe", return_value=(0, False))
@@ -150,6 +151,7 @@ class TestLlamaRunner(unittest.TestCase):
             Path("models"),
         )
         self.assertEqual(intent.n_cpu_moe, 0)
+        self.assertFalse(intent.n_cpu_moe_auto)
         mock_resolve_n.assert_called_once()
         self.assertEqual(mock_resolve_n.call_args.args[1], 0)
 
@@ -393,6 +395,28 @@ class TestLlamaRunner(unittest.TestCase):
             )
             self.assertTrue(ok, reason)
             self.assertLessEqual(est, 7900.0)
+
+    def test_estimate_vram_offload_uses_gguf_block_count(self):
+        from autoresearch.core.llama_runner import estimate_vram_mb
+        with tempfile.TemporaryDirectory() as tmp:
+            model = Path(tmp) / "moe.gguf"
+            model.write_bytes(b"x" * (10 * 1024 * 1024 * 1024))
+            with patch("autoresearch.core.llama_runner.gguf_is_moe", return_value=True):
+                with patch("autoresearch.core.llama_runner.gguf_block_count", return_value=40):
+                    full = estimate_vram_mb(model, 2048, "q4_0", "q4_0", n_cpu_moe=40)
+                    half = estimate_vram_mb(model, 2048, "q4_0", "q4_0", n_cpu_moe=20)
+            self.assertLess(full, half)
+
+    def test_estimate_vram_offload_falls_back_to_32_ref(self):
+        from autoresearch.core.llama_runner import estimate_vram_mb, VRAM_MOE_NON_EXPERT_FRAC
+        with tempfile.TemporaryDirectory() as tmp:
+            model = Path(tmp) / "moe.gguf"
+            model.write_bytes(b"x" * (10 * 1024 * 1024 * 1024))
+            with patch("autoresearch.core.llama_runner.gguf_is_moe", side_effect=RuntimeError("no arch")):
+                # n=32 / fallback 32 → full expert offload → ~28% of file + kv + overhead
+                est = estimate_vram_mb(model, 2048, "q4_0", "q4_0", n_cpu_moe=32)
+            file_mb = 10 * 1024
+            self.assertAlmostEqual(est, file_mb * VRAM_MOE_NON_EXPERT_FRAC + 300.0 + (2048 * 80.0 / 1024.0) * 0.28, delta=50.0)
 
     def test_dense_n_cpu_moe_rejected(self):
         from autoresearch.core.config import validate_config, ConfigError

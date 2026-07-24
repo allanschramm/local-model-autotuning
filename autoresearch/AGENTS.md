@@ -13,6 +13,7 @@ Repository developers.
 - Model paths: `resolve_model_path(models_dir, ref)` owns flat + nested (`publisher/model/*.gguf`) lookup. Config Baseline keeps basenames (and `draft/...` for drafts).
 - Architecture class (MoE vs dense): `autoresearch/core/model_arch.py` reads local GGUF metadata (`expert_count` / `*moe*` arch). No filename heuristics. Model cards must mirror that GGUF truth.
 - MoE `N_CPU_MOE=None` → `resolve_n_cpu_moe` sets `--n-cpu-moe` to GGUF `block_count` (replaces old `override-tensor .*exps.*=CPU`). Explicit `0` = full GPU; `N>0` = manual.
+- **Trial order (hard gate):** GGUF arch classify → resolve `N_CPU_MOE` → VRAM preflight → TPS floor → eval. MoE `N_CPU_MOE=0` that exceeds physical VRAM is `MODEL_REJECTED` (set `None` for auto offload). Dense never uses expert offload.
 - **Use the harness, not raw binaries**: Run `benchmark_search.py` or `autoloop.py` for evaluation. Do not invoke `llama-server` or `llama-bench` directly — the harness resolves paths (supporting both `build-cuda` and `build-cpu`), translates config flags to CLI args, manages server lifecycle, monitors VRAM, and logs results.
 - **Perplexity-Guided Tuning Guard**: When using `--perplexity-val` to maximize throughput (TPS), enforce a strict quality ceiling: any candidate configuration resulting in more than a 1% increase in perplexity (PPL) compared to the baseline must be discarded.
 

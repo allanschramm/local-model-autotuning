@@ -27,7 +27,9 @@ For a 40-layer MoE, `--n-cpu-moe 40` keeps all experts on CPU. Lower N = move so
 Initial Baseline for MoE that does **not** fit full GPU: leave `N_CPU_MOE=None`. `ServerIntent.from_config` reads GGUF `*.block_count` and passes `--n-cpu-moe {block_count}` (same intent as Codacus “all experts on CPU”). Set `N_CPU_MOE=0` only when the MoE fits physical VRAM. Explicit `N>0` overrides. The old `--override-tensor .*exps.*=CPU` path is gone.
 
 ## Preflight note (harness)
-`estimate_vram_mb` / VRAM preflight **must** pass `n_cpu_moe`. Without it, the estimator charges the full GGUF size to VRAM and falsely rejects 14–20 GB MoE files on 8 GB cards. With `--n-cpu-moe N>0`, weight charge shrinks toward non-expert footprint (~28% of file when N≈32).
+`estimate_vram_mb` / VRAM preflight **must** pass `n_cpu_moe`. Without it, the estimator charges the full GGUF size to VRAM and falsely rejects 14–20 GB MoE files on 8 GB cards. With `--n-cpu-moe N>0`, weight charge shrinks toward non-expert footprint (~28% of file when N equals GGUF `block_count`). Offload fraction is `min(1, N / block_count)`; fallback divisor is 32 only when GGUF arch is unreadable.
+
+`N_CPU_MOE=0` (full GPU) is allowed only when preflight says the MoE fits physical VRAM. If it does not, the Trial is `MODEL_REJECTED` with an explicit full-GPU message — set `N_CPU_MOE=None` for auto `block_count` offload. Do not rely on Windows shared-memory spill.
 
 ## Architecture class
 MoE vs dense is decided by **GGUF metadata** (`autoresearch/core/model_arch.py`: `expert_count > 1` or arch name contains `moe`). Filename tokens are not used. Model cards under `docs/models/` must document the same class.

@@ -23,6 +23,7 @@ from autoresearch.core.llama_runner import (
     preflight_vram_for_intent,
     resolve_vram_limit_mb,
 )
+from autoresearch.core.model_arch import gguf_block_count, gguf_is_moe
 from autoresearch.core.sglang_runner import SGLangServerRunner, run_sglang_bench_validation
 from autoresearch.core.llama_client import LlamaClient, GenerationParams
 from autoresearch.core import config as core_config
@@ -37,6 +38,50 @@ BASE_DIR = Path(__file__).resolve().parent
 BENCH_TPS_THRESHOLD = 20.0
 BENCH_N_PROMPT = 512
 BENCH_N_GEN = 512
+
+
+def _format_arch_line(intent: ServerIntent) -> str:
+    """One-line dense/MoE + n-cpu-moe mode before any bench/eval work."""
+    path = intent.model_path
+    is_moe = False
+    block_count: int | None = None
+    if path.is_file():
+        try:
+            is_moe = gguf_is_moe(path)
+        except Exception:
+            is_moe = False
+        try:
+            block_count = gguf_block_count(path)
+        except Exception:
+            block_count = None
+    if not is_moe:
+        mode = "dense"
+    elif intent.n_cpu_moe_auto:
+        mode = "auto"
+    else:
+        mode = "explicit"
+    kind = "moe" if is_moe else "dense"
+    bc = str(block_count) if block_count is not None else "?"
+    n = "None" if intent.n_cpu_moe is None else str(intent.n_cpu_moe)
+    return f"  [arch] {kind} block_count={bc} n-cpu-moe={n} ({mode})"
+
+
+def _moe_full_gpu_vram_reject(intent: ServerIntent, est_mb: float, limit_mb: float) -> str | None:
+    """Explicit reject when MoE N_CPU_MOE=0 exceeds physical VRAM budget."""
+    if intent.n_cpu_moe != 0:
+        return None
+    path = intent.model_path
+    if not path.is_file():
+        return None
+    try:
+        if not gguf_is_moe(path):
+            return None
+    except Exception:
+        return None
+    return (
+        f"MoE full-GPU (N_CPU_MOE=0) est={est_mb:.0f}MB > limit={limit_mb:.0f}MB; "
+        "set N_CPU_MOE=None for auto block_count offload"
+    )
 
 
 def resolve_tps_floor(norm: dict[str, Any] | None = None) -> float:
@@ -277,14 +322,17 @@ class ExperimentRunner:
             res.diagnostic = str(exc)
             return res
         model_filename = intent.model_path.name
+        print(_format_arch_line(intent))
         vram_limit_mb = resolve_vram_limit_mb(norm.get("vram_limit_mb"))
 
         ok_vram, est_vram, vram_reason = preflight_vram_for_intent(intent, vram_limit_mb)
         print(f"  [vram-preflight] est={est_vram:.0f}MB limit={vram_limit_mb:.0f}MB ok={ok_vram}")
         if not ok_vram:
-            res.status = f"FAIL: {vram_reason}"
+            moe_full = _moe_full_gpu_vram_reject(intent, est_vram, vram_limit_mb)
+            reason = moe_full or vram_reason
+            res.status = f"FAIL: {reason}"
             res.outcome = TrialOutcome.MODEL_REJECTED
-            res.diagnostic = vram_reason
+            res.diagnostic = reason
             res.peak_vram_gb = est_vram / 1024.0
             return res
 

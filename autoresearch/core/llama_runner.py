@@ -30,7 +30,7 @@ import math
 from autoresearch.core import config
 
 from autoresearch.core.config import ConfigError, validate_config, is_dense_model
-from autoresearch.core.model_arch import resolve_n_cpu_moe
+from autoresearch.core.model_arch import gguf_block_count, gguf_is_moe, resolve_n_cpu_moe
 
 
 def resolve_model_path(models_dir: Path, ref: str | Path) -> Path:
@@ -163,6 +163,7 @@ class ServerIntent:
     spec_type: str | None = None
     spec_draft_model: str | None = None
     n_cpu_moe: int | None = None
+    n_cpu_moe_auto: bool = False
 
     @classmethod
     def from_config(cls, cfg: dict, models_dir: Path, **overrides) -> tuple['ServerIntent', dict]:
@@ -224,6 +225,7 @@ class ServerIntent:
             spec_type=norm.get("spec_type"),
             spec_draft_model=draft_path,
             n_cpu_moe=resolved_n_cpu_moe,
+            n_cpu_moe_auto=n_cpu_moe_auto,
         )
 
         return intent, norm
@@ -282,7 +284,13 @@ def estimate_vram_mb(
         model_size_mb = 4000.0
 
     if n_cpu_moe is not None and int(n_cpu_moe) > 0:
-        offload = min(1.0, float(n_cpu_moe) / VRAM_MOE_OFFLOAD_LAYER_REF)
+        layer_ref = VRAM_MOE_OFFLOAD_LAYER_REF
+        try:
+            if model_path.is_file() and gguf_is_moe(model_path):
+                layer_ref = float(gguf_block_count(model_path))
+        except Exception:
+            pass
+        offload = min(1.0, float(n_cpu_moe) / layer_ref)
         expert_frac = 1.0 - VRAM_MOE_NON_EXPERT_FRAC
         model_size_mb = model_size_mb * (
             VRAM_MOE_NON_EXPERT_FRAC + expert_frac * (1.0 - offload)
