@@ -53,7 +53,11 @@ _HTML = """<!DOCTYPE html>
   body { font-family: system-ui, sans-serif; margin: 1.5rem; }
   table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
   th, td { border: 1px solid #ccc; padding: 0.35rem 0.5rem; text-align: left; vertical-align: top; }
-  th { background: #f4f4f4; }
+  thead th { position: sticky; top: 0; z-index: 1; background: #f4f4f4; }
+  tbody tr:nth-child(even) { background: #fafafa; }
+  td.num, th.num { text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+  .pill { display: inline-block; padding: 0.05rem 0.55rem; border-radius: 999px; color: #fff; font-size: 0.72rem; font-weight: 600; white-space: nowrap; }
+  .trunc { max-width: 18rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1rem; }
   dt { font-weight: 600; }
   .empty { color: #666; }
@@ -81,9 +85,9 @@ _HTML = """<!DOCTYPE html>
   <table id="trials-table" hidden>
     <thead>
       <tr>
-        <th>Status</th><th>Outcome</th><th>ctx</th><th>TPS</th>
-        <th>agentic</th><th>coding</th><th>memory</th><th>elapsed</th>
-        <th>diagnostic</th><th>description</th>
+        <th>Status</th><th>Outcome</th><th class="num">ctx</th><th class="num">TPS</th>
+        <th class="num">agentic</th><th class="num">coding</th><th class="num">memory</th><th class="num">elapsed</th>
+        <th>description</th>
       </tr>
     </thead>
     <tbody id="trials-body"></tbody>
@@ -150,9 +154,27 @@ _HTML = """<!DOCTYPE html>
     }
   };
 
-  const cell = (text) => {
+  const textCell = (text) => {
     const td = document.createElement('td');
     td.textContent = text == null || text === '' ? '—' : String(text);
+    return td;
+  };
+
+  const numCell = (text) => {
+    const td = document.createElement('td');
+    td.className = 'num';
+    td.textContent = text == null || text === '' ? '—' : String(text);
+    return td;
+  };
+
+  const statusCell = (t) => {
+    const td = document.createElement('td');
+    const label = t.status_pt || (t.status ? t.status : '—');
+    const span = document.createElement('span');
+    span.className = 'pill';
+    span.style.background = t.status_color || '#999999';
+    span.textContent = label;
+    td.appendChild(span);
     return td;
   };
 
@@ -175,9 +197,23 @@ _HTML = """<!DOCTYPE html>
     trialsTable.hidden = false;
     for (const t of trials) {
       const tr = document.createElement('tr');
-      for (const key of ['status','outcome','ctx','tps','agentic','coding','memory','elapsed','diagnostic','description']) {
-        tr.appendChild(cell(t[key]));
+      tr.appendChild(statusCell(t));
+      // Outcome carries the diagnostic as a tooltip.
+      const outcome = textCell(t.outcome);
+      outcome.className = 'trunc';
+      if (t.diagnostic) {
+        outcome.title = t.diagnostic;
       }
+      tr.appendChild(outcome);
+      for (const key of ['ctx','tps','agentic','coding','memory','elapsed']) {
+        tr.appendChild(numCell(t[key]));
+      }
+      const desc = textCell(t.description);
+      desc.className = 'trunc';
+      if (t.description) {
+        desc.title = t.description;
+      }
+      tr.appendChild(desc);
       trialsBody.appendChild(tr);
     }
   };
