@@ -5,7 +5,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import autoloop
-from autoresearch.core import classify
 from autoresearch.core.search import SearchStrategy
 
 
@@ -968,59 +967,11 @@ class TestAutoLoop(unittest.TestCase):
         self.assertEqual(mock_write_row.call_args.args[7], "rejected")
         self.assertEqual(mock_write_row.call_args.kwargs["outcome"], "INFRA_ERROR")
 
-    def test_pick_baseline_day(self):
-        """pick_baseline('day') returns the picked model + its config_json Baseline."""
-        import json
-
-        cfg = self._full_config(MODEL="test.gguf")
-        fp = classify.fp_from_baseline(cfg)
-        rows = [
-            {
-                "model": "test.gguf",
-                "status": "on_front",
-                "outcome": "OK",
-                "agentic": "0.5",
-                "coding": "0.6",
-                "tps": "10.0",
-                "ctx": "131072",
-                "memory_gb": "4",
-                "config_json": json.dumps(cfg, sort_keys=True),
-            }
-        ]
-        with patch("autoloop.read_rows", return_value=rows):
-            model, baseline = autoloop.pick_baseline("day")
-        self.assertEqual(model, "test.gguf")
-        self.assertEqual(baseline["MODEL"], "test.gguf")
-        self.assertEqual(baseline["THREADS"], 8)
-
-    def test_pick_baseline_no_front(self):
-        """No complete front point → RuntimeError (user must complete a vector first)."""
-        with patch("autoloop.read_rows", return_value=[]):
-            with self.assertRaises(RuntimeError):
-                autoloop.pick_baseline("day")
-
-    def test_pick_baseline_night_below_floor(self):
-        """Night pick falls back to max ctx when no front point clears the floor."""
-        import json
-
-        cfg = self._full_config(MODEL="test.gguf", CTX_SIZE=32768)
-        rows = [
-            {
-                "model": "test.gguf",
-                "status": "on_front",
-                "outcome": "OK",
-                "agentic": "0.5",
-                "coding": "0.6",
-                "tps": "10.0",
-                "ctx": "32768",
-                "memory_gb": "4",
-                "config_json": json.dumps(cfg, sort_keys=True),
-            }
-        ]
-        with patch("autoloop.read_rows", return_value=rows):
-            model, baseline = autoloop.pick_baseline("night")
-        self.assertEqual(model, "test.gguf")
-        self.assertEqual(baseline["CTX_SIZE"], 32768)
+    def test_profile_flag_removed(self):
+        """ADR 0017: --profile auto-seed path is gone; --models is the only route."""
+        with patch("sys.argv", ["autoloop.py", "--profile", "day"]):
+            with self.assertRaises(SystemExit):
+                autoloop.main()
 
     @patch("sys.argv", ["autoloop.py", "--dry-run", "--models", "test.gguf"])
     @patch("autoloop._available_gguf_names", return_value=["test.gguf"])
@@ -1040,71 +991,6 @@ class TestAutoLoop(unittest.TestCase):
                 autoloop.main()
         mock_runner_cls.assert_not_called()
         mock_write_row.assert_not_called()
-
-    @patch("sys.argv", ["autoloop.py", "--profile", "day", "--dry-run"])
-    @patch("autoloop._available_gguf_names", return_value=["test.gguf"])
-    @patch("autoloop.ExperimentRunner")
-    @patch("autoloop.load_config")
-    @patch("autoloop.SearchState.update_baseline")
-    @patch(
-        "autoloop.detect_hardware_capabilities",
-        return_value={"has_gpu": False, "physical_cores": 8, "ram_mb": 16384.0},
-    )
-    def test_main_profile_dry_run(
-        self, mock_detect, mock_wcfg, mock_lcfg, mock_runner_cls, _mock_models
-    ):
-        """--profile day --dry-run prints the pick plan; no Baseline write, no Trial."""
-        mock_lcfg.return_value = self._full_config(MODEL="test.gguf")
-        picked = self._full_config(MODEL="test.gguf", THREADS=12)
-        with patch("autoloop.pick_baseline", return_value=("test.gguf", picked)):
-            autoloop.main()
-        # Dry-run is side-effect-free: Baseline write skipped, runner never created.
-        mock_wcfg.assert_not_called()
-        mock_runner_cls.assert_not_called()
-
-    @patch("sys.argv", ["autoloop.py", "--profile", "day", "--max-rounds", "1"])
-    @patch("autoloop._available_gguf_names", return_value=["test.gguf"])
-    @patch("autoloop.ExperimentRunner")
-    @patch("autoloop.load_config")
-    @patch("autoloop.SearchState.update_baseline")
-    @patch("autoloop.get_git_commit", return_value="abc")
-    @patch("autoloop.write_row")
-    @patch("autoloop.estimate_vram_mb", return_value=1000.0)
-    @patch("autoloop.preflight_host_ok", return_value=True)
-    def test_main_profile_updates_baseline(
-        self,
-        mock_host,
-        mock_vram,
-        mock_write_row,
-        mock_git,
-        mock_wcfg,
-        mock_lcfg,
-        mock_runner_cls,
-        _mock_models,
-    ):
-        """--profile day (not dry) persists the picked Baseline, then rounds run from it."""
-        mock_lcfg.return_value = self._full_config(MODEL="test.gguf")
-        picked = self._full_config(MODEL="test.gguf", THREADS=12)
-        mock_runner = MagicMock()
-        mock_runner.run_trial.return_value = self._make_trial_result()
-        mock_runner_cls.return_value = mock_runner
-
-        with patch("autoloop.pick_baseline", return_value=("test.gguf", picked)):
-            with patch.object(SearchStrategy, "get_neighbors", return_value=[]):
-                with patch.object(SearchStrategy, "random_restart", return_value=None):
-                    autoloop.main()
-
-        mock_wcfg.assert_called()
-        # Baseline merge carried the picked THREADS=12 into the update.
-        self.assertEqual(mock_wcfg.call_args.args[0]["THREADS"], 12)
-        mock_runner_cls.assert_called()
-
-    @patch("sys.argv", ["autoloop.py", "--profile", "day", "--models", "x.gguf"])
-    @patch("autoloop._available_gguf_names", return_value=["test.gguf"])
-    def test_main_profile_conflicts_with_models(self, _mock_models):
-        """--profile and --models together → SystemExit."""
-        with self.assertRaises(SystemExit):
-            autoloop.main()
 
     @patch("sys.argv", ["autoloop.py", "--max-rounds", "1", "--models", "test.gguf"])
     @patch("autoloop._available_gguf_names", return_value=["test.gguf"])

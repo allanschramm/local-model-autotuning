@@ -35,17 +35,20 @@ _ensure_repo_root_on_sys_path()
 
 from autoresearch.core import results_db
 from autoresearch.core.classify import MORRIS_SCREEN_PROFILE, fp_from_config_json
-from autoresearch.core.pareto import pareto_set
 
 DEFAULT_TSV = REPO_ROOT / "results.tsv"
 
 _DESC_TPS_RE = re.compile(r"(?:bench_tg|TPS)=([0-9]+(?:\.[0-9]+)?)", re.IGNORECASE)
 _DESC_CTX_RE = re.compile(r"\bctx=([0-9]+)\b", re.IGNORECASE)
 
-DEFAULT_DAY_TPS_FLOOR = 50.0
-DEFAULT_NIGHT_CTX_FLOOR = 65536
+# ADR 0017: Day TPS floor (50) and Night ctx floor (65536) are historical
+# lens notes (ADR 0009 / 0013) — they no longer filter anything.
 
 OK_OUTCOMES = {"", "OK"}
+
+# ADR 0017: models whose iq_min sits within ±0.05 of a neighbor are
+# near-ties; speed (Day) or ctx (Night) breaks the tie.
+NEAR_TIE_BAND = 0.05
 
 
 @dataclass(frozen=True)
@@ -61,12 +64,6 @@ class Point:
     @property
     def iq_min(self) -> float:
         return min(self.agentic, self.coding)
-
-    @property
-    def night_iq(self) -> float:
-        if self.agentic_coding is None:
-            return self.iq_min
-        return min(self.agentic, self.coding, self.agentic_coding)
 
     @property
     def complete(self) -> bool:
@@ -170,19 +167,25 @@ def _axis_values(row: dict[str, str]) -> tuple[float | None, float | None]:
 def build_vectors(
     rows: Sequence[dict[str, str]],
 ) -> tuple[list[Point], list[Point]]:
-    """Merge best valid agentic + coding + TPS + ctx per GGUF basename.
+    """One representative Point per GGUF basename (ADR 0017).
 
-    Point identity is the model basename (quant/version file). Engine flags and
-    sampler changes hill-climb the same point: max claw, max coding, max TPS,
-    max ctx across all OK Trials for that file (ADR 0012). Fingerprint is kept
-    only as a pick hint (config_json of the best-claw row) for Baseline load.
-    Uses outcome=OK (or empty); status cells are not measurement validity.
+    A display run = rows sharing one Fingerprint (config_json) inside the
+    basename; rows without a config_json (legacy) merge by basename. Best
+    per-axis values are merged within a Fingerprint group only. The
+    basename's representative run is the complete group with the highest
+    iq_min = min(agentic, coding) — its own ctx/TPS/agentic/coding are
+    shown, never a composite stitched from different runs. Split-config
+    basenames (agentic and coding measured at different Fingerprints) have
+    no complete display run and stay incomplete until re-measured.
     """
-    ag_best: dict[str, dict[str, Any]] = {}
-    cod_best: dict[str, dict[str, Any]] = {}
-    ac_best: dict[str, float] = {}
-    tps_best: dict[str, float] = {}
-    ctx_best: dict[str, int] = {}
+    # (model, fp) → group accumulator. fp=None groups legacy fingerprint-less rows.
+    groups: dict[tuple[str, str | None], dict[str, Any]] = {}
+
+    def _group(model: str, fp: str | None) -> dict[str, Any]:
+        return groups.setdefault(
+            (model, fp),
+            {"agentic": None, "coding": None, "agentic_coding": None, "tps": None, "ctx": None},
+        )
 
     for row in rows:
         model = (row.get("model") or "").strip()
@@ -190,116 +193,134 @@ def build_vectors(
             continue
         if (row.get("evaluation_profile") or "").strip() == MORRIS_SCREEN_PROFILE:
             continue  # ADR 0016: reps=1 screen TPS must not set the basename axis
-        fp = fp_from_config_json(row.get("config_json"))
-        tps = _tps_of(row)
-        if tps is not None:
-            prev = tps_best.get(model)
-            if prev is None or tps > prev:
-                tps_best[model] = tps
-        ctx = _ctx_of(row)
-        if ctx is not None and ctx > 0:
-            prev_c = ctx_best.get(model)
-            if prev_c is None or ctx > prev_c:
-                ctx_best[model] = ctx
-
         if not _is_measurement_row(row):
             continue
+        fp = fp_from_config_json(row.get("config_json"))
+        group = _group(model, fp)
+        tps = _tps_of(row)
+        if tps is not None and (group["tps"] is None or tps > group["tps"]):
+            group["tps"] = tps
+        ctx = _ctx_of(row)
+        if ctx is not None and ctx > 0 and (group["ctx"] is None or ctx > group["ctx"]):
+            group["ctx"] = ctx
         agentic, coding, agentic_coding = _axis_values(row)
-        if agentic is None and coding is None and agentic_coding is None:
-            continue
-        if agentic is not None:
-            prev = ag_best.get(model)
-            if prev is None or agentic > prev["agentic"]:
-                ag_best[model] = {"agentic": agentic, "fp": fp}
-        if coding is not None:
-            prev = cod_best.get(model)
-            if prev is None or coding > prev["coding"]:
-                cod_best[model] = {"coding": coding, "fp": fp}
-        if agentic_coding is not None:
-            prev_ac = ac_best.get(model)
-            if prev_ac is None or agentic_coding > prev_ac:
-                ac_best[model] = agentic_coding
+        if agentic is not None and (group["agentic"] is None or agentic > group["agentic"]):
+            group["agentic"] = agentic
+        if coding is not None and (group["coding"] is None or coding > group["coding"]):
+            group["coding"] = coding
+        if agentic_coding is not None and (
+            group["agentic_coding"] is None or agentic_coding > group["agentic_coding"]
+        ):
+            group["agentic_coding"] = agentic_coding
 
     complete: list[Point] = []
     incomplete: list[Point] = []
-    for model in sorted(set(ag_best) | set(cod_best) | set(ac_best)):
-        ag = ag_best.get(model)
-        cod = cod_best.get(model)
-        agentic = float(ag["agentic"]) if ag else -1.0
-        coding = float(cod["coding"]) if cod else -1.0
-        ac = ac_best.get(model)
-        tps = float(tps_best.get(model, 0.0))
-        ctx = int(ctx_best.get(model, 0))
-        fp = None
-        if ag and ag.get("fp"):
-            fp = ag["fp"]
-        elif cod and cod.get("fp"):
-            fp = cod["fp"]
-        point = Point(
-            model=model,
-            ctx=ctx,
-            tps=tps,
-            agentic=max(agentic, 0.0) if not ag else agentic,
-            coding=max(coding, 0.0) if not cod else coding,
-            fp=fp,
-            agentic_coding=ac,
+    by_model: dict[str, list[tuple[str | None, dict[str, Any]]]] = {}
+    for (model, fp), group in groups.items():
+        by_model.setdefault(model, []).append((fp, group))
+
+    for model in sorted(by_model):
+        candidates = by_model[model]
+        complete_groups = [
+            (fp, g) for fp, g in candidates if g["agentic"] is not None and g["coding"] is not None
+        ]
+        if complete_groups:
+            # Representative run = highest iq_min; deterministic tie-breaks.
+            fp, g = min(
+                complete_groups,
+                key=lambda item: (
+                    -min(item[1]["agentic"], item[1]["coding"]),
+                    -(item[1]["tps"] or 0.0),
+                    -(item[1]["ctx"] or 0),
+                    item[0] or "",
+                ),
+            )
+            complete.append(
+                Point(
+                    model=model,
+                    ctx=int(g["ctx"] or 0),
+                    tps=float(g["tps"] or 0.0),
+                    agentic=float(g["agentic"]),
+                    coding=float(g["coding"]),
+                    fp=fp,
+                    agentic_coding=g["agentic_coding"],
+                )
+            )
+            continue
+        # Incomplete: keep the legacy best-per-axis merge so a partially
+        # measured basename still surfaces its partial vector.
+        agentic = max(
+            (g["agentic"] for _, g in candidates if g["agentic"] is not None), default=-1.0
         )
-        if ag and cod:
-            complete.append(point)
-        else:
-            incomplete.append(point)
+        coding = max((g["coding"] for _, g in candidates if g["coding"] is not None), default=-1.0)
+        tps = max((g["tps"] for _, g in candidates if g["tps"] is not None), default=0.0)
+        ctx = max((g["ctx"] for _, g in candidates if g["ctx"] is not None), default=0)
+        ac = max(
+            (g["agentic_coding"] for _, g in candidates if g["agentic_coding"] is not None),
+            default=None,
+        )
+        fp = next((f for f, g in candidates if f and g["agentic"] is not None), None)
+        incomplete.append(
+            Point(
+                model=model,
+                ctx=int(ctx),
+                tps=float(tps),
+                agentic=max(agentic, 0.0),
+                coding=max(coding, 0.0),
+                fp=fp,
+                agentic_coding=ac,
+            )
+        )
     return complete, incomplete
 
 
-# Pareto Set owned by the nucleus (issue #1); alias keeps callers/tests stable.
-# Input order preserved — Day/Night tables sort internally (ADR 0008).
-pareto_front = pareto_set
+# Rank membership is a leaderboard, not a frontier (ADR 0017): every complete
+# point passes through — the alias keeps callers/tests stable.
+def pareto_front(points: Sequence[Point]) -> list[Point]:
+    return [p for p in points if p.complete]
 
 
-def pick_day(
-    front: Sequence[Point],
-    day_tps_floor: float = DEFAULT_DAY_TPS_FLOOR,
-) -> Point | None:
-    ranked = day_table(front, day_tps_floor=day_tps_floor)
+def _band_sorted(points: Sequence[Point], tie_key) -> list[Point]:
+    """IQ-first sort with the ADR 0017 ±0.05 near-tie band.
+
+    Points sorted by iq_min descending; consecutive neighbors whose iq_min
+    differs by ≤ NEAR_TIE_BAND chain into one near-tie band, ordered by the
+    lens tie_key (Day: TPS, Night: ctx). Outside a band, iq_min strictly
+    rules. Deterministic: model name is the final tie-break.
+    """
+    order = sorted(points, key=lambda p: (-p.iq_min, p.model))
+    out: list[Point] = []
+    band: list[Point] = []
+    for p in order:
+        if band and p.iq_min >= band[0].iq_min - NEAR_TIE_BAND:
+            band.append(p)
+        else:
+            if band:
+                out.extend(sorted(band, key=tie_key))
+            band = [p]
+    if band:
+        out.extend(sorted(band, key=tie_key))
+    return out
+
+
+def pick_day(front: Sequence[Point]) -> Point | None:
+    ranked = day_table(front)
     return ranked[0] if ranked else None
 
 
-def pick_night(
-    front: Sequence[Point],
-    night_ctx_floor: int = DEFAULT_NIGHT_CTX_FLOOR,
-) -> Point | None:
-    ranked = night_table(front, night_ctx_floor=night_ctx_floor)
+def pick_night(front: Sequence[Point]) -> Point | None:
+    ranked = night_table(front)
     return ranked[0] if ranked else None
 
 
-def day_table(
-    front: Sequence[Point],
-    day_tps_floor: float = DEFAULT_DAY_TPS_FLOOR,
-) -> list[Point]:
-    """Front points clearing Day TPS floor, sorted by maximin IQ then TPS (ADR 0009)."""
-    if not front:
-        return []
-    eligible = [p for p in front if p.tps >= day_tps_floor]
-    pool = eligible if eligible else list(front)
-    if eligible:
-        return sorted(pool, key=lambda p: (-p.iq_min, -p.tps, -p.ctx, p.model))
-    return sorted(pool, key=lambda p: (-p.tps, -p.iq_min, -p.ctx, p.model))
+def day_table(front: Sequence[Point]) -> list[Point]:
+    """Every complete model, IQ-first; near-ties broken by TPS (ADR 0017)."""
+    return _band_sorted([p for p in front if p.complete], lambda p: (-p.tps, -p.ctx, p.model))
 
 
-def night_table(
-    front: Sequence[Point],
-    night_ctx_floor: int = DEFAULT_NIGHT_CTX_FLOOR,
-) -> list[Point]:
-    """Front points clearing Night ctx floor, sorted by maximin IQ (ADR 0013)."""
-    if not front:
-        return []
-    eligible = [p for p in front if p.ctx >= night_ctx_floor]
-    measured = [p for p in eligible if p.agentic_coding is not None]
-    if measured:
-        return sorted(measured, key=lambda p: (-p.night_iq, -p.ctx, -p.tps, p.model))
-    if eligible:
-        return sorted(eligible, key=lambda p: (-p.iq_min, -p.ctx, -p.tps, p.model))
-    return sorted(front, key=lambda p: (-p.ctx, -p.iq_min, -p.tps, p.model))
+def night_table(front: Sequence[Point]) -> list[Point]:
+    """Every complete model, IQ-first; near-ties broken by ctx (ADR 0017)."""
+    return _band_sorted([p for p in front if p.complete], lambda p: (-p.ctx, -p.tps, p.model))
 
 
 def _rank_axis(
@@ -415,8 +436,6 @@ def format_report(
     complete: Sequence[Point],
     incomplete: Sequence[Point],
     *,
-    day_tps_floor: float = DEFAULT_DAY_TPS_FLOOR,
-    night_ctx_floor: int = DEFAULT_NIGHT_CTX_FLOOR,
     mode: str,
     rows: Sequence[dict[str, str]] | None = None,
 ) -> str:
@@ -425,15 +444,15 @@ def format_report(
     front = pareto_front(complete)
 
     if mode in ("pareto", "day", "all"):
-        day_rows = day_table(front, day_tps_floor=day_tps_floor)
-        lines.append(f"DAY  (TPS >= {day_tps_floor:.1f})  pick=#1")
+        day_rows = day_table(front)
+        lines.append("DAY  (pick=#1)")
         lines.extend(_md_table(day_rows))
 
     if mode in ("pareto", "night", "all"):
         if lines:
             lines.append("")
-        night_rows = night_table(front, night_ctx_floor=night_ctx_floor)
-        lines.append(f"NIGHT  (CTX >= {night_ctx_floor})  pick=#1")
+        night_rows = night_table(front)
+        lines.append("NIGHT  (pick=#1)")
         lines.extend(_md_table(night_rows))
 
     if mode in ("claw", "all") and rows is not None:
@@ -475,18 +494,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default="pareto",
         help="Report view (default: pareto = Day + Night markdown tables)",
     )
-    parser.add_argument(
-        "--day-tps-floor",
-        type=float,
-        default=DEFAULT_DAY_TPS_FLOOR,
-        help=f"ADR 0009 Day TPS floor (default {DEFAULT_DAY_TPS_FLOOR})",
-    )
-    parser.add_argument(
-        "--night-ctx-floor",
-        type=int,
-        default=DEFAULT_NIGHT_CTX_FLOOR,
-        help=f"Night CTX floor (default {DEFAULT_NIGHT_CTX_FLOOR})",
-    )
     return parser.parse_args(argv)
 
 
@@ -501,8 +508,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     report = format_report(
         complete,
         incomplete,
-        day_tps_floor=args.day_tps_floor,
-        night_ctx_floor=args.night_ctx_floor,
         mode=args.mode,
         rows=rows,
     )

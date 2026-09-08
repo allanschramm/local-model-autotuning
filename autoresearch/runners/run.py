@@ -468,13 +468,15 @@ def _results_lock(results_file: Path):
         os.close(fd)
 
 
-def recompute_statuses(results_file: Path) -> None:
-    """Store-wide status refresh after a Trial write (issue #5).
+def recompute_statuses(results_file: Path, *, scope: str = recompute.DEFAULT_SCOPE) -> None:
+    """Store-wide status refresh after a Trial write (issue #5; ADR 0017).
 
-    A new on_front point demotes rows it dominates to dominated; incomplete
-    and rejected rows are left out; fingerprint-less legacy rows without a
-    config_json fingerprint are untouched. Idempotent: rerunning changes
-    nothing, so a no-change store is not rewritten.
+    Domination is same-model only: recompute groups rows by basename ×
+    budget bucket — every complete basename vector is on_front, partial
+    vectors stay incomplete, and legacy cross-model ``dominated`` labels
+    flip to on_front. rejected rows are left out; fingerprint-less legacy
+    rows without a config_json fingerprint are untouched. Idempotent:
+    rerunning changes nothing, so a no-change store is not rewritten.
 
     Reads the canonical SQLite store first (legacy TSV when unseeded).
     Refreshed statuses are written to the DB (primary) and the TSV is
@@ -483,7 +485,7 @@ def recompute_statuses(results_file: Path) -> None:
     """
     with _results_lock(results_file):
         rows, source = results_db.store_rows(results_file)
-        updated = recompute.recompute_rows(rows)
+        updated = recompute.recompute_rows(rows, scope=scope)
         if updated != rows:
             if source == "db":
                 changed = [u for u, o in zip(updated, rows, strict=False) if u != o]

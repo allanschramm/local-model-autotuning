@@ -73,7 +73,9 @@ def read_store(path: Path) -> dict[str, str]:
     return {r["trial_id"]: r["status"] for r in run.read_rows(path)}
 
 
-def test_complete_non_dominated_on_front_and_dominated_demoted(store):
+def test_cross_model_strength_never_demotes_anything(store):
+    # ADR 0017: domination is same-model only — a stronger model in the same
+    # bucket never demotes another model; both stay on_front.
     better = row(
         trial_id="better",
         model="B.gguf",
@@ -85,7 +87,7 @@ def test_complete_non_dominated_on_front_and_dominated_demoted(store):
     worse = row(trial_id="worse", model="M.gguf", tps="30.0", agentic="0.6", coding="0.6")
     write_store(store, [better, worse])
     run.recompute_statuses(store)
-    assert read_store(store) == {"better": "on_front", "worse": "dominated"}
+    assert read_store(store) == {"better": "on_front", "worse": "on_front"}
 
 
 def test_incomplete_and_rejected_left_out_of_domination(store):
@@ -173,8 +175,9 @@ def test_same_fp_different_peak_vram_merges_via_vram_limit(store):
     assert read_store(store) == {"cod": "on_front", "ag": "on_front"}
 
 
-def test_later_group_demotes_earlier_group(store):
-    # Input order must not matter: 'a' comes first but is dominated by 'b'.
+def test_input_order_does_not_matter_and_all_complete_groups_on_front(store):
+    # Input order must not matter: both complete basenames are on_front under
+    # same-model-only domination (ADR 0017).
     a = row(
         trial_id="a",
         model="A.gguf",
@@ -193,11 +196,11 @@ def test_later_group_demotes_earlier_group(store):
     )
     write_store(store, [a, b])
     run.recompute_statuses(store)
-    assert read_store(store) == {"a": "dominated", "b": "on_front"}
+    assert read_store(store) == {"a": "on_front", "b": "on_front"}
     # Reversed input order, same verdict.
     write_store(store, [b, a])
     run.recompute_statuses(store)
-    assert read_store(store) == {"a": "dominated", "b": "on_front"}
+    assert read_store(store) == {"a": "on_front", "b": "on_front"}
 
 
 def test_idempotent_run_twice(store):
@@ -221,12 +224,32 @@ def test_idempotent_run_twice(store):
     run.recompute_statuses(store)
     first = read_store(store)
     run.recompute_statuses(store)
-    assert read_store(store) == first == {"a": "dominated", "b": "on_front"}
+    assert read_store(store) == first == {"a": "on_front", "b": "on_front"}
 
 
-def test_model_scope_keeps_two_models_in_one_bucket_on_front(store):
-    # Bucket scope: A dominates B -> B dominated. Model scope: each model's
-    # own front -> both on_front (per-model lens, ADR 0006 Search/Neighbors).
+def test_stored_dominated_labels_flip_to_on_front(store):
+    # ADR 0017 realignment: a previously stored cross-model dominated label
+    # flips to on_front via the normal recompute pass (same-model verdicts
+    # live only in hill-climb A/B bookkeeping, not store-wide recompute).
+    weaker = row(trial_id="weak", model="W.gguf", tps="30.0", agentic="0.6", coding="0.6")
+    stronger = row(
+        trial_id="strong",
+        model="S.gguf",
+        tps="40.0",
+        agentic="0.7",
+        coding="0.7",
+        config_json=cfg_json(MODEL="S"),
+    )
+    weaker["status"] = "dominated"  # legacy stored label
+    write_store(store, [weaker, stronger])
+    run.recompute_statuses(store)
+    assert read_store(store) == {"weak": "on_front", "strong": "on_front"}
+
+
+def test_model_scope_default_and_bucket_scope_agree(store):
+    # ADR 0017: recompute default scope is per-model; bucket scope is kept as
+    # an accepted argument form with the same same-basename competition.
+    # Neither scope demotes across basenames.
     a = row(
         trial_id="a",
         model="A.gguf",
@@ -243,14 +266,11 @@ def test_model_scope_keeps_two_models_in_one_bucket_on_front(store):
         coding="0.6",
         config_json=cfg_json(MODEL="B"),
     )
-    write_store(store, [a, b])
-    run.recompute_statuses(store)
-    assert read_store(store) == {"a": "on_front", "b": "dominated"}
-    out = {
-        r["trial_id"]: r["status"]
-        for r in recompute.recompute_rows(run.read_rows(store), scope="model")
-    }
-    assert out == {"a": "on_front", "b": "on_front"}
+    for scope in ("model", "bucket"):
+        out = {r["trial_id"]: r["status"] for r in recompute.recompute_rows([a, b], scope=scope)}
+        assert out == {"a": "on_front", "b": "on_front"}
+    # Default scope is per-model.
+    assert recompute.SCOPES[0] == "model"
 
 
 def test_model_scope_respects_bucket_isolation(store):
@@ -306,7 +326,9 @@ def test_cli_runs_from_repo_root(store):
     assert read_store(store) == {"a": "on_front"}
 
 
-def test_cli_model_scope_prints_without_rewrite(store):
+def test_cli_model_scope_rewrites_with_per_model_statuses(store):
+    # ADR 0017: the default scope is per-model and persists; --scope model
+    # rewrites the store with same-basename-only statuses.
     a = row(
         trial_id="a",
         model="A.gguf",
@@ -330,10 +352,7 @@ def test_cli_model_scope_prints_without_rewrite(store):
         text=True,
     )
     assert proc.returncode == 0
-    assert "a\tA.gguf\ton_front" in proc.stdout
-    assert "b\tB.gguf\ton_front" in proc.stdout
-    # Read-only: stored statuses unchanged.
-    assert read_store(store) == {"a": "incomplete", "b": "incomplete"}
+    assert read_store(store) == {"a": "on_front", "b": "on_front"}
 
 
 def test_cli_help_exits_zero():

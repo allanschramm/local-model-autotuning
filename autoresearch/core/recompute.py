@@ -1,14 +1,15 @@
-"""Store-wide Pareto status recompute (issue #5).
+"""Store-wide status recompute (issue #5; ADR 0017).
 
 Pure decision logic — no file I/O. Takes results-store rows and returns a new
-list with every row's status refreshed so the Pareto Set stays consistent:
-a new on_front point demotes rows it dominates to dominated. Two scopes per
-ADR 0006 / 0012: `bucket` (default) is the canonical stored status — the
-global-by-hardware+budget front, every complete basename vector in a
-configured-VRAM_LIMIT bucket (fallback: round(memory_gb)) competes across
-models; `model` is the per-model lens (Search/Neighbors stay per model) —
-rows compete only against same-model complete vectors in the same bucket.
-The per-model lens is a view; only the bucket scope is persisted.
+list with every row's status refreshed. Domination is a same-model config
+verdict (ADR 0017): store-wide recompute never demotes one model for another.
+Rows group by basename × budget bucket (config scope is retained as an
+accepted argument form; both scopes compete only within one basename).
+Every row of one group shares the merged vector's status: incomplete stays
+incomplete; a complete merged vector is on_front. Cross-model `dominated`
+labels cease to exist via the normal recompute pass — same-model config A/B
+verdicts (`dominated`) are written only by hill-climb bookkeeping
+(classify.plan_write) and are flipped back to on_front here.
 Point identity = GGUF basename (ADR 0012).
 """
 
@@ -22,26 +23,30 @@ from autoresearch.core.classify import (
     row_bucket,
     vector_from_row,
 )
-from autoresearch.core.pareto import ObjectiveVector, Trial, dominates, merge
+from autoresearch.core.pareto import ObjectiveVector, Trial, merge
 
-SCOPES = ("bucket", "model")
+# ADR 0017: per-model competition is the canonical scope; `bucket` remains an
+# accepted argument form with the same same-basename competition.
+SCOPES = ("model", "bucket")
+DEFAULT_SCOPE = "model"
 
 
 def recompute_rows(
-    rows: Sequence[Mapping[str, Any]], *, scope: str = "bucket"
+    rows: Sequence[Mapping[str, Any]], *, scope: str = DEFAULT_SCOPE
 ) -> list[dict[str, Any]]:
     """New row list with refreshed statuses (idempotent, pure).
 
     Point identity is the GGUF basename (ADR 0012). Rows without a model name
     or a budget bucket are left untouched. rejected rows never compete. Every
-    row of one group (bucket × model, or model × bucket in model scope) shares
-    the merged vector's status: incomplete stays incomplete; a complete vector
-    dominated by another complete merged vector in the same domination scope
-    becomes dominated; the rest stay on_front.
+    row of one group (basename × bucket) shares the merged vector's status:
+    incomplete stays incomplete; a complete merged basename vector is
+    on_front. No group ever demotes another — domination is same-model only
+    (ADR 0017) and lives in hill-climb A/B bookkeeping, not store-wide
+    recompute.
     """
     if scope not in SCOPES:
         raise ValueError(f"invalid scope: {scope!r}; allowed: {sorted(SCOPES)}")
-    groups: dict[tuple[Any, ...], list[int]] = {}
+    groups: dict[tuple[Any, Any], list[int]] = {}
     for idx, row in enumerate(rows):
         model = (row.get("model") or "").strip()
         bucket_gb = row_bucket(row)
@@ -52,35 +57,19 @@ def recompute_rows(
             or (row.get("evaluation_profile") or "").strip() == MORRIS_SCREEN_PROFILE
         ):
             continue
-        # bucket scope: (bucket, model); model scope: (model, bucket) — one point
-        # per basename per budget; model scope never demotes across basenames.
-        key = (model, bucket_gb) if scope == "model" else (bucket_gb, model)
+        # Both scopes compete only within one basename: (model, bucket).
+        key = (model, bucket_gb)
         groups.setdefault(key, []).append(idx)
-    merged_by_group: dict[tuple[Any, ...], ObjectiveVector] = {}
+    merged_by_group: dict[tuple[Any, Any], ObjectiveVector] = {}
     for key, idxs in groups.items():
         vectors = [vector_from_row(rows[i]) for i in idxs]
         # merge() keys on Trial.fp — use basename as the merge id.
-        merge_id = key[1] if scope == "bucket" else key[0]
+        merge_id = key[0]
         merged_by_group[key] = merge([Trial(fp=str(merge_id), vector=v) for v in vectors])[0].vector
-    # Two passes: every group competes against the full front of its
-    # domination scope (bucket, or model × bucket), so a later group can
-    # demote an earlier one.
-    complete_by_scope: dict[tuple[Any, ...], list[ObjectiveVector]] = {}
-    for key, merged in merged_by_group.items():
-        if merged.complete:
-            # model scope: isolate per (model, bucket); bucket scope: all models
-            # in the bucket compete (key = (bucket, model) → scope (bucket,)).
-            scope_key = key if scope == "model" else key[:-1]
-            complete_by_scope.setdefault(scope_key, []).append(merged)
-    statuses: dict[tuple[Any, ...], str] = {}
-    for key, merged in merged_by_group.items():
-        scope_key = key if scope == "model" else key[:-1]
-        if not merged.complete:
-            statuses[key] = "incomplete"
-        elif any(dominates(other, merged) for other in complete_by_scope.get(scope_key, ())):
-            statuses[key] = "dominated"
-        else:
-            statuses[key] = "on_front"
+    statuses: dict[tuple[Any, Any], str] = {
+        key: "on_front" if merged.complete else "incomplete"
+        for key, merged in merged_by_group.items()
+    }
     out = [dict(row) for row in rows]
     for key, idxs in groups.items():
         status = statuses[key]
@@ -107,8 +96,8 @@ def relabel_watchdog_kills(
     indistinguishable from real OOMs. Every such row was a device-wide NVML
     policy kill, so the scope is honest. Genuine model rejects (preflight,
     TPS floor) and already-honest rows pass through untouched. Store status
-    stays ``rejected``: still failed, still out of the Pareto front — only
-    the outcome/diagnostic become honest.
+    stays ``rejected``: still failed, still out of the rank — only the
+    outcome/diagnostic become honest.
     """
     out: list[dict[str, Any]] = []
     for row in rows:

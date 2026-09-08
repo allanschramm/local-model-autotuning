@@ -1,73 +1,106 @@
-# Pareto Frontier Leaderboard (Local Rig)
+# Model Leaderboard (Local Rig)
 
-Global **Pareto Set** on this hardware budget: maximize **ctx × TPS × agentic × coding** ([ADR 0006](../adr/0006-pareto-frontier-search.md)). Selection lenses: **Day** ([ADR 0009](../adr/0009-day-profile-tps-floor.md)) / **Night** ([ADR 0008](../adr/0008-day-iq-epsilon-then-tps.md) Night rule).
+The rank is a **plain leaderboard, not a frontier** ([ADR 0017](../adr/0017-rank-membership-quality-first.md)): every model with a complete Objective Vector appears exactly once in BOTH the Day and Night tables. No model is ever excluded because another model beat it — only unfinished evaluations stay out. **Domination is a same-model config label** (hill-climb A/B bookkeeping, e.g. MTP vs cache vs MTP+cache for one basename); cross-model `dominated` statuses no longer exist ([ADR 0006](../adr/0006-pareto-frontier-search.md) superseded in part).
 
-> **Report, not the ship picker ([ADR 0014](../adr/0014-fingerprint-bus-product-split.md)):** this front, its `on_front` rows, and the Day/Night picks below are a **numeric report** — comparable scores for video/compare. What actually runs in Pi is elected by the TPS climb: it writes `fingerprints/<stem>.json`, and `model-up` serves that file. No pick on this page ships to Pi by itself.
+Ordering: **intelligence first** — `iq_min = min(agentic, coding)` descending. Models within **±0.05 of the band's top** form a near-tie band: **Day** breaks ties by higher TPS, **Night** by larger ctx; a real quality gap beyond the band decides outright (no chained middle points). Each model's row is its **single best Trial** (highest `iq_min`), showing that run's measured ctx and TPS — never a composite stitched from different runs.
+
+> **Report, not the ship picker ([ADR 0014](../adr/0014-fingerprint-bus-product-split.md)):** the tables and picks below are a **numeric report** — comparable scores for video/compare. What actually runs in Pi is elected by the TPS climb: it writes `fingerprints/<stem>.json`, and `model-up` serves that file. No pick on this page ships to Pi by itself.
 
 Hardware: discrete **8 GB-class** NVIDIA, `VRAM_LIMIT_MB=7900`, Windows, upstream CUDA unless noted.  
-Ground truth: the results store — canonical `results.db` (SQLite), legacy `results.tsv` fallback (`scripts\rebuild_results_db.py` keeps them in sync). TPS axis = claw-full `bench_tg` when available. Complete vector = claw-full **and** coding-10 (exact 10 tasks/dataset).
+Ground truth: the results store — canonical `results.db` (SQLite), legacy `results.tsv` fallback (`scripts\rebuild_results_db.py` keeps them in sync). TPS axis = claw-full `bench_tg` when available. Complete vector = claw-full **and** coding-10 measured under one Fingerprint (single run).
 
-**Point = GGUF basename** (ADR 0012): max claw × coding × TPS × ctx across Trials for that file. Different quants stay separate. ENGINE+SAMPLER Fingerprint is a Baseline/Search hint, not Day/Night Point identity. Live recompute: `scripts/rank_results.py`.
-
-Recompute live (do not invent temp scripts):
+**Point = GGUF basename** ([ADR 0012](../adr/0012-basename-pareto-point.md)); representative run = the basename's Fingerprint group with the highest `iq_min`. Split-config basenames (agentic and coding measured at different Fingerprints) stay incomplete until re-measured. Live recompute — never invent temp scripts, never hand-patch this page:
 
 ```bash
 .\venv\Scripts\python.exe scripts\rank_results.py
-.\venv\Scripts\python.exe scripts\rank_results.py --day-tps-floor 50
+.\venv\Scripts\python.exe scripts\rank_results.py --mode night
 ```
 
-## Usage Profile picks (ADR 0009 Day / ADR 0008 Night)
+Historical lens notes (no longer filter anything): the old Day TPS floor (`TPS ≥ 50`, ADR 0009) and Night ctx floor (`CTX ≥ 65536`, ADR 0013) were demoted to sort-key history by ADR 0017.
 
-| Lens | Rule | Pick (this front) |
-| :--- | :--- | :--- |
-| **Night** | `CTX ≥ 65536` then max `min(agentic, coding)`; if `agentic_coding` is measured, max `min(agentic, coding, agentic_coding)` ([ADR 0013](../adr/0013-agentic-coding-night-selector.md)) | Recompute live; snapshot below predates the SWE-lite column |
-| **Day** | `TPS ≥ DAY_TPS_FLOOR` (default 50) then max `min(agentic, coding)` | Recompute live with `rank_results.py` (snapshot below used older ADR 0008 IQ band) |
+## Day table (near-ties broken by TPS)
 
-## `on_front` (complete / merged)
+**Snapshot synced from `scripts\rank_results.py` output 2026-08-26 (ADR 0017 implementation, anchor-band semantics).** The store wins over this doc.
 
-**Snapshot synced from `scripts\rank_results.py` output 2026-08-23** (earlier hand-patched snapshot missed `LFM2.5-2.6B` and `Nemotron-Nano` front points — always recompute live; **the store wins over this doc**). Sorted by `min(agentic, coding)` descending.
+| # | Model | ctx | TPS | agentic | coding |
+|---|---|---|---|---|---|
+| 1 | `Qwen3.8-4B-Q4_K_M.gguf` | 131k | 74.9 | 0.8667 | 0.6400 | ← DAY pick
+| 2 | `model-Q4_K_M.gguf` | 131k | 74.9 | 0.6667 | 0.6400 |
+| 3 | `Ornith-1.5-9B-Q4_K_M.gguf` | 65k | 43.2 | 0.8000 | 0.6150 |
+| 4 | `POCKET-35B-Q3_K_M.gguf` | 65k | 35.7 | 0.6667 | 0.6150 |
+| 5 | `Kwaipilot_KAT-Coder-V2.5-Dev-IQ4_XS.gguf` | 65k | 31.3 | 0.6000 | 0.6400 |
+| 6 | `Ornith-1.5-35B-Q4_K_M.gguf` | 65k | 28.8 | 0.7333 | 0.6300 |
+| 7 | `Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf` | 65k | 28.2 | 0.8667 | 0.6400 |
+| 8 | `LFM2.5-2.6B-Q8_0.gguf` | 65k | 78.7 | 0.8667 | 0.5050 |
+| 9 | `Qwen3.8-4B-Q8_0.gguf` | 32k | 48.9 | 0.5333 | 0.5900 |
+| 10 | `Ornith-1.0-9B-UD-Q4_K_XL.gguf` | 65k | 48.6 | 0.9333 | 0.5400 |
+| 11 | `Qwen3.8-9B-Q4_K_M.gguf` | 8k | 44.2 | 0.5333 | 0.5950 |
+| 12 | `Ornith-1.5-35B-A3B-Heretic-MTP-APEX-I-Mini.gguf` | 65k | 34.9 | 0.8667 | 0.5300 |
+| 13 | `grug-35b-v2-Q4_K_M.gguf` | 16k | 23.7 | 0.7333 | 0.5450 |
+| 14 | `K2-Horizon-0.9B-Q4_K_M.gguf` | 65k | 243.3 | 0.8000 | 0.4400 |
+| 15 | `granite-4.1-3b-Q4_K_M.gguf` | 65k | 86.6 | 0.6667 | 0.4300 |
+| 16 | `K2-Horizon-3.7B-Q4_K_M.gguf` | 65k | 74.2 | 0.7333 | 0.4300 |
+| 17 | `Qwen3.5-4B-Q4_K_M.gguf` | 131k | 71.9 | 0.6667 | 0.4450 |
+| 18 | `granite-4.0-h-tiny-Q4_K_M.gguf` | 65k | 50.8 | 0.7333 | 0.4300 |
+| 19 | `Qwen3.8-9B-abliterated-25-IQ4_XS-no-mtp.gguf` | 65k | 48.7 | 0.8667 | 0.4750 |
+| 20 | `K2-Horizon-7B-Q4_K_M.gguf` | 65k | 46.0 | 0.6000 | 0.4800 |
+| 21 | `Ornith-1.0-35B-UD-Q3_K_XL.gguf` | 65k | 26.0 | 0.4667 | 0.5550 |
+| 22 | `LFM2.5-1.2B-Instruct-Q8_0.gguf` | 65k | 156.4 | 0.5333 | 0.3700 |
+| 23 | `SmolLM3-3B-Q4_K_M.gguf` | 131k | 110.0 | 0.5333 | 0.3650 |
+| 24 | `Qwen3.5-4B-MTP-Q4_K_M.gguf` | 65k | 84.5 | 0.7333 | 0.4150 |
+| 25 | `Ling-3.0-tiny-Q4_K_M.gguf` | 65k | 53.5 | 0.8667 | 0.3900 |
+| 26 | `NVIDIA-Nemotron3-Nano-4B-Q4_K_M.gguf` | 65k | 78.7 | 0.3333 | 0.5100 |
+| 27 | `Qwen3.8-2B-BF16.gguf` | 32k | 60.5 | 0.3333 | 0.3100 |
+| 28 | `LFM2.5-8B-A1B-Q4_K_M.gguf` | 65k | 182.2 | 0.2667 | 0.3800 |
+| 29 | `Qwythos-9B-Claude-Mythos-5-1M-MTP.Q4_K_M.gguf` | 65k | 45.6 | 0.2667 | 0.5500 |
+| 30 | `Nanbeige4.2-3B.Q4_K_M.gguf` | 32k | 53.8 | 0.4000 | 0.1800 |
+| 31 | `Laguna-XS-2.1-Q3_K_XL.gguf` | 65k | 37.2 | 0.6667 | 0.1950 |
+| 32 | `POCKET-26B-Q4_K_M.gguf` | 65k | 21.8 | 0.2000 | 0.4900 |
+| 33 | `MindSparQ-Coder-1.5B.Q4_K_M.gguf` | 65k | 182.3 | 0.0000 | 0.0250 |
+| 34 | `Nanbeige4.2-3B-Q4_K_M.gguf` | 32k | 54.4 | 0.0000 | 0.3300 |
 
-### Day lens (TPS ≥ 50)
+## Night table (near-ties broken by ctx)
 
-| # | Model | ctx | TPS | agentic | coding | min |
-|---|---|---|---|---|---|---|
-| 1 | `Qwen3.8-4B-Q4_K_M.gguf` | 131k | 74.9 | 0.8667 | 0.6400 | **0.6400** ← DAY pick |
-| 2 | `LFM2.5-2.6B-Q8_0.gguf` | 65k | 82.2 | 0.8667 | 0.5200 | 0.52 |
-| 3 | `NVIDIA-Nemotron3-Nano-4B-Q4_K_M.gguf` | 131k | 79.2 | 0.7333 | 0.5100 | 0.51 |
-| 4 | `granite-4.1-3b-Q4_K_M.gguf` | 131k | 92.0 | 0.6667 | 0.4300 | 0.43 |
-| 5 | `Qwen3.5-4B-MTP-Q4_K_M.gguf` | 131k | 92.6 | 0.8667 | 0.4150 | 0.42 |
-| 6 | `LFM2.5-1.2B-Instruct-Q8_0.gguf` | 128k | 180.6 | 0.6000 | 0.3700 | 0.37 |
-| 7 | `SmolLM3-3B-Q4_K_M.gguf` | 131k | 110.0 | 0.5333 | 0.3650 | 0.365 |
-| 8 | `LFM2.5-8B-A1B-Q4_K_M.gguf` | 65k | 185.8 | 0.2667 | 0.3800 | 0.27 |
+Same membership as Day; only the near-tie tie-break differs (ctx instead of TPS). Snapshot 2026-08-26:
 
-### Night lens (CTX ≥ 65536)
+| # | Model | ctx | TPS | agentic | coding |
+|---|---|---|---|---|---|
+| 1 | `Qwen3.8-4B-Q4_K_M.gguf` | 131k | 74.9 | 0.8667 | 0.6400 | ← NIGHT pick
+| 2 | `model-Q4_K_M.gguf` | 131k | 74.9 | 0.6667 | 0.6400 |
+| 3 | `Ornith-1.5-9B-Q4_K_M.gguf` | 65k | 43.2 | 0.8000 | 0.6150 |
+| 4 | `POCKET-35B-Q3_K_M.gguf` | 65k | 35.7 | 0.6667 | 0.6150 |
+| 5 | `Kwaipilot_KAT-Coder-V2.5-Dev-IQ4_XS.gguf` | 65k | 31.3 | 0.6000 | 0.6400 |
+| 6 | `Ornith-1.5-35B-Q4_K_M.gguf` | 65k | 28.8 | 0.7333 | 0.6300 |
+| 7 | `Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf` | 65k | 28.2 | 0.8667 | 0.6400 |
+| 8 | `LFM2.5-2.6B-Q8_0.gguf` | 65k | 78.7 | 0.8667 | 0.5050 |
+| 9 | `Ornith-1.0-9B-UD-Q4_K_XL.gguf` | 65k | 48.6 | 0.9333 | 0.5400 |
+| 10 | `Ornith-1.5-35B-A3B-Heretic-MTP-APEX-I-Mini.gguf` | 65k | 34.9 | 0.8667 | 0.5300 |
+| 11 | `Qwen3.8-4B-Q8_0.gguf` | 32k | 48.9 | 0.5333 | 0.5900 |
+| 12 | `grug-35b-v2-Q4_K_M.gguf` | 16k | 23.7 | 0.7333 | 0.5450 |
+| 13 | `Qwen3.8-9B-Q4_K_M.gguf` | 8k | 44.2 | 0.5333 | 0.5950 |
+| 14 | `Qwen3.5-4B-Q4_K_M.gguf` | 131k | 71.9 | 0.6667 | 0.4450 |
+| 15 | `K2-Horizon-0.9B-Q4_K_M.gguf` | 65k | 243.3 | 0.8000 | 0.4400 |
+| 16 | `granite-4.1-3b-Q4_K_M.gguf` | 65k | 86.6 | 0.6667 | 0.4300 |
+| 17 | `K2-Horizon-3.7B-Q4_K_M.gguf` | 65k | 74.2 | 0.7333 | 0.4300 |
+| 18 | `granite-4.0-h-tiny-Q4_K_M.gguf` | 65k | 50.8 | 0.7333 | 0.4300 |
+| 19 | `Qwen3.8-9B-abliterated-25-IQ4_XS-no-mtp.gguf` | 65k | 48.7 | 0.8667 | 0.4750 |
+| 20 | `K2-Horizon-7B-Q4_K_M.gguf` | 65k | 46.0 | 0.6000 | 0.4800 |
+| 21 | `Ornith-1.0-35B-UD-Q3_K_XL.gguf` | 65k | 26.0 | 0.4667 | 0.5550 |
+| 22 | `SmolLM3-3B-Q4_K_M.gguf` | 131k | 110.0 | 0.5333 | 0.3650 |
+| 23 | `LFM2.5-1.2B-Instruct-Q8_0.gguf` | 65k | 156.4 | 0.5333 | 0.3700 |
+| 24 | `Qwen3.5-4B-MTP-Q4_K_M.gguf` | 65k | 84.5 | 0.7333 | 0.4150 |
+| 25 | `Ling-3.0-tiny-Q4_K_M.gguf` | 65k | 53.5 | 0.8667 | 0.3900 |
+| 26 | `NVIDIA-Nemotron3-Nano-4B-Q4_K_M.gguf` | 65k | 78.7 | 0.3333 | 0.5100 |
+| 27 | `Qwen3.8-2B-BF16.gguf` | 32k | 60.5 | 0.3333 | 0.3100 |
+| 28 | `LFM2.5-8B-A1B-Q4_K_M.gguf` | 65k | 182.2 | 0.2667 | 0.3800 |
+| 29 | `Qwythos-9B-Claude-Mythos-5-1M-MTP.Q4_K_M.gguf` | 65k | 45.6 | 0.2667 | 0.5500 |
+| 30 | `Laguna-XS-2.1-Q3_K_XL.gguf` | 65k | 37.2 | 0.6667 | 0.1950 |
+| 31 | `POCKET-26B-Q4_K_M.gguf` | 65k | 21.8 | 0.2000 | 0.4900 |
+| 32 | `Nanbeige4.2-3B.Q4_K_M.gguf` | 32k | 53.8 | 0.4000 | 0.1800 |
+| 33 | `MindSparQ-Coder-1.5B.Q4_K_M.gguf` | 65k | 182.3 | 0.0000 | 0.0250 |
+| 34 | `Nanbeige4.2-3B-Q4_K_M.gguf` | 32k | 54.4 | 0.0000 | 0.3300 |
 
-Night adds the sub-floor-TPS high-IQ points that Day excludes:
-
-| # | Model | ctx | TPS | agentic | coding | min |
-|---|---|---|---|---|---|---|
-| 1 | `Qwen3.8-4B-Q4_K_M.gguf` | 131k | 74.9 | 0.8667 | 0.6400 | **0.6400** ← NIGHT pick |
-| 2 | `Ornith-1.5-9B-Q4_K_M.gguf` | 131k | 44.4 | 0.9333 | 0.6150 | 0.62 |
-| 3 | `Ornith-1.0-9B-UD-Q4_K_XL.gguf` | 131k | 48.6 | 0.9333 | 0.5700 | 0.57 |
-| 4–10 | same tail as Day (LFM2.5-2.6B → LFM2.5-8B) | | | | | |
-
-Notable drops vs older snapshots: `POCKET-35B` (min 0.615 @35.7 t/s) and `KAT-Coder` (0.60 @30.2 t/s) are now **dominated** by Qwen3.8-4B (≥ every axis, higher ctx).
-
-Exact domination membership can shift when TPS sources differ (claw vs coding Combined TPS). Treat the table as the teaching front; recompute from the results store (`scripts\rank_results.py`) before deleting GGUFs. **The store wins over this doc.**
-
-## `dominated` (complete, someone covers)
-
-- `POCKET-35B-Q3_K_M.gguf` (0.6667 / 0.6150 @65k, 35.7 t/s) — covered by `Qwen3.8-4B-Q4_K_M`: higher ctx + agentic + coding + TPS (2026-08-23).
-- `Kwaipilot_KAT-Coder-V2.5-Dev-IQ4_XS.gguf` (0.6000 / 0.6400 @65k, 30.2 t/s) — covered by `Qwen3.8-4B-Q4_K_M`: same coding, higher agentic + ctx + TPS (2026-08-23).
-- `Ornith-1.5-35B-A3B-Heretic-MTP-APEX-I-Mini.gguf` (0.8667 / 0.5300 @65k, 34.9 t/s, 2.5 GB) — covered by `Qwen3.8-4B-Q4_K_M`: higher coding + TPS + ctx at equal agentic (2026-08-23).
-- `Ling-3.0-tiny-Q4_K_M.gguf` (0.8667 / 0.3900 @65k, 52.8 t/s, 2.5 GB) — covered by `Qwen3.8-4B-Q4_K_M`: higher coding + TPS + ctx at equal agentic; kept as VRAM-efficient fallback (2026-08-23).
-- `Ornith-1.0-35B-UD-Q3_K_XL.gguf` (0.4667 / 0.5550 @65k) — covered by KAT: same ctx, better agentic + coding + TPS.
-- `Qwythos-9B-Claude-Mythos-5-1M-MTP.Q4_K_M.gguf` (0.2667 / 0.5500 @65k) — covered by v2-MTP: higher ctx + agentic + TPS.
-- `POCKET-26B-Q4_K_M.gguf` (0.2000 / 0.4900 @65k) — covered by POCKET-35B.
-- `Qwen3.8-4B-Heretic (model-Q4_K_M.gguf)` (0.6667 / 0.6400 @131k) — covered by base `Qwen3.8-4B-Q4_K_M`: same ctx + coding + TPS, higher agentic. Abliterated variant not superior.
-- `MindSparQ-Coder-1.5B.Q4_K_M.gguf` (0.0000 / 0.0250 @65k) — 1.5B too small for tool use; complete but dominated everywhere.
-
-Note: `SmolLM3-3B` is **not** in this list — it survives the front via its TPS axis (110 > 74.9), so it appears in the Day table above despite lower IQ axes. Domination here is strict Pareto over ctx × TPS × agentic × coding (`autoresearch/core/pareto.py::dominates`); a point with any single higher axis stays on the front.
+Note the ADR 0017 headline change vs older snapshots: `Tiel-Coder-35B` (0.8667 / 0.6400 — ties the top model's quality) is back on both tables at #7, `POCKET-35B` / `KAT-Coder` / `Ornith-1.5-35B` returned, and `LFM2.5-8B` (agentic 0.2667) sorts near the bottom instead of masquerading mid-table on a TPS extreme. #1 is unchanged (Qwen3.8-4B) under old and new math.
 
 ## `incomplete` / rejected
 
@@ -80,8 +113,9 @@ Note: `SmolLM3-3B` is **not** in this list — it survives the front via its TPS
 | `Qwen3.6-35B-A3B-UD-Q3_K_XL.gguf` | coding-10 | claw-full **0.4000** in TSV; **no** fair coding-10 row |
 | `nanbeige4.2-3b-Q4_K_M.gguf` | coding-10 | claw-full **0.2667** in TSV; **no** fair coding-10 row |
 | `Qwythos-9B-v2*` failed trials | — | reclassified `incomplete` → **`rejected`** in results.tsv (MODEL_REJECTED / INFRA_ERROR) |
+| split-config basenames | single-run | Under ADR 0017 a model whose agentic and coding were measured at different Fingerprints has no complete display run — re-measure both axes under one Baseline to rejoin the tables. |
 
-**Config-split history** — pre-0012, agentic and coding under different Baselines never merged. ADR 0012 merges max axes by basename; prefer remeasuring both axes under a Preferred Baseline when reproducing a single Fingerprint.
+**Config-split history** — pre-0012, agentic and coding under different Baselines never merged. ADR 0017 retires best-per-axis merging for display (it remains internal to Fingerprint merge identity); prefer one combined run per model.
 
 ## Quantizations are separate Trials
 Different quants of the same family (e.g. Ornith-35B **Q3_K_XL** vs **Q4_K_XL**) are **not** duplicates. Each needs its own Objective Vector. Prefer the better quant for aliases; keep both scores in leaderboards until a delete decision.
@@ -90,18 +124,18 @@ Different quants of the same family (e.g. Ornith-35B **Q3_K_XL** vs **Q4_K_XL**)
 
 | Job | Prefer |
 | :--- | :--- |
-| Night / long agent loops | **Qwen3.8-4B-Q4_K_M** (Ornith-1.5-9B close second: higher raw agentic, lower coding) |
-| Day / supervised (ADR 0009) | **Qwen3.8-4B-Q4_K_M** — only point clearing the 50 t/s floor above min 0.6 |
-| Direct coding | Qwen3.8-4B (coding 0.64 ties KAT at 2.5× its TPS) → POCKET-35B |
+| Night / long agent loops | **Qwen3.8-4B-Q4_K_M** (Tiel-Coder ties its quality but runs at 28 t/s; Ornith-1.5-9B close third) |
+| Day / supervised | **Qwen3.8-4B-Q4_K_M** (74.9 t/s at top quality; K2-Horizon-0.9B only if quality 0.44 suffices) |
+| Direct coding | Qwen3.8-4B (coding 0.64 ties KAT/Tiel at 2.5× their TPS) → POCKET-35B |
 | Low-VRAM co-run / fallback | **Ling-3.0-tiny** — agentic 0.8667 at 2.5 GB peak |
 | SSD cleanup | delete weak/`rejected` first (`Cesium`, `MindSparQ`, corrupt `Ornith-FC` Q2_K, unloadable `maple` TQ1_0) |
 
 ## See also
 
-* [ADR 0006](../adr/0006-pareto-frontier-search.md) — Pareto Set membership  
-* [ADR 0009](../adr/0009-day-profile-tps-floor.md) — Day TPS floor → max IQ  
-* [ADR 0008](../adr/0008-day-iq-epsilon-then-tps.md) — Night ctx floor / historical Day IQ ε-band  
-* [ADR 0014](../adr/0014-fingerprint-bus-product-split.md) — this front is a report; TPS-then-Pi is the ship path  
-* [pareto-selection.md](pareto-selection.md) — method citations (maximin / Day floors)  
+* [ADR 0017](../adr/0017-rank-membership-quality-first.md) — leaderboard membership, quality-first ordering, same-model domination  
+* [ADR 0006](../adr/0006-pareto-frontier-search.md) — Pareto Set (now search-internal, same-model only; superseded in part)  
+* [ADR 0009](../adr/0009-day-profile-tps-floor.md) / [ADR 0013](../adr/0013-agentic-coding-night-selector.md) — floors demoted to historical lens notes  
+* [ADR 0014](../adr/0014-fingerprint-bus-product-split.md) — this report is not the ship path  
+* [pareto-selection.md](pareto-selection.md) — method citations (maximin / historical floors)  
 * [claw-eval-leaderboard.md](claw-eval-leaderboard.md) · [coding-leaderboard.md](coding-leaderboard.md)  
 * Session: [2026-07-27 incomplete vectors + Pareto](../sessions/2026-07-27-incomplete-vectors-pareto.md), [KAT-Coder pipeline](../sessions/2026-07-27-kat-coder-v2.5-dev-pipeline.md)

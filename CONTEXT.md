@@ -35,20 +35,20 @@ Identity of a configuration for merge and frontier membership: the full `ENGINE_
 _Avoid_: model-only key, engine-only key
 
 **Usage Profile**:
-A selection lens over the Pareto Set, not a separate frontier. **Day** (supervised): among points clearing `TPS ≥ DAY_TPS_FLOOR` (default `50.0 TPS`), maximize `min(agentic, coding)`; ties → higher TPS, then ctx ([ADR 0009](docs/adr/0009-day-profile-tps-floor.md)). Fallback if none clear floor → max TPS. **Night** requires `CTX_SIZE ≥ NIGHT_CTX_FLOOR` then max `min(agentic, coding)`, with fallback to max ctx if none qualify (unsupervised long loops). When a Trial has measured `agentic_coding` (SWE-lite issue loop, [ADR 0013](docs/adr/0013-agentic-coding-night-selector.md)), Night instead maximizes `min(agentic, coding, agentic_coding)` among those points; if none have the column yet, the old maximin applies. Student-facing **usage** framing (no selection math) lives in [`teach/GLOSSARY.md`](teach/GLOSSARY.md) and [`teach/SPEC.md`](teach/SPEC.md).
-_Avoid_: separate day/night frontiers, Day = pure max TPS without speed floor, TPS Floor as frontier rule
+A selection lens over the model leaderboard, not a separate frontier. **Day** (supervised): every complete model, IQ-first (`min(agentic, coding)` descending); near-ties (±0.05 band) → higher TPS, then ctx. **Night** (unsupervised long loops): same membership; near-ties → larger ctx, then TPS. Historical lens notes: the old `TPS ≥ DAY_TPS_FLOOR` (ADR 0009) and `CTX_SIZE ≥ NIGHT_CTX_FLOOR` (ADR 0013) admission filters no longer gate anything ([ADR 0017](docs/adr/0017-rank-membership-quality-first.md)). Student-facing **usage** framing (no selection math) lives in [`teach/GLOSSARY.md`](teach/GLOSSARY.md) and [`teach/SPEC.md`](teach/SPEC.md).
+_Avoid_: separate day/night frontiers, floors as admission filters, model exclusion by another model
 
 **DAY_TPS_FLOOR**:
-Minimum TPS required for Day profile selection (default 50.0 TPS; [ADR 0009](docs/adr/0009-day-profile-tps-floor.md)). Filters out slow models (< 50 TPS) for snappy daytime interactive terminal use. Day then maximizes `min(agentic, coding)` among points meeting the floor.
-_Avoid_: Day = 30 TPS models, Day = pure max TPS without floor
+Historical lens note (default was 50.0 TPS; [ADR 0009](docs/adr/0009-day-profile-tps-floor.md)). Demoted by [ADR 0017](docs/adr/0017-rank-membership-quality-first.md): no longer filters Day table membership; speed only breaks ±0.05 near-ties in the Day table.
+_Avoid_: using as Day rule, Day admission filter
 
 **DAY_IQ_RATIO**:
 Legacy Day gate ratio from ADR 0008. Superseded by `DAY_TPS_FLOOR` ([ADR 0009](docs/adr/0009-day-profile-tps-floor.md)); removed from `scripts/rank_results.py` CLI.
 _Avoid_: using as Day rule
 
 **NIGHT_CTX_FLOOR**:
-Minimum configured `CTX_SIZE` for Night profile selection (default 65536). Revisitable when project architecture / ticket size / compaction change how much context night loops need.
-_Avoid_: ctx axis, hard reject below floor
+Historical lens note (default was 65536). Demoted by [ADR 0017](docs/adr/0017-rank-membership-quality-first.md): no longer filters Night table membership; ctx only breaks ±0.05 near-ties in the Night table.
+_Avoid_: ctx axis, hard reject below floor, Night admission filter
 
 **Local Maxima**:
 A state where all valid Neighbors from the active Baseline have been evaluated and none join or improve the per-model Pareto Set.
@@ -85,8 +85,8 @@ The pre-check before an expensive Trial: (1) local backend throughput validation
 _Avoid_: bench-only, speed check, smoke test
 
 **Trial Status**:
-Canonical outcome labels: `on_front` (complete vector, non-dominated), `dominated` (complete vector, dominated), `incomplete` (missing axes; may merge into a Fingerprint), `rejected` (invalid config, infra/VRAM kill, crash). 
-_Avoid_: keep, discard (deleted; not accepted on write)
+Canonical outcome labels: `on_front` (complete vector; store-wide recompute labels every complete basename vector on_front — no model is demoted for another model), `dominated` (same-model config A/B verdict from hill-climb bookkeeping; never a cross-model label, [ADR 0017](docs/adr/0017-rank-membership-quality-first.md)), `incomplete` (missing axes; may merge into a Fingerprint), `rejected` (invalid config, infra/VRAM kill, crash). 
+_Avoid_: keep, discard (deleted; not accepted on write), cross-model dominated
 
 **Status de exibição (dashboard)**:
 Display convention of Trial Status on the pt-BR operator dashboard: the canonical English labels render localized — `on_front` → "na fronteira", `dominated` → "dominado", `incomplete` → "incompleto", `rejected` → "rejeitado". The canonical labels stay in the data/API; only the read-only UI translates (ADR 0011).
@@ -208,12 +208,12 @@ Notes:
 
 ## Discovery Workflow (cross-reference)
 
-For users selecting which model to autotune, see [`docs/discovery/discover-models.md`](docs/discovery/discover-models.md). It documents the **whichllm → Pareto Set → Baseline handoff** flow. Canonical frontier rules: [ADR 0006](docs/adr/0006-pareto-frontier-search.md); Day/Night pick: [ADR 0008](docs/adr/0008-day-iq-epsilon-then-tps.md) + [pareto-selection.md](docs/discovery/pareto-selection.md).
+For users selecting which model to autotune, see [`docs/discovery/discover-models.md`](docs/discovery/discover-models.md). It documents the **whichllm → leaderboard → Baseline handoff** flow. Rank membership rules: [ADR 0017](docs/adr/0017-rank-membership-quality-first.md) (Day/Night pick = every complete model, quality-first, ±0.05 near-tie band; see also [pareto-selection.md](docs/discovery/pareto-selection.md)).
 
 ## Cached lessons (general, not user-specific)
 
 - **MoE offload is mandatory on 8GB VRAM**: without explicit `--n-cpu-moe`, auto-fit can put 36/42 layers with GATE overflow, dropping throughput to ~0.7 tok/s. Always pair `--n-cpu-moe` with explicit `--override-tensor`.
 - **Speculative decoding with separate draft models fails on MoE+SSM**: verification becomes PCIe-bound (MoE expert fetch per token) and SSM layers can't parallelize across a draft window. MTP is a different mechanism and works.
 - **`whichllm` score ≠ coding benchmark**: whichllm blends AA Intelligence Index, Aider, LiveBench (intelligence weighted). For Claude Code / Pi Agent loops, cross-reference SWE-bench Verified — Gemma-4-26B-A4B ranks top in whichllm but scores only ~17% on SWE-bench Verified (bad coding agent despite high general intelligence).
-- **Pareto Set beats "highest score"**: pick a point on the frontier with a Usage Profile (Day/Night), not the highest single-axis leader. Day = IQ ε-band then max TPS ([ADR 0008](docs/adr/0008-day-iq-epsilon-then-tps.md)); Night = ctx floor then maximin IQ.
+- **Leaderboard beats "highest score"**: pick a model from the Day/Night leaderboard (every complete model, IQ-first with a ±0.05 near-tie band — [ADR 0017](docs/adr/0017-rank-membership-quality-first.md)), not the highest single-axis leader. Near-ties: Day = higher TPS, Night = larger ctx.
 - **Configured ctx is the ctx axis**: `llama-server` reserves KV for full `CTX_SIZE` even when a short coding prompt uses few tokens. Night loops that fill 65k+ need that reservation; coding-10 alone does not prove lung capacity.

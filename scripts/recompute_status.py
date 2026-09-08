@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
-"""Recompute Pareto Set statuses in a results store (issue #5).
+"""Recompute Trial statuses in a results store (issue #5; ADR 0017).
 
-Reads a results.tsv, refreshes every row's Trial status so the Pareto Set
-stays consistent: a new on_front point demotes rows it dominates to
-dominated; incomplete and rejected rows are left out. Default scope
-(`--scope bucket`) rewrites the file with the canonical global-by-
-hardware+budget statuses (ADR 0006). `--scope model` prints the per-model
-lens read-only — no rewrite. Idempotent: running twice changes nothing.
+Reads a results.tsv (canonical results.db first), refreshes every row's
+status. Domination is same-model only (ADR 0017): store-wide recompute never
+demotes one model for another — a complete basename vector is on_front,
+partial vectors stay incomplete, and legacy cross-model `dominated` labels
+flip to on_front via the normal pass. Default scope is per-model (`--scope
+model`); `--scope bucket` is retained as an accepted argument form with the
+same same-basename competition. Idempotent: running twice changes nothing.
 No GPU required.
 
 Usage (repo root):
     .\\venv\\Scripts\\python.exe scripts\\recompute_status.py
     .\\venv\\Scripts\\python.exe scripts\\recompute_status.py path\\to\\results.tsv
-    .\\venv\\Scripts\\python.exe scripts\\recompute_status.py --scope model
+    .\\venv\\Scripts\\python.exe scripts\\recompute_status.py --scope bucket
     .\\venv\\Scripts\\python.exe scripts\\recompute_status.py --relabel-watchdog
 """
 
@@ -32,21 +33,21 @@ from autoresearch.runners import run
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Refresh Trial statuses in a results.tsv (Pareto Set recompute)."
+        description="Refresh Trial statuses in a results store (same-model domination only, ADR 0017)."
     )
     parser.add_argument(
         "results_file",
         nargs="?",
         default=str(REPO_ROOT / "results.tsv"),
-        help="path to results.tsv",
+        help="path to results.tsv (canonical results.db read first)",
     )
     parser.add_argument(
         "--scope",
         choices=sorted(recompute.SCOPES),
-        default="bucket",
+        default=recompute.DEFAULT_SCOPE,
         help=(
-            "bucket (default): canonical global-by-hardware+budget front, persisted; "
-            "model: read-only per-model lens, printed, not written"
+            "model (default): per-basename statuses, persisted (ADR 0017); "
+            "bucket: accepted argument form with the same same-basename competition"
         ),
     )
     parser.add_argument(
@@ -68,11 +69,9 @@ def main() -> int:
         print(f"watchdog kills relabeled: {relabeled} rows in {results_file}")
     rows = run.read_rows(results_file)
     updated = recompute.recompute_rows(rows, scope=args.scope)
-    if args.scope == "model":
-        for row in updated:
-            print(f"{row.get('trial_id', '')}\t{row.get('model', '')}\t{row['status']}")
-        return 0
-    run.recompute_statuses(results_file)
+    for row in updated:
+        print(f"{row.get('trial_id', '')}\t{row.get('model', '')}\t{row['status']}")
+    run.recompute_statuses(results_file, scope=args.scope)
     print(f"statuses refreshed: {results_file}")
     return 0
 

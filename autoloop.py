@@ -61,7 +61,6 @@ from autoresearch.runners.run import (
     tsv_fields_from_cfg,
     write_row,
 )
-from scripts.rank_results import build_vectors, pareto_front, pick_day, pick_night
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -310,52 +309,6 @@ def _signal_handler(_sig, _frame):
 
 signal.signal(signal.SIGINT, _signal_handler)
 signal.signal(signal.SIGTERM, _signal_handler)
-
-
-def pick_baseline(profile: str) -> tuple[str, dict[str, Any]]:
-    """Day/Night Usage Profile pick → (model, Baseline cfg) from the results store (canonical results.db, legacy TSV fallback).
-
-    Issue #8 / ADR 0012: pick is a GGUF basename on the front. Prefer the row
-    whose Fingerprint matches the pick hint (best-claw config); else any
-    config_json row for that basename so the loop can continue from a real
-    Baseline.
-    """
-    rows = read_rows(RESULTS_FILE)
-    complete, _ = build_vectors(rows)
-    front = pareto_front(complete)
-    pick = pick_day(front) if profile == "day" else pick_night(front)
-    if pick is None:
-        raise RuntimeError(
-            f"No complete front point for profile '{profile}'. "
-            "Complete an Objective Vector (Claw full + coding-10) first."
-        )
-
-    def _cfg_from_row(row: dict[str, str]) -> dict[str, Any] | None:
-        raw = (row.get("config_json") or "").strip()
-        if not raw:
-            return None
-        try:
-            cfg = json.loads(raw)
-        except (TypeError, ValueError):
-            return None
-        return cfg if isinstance(cfg, dict) else None
-
-    fallback: dict[str, Any] | None = None
-    for row in rows:
-        if (row.get("model") or "").strip() != pick.model:
-            continue
-        cfg = _cfg_from_row(row)
-        if cfg is None:
-            continue
-        if pick.fp is not None:
-            fp = classify.fp_from_config_json(row.get("config_json"))
-            if fp == pick.fp:
-                return pick.model, cfg
-        if fallback is None:
-            fallback = cfg
-    if fallback is not None:
-        return pick.model, fallback
-    raise RuntimeError(f"Pick '{pick.model}' has no config_json row to load as Baseline.")
 
 
 def load_config(baseline_cfg: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -829,15 +782,9 @@ def main():
         help="Do not consume crash journal as a rejected Trial",
     )
     parser.add_argument(
-        "--profile",
-        choices=["day", "night"],
-        help="Start from the Day/Night Usage Profile pick off the results-store Pareto front (canonical results.db, legacy TSV fallback) "
-        "(sets Baseline from the picked row; ignores --models)",
-    )
-    parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Smoke path: print the plan (profile pick, baseline, neighbors) without running benchmarks",
+        help="Smoke path: print the plan (baseline, neighbors) without running benchmarks",
     )
     cli_args = parser.parse_args()
 
@@ -856,68 +803,45 @@ def main():
         print("[AUTOLOOP] Error: No GGUF models found in models/ directory!")
         sys.exit(1)
 
-    if cli_args.profile:
-        if cli_args.models:
-            print("[AUTOLOOP] Error: --profile and --models are mutually exclusive.")
-            sys.exit(1)
-        try:
-            pick_model, pick_cfg = pick_baseline(cli_args.profile)
-        except RuntimeError as exc:
-            print(f"[AUTOLOOP] Error: {exc}")
-            sys.exit(1)
-        if pick_model not in available_models:
-            print(f"[AUTOLOOP] Error: pick '{pick_model}' not found in models/.")
-            sys.exit(1)
-        baseline_cfg = load_config(state_manager.get_baseline())
-        baseline_cfg.update(pick_cfg)
-        baseline_cfg["MODEL"] = pick_model
-        if not cli_args.dry_run:
-            state_manager.update_baseline(baseline_cfg)
-        selected_models = [pick_model]
-        print(
-            f"[AUTOLOOP] Profile '{cli_args.profile}' pick: {pick_model} "
-            "(Baseline loaded from a results-store row)"
-        )
-    else:
-        selected_models = []
-        if cli_args.models:
-            for m in cli_args.models:
-                if m not in available_models:
-                    matches = [am for am in available_models if m.lower() in am.lower()]
-                    if matches:
-                        selected_models.append(matches[0])
-                    else:
-                        print(f"[AUTOLOOP] Error: Model '{m}' not found in models/.")
-                        sys.exit(1)
+    selected_models = []
+    if cli_args.models:
+        for m in cli_args.models:
+            if m not in available_models:
+                matches = [am for am in available_models if m.lower() in am.lower()]
+                if matches:
+                    selected_models.append(matches[0])
                 else:
-                    selected_models.append(m)
-        elif sys.stdin.isatty():
-            print("\nAvailable models in models/:")
-            for idx, m in enumerate(available_models, 1):
-                print(f"  {idx}) {m}")
-            print(
-                "\nChoose 1 or more models to run the loop (comma-separated numbers, e.g. 1,3 or 'all'):"
-            )
-            while True:
-                choice = input("Choice: ").strip()
-                if not choice:
-                    continue
-                if choice.lower() == "all":
-                    selected_models = available_models
+                    print(f"[AUTOLOOP] Error: Model '{m}' not found in models/.")
+                    sys.exit(1)
+            else:
+                selected_models.append(m)
+    elif sys.stdin.isatty():
+        print("\nAvailable models in models/:")
+        for idx, m in enumerate(available_models, 1):
+            print(f"  {idx}) {m}")
+        print(
+            "\nChoose 1 or more models to run the loop (comma-separated numbers, e.g. 1,3 or 'all'):"
+        )
+        while True:
+            choice = input("Choice: ").strip()
+            if not choice:
+                continue
+            if choice.lower() == "all":
+                selected_models = available_models
+                break
+            try:
+                indices = [int(i.strip()) for i in choice.split(",")]
+                selected_models = [
+                    available_models[i - 1] for i in indices if 1 <= i <= len(available_models)
+                ]
+                if selected_models:
                     break
-                try:
-                    indices = [int(i.strip()) for i in choice.split(",")]
-                    selected_models = [
-                        available_models[i - 1] for i in indices if 1 <= i <= len(available_models)
-                    ]
-                    if selected_models:
-                        break
-                except Exception:
-                    pass
-                print("Invalid choice, try again.")
-        else:
-            baseline_cfg = load_config(state_manager.get_baseline())
-            selected_models = [baseline_cfg.get("MODEL", "g4-opt-it-Q4_K_M.gguf")]
+            except Exception:
+                pass
+            print("Invalid choice, try again.")
+    else:
+        baseline_cfg = load_config(state_manager.get_baseline())
+        selected_models = [baseline_cfg.get("MODEL", "g4-opt-it-Q4_K_M.gguf")]
 
     # ── CPU preflight (issue #19) ──────────────────────────────────────
     # Decide the seed up-front (pure); persist after the dry-run gate below

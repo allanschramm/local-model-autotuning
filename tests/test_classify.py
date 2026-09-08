@@ -149,9 +149,11 @@ def test_merge_still_incomplete_leaves_rows_alone():
     assert flips == {}
 
 
-def test_plan_write_dominated_by_known_bucket_point():
+def test_plan_write_known_set_scoped_to_own_basename():
+    # ADR 0017: a stronger model in the same bucket NEVER demotes a new
+    # Trial; only same-basename configs compete.
     fp = fp_from_baseline(BASELINE)
-    better = row(
+    stronger_other_model = row(
         trial_id="old1",
         model="Better.gguf",
         status="on_front",
@@ -162,13 +164,40 @@ def test_plan_write_dominated_by_known_bucket_point():
         coding="0.7",
     )
     status, flips = plan_write(
-        [better],
+        [stronger_other_model],
         fp=fp,
         vector=v(ctx=131072, tps=30.0, agentic=0.6, coding=0.6),
         bucket_gb=8,
         model="M.gguf",
     )
-    assert status == "dominated"
+    assert status == "on_front"
+    assert flips == {}
+
+
+def test_plan_write_same_basename_better_config_merges_to_on_front():
+    # ADR 0017: a better config of the SAME basename merges into the vector
+    # (on_front everywhere with the merged vector). Same-model domination
+    # verdicts live in hill-climb bookkeeping (search.py), not store labels.
+    fp = fp_from_baseline(BASELINE)
+    better_config = row(
+        trial_id="cfg1",
+        model="M.gguf",
+        status="on_front",
+        config_json=cfg_json(dict(BASELINE, THREADS=8)),
+        ctx="131072",
+        tps="40.0",
+        agentic="0.7",
+        coding="0.7",
+    )
+    status, flips = plan_write(
+        [better_config],
+        fp=fp,
+        vector=v(ctx=131072, tps=30.0, agentic=0.6, coding=0.6),
+        bucket_gb=8,
+        model="M.gguf",
+    )
+    assert status == "on_front"
+    # cfg1 is already on_front: no flip needed (statuses agree with merge).
     assert flips == {}
 
 

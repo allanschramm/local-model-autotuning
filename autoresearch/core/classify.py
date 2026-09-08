@@ -115,8 +115,18 @@ def classify_trial(
     return "on_front"
 
 
-def _known_vectors(rows: Sequence[Mapping[str, Any]], bucket_gb: int) -> list[ObjectiveVector]:
-    """Complete points already in this hardware+budget bucket, merged per basename."""
+def _known_vectors(
+    rows: Sequence[Mapping[str, Any]],
+    bucket_gb: int,
+    model: str | None = None,
+    fp: str | None = None,
+) -> list[ObjectiveVector]:
+    """Complete points already in this hardware+budget bucket, merged per basename.
+
+    ADR 0017: when the Trial has a model key (or fp), the known set is scoped
+    to the Trial's own basename — a stronger model never demotes another
+    model; only same-basename configs compete.
+    """
     by_model: dict[str, list[ObjectiveVector]] = {}
     for row in rows:
         if row.get("status") == "rejected":
@@ -125,13 +135,18 @@ def _known_vectors(rows: Sequence[Mapping[str, Any]], bucket_gb: int) -> list[Ob
             continue  # Morris screen points are diagnostic, never front seeds
         if row_bucket(row) != bucket_gb:
             continue
-        model = (row.get("model") or "").strip()
-        if not model:
+        row_model = (row.get("model") or "").strip()
+        if not row_model:
             continue
-        by_model.setdefault(model, []).append(vector_from_row(row))
+        if model is not None:
+            if row_model != model:
+                continue
+        elif fp is not None and fp_from_config_json(row.get("config_json")) != fp:
+            continue
+        by_model.setdefault(row_model, []).append(vector_from_row(row))
     known = []
-    for model, vectors in by_model.items():
-        merged = merge([Trial(fp=model, vector=v) for v in vectors])[0].vector
+    for row_model, vectors in by_model.items():
+        merged = merge([Trial(fp=row_model, vector=v) for v in vectors])[0].vector
         if merged.complete:
             known.append(merged)
     return known
@@ -188,7 +203,13 @@ def plan_write(
         ]
         merge_id = fp
     merged = merge([Trial(fp=merge_id, vector=v) for v in [*prior, vector]])[0].vector
-    status = classify_trial(failed=False, vector=merged, known=_known_vectors(rows, bucket_gb))
+    status = classify_trial(
+        failed=False,
+        vector=merged,
+        known=_known_vectors(
+            rows, bucket_gb, model=model_key or None, fp=None if model_key else fp
+        ),
+    )
     if status == "incomplete":
         return status, {}
     if model_key:
