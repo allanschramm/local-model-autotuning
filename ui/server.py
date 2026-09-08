@@ -5,8 +5,6 @@ from __future__ import annotations
 
 import importlib
 import json
-import mimetypes
-import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
@@ -425,6 +423,20 @@ def _esc(text: str) -> str:
     )
 
 
+# ── Static asset serving (exact-name allowlist) ─────────────────────────────
+
+# Only these relative names under ui/static/ are served (ADR 0011: CSS +
+# bundled OFL fonts). Anything else → 404. Content types come from this fixed
+# table, never from request data.
+_STATIC_FILES: dict[str, str] = {
+    "style.css": "text/css",
+    "fonts/Inter-Regular.woff2": "font/woff2",
+    "fonts/Inter-Bold.woff2": "font/woff2",
+    "fonts/JetBrainsMono-Regular.woff2": "font/woff2",
+    "fonts/JetBrainsMono-Bold.woff2": "font/woff2",
+}
+
+
 class DashboardHandler(BaseHTTPRequestHandler):
     """HTTP handler: serves HTML shell, /api/status JSON, and static assets."""
 
@@ -476,18 +488,20 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _serve_static(self) -> None:
         """Serve files from ui/static/ (CSS, fonts)."""
-        rel = self.path[len("/static/") :].lstrip("/")
-        rel = os.path.normpath(rel)
-        if ".." in Path(rel).parts:
+        rel = self.path[len("/static/") :].lstrip("/").replace("\\", "/")
+        # Iterate the allowlist so the filesystem path is built from the
+        # constant key, never from the user-supplied string.
+        file_path = None
+        content_type = None
+        for name, ct in _STATIC_FILES.items():
+            if name == rel:
+                file_path = _STATIC_DIR / name
+                content_type = ct
+                break
+        if file_path is None or not file_path.is_file():
             self.send_response(404)
             self.end_headers()
             return
-        file_path = _STATIC_DIR / rel
-        if not file_path.is_file():
-            self.send_response(404)
-            self.end_headers()
-            return
-        content_type = mimetypes.guess_type(rel)[0] or "application/octet-stream"
         try:
             data = file_path.read_bytes()
             self.send_response(200)
