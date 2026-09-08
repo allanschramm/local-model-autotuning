@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import importlib
 import json
-import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
@@ -424,35 +423,18 @@ def _esc(text: str) -> str:
     )
 
 
-# ── Static asset serving (path containment + content-type allowlist) ────────
+# ── Static asset serving (exact-name allowlist) ─────────────────────────────
 
-_CONTENT_TYPES = {
-    ".css": "text/css",
-    ".js": "text/javascript",
-    ".svg": "image/svg+xml",
-    ".woff": "font/woff",
-    ".woff2": "font/woff2",
-    ".png": "image/png",
+# Only these relative names under ui/static/ are served (ADR 0011: CSS +
+# bundled OFL fonts). Anything else → 404. Content types come from this fixed
+# table, never from request data.
+_STATIC_FILES: dict[str, str] = {
+    "style.css": "text/css",
+    "fonts/Inter-Regular.woff2": "font/woff2",
+    "fonts/Inter-Bold.woff2": "font/woff2",
+    "fonts/JetBrainsMono-Regular.woff2": "font/woff2",
+    "fonts/JetBrainsMono-Bold.woff2": "font/woff2",
 }
-
-
-def _resolve_static(rel: str) -> Path | None:
-    """Resolve *rel* under _STATIC_DIR, or None if it escapes the tree.
-
-    Guards against traversal (..), absolute paths (drive letters, POSIX-style
-    leading slashes, UNC/extended-length prefixes) and any other candidate that
-    does not resolve strictly inside _STATIC_DIR.
-    """
-    candidate = os.path.normpath(rel)
-    cpath = Path(candidate)
-    if cpath.is_absolute() or ".." in cpath.parts:
-        return None
-    resolved = (_STATIC_DIR / candidate).resolve()
-    try:
-        resolved.relative_to(_STATIC_DIR.resolve())
-    except ValueError:
-        return None
-    return resolved
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
@@ -506,13 +488,20 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _serve_static(self) -> None:
         """Serve files from ui/static/ (CSS, fonts)."""
-        rel = self.path[len("/static/") :].lstrip("/")
-        file_path = _resolve_static(rel)
+        rel = self.path[len("/static/") :].lstrip("/").replace("\\", "/")
+        # Iterate the allowlist so the filesystem path is built from the
+        # constant key, never from the user-supplied string.
+        file_path = None
+        content_type = None
+        for name, ct in _STATIC_FILES.items():
+            if name == rel:
+                file_path = _STATIC_DIR / name
+                content_type = ct
+                break
         if file_path is None or not file_path.is_file():
             self.send_response(404)
             self.end_headers()
             return
-        content_type = _CONTENT_TYPES.get(file_path.suffix.lower(), "application/octet-stream")
         try:
             data = file_path.read_bytes()
             self.send_response(200)

@@ -14,8 +14,9 @@ import time
 import unittest.mock
 import urllib.error
 import urllib.request
+from pathlib import Path
 
-from ui.server import _HTML, DashboardHandler
+from ui.server import _HTML, _STATIC_DIR, DashboardHandler
 from ui.trial_reader import status_pt
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -230,6 +231,24 @@ def test_static_content_type_from_allowlist():
         assert ct in ("font/woff2", "application/octet-stream"), ct
     finally:
         _stop_server(server, t)
+
+
+def test_static_unlisted_file_returns_404():
+    """Only allowlisted static names are served; any other file in the tree → 404."""
+    extra = Path(_STATIC_DIR) / "notes.txt"
+    extra.write_text("do not serve", encoding="utf-8")
+    try:
+        port, server, t = _start_server()
+        try:
+            try:
+                resp = urllib.request.urlopen(f"http://127.0.0.1:{port}/static/notes.txt")
+                assert resp.status == 404, f"expected 404, got {resp.status}"
+            except urllib.error.HTTPError as exc:
+                assert exc.code == 404
+        finally:
+            _stop_server(server, t)
+    finally:
+        extra.unlink(missing_ok=True)
 
 
 # ── 404 ────────────────────────────────────────────────────────────────────

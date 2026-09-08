@@ -25,6 +25,6 @@ Repository developers. Port and panels owned here — not by `autoresearch/` run
 
 ## Verification
 Smoke: `python -m ui` → GET `/` (200, `lang=pt-BR`) and GET `/api/status` (JSON with baseline/trials/run_state).
-Tests: `tests/test_ui_server.py` — 20 HTTP-level tests (real `HTTPServer` thread, ephemeral port). Static routes are guarded by `_resolve_static` (path containment: no `..`, no absolute/UNC paths, resolved path must stay inside `ui/static/`); Content-Type comes from a fixed suffix allowlist, never path data.
+Tests: `tests/test_ui_server.py` — 21 HTTP-level tests (real `HTTPServer` thread, ephemeral port). Static routes serve only exact allowlisted names (`_STATIC_FILES`: CSS + bundled OFL fonts); anything else → 404. Content-Type comes from the fixed table, never request data.
 ## Child DOX Index
 None — `ui/` is a leaf.
