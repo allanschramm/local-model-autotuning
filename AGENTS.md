@@ -108,7 +108,7 @@ Default section order:
 - [docs/AGENTS.md](docs/AGENTS.md) — docs tree (`models/`, `adr/`, `discovery/`, `sessions/`)
 - [scripts/AGENTS.md](scripts/AGENTS.md) — operator scripts
 - [tests/AGENTS.md](tests/AGENTS.md) — test suite
-- [teach/AGENTS.md](teach/AGENTS.md) — course materials
+- [teach/AGENTS.md](teach/AGENTS.md) — course materials (gitignored / local-only)
 - [models/README.md](models/README.md) — GGUF layout
 - [.agents/skills/trial/SKILL.md](.agents/skills/trial/SKILL.md) — full Trial skill (Claw-15 + coding-10; tracked carve-out under otherwise-gitignored `.agents/`)
 - [.agents/skills/validation/SKILL.md](.agents/skills/validation/SKILL.md) — model validation skill (download, metadata check, smoke eval; tracked carve-out)
