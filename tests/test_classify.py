@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from autoresearch.core.classify import (
+    _known_vectors,
     bucket,
     classify_trial,
     fp_from_baseline,
@@ -172,6 +173,109 @@ def test_plan_write_known_set_scoped_to_own_basename():
     )
     assert status == "on_front"
     assert flips == {}
+
+
+def test_plan_write_same_basename_weaker_config_shares_prior_front():
+    # Pin (AC #3 semantics, review of PR #71): plan_write never returns
+    # `dominated` for a same-basename config — competition inside one basename
+    # is the merge (componentwise max); a strictly weaker config still shares
+    # the front. Cross-config verdicts live in hill-climb bookkeeping.
+    fp = fp_from_baseline(BASELINE)
+    stronger = row(
+        trial_id="cfg1",
+        model="M.gguf",
+        status="on_front",
+        config_json=cfg_json(dict(BASELINE, THREADS=8)),
+        ctx="131072",
+        tps="40.0",
+        agentic="0.7",
+        coding="0.7",
+    )
+    status, flips = plan_write(
+        [stronger],
+        fp=fp,
+        vector=v(ctx=65536, tps=20.0, agentic=0.4, coding=0.4),
+        bucket_gb=8,
+        model="M.gguf",
+    )
+    assert status == "on_front"  # merged vector == prior; dominated unreachable
+    assert flips == {}
+
+
+def test_known_vectors_public_helper_matches_scoped_known_set():
+    # ADR 0017 dedup (review of PR #71, Standards Finding 2): one filter/merge
+    # shape for the Known Set — autoloop's Search seed goes through the same
+    # public helper classify uses, not a mirror re-implementation.
+    rows = [
+        row(
+            trial_id="a",
+            model="M.gguf",
+            status="on_front",
+            ctx="131072",
+            tps="40.0",
+            agentic="0.7",
+            coding="0.7",
+        ),
+        row(
+            trial_id="b",
+            model="M.gguf",
+            status="on_front",
+            ctx="65536",
+            tps="50.0",
+            agentic="",
+            coding="",
+        ),
+        row(
+            trial_id="c",
+            model="Other.gguf",
+            status="on_front",
+            ctx="131072",
+            tps="99.0",
+            agentic="0.9",
+            coding="0.9",
+        ),
+        row(
+            trial_id="d",
+            model="M.gguf",
+            status="rejected",
+            ctx="131072",
+            tps="70.0",
+            agentic="0.9",
+            coding="0.9",
+        ),
+        row(
+            trial_id="e",
+            model="M.gguf",
+            status="on_front",
+            ctx="131072",
+            tps="99.0",
+            agentic="0.9",
+            coding="0.9",
+            evaluation_profile="morris-screen",
+        ),
+        row(
+            trial_id="f",
+            model="M.gguf",
+            status="on_front",
+            config_json=cfg_json(dict(BASELINE, VRAM_LIMIT_MB=6144)),
+            ctx="131072",
+            tps="99.0",
+            agentic="0.9",
+            coding="0.9",
+        ),
+    ]
+    from autoresearch.core.classify import known_vectors
+
+    assert known_vectors(rows, model="M.gguf", bucket_gb=8) == _known_vectors(
+        rows, 8, model="M.gguf"
+    )
+    # Other basename excluded; rejected/Morris/6-GiB rows excluded; the two
+    # same-bucket on_front rows merge to best-of-each-axis.
+    known = known_vectors(rows, model="M.gguf", bucket_gb=8)
+    assert len(known) == 1
+    assert known[0].complete
+    assert known[0].tps == 50.0
+    assert known[0].agentic == 0.7
 
 
 def test_plan_write_same_basename_better_config_merges_to_on_front():
