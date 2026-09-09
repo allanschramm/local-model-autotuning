@@ -72,4 +72,4 @@ Do not add `ENGINE_*` that duplicates `add_opt` - forward the `llama.cpp` flag a
 - `llama.cpp/common/arg.cpp:1424` (~310 `add_opt`), `common/fit.h:14`, `common/fit.cpp:15,178,291`
 - `autoresearch/core/config.py.example:29` `ENGINE_DEFAULTS`, `autoresearch/core/llama_runner.py:895 _build_cmd`, `autoresearch/core/hardware.py:506`, `autoresearch/core/llama_runner.py:662`
 - `docs/llamacpp-toolset.md` (binaries), `docs/discovery/cpu-inference-guide.md:6` (`repack`), `docs/models/ornith-1.5-35b.md:12` (MTP), `results.tsv:94` (turbo)
-- Release `b10819` (nightly CUDA 13.3) embeds MTP `nextn_predict_layers`
+- Release `b10867` (nightly CUDA 13.3) embeds MTP `nextn_predict_layers` and `spark2_5`
