@@ -1,7 +1,7 @@
 # ADR 0007: Day Usage Profile uses a speed band, then intelligence
 
 **Date:** 2026-07-26
-**Status:** Accepted. **Day Usage Profile pick superseded by [0008](0008-day-iq-epsilon-then-tps.md)** (2026-07-27). Night + membership unchanged.
+**Status:** Accepted. **Day Usage Profile pick superseded by [0008](0008-day-iq-epsilon-then-tps.md)** (2026-07-27). Night + membership unchanged. Day chain note: the Day pick is now IQ-first with a ±0.05 TPS near-tie break and the old floors are historical lens notes ([0017](0017-rank-membership-quality-first.md)).
 **Supersedes:** [0006](0006-pareto-frontier-search.md) Decision §3 **Day** pick only (Night + Pareto Set membership unchanged).
 
 ## Context & Problem Statement

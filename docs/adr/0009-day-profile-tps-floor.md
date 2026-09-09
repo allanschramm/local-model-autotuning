@@ -1,7 +1,7 @@
 # ADR 0009: Day Usage Profile uses a TPS Floor (>= 50.0 TPS), then maximizes IQ
 
 **Date:** 2026-08-06  
-**Status:** Accepted  
+**Status:** Superseded in part — Day pick demoted to a historical lens note by [0017](0017-rank-membership-quality-first.md) (2026-08-26): `DAY_TPS_FLOOR` no longer filters membership anywhere; TPS only breaks ±0.05 near-ties in the Day table.  
 **Supersedes:** [0008](0008-day-iq-epsilon-then-tps.md) **Day** pick only (Night + Pareto Set membership unchanged).  
 **Background:** [pareto-selection.md](../discovery/pareto-selection.md).
 

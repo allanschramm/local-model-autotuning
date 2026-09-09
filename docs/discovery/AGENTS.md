@@ -36,8 +36,8 @@ User-facing guides for **discovering, evaluating, selecting, and optimizing** lo
 - [`visual-pack-prompt.md`](./visual-pack-prompt.md) — frozen workspace-shaped sample prompt 01 (notes-CLI fix); do not edit, add numbered files.
 - [`thinking-models-claw-harness.md`](./thinking-models-claw-harness.md) — thinking/`reasoning_content` Claw false-fails: symptoms, fix, remasure policy, regression checklist.
 - [`coding-leaderboard.md`](./coding-leaderboard.md) — ranked coding-10 (HE/MBPP/LCB/BC) scores on this 8 GB rig.
-- [`pareto-leaderboard.md`](./pareto-leaderboard.md) — global Pareto Set (ctx × TPS × agentic × coding) + Day/Night report lenses (ADR 0006/0009); numeric report, not the ship picker (ADR 0014). Live recompute: `scripts/rank_results.py`.
-- [`pareto-selection.md`](./pareto-selection.md) — method note: Night ctx floor + Day TPS floor then max IQ ([ADR 0009](../adr/0009-day-profile-tps-floor.md); ADR 0008 historical IQ band); report lens only under ADR 0014 — not the ship picker.
+- [`pareto-leaderboard.md`](./pareto-leaderboard.md) — full model leaderboard (every complete Objective Vector, IQ-first, ±0.05 near-tie band; ADR 0017); tables are the verbatim `scripts/rank_results.py` output — regenerate, never hand-patch (`scripts/check_leaderboard_docs.py` enforces). Numeric report, not the ship picker (ADR 0014).
+- [`pareto-selection.md`](./pareto-selection.md) — method background: scalarization citations (maximin / ε-constraint); Night ctx floor + Day TPS floor rules are **historical lenses** demoted by [ADR 0017](../adr/0017-rank-membership-quality-first.md); report lens only under ADR 0014 — not the ship picker.
 - [`best-model-8gb-vram.md`](./best-model-8gb-vram.md) — web-sourced selection guide: fastest + smartest model fitting 8 GB VRAM (primary publisher cards only; no local measurements).
 - [`../models/README.md`](../../models/README.md) — nested GGUF store shared with LM Studio.
 

@@ -27,6 +27,7 @@ Repository operators and developers.
 ## Verification
 - Test script changes locally by executing them.
 - `rank_results.py`: `.\venv\Scripts\python.exe -m pytest tests/test_rank_results.py`
+- `check_leaderboard_docs.py`: pytest `tests/test_leaderboard_doc_check.py` + run the script against a seeded store for doc/table parity.
 - Ensure `bash scripts/setup-check.sh` passes before declaring environment readiness.
 - Shared validate: `python scripts/run_validate.py` (same as `.github/workflows/validate.yml`).
 - After every push: `python scripts/watch_validate.py` waits for GitHub Actions `validate.yml` on HEAD (`gh run watch`). Local Windows pytest does not cover POSIX `fcntl` branches.
@@ -40,6 +41,7 @@ Repository operators and developers.
 - [lcb_only.py](lcb_only.py) — LCB-only remeasure helper (`scripts/lcb_only.py`).
 - [recompute_status.py](recompute_status.py) — store-wide status recompute over the results store (issue #5; ADR 0017; `autoresearch/core/recompute.py` owns the logic).
 - [rank_results.py](rank_results.py) — Day / Night / claw / coding / agentic-coding leaderboard over the results store, `results.db` first with legacy TSV fallback (ADR 0012/0017; ADR 0009/0013 floors demoted to history).
+- [check_leaderboard_docs.py](check_leaderboard_docs.py) — leaderboard doc integrity (issue #69): no duplicate model names within a table section, Day/Night membership identical, doc tables byte-equal to `rank_results.py --mode pareto` output (parity leg skipped when store unseeded).
 - [model_info.py](model_info.py) — read-only GGUF metadata query (arch, block count, KV sizing, `--tensors` inventory) via `autoresearch.core.model_arch`.
 - [rebuild_results_db.py](rebuild_results_db.py) — store maintenance: seed/repair canonical `results.db`, rewrite legacy TSV (`--rebuild-tsv`), parity check (`autoresearch/core/results_db.py` owns the logic).
 - [backfill_2026_08_08_missing_claw.py](backfill_2026_08_08_missing_claw.py) — one-shot restore of session-documented claw/coding rows that never landed in TSV (idempotent).
