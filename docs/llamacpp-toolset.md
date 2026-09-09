@@ -14,7 +14,7 @@ Do **not** compile llama.cpp to start — no Visual Studio, no CUDA Toolkit, no 
 4. Point the harness at it: `export AUTORESEARCH_LLAMA_CPP_ROOT=<repo>/llama.cpp-releases/<engine>/<tag>` — or pin per alias with `llama_cpp_root` in `models/aliases/<name>/config.yaml` (`model-up`). Keep engine and release tag in Trial evidence.
 5. Verify: `python scripts/serve-config.py print-cmd` shows the resolved `llama-server`.
 
-Examples installed: `llama.cpp-releases/turboquant/tqp-v0.3.0/` and `llama.cpp-releases/prismml/prism-b10669-6f1c690/` (Windows CUDA 12.4/13.3 prebuilts).
+Examples installed: `llama.cpp-releases/upstream/b10867/` (nightly CUDA 13.3, supports `spark2_5` + Nemotron-3.5 MTP), `llama.cpp-releases/turboquant/tqp-v0.3.0/`, and `llama.cpp-releases/prismml/prism-b10669-6f1c690/` (Windows CUDA 12.4/13.3 prebuilts).
 
 ## Build (only to fix something urgent)
 
@@ -56,7 +56,7 @@ All binaries → `$LLAMA_CPP/build-cuda/bin/` or `$LLAMA_CPP/build-cpu/bin/` (or
 - GPU: 8 GB-class discrete NVIDIA (8 GB VRAM, CUDA 8.9) — adapt paths and flags for your hardware
 - **Release first**: the runtime is a prebuilt release under `llama.cpp-releases/<engine>/<tag>/build-cuda/bin/` (see Install above). `llama.cpp/` stays as the source clone/submodule but is not the default binary source — build it only for urgent fixes.
 - Point the harness at a release root via `AUTORESEARCH_LLAMA_CPP_ROOT`, or pin the same root per alias with `llama_cpp_root` in `models/aliases/<name>/config.yaml` (`model-up`). Keep engine and release tag in Trial evidence.
-- Installed examples: `llama.cpp-releases/turboquant/tqp-v0.3.0/` and `llama.cpp-releases/prismml/prism-b10669-6f1c690/` (Windows CUDA 12.4/13.3 prebuilts).
+- Installed examples: `llama.cpp-releases/upstream/b10867/` (CUDA 13.3), `llama.cpp-releases/turboquant/tqp-v0.3.0/`, and `llama.cpp-releases/prismml/prism-b10669-6f1c690/` (Windows CUDA 12.4/13.3 prebuilts).
 
 ---
 

@@ -153,7 +153,7 @@ Execute the unified validation harness:
 
 ### 5. Check and Report Results
 
-Read the latest row in `results.tsv` and report the metrics:
+Read the latest row from the canonical results store (`results.db` via `autoresearch.core.results_db.load_rows`, with legacy `results.tsv` as fallback) and report the metrics:
 
 ```markdown
 | Field | Measured Value | Requirement / Threshold | Status |
@@ -161,7 +161,7 @@ Read the latest row in `results.tsv` and report the metrics:
 | **Throughput (`bench_tg` 512)** | `XX.X t/s` | $\ge 20.0\text{ t/s}$ (Baseline `TPS_FLOOR`) | PASS / FAIL |
 | **Peak VRAM** | `X.X GB` | Fits physical VRAM without shared spill | PASS / FAIL |
 | **Claw Quick Smoke (5 tasks)** | `0.XXXX` (N/5 passed) | Sanity check (T002, T004, T006, T008, T010) | Completed |
-| **Category** | `validation` | Logged to `results.tsv` | `incomplete` |
+| **Category** | `validation` | Logged to `results.db` / `results.tsv` | `incomplete` |
 ```
 
 ---
