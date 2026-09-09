@@ -2,11 +2,11 @@
 
 Direct-coding score (optional Search preflight):  
 `coding = 0.35*LCB + 0.25*HE + 0.25*MBPP + 0.15*BigCode`  
-Exactly **10 tasks** per dataset. Ground truth: `results.tsv` (`category=10-task` / `scoring_benchmark=coding`). Docs are a secondary view — include every fair 10-task row from TSV (`on_front` | `dominated` | `incomplete` | `rejected`), including deleted GGUFs.
+Exactly **10 tasks** per dataset. Ground truth: the results store — canonical `results.db` (SQLite) first, legacy `results.tsv` fallback. Docs are a secondary view — include every fair 10-task row from the store (`on_front` | `dominated` | `incomplete` | `rejected`), including deleted GGUFs.
 
 Hardware: discrete **8 GB-class** NVIDIA, `VRAM_LIMIT_MB=7900`, Windows, upstream CUDA unless noted.
 
-Claw-Eval full is the agentic axis — see [claw-eval-leaderboard.md](claw-eval-leaderboard.md). Global Pareto Set (`on_front`): [pareto-leaderboard.md](pareto-leaderboard.md).
+Claw-Eval full is the agentic axis — see [claw-eval-leaderboard.md](claw-eval-leaderboard.md). Full leaderboard (every complete vector, IQ-first; ADR 0017): [pareto-leaderboard.md](pareto-leaderboard.md).
 
 ## Ranked (best per model/quant, fair 10-task)
 
@@ -56,7 +56,7 @@ Claw-Eval full is the agentic axis — see [claw-eval-leaderboard.md](claw-eval-
 | Agentic / tools | **POCKET-35B** → **KAT-Coder** → **Ornith-9B-UD** / **Ornith-9B-MTP** (Laguna GGUF deleted; scores kept) |
 | Direct coding preflight | Mythos / **KAT-Coder** → **POCKET-35B** → Ornith-9B/35B-Q4 @ fit ctx → LFM only if need speed |
 | Balanced (agentic + coding) | **POCKET-35B** (claw 0.67 + coding 0.62) or **KAT-Coder** (claw 0.60 + coding 0.64) |
-| Day supervised | **Ornith-9B-MTP** ([pareto](pareto-leaderboard.md) / ADR 0008); UD if `DAY_IQ_RATIO=0.8` |
+| Day supervised | **Qwen3.8-4B-Q4_K_M** ([pareto-leaderboard.md](pareto-leaderboard.md) Day pick; ADR 0017 IQ-first, TPS breaks near-ties) |
 
 ## See also
 

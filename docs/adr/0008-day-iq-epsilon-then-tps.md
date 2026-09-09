@@ -1,7 +1,7 @@
 # ADR 0008: Day Usage Profile uses an IQ ε-constraint, then max TPS
 
 **Date:** 2026-07-27
-**Status:** Accepted
+**Status:** Accepted; superseded in part by [0009](0009-day-profile-tps-floor.md) **Day** (2026-08-06), then demoted to a historical lens note by [0017](0017-rank-membership-quality-first.md) (2026-08-26) — Day is now IQ-first with a TPS near-tie break; floors no longer filter anything.
 **Supersedes:** [0007](0007-day-profile-speed-band.md) **Day** pick only (Night + Pareto Set membership unchanged).
 **Background:** [pareto-selection.md](../discovery/pareto-selection.md) (ε-constraint / maximin citations).
 

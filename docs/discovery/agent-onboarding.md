@@ -70,11 +70,13 @@ bash scripts/setup-check.sh
 # Champion quality check (after TPS is acceptable)
 .\venv\Scripts\python.exe benchmark_search.py --agentic-full --desc "champion claw-full"
 
-# Model ranking from results.tsv (ADR 0006/0009) — no ad-hoc filters
+# Model ranking from the results store (ADR 0017: every complete model, IQ-first) — no ad-hoc filters
 .\venv\Scripts\python.exe scripts\rank_results.py
 .\venv\Scripts\python.exe scripts\rank_results.py --mode claw
 .\venv\Scripts\python.exe scripts\rank_results.py --mode coding
-.\venv\Scripts\python.exe scripts\rank_results.py --day-tps-floor 50
+
+# Leaderboard doc integrity (duplicates + doc/table parity; issue #69)
+.\venv\Scripts\python.exe scripts\check_leaderboard_docs.py
 
 # Single manual trial (Baseline already in config.py)
 .\venv\Scripts\python.exe benchmark_search.py --desc "Hypothesis details here"

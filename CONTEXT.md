@@ -97,7 +97,7 @@ Legacy scalar (historically Claw-Eval full) retained for display/compat only. No
 _Avoid_: score, result, metric (when meaning frontier truth)
 
 **TPS Floor**:
-Legacy minimum throughput knob in Baseline `ENGINE_DEFAULTS['TPS_FLOOR']`. Does **not** gate Pareto Set membership. Day selection uses a Day TPS floor then max IQ ([ADR 0009](docs/adr/0009-day-profile-tps-floor.md)). Removable once callers stop depending on it.
+Legacy minimum throughput knob in Baseline `ENGINE_DEFAULTS['TPS_FLOOR']`. Does **not** gate Pareto Set membership or leaderboard membership. The old Day "TPS floor then max IQ" pick ([ADR 0009](docs/adr/0009-day-profile-tps-floor.md)) is a historical lens demoted by [ADR 0017](docs/adr/0017-rank-membership-quality-first.md) — TPS now only breaks ±0.05 near-ties in the Day table. Removable once callers stop depending on it.
 _Avoid_: threshold as frontier rule, minimum TPS for on_front, Day = TPS Floor
 
 **TPS median**:

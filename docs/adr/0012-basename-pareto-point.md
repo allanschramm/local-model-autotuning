@@ -3,7 +3,7 @@
 **Date:** 2026-08-10
 **Status:** Accepted
 **Supersedes in part:** [0006](0006-pareto-frontier-search.md) § Decision (2)/(4) Fingerprint-as-Point identity for global Day/Night ranking and store status merge.
-**Does not supersede:** ENGINE+SAMPLER Fingerprint for Neighbor Search / visited memory; four maximize axes (ctx × TPS × agentic × coding); Day/Night selection lenses ([0009](0009-day-profile-tps-floor.md) Day / Night ctx floor).
+**Does not supersede:** ENGINE+SAMPLER Fingerprint for Neighbor Search / visited memory; four maximize axes (ctx × TPS × agentic × coding); Day/Night selection lenses ([0009](0009-day-profile-tps-floor.md) Day / Night ctx floor — **both demoted to historical lens notes by [0017](0017-rank-membership-quality-first.md)**: floors no longer filter, they only break near-ties).
 
 ## Context & Problem Statement
 

@@ -4,7 +4,7 @@
 
 Hardware: discrete **8 GB-class** NVIDIA, `VRAM_LIMIT_MB=7900`, Windows, upstream `llama.cpp` CUDA unless a card says otherwise.
 
-Ground truth: `results.tsv`. Ignore rows with `val_score` outside `[0, 1]` (historical Autoloop pollution — TPS leaked into score). Global frontier: [pareto-leaderboard.md](pareto-leaderboard.md). Leaderboard text is a view of TSV — never drop a measured GGUF because it is weak or deleted.
+Ground truth: the results store — canonical `results.db` (SQLite) first, legacy `results.tsv` fallback. Ignore rows with `val_score` outside `[0, 1]` (historical Autoloop pollution — TPS leaked into score). Full leaderboard (every complete vector, IQ-first; ADR 0017): [pareto-leaderboard.md](pareto-leaderboard.md). Leaderboard text is a view of the store — never drop a measured GGUF because it is weak or deleted.
 
 **Thinking / hybrid-reasoning models (2026-08-08):** Pre-fix Claw rows for families that emit `reasoning_content` (Ornith, Qwen3.x thinking, Gemma-4 `enable_thinking`, Qwythos/Mythos, KAT-Coder, Nanbeige, Pocket, …) may be **false lows** (empty graders, HTTP 400, `max_tokens=512`). Ornith UD remasured **0.3333 → 0.9333** @ 65k after the harness fix. **2026-08-19:** rows measured between the 2026-08-08 fix and the 4096-token floor (2048 cap, e.g. Ornith-1.5-9B's 0.8000) are slight understatements for long-CoT families — remeasure when agentic matters. Do not treat those old ranks as IQ. Checklist + remasure policy: [thinking-models-claw-harness.md](thinking-models-claw-harness.md).
 
@@ -78,7 +78,7 @@ Skip for agentic: **`LFM2.5-8B-A1B`**, **`gemma-4-26B-A4B`**, **`Qwen3.5-9B`** (
 ## See also
 
 * [thinking-models-claw-harness.md](thinking-models-claw-harness.md) — thinking-model Claw false-fail + remasure policy  
-* [pareto-leaderboard.md](pareto-leaderboard.md) — global frontier + Day/Night  
+* [pareto-leaderboard.md](pareto-leaderboard.md) — full leaderboard + Day/Night (ADR 0017)  
 * [agentic-coding-benchmarks.md](agentic-coding-benchmarks.md) — tiers / CLI  
 * [coding-leaderboard.md](coding-leaderboard.md) — direct-coding 10-task ranks  
 * Session: [2026-08-08](../sessions/2026-08-08-thinking-claw-harness-fix.md) — harness fix + Ornith 0.9333  
