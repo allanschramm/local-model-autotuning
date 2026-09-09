@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import autoloop
+from autoresearch.core import classify
 from autoresearch.core.search import SearchStrategy
 
 
@@ -73,6 +74,43 @@ class TestAutoLoop(unittest.TestCase):
             vectors = autoloop._seed_known_vectors("a.gguf", bucket_gb=8)
         self.assertEqual(len(vectors), 1)
         self.assertEqual(vectors[0].tps, 50.0)
+
+    def test_seed_known_vectors_matches_classify_known_vectors(self):
+        # ADR 0017 dedup (review of PR #71, Standards Finding 2): the autoloop
+        # Search seed IS the classify Known Set — delegation, not a mirror.
+        rows = [
+            {
+                "model": "a.gguf",
+                "status": "on_front",
+                "ctx": "8192",
+                "tps": "50.0",
+                "agentic": "0.5",
+                "coding": "0.6",
+                "config_json": '{"vram_limit_mb": 8192}',
+            },
+            {
+                "model": "b.gguf",
+                "status": "on_front",
+                "ctx": "8192",
+                "tps": "99.0",
+                "agentic": "0.9",
+                "coding": "0.9",
+                "config_json": '{"vram_limit_mb": 8192}',
+            },
+            {
+                "model": "a.gguf",
+                "status": "on_front",
+                "ctx": "8192",
+                "tps": "99.0",
+                "agentic": "0.9",
+                "coding": "0.9",
+                "evaluation_profile": "morris-screen",
+            },
+        ]
+        with patch("autoloop.read_rows", return_value=rows):
+            seeded = autoloop._seed_known_vectors("a.gguf", bucket_gb=8)
+        self.assertEqual(seeded, classify.known_vectors(rows, model="a.gguf", bucket_gb=8))
+        self.assertEqual(len(seeded), 1)
 
     def test_seed_known_vectors_skips_morris_screen_rows(self):
         rows = [

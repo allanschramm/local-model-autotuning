@@ -532,23 +532,12 @@ def _objective_vector(cfg: dict[str, Any], res) -> classify.ObjectiveVector:
 def _seed_known_vectors(model_name: str, bucket_gb: int | None) -> list[classify.ObjectiveVector]:
     """Complete known vectors for one model, scoped to a hardware+budget bucket.
 
-    Mirrors ``classify._known_vectors`` so the search front matches the store's
-    classification: same model, same bucket, rejected rows never compete, and
-    repeated measurements of one basename merge to a best-of-each-axis vector.
+    ADR 0017 Known-Set shape via ``classify.known_vectors`` — one filter/merge
+    implementation shared with the store's classification, not a mirror:
+    same basename, same bucket, rejected rows never compete, Morris screen
+    rows are diagnostic-only, and repeated measurements merge per-axis.
     """
-    vectors: list[classify.ObjectiveVector] = []
-    for row in read_rows(RESULTS_FILE):
-        if (
-            row.get("status") == "rejected"
-            or (row.get("evaluation_profile") or "").strip() == MORRIS_SCREEN_PROFILE
-            or (row.get("model") or "").strip() != model_name
-        ):
-            continue
-        if bucket_gb is not None and classify.row_bucket(row) != bucket_gb:
-            continue
-        vectors.append(classify.vector_from_row(row))
-    merged = classify.merge([classify.Trial(fp=model_name, vector=v) for v in vectors])
-    return [trial.vector for trial in merged if trial.vector.complete]
+    return classify.known_vectors(read_rows(RESULTS_FILE), model=model_name, bucket_gb=bucket_gb)
 
 
 def _classify(cfg: dict[str, Any], res) -> tuple[str, dict[str, str], classify.ObjectiveVector]:
@@ -907,7 +896,7 @@ def main():
             break
 
         # Seed the per-model front from the results store, scoped to this
-        # hardware+budget bucket (mirrors classify._known_vectors) so Neighbor
+        # hardware+budget bucket (via classify.known_vectors, ADR 0017) so Neighbor
         # acceptance sees prior sessions' points, not an empty session-local front.
         baseline_now = state_manager.get_baseline()
         vram_limit = baseline_now.get("VRAM_LIMIT_MB")

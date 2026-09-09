@@ -115,6 +115,31 @@ def classify_trial(
     return "on_front"
 
 
+def known_vectors(
+    rows: Sequence[Mapping[str, Any]], *, model: str, bucket_gb: int | None
+) -> list[ObjectiveVector]:
+    """Complete merged points for ONE basename in a hardware+budget bucket.
+
+    ADR 0017 Known-Set shape shared by classify and autoloop's Search seed:
+    rejected rows never compete, Morris screen points are diagnostic-only
+    (ADR 0016), and repeated measurements of one basename merge to a
+    best-of-each-axis vector. ``bucket_gb=None`` means no bucket filter.
+    """
+    vectors: list[ObjectiveVector] = []
+    for row in rows:
+        if row.get("status") == "rejected":
+            continue  # rejected Trials never compete for the front
+        if (row.get("evaluation_profile") or "").strip() == MORRIS_SCREEN_PROFILE:
+            continue  # Morris screen points are diagnostic, never front seeds
+        if (row.get("model") or "").strip() != model:
+            continue
+        if bucket_gb is not None and row_bucket(row) != bucket_gb:
+            continue
+        vectors.append(vector_from_row(row))
+    merged = merge([Trial(fp=model, vector=v) for v in vectors])
+    return [trial.vector for trial in merged if trial.vector.complete]
+
+
 def _known_vectors(
     rows: Sequence[Mapping[str, Any]],
     bucket_gb: int,
@@ -127,6 +152,8 @@ def _known_vectors(
     to the Trial's own basename — a stronger model never demotes another
     model; only same-basename configs compete.
     """
+    if model is not None:
+        return known_vectors(rows, model=model, bucket_gb=bucket_gb)
     by_model: dict[str, list[ObjectiveVector]] = {}
     for row in rows:
         if row.get("status") == "rejected":

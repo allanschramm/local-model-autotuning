@@ -44,3 +44,4 @@ Durable record of architecture decisions for the `local-model-autotuning` projec
 - [`0014-fingerprint-bus-product-split.md`](./0014-fingerprint-bus-product-split.md) — Fingerprint bus; TPS-then-Pi journey; Pareto Set remains a report; `teach/` frozen.
 - [`0015-rocm-first-binary-resolution-windows.md`](./0015-rocm-first-binary-resolution-windows.md) — ROCm-first binary resolution on Windows; Vulkan0 hardcode removal; `--no-reasoning-preserve` fix.
 - [`0016-measurement-hygiene-and-morris-screen.md`](./0016-measurement-hygiene-and-morris-screen.md) — Thermal settle, TPS median, crash journal, Morris engine-knob pin; Neighbor Search unchanged.
+- [`0017-rank-membership-quality-first.md`](./0017-rank-membership-quality-first.md) — Rank = leaderboard (every complete model once, quality-first, near-tie band); domination is a same-basename config label; cross-model `dominated` ceases (supersedes part of 0006/0009/0013).
