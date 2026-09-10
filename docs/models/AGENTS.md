@@ -80,4 +80,5 @@ One markdown file per GGUF model we run on the operator host. Cards are the cano
 - [`pocket-35b.md`](./pocket-35b.md) — POCKET-35B Q3_K_M; claw **0.6667** + coding **0.615**; Night pick.
 - [`pocket-26b.md`](./pocket-26b.md) — POCKET-26B; historical claw **0.2000** / coding **0.490**.
 - [`spark-x2.5-4b.md`](./spark-x2.5-4b.md) — Spark-X2.5-4B dense `spark2_5` (requires llama.cpp $\ge$ `b10828`); bench **73.1 t/s**, quick smoke **1.0000** (5/5), peak VRAM 6.8 GB @ 131k.
+- [`minicpm5-2b.md`](./minicpm5-2b.md) — MiniCPM5-2B Q4_K_M dense `llama`; claw 0.7333 / coding 0.3700 @ 131k, bench 127.3 t/s.
 - [`vitriol-technique.md`](./vitriol-technique.md) — stock `--n-cpu-moe` path + absorbed notes from Randozart/VITRIOL (fork = study only).

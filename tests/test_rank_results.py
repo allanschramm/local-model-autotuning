@@ -31,11 +31,11 @@ def test_day_table_lists_every_complete_model_quality_first():
     assert [p.model for p in ranked] == ["slow_smart", "fast_weak"]
 
 
-def test_day_table_near_tie_band_breaks_by_tps():
-    # 0.02 apart → same band → higher TPS first (even though ctx is worse).
+def test_day_table_quality_tie_breaks_by_tps():
+    # Equal quality → higher TPS first on Day (even though ctx is worse).
     points = [
-        rr.Point("slower", ctx=131072, tps=64.0, agentic=0.47, coding=0.58),
-        rr.Point("faster", ctx=32768, tps=166.0, agentic=0.45, coding=0.60),
+        rr.Point("slower", ctx=131072, tps=64.0, agentic=0.50, coding=0.50),
+        rr.Point("faster", ctx=32768, tps=166.0, agentic=0.50, coding=0.50),
         rr.Point("weaker", ctx=65536, tps=999.0, agentic=0.2, coding=0.2),
     ]
     ranked = rr.day_table(points)
@@ -43,7 +43,7 @@ def test_day_table_near_tie_band_breaks_by_tps():
 
 
 def test_day_table_outside_band_iq_rules():
-    # 0.12 apart → IQ decides even against a huge TPS gap.
+    # Quality decides even against a huge TPS gap.
     points = [
         rr.Point("fast_weak", ctx=65536, tps=166.0, agentic=0.35, coding=0.35),
         rr.Point("smart", ctx=32768, tps=64.0, agentic=0.47, coding=0.58),
@@ -52,13 +52,13 @@ def test_day_table_outside_band_iq_rules():
     assert [p.model for p in ranked] == ["smart", "fast_weak"]
 
 
-def test_near_tie_band_exact_half_point_is_tie_and_beyond_is_not():
-    # |diff| == 0.05 → tie; |diff| == 0.06 → quality gap.
-    tie = [
+def test_quality_strictly_rules_over_tps_and_ctx():
+    # Quality rules over TPS: a (0.50) beats b (0.45) despite b having higher TPS.
+    points = [
         rr.Point("a", ctx=65536, tps=40.0, agentic=0.50, coding=0.50),
         rr.Point("b", ctx=65536, tps=80.0, agentic=0.45, coding=0.45),
     ]
-    assert [p.model for p in rr.day_table(tie)] == ["b", "a"]
+    assert [p.model for p in rr.day_table(points)] == ["a", "b"]
     gap = [
         rr.Point("a", ctx=65536, tps=40.0, agentic=0.51, coding=0.51),
         rr.Point("b", ctx=65536, tps=80.0, agentic=0.45, coding=0.45),
@@ -66,24 +66,21 @@ def test_near_tie_band_exact_half_point_is_tie_and_beyond_is_not():
     assert [p.model for p in rr.day_table(gap)] == ["a", "b"]
 
 
-def test_near_tie_band_does_not_chain_through_middle_points():
-    # Band membership is anchored at the band's highest member: 0.60 vs 0.56
-    # is a tie, but 0.52 sits 0.08 below the anchor — a real quality gap
-    # decides outright, never through chained middle points (user story 6).
+def test_quality_first_ordering():
     points = [
         rr.Point("top", ctx=65536, tps=20.0, agentic=0.60, coding=0.60),
         rr.Point("mid", ctx=65536, tps=999.0, agentic=0.56, coding=0.56),
         rr.Point("low", ctx=65536, tps=900.0, agentic=0.52, coding=0.52),
     ]
     ranked = rr.day_table(points)
-    assert [p.model for p in ranked] == ["mid", "top", "low"]
+    assert [p.model for p in ranked] == ["top", "mid", "low"]
 
 
-def test_night_table_near_tie_band_breaks_by_ctx():
-    # Near-tie quality → larger ctx first on Night, even against higher TPS.
+def test_night_table_quality_tie_breaks_by_ctx():
+    # Tied quality → larger ctx first on Night, even against higher TPS.
     points = [
-        rr.Point("small", ctx=32768, tps=166.0, agentic=0.45, coding=0.60),
-        rr.Point("large", ctx=131072, tps=64.0, agentic=0.47, coding=0.58),
+        rr.Point("small", ctx=32768, tps=166.0, agentic=0.50, coding=0.50),
+        rr.Point("large", ctx=131072, tps=64.0, agentic=0.50, coding=0.50),
     ]
     ranked = rr.night_table(points)
     assert [p.model for p in ranked] == ["large", "small"]
@@ -448,28 +445,52 @@ def test_live_top_of_table_order_locked_in_issue_70():
     ]
     expected_day = [
         "Qwen3.8-4B-Q4_K_M.gguf",
+        "Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf",
         "Ornith-1.5-9B-Q4_K_M.gguf",
-        "POCKET-35B-Q3_K_M.gguf",
         "Kwaipilot_KAT-Coder-V2.5-Dev-IQ4_XS.gguf",
         "Ornith-1.5-35B-Q4_K_M.gguf",
-        "Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf",
+        "POCKET-35B-Q3_K_M.gguf",
         "Wide-Slow.gguf",
         "LFM2.5-8B-A1B-Q4_K_M.gguf",
     ]
     expected_night = [
         "Qwen3.8-4B-Q4_K_M.gguf",
+        "Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf",
+        "Ornith-1.5-35B-Q4_K_M.gguf",
         "Wide-Slow.gguf",
         "Ornith-1.5-9B-Q4_K_M.gguf",
         "POCKET-35B-Q3_K_M.gguf",
         "Kwaipilot_KAT-Coder-V2.5-Dev-IQ4_XS.gguf",
-        "Ornith-1.5-35B-Q4_K_M.gguf",
-        "Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf",
         "LFM2.5-8B-A1B-Q4_K_M.gguf",
     ]
     assert [p.model for p in rr.day_table(front)] == expected_day
     assert [p.model for p in rr.night_table(front)] == expected_night
     assert rr.pick_day(front).model == "Qwen3.8-4B-Q4_K_M.gguf"
     assert rr.pick_night(front).model == "Qwen3.8-4B-Q4_K_M.gguf"
+
+    # Tied quality → Day breaks by TPS, Night breaks by ctx
+    tie_pair = [
+        rr.Point("long_ctx", ctx=131072, tps=30.0, agentic=0.70, coding=0.70),
+        rr.Point("fast_tps", ctx=65536, tps=100.0, agentic=0.70, coding=0.70),
+    ]
+    assert [p.model for p in rr.day_table(tie_pair)] == ["fast_tps", "long_ctx"]
+    assert [p.model for p in rr.night_table(tie_pair)] == ["long_ctx", "fast_tps"]
+
+
+def test_quality_dominance_prevents_night_ctx_or_tps_leapfrog():
+    # ADR 0017: Tiel-Coder (0.8667 agentic, 0.6400 coding) is strictly superior
+    # on quality to model-Q4_K_M (0.6667, 0.6400) and Ornith-9B (0.8000, 0.6150).
+    # Neither larger ctx nor higher TPS can demote Tiel-Coder below them on Night.
+    candidates = [
+        rr.Point("Qwen3.8-4B", ctx=131072, tps=74.9, agentic=0.8667, coding=0.64),
+        rr.Point("Tiel-Coder", ctx=65536, tps=28.2, agentic=0.8667, coding=0.64),
+        rr.Point("model-Q4_K_M", ctx=131072, tps=74.9, agentic=0.6667, coding=0.64),
+        rr.Point("Ornith-9B", ctx=65536, tps=43.2, agentic=0.80, coding=0.615),
+    ]
+    night = rr.night_table(candidates)
+    assert [p.model for p in night] == ["Qwen3.8-4B", "Tiel-Coder", "model-Q4_K_M", "Ornith-9B"]
+    day = rr.day_table(candidates)
+    assert [p.model for p in day] == ["Qwen3.8-4B", "Tiel-Coder", "model-Q4_K_M", "Ornith-9B"]
 
 
 def test_build_vectors_ignores_morris_screen_tps():

@@ -26,42 +26,42 @@ DAY  (pick=#1)
 |  # | Model                                           |  ctx |   TPS | agentic | coding |
 |----|-------------------------------------------------|------|-------|---------|--------|
 |  1 | Qwen3.8-4B-Q4_K_M.gguf                          | 131k |  74.9 |  0.8667 | 0.6400 |
-|  2 | model-Q4_K_M.gguf                               | 131k |  74.9 |  0.6667 | 0.6400 |
-|  3 | Ornith-1.5-9B-Q4_K_M.gguf                       |  65k |  43.2 |  0.8000 | 0.6150 |
-|  4 | POCKET-35B-Q3_K_M.gguf                          |  65k |  35.7 |  0.6667 | 0.6150 |
+|  2 | Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf              |  65k |  28.2 |  0.8667 | 0.6400 |
+|  3 | model-Q4_K_M.gguf                               | 131k |  74.9 |  0.6667 | 0.6400 |
+|  4 | Ornith-1.5-9B-Q4_K_M.gguf                       |  65k |  43.2 |  0.8000 | 0.6150 |
 |  5 | Kwaipilot_KAT-Coder-V2.5-Dev-IQ4_XS.gguf        |  65k |  31.3 |  0.6000 | 0.6400 |
 |  6 | Ornith-1.5-35B-Q4_K_M.gguf                      |  65k |  28.8 |  0.7333 | 0.6300 |
-|  7 | Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf              |  65k |  28.2 |  0.8667 | 0.6400 |
-|  8 | LFM2.5-2.6B-Q8_0.gguf                           |  65k |  78.7 |  0.8667 | 0.5050 |
-|  9 | Qwen3.8-4B-Q8_0.gguf                            |  32k |  48.9 |  0.5333 | 0.5900 |
-| 10 | Ornith-1.0-9B-UD-Q4_K_XL.gguf                   |  65k |  48.6 |  0.9333 | 0.5400 |
-| 11 | Qwen3.8-9B-Q4_K_M.gguf                          |   8k |  44.2 |  0.5333 | 0.5950 |
-| 12 | Ornith-1.5-35B-A3B-Heretic-MTP-APEX-I-Mini.gguf |  65k |  34.9 |  0.8667 | 0.5300 |
+|  7 | POCKET-35B-Q3_K_M.gguf                          |  65k |  35.7 |  0.6667 | 0.6150 |
+|  8 | Ornith-1.0-9B-UD-Q4_K_XL.gguf                   |  65k |  48.6 |  0.9333 | 0.5400 |
+|  9 | Qwen3.8-9B-Q4_K_M.gguf                          |   8k |  44.2 |  0.5333 | 0.5950 |
+| 10 | Qwen3.8-4B-Q8_0.gguf                            |  32k |  48.9 |  0.5333 | 0.5900 |
+| 11 | Ornith-1.5-35B-A3B-Heretic-MTP-APEX-I-Mini.gguf |  65k |  34.9 |  0.8667 | 0.5300 |
+| 12 | LFM2.5-2.6B-Q8_0.gguf                           |  65k |  78.7 |  0.8667 | 0.5050 |
 | 13 | grug-35b-v2-Q4_K_M.gguf                         |  16k |  23.7 |  0.7333 | 0.5450 |
-| 14 | K2-Horizon-0.9B-Q4_K_M.gguf                     |  65k | 243.3 |  0.8000 | 0.4400 |
-| 15 | granite-4.1-3b-Q4_K_M.gguf                      |  65k |  86.6 |  0.6667 | 0.4300 |
-| 16 | K2-Horizon-3.7B-Q4_K_M.gguf                     |  65k |  74.2 |  0.7333 | 0.4300 |
-| 17 | Spark-X2.5-4B-Q4_K_M.gguf                       | 131k |  73.1 |  0.8667 | 0.4400 |
-| 18 | Qwen3.5-4B-Q4_K_M.gguf                          | 131k |  71.9 |  0.6667 | 0.4450 |
-| 19 | granite-4.0-h-tiny-Q4_K_M.gguf                  |  65k |  50.8 |  0.7333 | 0.4300 |
-| 20 | Qwen3.8-9B-abliterated-25-IQ4_XS-no-mtp.gguf    |  65k |  48.7 |  0.8667 | 0.4750 |
-| 21 | K2-Horizon-7B-Q4_K_M.gguf                       |  65k |  46.0 |  0.6000 | 0.4800 |
-| 22 | Ornith-1.0-35B-UD-Q3_K_XL.gguf                  |  65k |  26.0 |  0.4667 | 0.5550 |
-| 23 | LFM2.5-1.2B-Instruct-Q8_0.gguf                  |  65k | 156.4 |  0.5333 | 0.3700 |
-| 24 | MiniCPM5-2B-Q4_K_M.gguf                         | 131k | 133.3 |  0.7333 | 0.3700 |
-| 25 | SmolLM3-3B-Q4_K_M.gguf                          | 131k | 110.0 |  0.5333 | 0.3650 |
-| 26 | Qwen3.5-4B-MTP-Q4_K_M.gguf                      |  65k |  84.5 |  0.7333 | 0.4150 |
-| 27 | Ling-3.0-tiny-Q4_K_M.gguf                       |  65k |  53.5 |  0.8667 | 0.3900 |
-| 28 | NVIDIA-Nemotron3-Nano-4B-Q4_K_M.gguf            |  65k |  78.7 |  0.3333 | 0.5100 |
-| 29 | Qwen3.8-2B-BF16.gguf                            |  32k |  60.5 |  0.3333 | 0.3100 |
-| 30 | LFM2.5-8B-A1B-Q4_K_M.gguf                       |  65k | 182.2 |  0.2667 | 0.3800 |
+| 14 | Qwen3.8-9B-abliterated-25-IQ4_XS-no-mtp.gguf    |  65k |  48.7 |  0.8667 | 0.4750 |
+| 15 | Spark-X2.5-4B-Q4_K_M.gguf                       | 131k |  73.1 |  0.8667 | 0.4400 |
+| 16 | K2-Horizon-0.9B-Q4_K_M.gguf                     |  65k | 243.3 |  0.8000 | 0.4400 |
+| 17 | Qwen3.5-4B-Q4_K_M.gguf                          | 131k |  71.9 |  0.6667 | 0.4450 |
+| 18 | K2-Horizon-7B-Q4_K_M.gguf                       |  65k |  46.0 |  0.6000 | 0.4800 |
+| 19 | Bonsai-27B-Q1_0.gguf                            |  65k |  40.3 |  0.8667 | 0.4300 |
+| 20 | K2-Horizon-3.7B-Q4_K_M.gguf                     |  65k |  74.2 |  0.7333 | 0.4300 |
+| 21 | granite-4.0-h-tiny-Q4_K_M.gguf                  |  65k |  50.8 |  0.7333 | 0.4300 |
+| 22 | granite-4.1-3b-Q4_K_M.gguf                      |  65k |  86.6 |  0.6667 | 0.4300 |
+| 23 | Ornith-1.0-35B-UD-Q3_K_XL.gguf                  |  65k |  26.0 |  0.4667 | 0.5550 |
+| 24 | Qwen3.5-4B-MTP-Q4_K_M.gguf                      |  65k |  84.5 |  0.7333 | 0.4150 |
+| 25 | Ling-3.0-tiny-Q4_K_M.gguf                       |  65k |  53.5 |  0.8667 | 0.3900 |
+| 26 | MiniCPM5-2B-Q4_K_M.gguf                         | 131k | 133.3 |  0.7333 | 0.3700 |
+| 27 | LFM2.5-1.2B-Instruct-Q8_0.gguf                  |  65k | 156.4 |  0.5333 | 0.3700 |
+| 28 | SmolLM3-3B-Q4_K_M.gguf                          | 131k | 110.0 |  0.5333 | 0.3650 |
+| 29 | NVIDIA-Nemotron3-Nano-4B-Q4_K_M.gguf            |  65k |  78.7 |  0.3333 | 0.5100 |
+| 30 | Qwen3.8-2B-BF16.gguf                            |  32k |  60.5 |  0.3333 | 0.3100 |
 | 31 | Qwythos-9B-Claude-Mythos-5-1M-MTP.Q4_K_M.gguf   |  65k |  45.6 |  0.2667 | 0.5500 |
-| 32 | Nanbeige4.2-3B.Q4_K_M.gguf                      |  32k |  53.8 |  0.4000 | 0.1800 |
+| 32 | LFM2.5-8B-A1B-Q4_K_M.gguf                       |  65k | 182.2 |  0.2667 | 0.3800 |
 | 33 | Laguna-XS-2.1-Q3_K_XL.gguf                      |  65k |  37.2 |  0.6667 | 0.1950 |
-| 34 | POCKET-26B-Q4_K_M.gguf                          |  65k |  21.8 |  0.2000 | 0.4900 |
-| 35 | MindSparQ-Coder-1.5B.Q4_K_M.gguf                |  65k | 182.3 |  0.0000 | 0.0250 |
+| 34 | Nanbeige4.2-3B.Q4_K_M.gguf                      |  32k |  53.8 |  0.4000 | 0.1800 |
+| 35 | POCKET-26B-Q4_K_M.gguf                          |  65k |  21.8 |  0.2000 | 0.4900 |
 | 36 | Nanbeige4.2-3B-Q4_K_M.gguf                      |  32k |  54.4 |  0.0000 | 0.3300 |
-
+| 37 | MindSparQ-Coder-1.5B.Q4_K_M.gguf                |  65k | 182.3 |  0.0000 | 0.0250 |
 ## Night table (near-ties broken by ctx)
 
 Same membership as Day; only the near-tie tie-break differs (ctx instead of TPS). Snapshot 2026-09-09 (same tool run as Day):
@@ -70,43 +70,43 @@ NIGHT  (pick=#1)
 |  # | Model                                           |  ctx |   TPS | agentic | coding |
 |----|-------------------------------------------------|------|-------|---------|--------|
 |  1 | Qwen3.8-4B-Q4_K_M.gguf                          | 131k |  74.9 |  0.8667 | 0.6400 |
-|  2 | model-Q4_K_M.gguf                               | 131k |  74.9 |  0.6667 | 0.6400 |
-|  3 | Ornith-1.5-9B-Q4_K_M.gguf                       |  65k |  43.2 |  0.8000 | 0.6150 |
-|  4 | POCKET-35B-Q3_K_M.gguf                          |  65k |  35.7 |  0.6667 | 0.6150 |
-|  5 | Kwaipilot_KAT-Coder-V2.5-Dev-IQ4_XS.gguf        |  65k |  31.3 |  0.6000 | 0.6400 |
-|  6 | Ornith-1.5-35B-Q4_K_M.gguf                      |  65k |  28.8 |  0.7333 | 0.6300 |
-|  7 | Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf              |  65k |  28.2 |  0.8667 | 0.6400 |
-|  8 | LFM2.5-2.6B-Q8_0.gguf                           |  65k |  78.7 |  0.8667 | 0.5050 |
-|  9 | Ornith-1.0-9B-UD-Q4_K_XL.gguf                   |  65k |  48.6 |  0.9333 | 0.5400 |
-| 10 | Ornith-1.5-35B-A3B-Heretic-MTP-APEX-I-Mini.gguf |  65k |  34.9 |  0.8667 | 0.5300 |
-| 11 | Qwen3.8-4B-Q8_0.gguf                            |  32k |  48.9 |  0.5333 | 0.5900 |
-| 12 | grug-35b-v2-Q4_K_M.gguf                         |  16k |  23.7 |  0.7333 | 0.5450 |
-| 13 | Qwen3.8-9B-Q4_K_M.gguf                          |   8k |  44.2 |  0.5333 | 0.5950 |
-| 14 | Spark-X2.5-4B-Q4_K_M.gguf                       | 131k |  73.1 |  0.8667 | 0.4400 |
-| 15 | Qwen3.5-4B-Q4_K_M.gguf                          | 131k |  71.9 |  0.6667 | 0.4450 |
-| 16 | K2-Horizon-0.9B-Q4_K_M.gguf                     |  65k | 243.3 |  0.8000 | 0.4400 |
-| 17 | granite-4.1-3b-Q4_K_M.gguf                      |  65k |  86.6 |  0.6667 | 0.4300 |
-| 18 | K2-Horizon-3.7B-Q4_K_M.gguf                     |  65k |  74.2 |  0.7333 | 0.4300 |
-| 19 | granite-4.0-h-tiny-Q4_K_M.gguf                  |  65k |  50.8 |  0.7333 | 0.4300 |
-| 20 | Qwen3.8-9B-abliterated-25-IQ4_XS-no-mtp.gguf    |  65k |  48.7 |  0.8667 | 0.4750 |
-| 21 | K2-Horizon-7B-Q4_K_M.gguf                       |  65k |  46.0 |  0.6000 | 0.4800 |
-| 22 | Ornith-1.0-35B-UD-Q3_K_XL.gguf                  |  65k |  26.0 |  0.4667 | 0.5550 |
-| 23 | MiniCPM5-2B-Q4_K_M.gguf                         | 131k | 133.3 |  0.7333 | 0.3700 |
-| 24 | SmolLM3-3B-Q4_K_M.gguf                          | 131k | 110.0 |  0.5333 | 0.3650 |
-| 25 | LFM2.5-1.2B-Instruct-Q8_0.gguf                  |  65k | 156.4 |  0.5333 | 0.3700 |
-| 26 | Qwen3.5-4B-MTP-Q4_K_M.gguf                      |  65k |  84.5 |  0.7333 | 0.4150 |
-| 27 | Ling-3.0-tiny-Q4_K_M.gguf                       |  65k |  53.5 |  0.8667 | 0.3900 |
-| 28 | NVIDIA-Nemotron3-Nano-4B-Q4_K_M.gguf            |  65k |  78.7 |  0.3333 | 0.5100 |
-| 29 | Qwen3.8-2B-BF16.gguf                            |  32k |  60.5 |  0.3333 | 0.3100 |
-| 30 | LFM2.5-8B-A1B-Q4_K_M.gguf                       |  65k | 182.2 |  0.2667 | 0.3800 |
+|  2 | Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf              |  65k |  28.2 |  0.8667 | 0.6400 |
+|  3 | model-Q4_K_M.gguf                               | 131k |  74.9 |  0.6667 | 0.6400 |
+|  4 | Ornith-1.5-35B-Q4_K_M.gguf                      |  65k |  28.8 |  0.7333 | 0.6300 |
+|  5 | Ornith-1.5-9B-Q4_K_M.gguf                       |  65k |  43.2 |  0.8000 | 0.6150 |
+|  6 | POCKET-35B-Q3_K_M.gguf                          |  65k |  35.7 |  0.6667 | 0.6150 |
+|  7 | Kwaipilot_KAT-Coder-V2.5-Dev-IQ4_XS.gguf        |  65k |  31.3 |  0.6000 | 0.6400 |
+|  8 | Ornith-1.0-9B-UD-Q4_K_XL.gguf                   |  65k |  48.6 |  0.9333 | 0.5400 |
+|  9 | Ornith-1.5-35B-A3B-Heretic-MTP-APEX-I-Mini.gguf |  65k |  34.9 |  0.8667 | 0.5300 |
+| 10 | LFM2.5-2.6B-Q8_0.gguf                           |  65k |  78.7 |  0.8667 | 0.5050 |
+| 11 | grug-35b-v2-Q4_K_M.gguf                         |  16k |  23.7 |  0.7333 | 0.5450 |
+| 12 | Qwen3.8-9B-Q4_K_M.gguf                          |   8k |  44.2 |  0.5333 | 0.5950 |
+| 13 | Qwen3.8-4B-Q8_0.gguf                            |  32k |  48.9 |  0.5333 | 0.5900 |
+| 14 | K2-Horizon-7B-Q4_K_M.gguf                       |  65k |  46.0 |  0.6000 | 0.4800 |
+| 15 | Qwen3.8-9B-abliterated-25-IQ4_XS-no-mtp.gguf    |  65k |  48.7 |  0.8667 | 0.4750 |
+| 16 | Qwen3.5-4B-Q4_K_M.gguf                          | 131k |  71.9 |  0.6667 | 0.4450 |
+| 17 | Spark-X2.5-4B-Q4_K_M.gguf                       | 131k |  73.1 |  0.8667 | 0.4400 |
+| 18 | Ornith-1.0-35B-UD-Q3_K_XL.gguf                  |  65k |  26.0 |  0.4667 | 0.5550 |
+| 19 | K2-Horizon-0.9B-Q4_K_M.gguf                     |  65k | 243.3 |  0.8000 | 0.4400 |
+| 20 | Bonsai-27B-Q1_0.gguf                            |  65k |  40.3 |  0.8667 | 0.4300 |
+| 21 | K2-Horizon-3.7B-Q4_K_M.gguf                     |  65k |  74.2 |  0.7333 | 0.4300 |
+| 22 | granite-4.0-h-tiny-Q4_K_M.gguf                  |  65k |  50.8 |  0.7333 | 0.4300 |
+| 23 | granite-4.1-3b-Q4_K_M.gguf                      |  65k |  86.6 |  0.6667 | 0.4300 |
+| 24 | Qwen3.5-4B-MTP-Q4_K_M.gguf                      |  65k |  84.5 |  0.7333 | 0.4150 |
+| 25 | Ling-3.0-tiny-Q4_K_M.gguf                       |  65k |  53.5 |  0.8667 | 0.3900 |
+| 26 | MiniCPM5-2B-Q4_K_M.gguf                         | 131k | 133.3 |  0.7333 | 0.3700 |
+| 27 | LFM2.5-1.2B-Instruct-Q8_0.gguf                  |  65k | 156.4 |  0.5333 | 0.3700 |
+| 28 | SmolLM3-3B-Q4_K_M.gguf                          | 131k | 110.0 |  0.5333 | 0.3650 |
+| 29 | NVIDIA-Nemotron3-Nano-4B-Q4_K_M.gguf            |  65k |  78.7 |  0.3333 | 0.5100 |
+| 30 | Qwen3.8-2B-BF16.gguf                            |  32k |  60.5 |  0.3333 | 0.3100 |
 | 31 | Qwythos-9B-Claude-Mythos-5-1M-MTP.Q4_K_M.gguf   |  65k |  45.6 |  0.2667 | 0.5500 |
-| 32 | Laguna-XS-2.1-Q3_K_XL.gguf                      |  65k |  37.2 |  0.6667 | 0.1950 |
+| 32 | LFM2.5-8B-A1B-Q4_K_M.gguf                       |  65k | 182.2 |  0.2667 | 0.3800 |
 | 33 | POCKET-26B-Q4_K_M.gguf                          |  65k |  21.8 |  0.2000 | 0.4900 |
-| 34 | Nanbeige4.2-3B.Q4_K_M.gguf                      |  32k |  53.8 |  0.4000 | 0.1800 |
-| 35 | MindSparQ-Coder-1.5B.Q4_K_M.gguf                |  65k | 182.3 |  0.0000 | 0.0250 |
+| 34 | Laguna-XS-2.1-Q3_K_XL.gguf                      |  65k |  37.2 |  0.6667 | 0.1950 |
+| 35 | Nanbeige4.2-3B.Q4_K_M.gguf                      |  32k |  53.8 |  0.4000 | 0.1800 |
 | 36 | Nanbeige4.2-3B-Q4_K_M.gguf                      |  32k |  54.4 |  0.0000 | 0.3300 |
-
-Note the ADR 0017 headline change vs older snapshots: `Tiel-Coder-35B` (0.8667 / 0.6400 — ties the top model's quality) is back on both tables at #7, `POCKET-35B` / `KAT-Coder` / `Ornith-1.5-35B` returned, and `LFM2.5-8B` (agentic 0.2667) sorts near the bottom instead of masquerading mid-table on a TPS extreme. #1 is unchanged (Qwen3.8-4B) under old and new math. 2026-09-09 additions: `Spark-X2.5-4B` (#17 Day, iq 0.44 @ 73.1 t/s) and `MiniCPM5-2B` (#24 Day, iq 0.37 @ 133.3 t/s).
+| 37 | MindSparQ-Coder-1.5B.Q4_K_M.gguf                |  65k | 182.3 |  0.0000 | 0.0250 |
+Note the ADR 0017 headline change vs older snapshots: `Tiel-Coder-35B` (0.8667 / 0.6400 — ties the top model's quality) is back on both tables at #2 (quality dominance prevents speed or ctx demotion), `POCKET-35B` / `KAT-Coder` / `Ornith-1.5-35B` returned, and `LFM2.5-8B` (agentic 0.2667) sorts near the bottom instead of masquerading mid-table on a TPS extreme. #1 is unchanged (Qwen3.8-4B) under old and new math. 2026-09-09/10 additions: `Spark-X2.5-4B` (#15 Day, iq 0.44 @ 73.1 t/s), `MiniCPM5-2B` (#26 Day, iq 0.37 @ 133.3 t/s), and `Bonsai-27B-Q1_0` (#19 Day, iq 0.43 @ 40.3 t/s).
 
 ## `incomplete` / rejected
 
@@ -119,7 +119,7 @@ Note the ADR 0017 headline change vs older snapshots: `Tiel-Coder-35B` (0.8667 /
 | `Qwen3.6-35B-A3B-UD-Q3_K_XL.gguf` | coding-10 | claw-full **0.8000** + coding-10 **0.5300** measured at different Fingerprints (split-config) — no complete display run; re-measure one combined run |
 | `nanbeige4.2-3b-Q4_K_M.gguf` | coding-10 | claw-full **0.2667** + coding-10 **0.2800** at different Fingerprints (split-config) — no complete display run |
 | `Qwythos-9B-v2*` failed trials | — | reclassified `incomplete` → **`rejected`** in results.tsv (MODEL_REJECTED / INFRA_ERROR) |
-| split-config basenames | single-run | Under ADR 0017 a model whose agentic and coding were measured at different Fingerprints has no complete display run — re-measure both axes under one Baseline to rejoin the tables. Live incomplete set: e.g. `gemma-4-26B-A4B` (0.8667/0.5900), `gemma-4-E4B`, `Qwen3.5-9B-MTP`, `Qwythos-9B-v2*`, `Ornith-1.0-9B-MTP`, `ornith-1.0-9b` (official Q4), `Ornith-1.0-35B-UD-Q4_K_XL`, `Bonsai-27B-Q1_0`. |
+| split-config basenames | single-run | Under ADR 0017 a model whose agentic and coding were measured at different Fingerprints has no complete display run — re-measure both axes under one Baseline to rejoin the tables. Live incomplete set: e.g. `gemma-4-26B-A4B` (0.8667/0.5900), `gemma-4-E4B`, `Qwen3.5-9B-MTP`, `Qwythos-9B-v2*`, `Ornith-1.0-9B-MTP`, `ornith-1.0-9b` (official Q4), `Ornith-1.0-35B-UD-Q4_K_XL`. |
 
 **Config-split history** — pre-0012, agentic and coding under different Baselines never merged. ADR 0017 retires best-per-axis merging for display (it remains internal to Fingerprint merge identity); prefer one combined run per model.
 

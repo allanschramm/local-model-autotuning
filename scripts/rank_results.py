@@ -41,14 +41,12 @@ DEFAULT_TSV = REPO_ROOT / "results.tsv"
 _DESC_TPS_RE = re.compile(r"(?:bench_tg|TPS)=([0-9]+(?:\.[0-9]+)?)", re.IGNORECASE)
 _DESC_CTX_RE = re.compile(r"\bctx=([0-9]+)\b", re.IGNORECASE)
 
-# ADR 0017: Day TPS floor (50) and Night ctx floor (65536) are historical
-# lens notes (ADR 0009 / 0013) — they no longer filter anything.
+# ADR 0017: models whose iq_min sits within ±0.05 of a neighbor form a
+# near-tie band; speed (Day) or ctx (Night) breaks ties among non-dominated
+# candidates, but never demotes a model clearly superior in agentic and coding.
+NEAR_TIE_BAND = 0.05
 
 OK_OUTCOMES = {"", "OK"}
-
-# ADR 0017: models whose iq_min sits within ±0.05 of a neighbor are
-# near-ties; speed (Day) or ctx (Night) breaks the tie.
-NEAR_TIE_BAND = 0.05
 
 
 @dataclass(frozen=True)
@@ -280,29 +278,6 @@ def pareto_front(points: Sequence[Point]) -> list[Point]:
     return [p for p in points if p.complete]
 
 
-def _band_sorted(points: Sequence[Point], tie_key) -> list[Point]:
-    """IQ-first sort with the ADR 0017 ±0.05 near-tie band.
-
-    Points sorted by iq_min descending; consecutive neighbors whose iq_min
-    differs by ≤ NEAR_TIE_BAND chain into one near-tie band, ordered by the
-    lens tie_key (Day: TPS, Night: ctx). Outside a band, iq_min strictly
-    rules. Deterministic: model name is the final tie-break.
-    """
-    order = sorted(points, key=lambda p: (-p.iq_min, p.model))
-    out: list[Point] = []
-    band: list[Point] = []
-    for p in order:
-        if band and p.iq_min >= band[0].iq_min - NEAR_TIE_BAND:
-            band.append(p)
-        else:
-            if band:
-                out.extend(sorted(band, key=tie_key))
-            band = [p]
-    if band:
-        out.extend(sorted(band, key=tie_key))
-    return out
-
-
 def pick_day(front: Sequence[Point]) -> Point | None:
     ranked = day_table(front)
     return ranked[0] if ranked else None
@@ -313,14 +288,77 @@ def pick_night(front: Sequence[Point]) -> Point | None:
     return ranked[0] if ranked else None
 
 
+def quality_dominates(a: Point, b: Point) -> bool:
+    """True if a is >= b on both agentic and coding, and > on at least one."""
+    return (a.agentic >= b.agentic and a.coding >= b.coding) and (
+        a.agentic > b.agentic or a.coding > b.coding
+    )
+
+
+def _sort_band(band: Sequence[Point], tie_key: Any) -> list[Point]:
+    """Sort a near-tie band by tie_key while strictly respecting quality dominance.
+
+    If a quality-dominates b (a is clearly superior in agentic and coding),
+    a must always rank before b (ADR 0017). Tie-breaking (speed for Day,
+    context for Night) resolves ties and non-dominated trade-offs.
+    """
+    in_degree = {p: 0 for p in band}
+    for a in band:
+        for b in band:
+            if a is not b and quality_dominates(a, b):
+                in_degree[b] += 1
+
+    remaining = list(band)
+    result: list[Point] = []
+    while remaining:
+        eligible = [p for p in remaining if in_degree[p] == 0]
+        eligible.sort(key=tie_key)
+        chosen = eligible[0]
+        result.append(chosen)
+        remaining.remove(chosen)
+        for b in remaining:
+            if quality_dominates(chosen, b):
+                in_degree[b] -= 1
+    return result
+
+
+def _band_sorted(points: Sequence[Point], tie_key: Any) -> list[Point]:
+    """IQ-first sort with the ADR 0017 ±0.05 near-tie band.
+
+    Points sorted by iq_min descending; consecutive neighbors whose iq_min
+    differs by <= NEAR_TIE_BAND chain into one near-tie band, ordered by the
+    lens tie_key while strictly respecting quality dominance. Outside a band,
+    iq_min strictly rules. Deterministic: model name is the final tie-break.
+    """
+    order = sorted(points, key=lambda p: (-p.iq_min, p.model))
+    out: list[Point] = []
+    band: list[Point] = []
+    for p in order:
+        if band and p.iq_min >= band[0].iq_min - NEAR_TIE_BAND:
+            band.append(p)
+        else:
+            if band:
+                out.extend(_sort_band(band, tie_key))
+            band = [p]
+    if band:
+        out.extend(_sort_band(band, tie_key))
+    return out
+
+
 def day_table(front: Sequence[Point]) -> list[Point]:
     """Every complete model, IQ-first; near-ties broken by TPS (ADR 0017)."""
-    return _band_sorted([p for p in front if p.complete], lambda p: (-p.tps, -p.ctx, p.model))
+    return _band_sorted(
+        [p for p in front if p.complete],
+        lambda p: (-p.tps, -p.ctx, -p.iq_min, -(p.agentic + p.coding), p.model),
+    )
 
 
 def night_table(front: Sequence[Point]) -> list[Point]:
     """Every complete model, IQ-first; near-ties broken by ctx (ADR 0017)."""
-    return _band_sorted([p for p in front if p.complete], lambda p: (-p.ctx, -p.tps, p.model))
+    return _band_sorted(
+        [p for p in front if p.complete],
+        lambda p: (-p.ctx, -p.iq_min, -(p.agentic + p.coding), -p.tps, p.model),
+    )
 
 
 def _rank_axis(
