@@ -416,6 +416,62 @@ def test_day_and_night_tables_are_aligned_columns():
     assert "35.7" in day_section
 
 
+def test_live_top_of_table_order_locked_in_issue_70():
+    # T6 lock-in: live-store top rows under the new math (measured 2026-09-10).
+    # Qwen3.8-4B stays #1 on both tables; Tiel-Coder sits directly under its
+    # quality peers (never hidden); LFM2.5-8B sorts below finished models by IQ
+    # despite the fastest TPS on the board.
+    front = [
+        rr.Point("Qwen3.8-4B-Q4_K_M.gguf", ctx=131072, tps=74.9, agentic=0.8667, coding=0.64),
+        rr.Point("Ornith-1.5-9B-Q4_K_M.gguf", ctx=65536, tps=43.2, agentic=0.80, coding=0.615),
+        rr.Point("POCKET-35B-Q3_K_M.gguf", ctx=65536, tps=35.7, agentic=0.6667, coding=0.615),
+        rr.Point(
+            "Kwaipilot_KAT-Coder-V2.5-Dev-IQ4_XS.gguf",
+            ctx=65536,
+            tps=31.3,
+            agentic=0.60,
+            coding=0.64,
+        ),
+        rr.Point("Ornith-1.5-35B-Q4_K_M.gguf", ctx=65536, tps=28.8, agentic=0.7333, coding=0.63),
+        rr.Point(
+            "Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf",
+            ctx=65536,
+            tps=28.2,
+            agentic=0.8667,
+            coding=0.64,
+        ),
+        rr.Point("LFM2.5-8B-A1B-Q4_K_M.gguf", ctx=65536, tps=182.2, agentic=0.2667, coding=0.38),
+        # Synthetic ctx-diverse peer inside the band: slow but long-context, so
+        # Day (TPS lens) and Night (ctx lens) must disagree on it. Catches a
+        # Day/Night tie_key swap that identical orders would hide.
+        rr.Point("Wide-Slow.gguf", ctx=131072, tps=20.0, agentic=0.62, coding=0.62),
+    ]
+    expected_day = [
+        "Qwen3.8-4B-Q4_K_M.gguf",
+        "Ornith-1.5-9B-Q4_K_M.gguf",
+        "POCKET-35B-Q3_K_M.gguf",
+        "Kwaipilot_KAT-Coder-V2.5-Dev-IQ4_XS.gguf",
+        "Ornith-1.5-35B-Q4_K_M.gguf",
+        "Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf",
+        "Wide-Slow.gguf",
+        "LFM2.5-8B-A1B-Q4_K_M.gguf",
+    ]
+    expected_night = [
+        "Qwen3.8-4B-Q4_K_M.gguf",
+        "Wide-Slow.gguf",
+        "Ornith-1.5-9B-Q4_K_M.gguf",
+        "POCKET-35B-Q3_K_M.gguf",
+        "Kwaipilot_KAT-Coder-V2.5-Dev-IQ4_XS.gguf",
+        "Ornith-1.5-35B-Q4_K_M.gguf",
+        "Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf",
+        "LFM2.5-8B-A1B-Q4_K_M.gguf",
+    ]
+    assert [p.model for p in rr.day_table(front)] == expected_day
+    assert [p.model for p in rr.night_table(front)] == expected_night
+    assert rr.pick_day(front).model == "Qwen3.8-4B-Q4_K_M.gguf"
+    assert rr.pick_night(front).model == "Qwen3.8-4B-Q4_K_M.gguf"
+
+
 def test_build_vectors_ignores_morris_screen_tps():
     # ADR 0016: screen probes (reps=1) must not set the basename TPS axis.
     rows = [
