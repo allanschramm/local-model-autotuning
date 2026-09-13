@@ -81,7 +81,20 @@ If `model_info.py` finds the file, skip downloading and proceed to Step 2.
 If the model must be downloaded from a Hugging Face repo, use one of the
 following methods:
 
-**Method 1: Python `huggingface_hub` (Universal fallback — works in any venv without extra CLI binaries):**
+**Method 1: `hf` CLI (Primary / Preferred):**
+Use the official `hf` CLI tool (available directly in PATH or via Python module):
+```bash
+# Direct CLI (preferred on operator rig):
+hf download <org>/<repo> <filename.gguf> --local-dir models/<publisher>/<model-name>
+
+# Windows venv alternative (avoids uv trampoline path canonicalization issues):
+.\venv\Scripts\python.exe -m huggingface_hub.cli.hf download <org>/<repo> <filename.gguf> --local-dir models/<publisher>/<model-name>
+
+# Linux / macOS venv alternative:
+./venv/bin/python -m huggingface_hub.cli.hf download <org>/<repo> <filename.gguf> --local-dir models/<publisher>/<model-name>
+```
+
+**Method 2: Python `huggingface_hub` (Fallback if CLI fails):**
 ```python
 from pathlib import Path
 from huggingface_hub import hf_hub_download
@@ -89,15 +102,6 @@ from huggingface_hub import hf_hub_download
 dest = Path("models/<publisher>/<model-name>").resolve()
 dest.mkdir(parents=True, exist_ok=True)
 hf_hub_download(repo_id="<org>/<repo>", filename="<filename.gguf>", local_dir=str(dest))
-```
-
-**Method 2: `hf` or `huggingface-cli` (if installed/preferred):**
-```bash
-# Windows
-.\venv\Scripts\hf.exe download <org>/<repo> <filename.gguf> --local-dir models/<publisher>/<model-name>
-
-# Linux / macOS
-./venv/bin/hf download <org>/<repo> <filename.gguf> --local-dir models/<publisher>/<model-name>
 ```
 
 **Method 3: Direct Download / Manual Placement:**
@@ -182,7 +186,8 @@ Read the latest row from the canonical results store (`results.db` via `autorese
 ## Anti-Patterns
 
 - **NEVER** delete `models/`, external target folders, or model files to "clean up".
-- **NEVER** assume `hf` CLI binary exists — use Python `huggingface_hub` fallback when needed.
+- **DO NOT** run `.\venv\Scripts\hf.exe` directly on Windows (uv trampoline shim issue); use `hf` in PATH or `python -m huggingface_hub.cli.hf`.
+- **DO NOT** write one-off Python/urllib scripts to inspect or download Hugging Face models when `hf` CLI commands are available.
 - **NEVER** launch `autoloop.py` autonomously when asked to validate a model.
 - **NEVER** pass CLI parameter overrides for engine/sampler settings — edit `config.py`.
 - **NEVER** run raw `llama-server` or `llama-bench` manually for validation.
