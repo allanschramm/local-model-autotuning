@@ -108,6 +108,7 @@ run_nexus_only.py
 /llama.cpp-releases/
 /llama.cpp-codacus/
 /llama.cpp-ifm-k2horizon/
+/llama.cpp-fuse4/
 /VITRIOL/
 
 # Local mutable Baseline (seed from config.py.example)

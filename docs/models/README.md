@@ -45,6 +45,7 @@ Cards:
 - [POCKET-26B](pocket-26b.md) — claw **0.2000** + coding **0.490** (historical)
 - [Spark-X2.5-4B](spark-x2.5-4b.md) — dense `spark2_5` (requires llama.cpp $\ge$ `b10828`); bench **73.1 t/s**, quick smoke **1.0000** (5/5), peak VRAM 6.8 GB @ 131k
 - [MiniCPM5-2B](minicpm5-2b.md) — claw **0.7333** / coding **0.3700** @ 131k, bench 127.3 t/s
+- [Fuse-2-MoE](fuse-2-moe.md) — claw **0.0000** / coding **0.0500** @ 32k, bench 56.4 t/s (custom Fuse4 architecture on `llama.cpp-fuse4`)
 - [VITRIOL technique](vitriol-technique.md) — stock MoE `--n-cpu-moe` + study notes on Randozart DMA fork (not Trial engine)
 
 Pareto frontier: [pareto-leaderboard.md](../discovery/pareto-leaderboard.md).  

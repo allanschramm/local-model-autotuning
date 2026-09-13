@@ -255,6 +255,7 @@ def run_llama_bench_validation(
     n_cpu_moe: int | None = None,
     n_gen: int = BENCH_N_GEN,
     vram_limit_mb: float | int | None = None,
+    reasoning: str | None = None,
 ) -> float:
     """Run llama-cli with given config. Returns tg t/s. Raises on failure.
 
@@ -304,8 +305,11 @@ def run_llama_bench_validation(
         "--no-warmup",
         "--simple-io",
         "--single-turn",
+        "--ignore-eos",
     ]
 
+    if reasoning is not None:
+        cmd += ["--reasoning", str(reasoning)]
     if threads_batch is not None:
         cmd += ["-tbd", str(threads_batch)]
     if n_cpu_moe is not None:
@@ -701,6 +705,7 @@ class ExperimentRunner:
                         n_cpu_moe=intent.n_cpu_moe,
                         n_gen=BENCH_N_GEN,
                         vram_limit_mb=vram_limit_mb,
+                        reasoning=intent.reasoning,
                         reps=reps,
                         idle_c=self._idle_gpu_c,
                         thermal_wait=self.thermal_wait,
