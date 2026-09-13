@@ -206,6 +206,47 @@ class TestRun(unittest.TestCase):
         self.assertNotIn("--spec-draft-n-max", command)
         self.assertNotIn("-ngld", command)
 
+    @patch(
+        "autoresearch.runners.evaluation.detect_used_total_vram_mb", side_effect=FileNotFoundError
+    )
+    @patch("autoresearch.runners.evaluation.subprocess.Popen")
+    @patch("autoresearch.runners.evaluation.resolve_llama_cli", return_value=Path("llama-cli.exe"))
+    @patch("autoresearch.runners.evaluation.resolve_vram_limit_mb", return_value=7900.0)
+    def test_llama_bench_includes_ignore_eos(
+        self, _mock_limit, mock_resolve, mock_popen, _mock_smi
+    ):
+        mock_proc = MagicMock()
+        mock_proc.communicate.return_value = ("Generation: 7.4 t/s", "")
+        mock_proc.returncode = 0
+        mock_popen.return_value = mock_proc
+
+        from autoresearch.runners.evaluation import run_llama_bench_validation
+
+        run_llama_bench_validation(Path("model.gguf"))
+
+        command = mock_popen.call_args.args[0]
+        self.assertIn("--ignore-eos", command)
+
+    @patch(
+        "autoresearch.runners.evaluation.detect_used_total_vram_mb", side_effect=FileNotFoundError
+    )
+    @patch("autoresearch.runners.evaluation.subprocess.Popen")
+    @patch("autoresearch.runners.evaluation.resolve_llama_cli", return_value=Path("llama-cli.exe"))
+    @patch("autoresearch.runners.evaluation.resolve_vram_limit_mb", return_value=7900.0)
+    def test_llama_bench_forwards_reasoning(self, _mock_limit, mock_resolve, mock_popen, _mock_smi):
+        mock_proc = MagicMock()
+        mock_proc.communicate.return_value = ("Generation: 7.4 t/s", "")
+        mock_proc.returncode = 0
+        mock_popen.return_value = mock_proc
+
+        from autoresearch.runners.evaluation import run_llama_bench_validation
+
+        run_llama_bench_validation(Path("model.gguf"), reasoning="off")
+
+        command = mock_popen.call_args.args[0]
+        self.assertIn("--reasoning", command)
+        self.assertEqual(command[command.index("--reasoning") + 1], "off")
+
     @patch("autoresearch.runners.evaluation.run_llama_bench_validation", return_value=45.0)
     @patch("autoresearch.runners.evaluation.LlamaServerRunner")
     @patch("autoresearch.runners.evaluation.run_coding")
