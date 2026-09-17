@@ -125,6 +125,78 @@ class TestLlamaClient(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "LlamaClient request failed"):
             self.client.complete("Fail me")
 
+    @patch("urllib.request.urlopen")
+    def test_complete_model_specific_stop_token(self, mock_urlopen):
+        """Verify model-specific stop token <|ifm|im_end|> is respected in complete payload."""
+        mock_res = MagicMock()
+        mock_res.read.return_value = json.dumps(
+            {"choices": [{"message": {"content": "ok"}}], "usage": {"total_tokens": 5}}
+        ).encode()
+        mock_res.__enter__.return_value = mock_res
+        mock_urlopen.return_value = mock_res
+
+        # Via stop in complete kwargs as list
+        self.client.complete("prompt", stop=["<|ifm|im_end|>"])
+        args, _ = mock_urlopen.call_args
+        payload = json.loads(args[0].data.decode())
+        self.assertEqual(payload["stop"], ["<|ifm|im_end|>"])
+
+        # Via stop in complete kwargs as single string (normalized to list)
+        self.client.complete("prompt", stop="<|ifm|im_end|>")
+        args, _ = mock_urlopen.call_args
+        payload = json.loads(args[0].data.decode())
+        self.assertEqual(payload["stop"], ["<|ifm|im_end|>"])
+
+        # Via GenerationParams with list
+        from autoresearch.core.llama_client import GenerationParams
+
+        gen = GenerationParams(stop=["<|ifm|im_end|>", "</s>"], reasoning_effort="low")
+        self.client.complete("prompt", gen=gen)
+        args, _ = mock_urlopen.call_args
+        payload = json.loads(args[0].data.decode())
+        self.assertEqual(payload["stop"], ["<|ifm|im_end|>", "</s>"])
+        self.assertEqual(payload["reasoning_effort"], "low")
+        self.assertEqual(payload["chat_template_kwargs"], {"reasoning_effort": "low"})
+        self.assertEqual(payload["chat_template_args"], {"reasoning_effort": "low"})
+
+        # Via GenerationParams with single string (normalized to list in to_payload)
+        gen_str = GenerationParams(stop="<|ifm|im_end|>")
+        self.assertEqual(gen_str.to_payload()["stop"], ["<|ifm|im_end|>"])
+
+    @patch("urllib.request.urlopen")
+    def test_complete_enforces_420s_timeout_floor(self, mock_urlopen):
+        """Verify 420s turn timeout floor is enforced even if a lower timeout is requested."""
+        mock_res = MagicMock()
+        mock_res.read.return_value = json.dumps(
+            {"choices": [{"message": {"content": "ok"}}], "usage": {"total_tokens": 5}}
+        ).encode()
+        mock_res.__enter__.return_value = mock_res
+        mock_urlopen.return_value = mock_res
+
+        # Request 120s timeout on client with default timeout
+        self.client.complete("prompt", timeout=120.0)
+        _, kwargs = mock_urlopen.call_args
+        self.assertGreaterEqual(kwargs.get("timeout"), 420.0)
+
+        # Client initialized with sub-floor timeout
+        client_low = LlamaClient(port=8080, timeout=30.0)
+        client_low.complete("prompt")
+        _, kwargs = mock_urlopen.call_args
+        self.assertGreaterEqual(kwargs.get("timeout"), 420.0)
+
+        # Client allows timeout >= 420.0s
+        client_high = LlamaClient(port=8080, timeout=600.0)
+        client_high.complete("prompt")
+        _, kwargs = mock_urlopen.call_args
+        self.assertEqual(kwargs.get("timeout"), 600.0)
+
+        # Client and complete handle None timeout safely
+        client_none = LlamaClient(port=8080, timeout=None)
+        self.assertGreaterEqual(client_none.timeout, 420.0)
+        client_none.complete("prompt", timeout=None)
+        _, kwargs = mock_urlopen.call_args
+        self.assertGreaterEqual(kwargs.get("timeout"), 420.0)
+
 
 if __name__ == "__main__":
     unittest.main()

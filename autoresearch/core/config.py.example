@@ -176,17 +176,24 @@ def validate_config(cfg: dict) -> dict:
         "reasoning_effort",
         normalized.get("REASONING_EFFORT", DEFAULTS.get("REASONING_EFFORT")),
     )
-    if reasoning_effort is not None and reasoning_effort not in (
-        "minimal",
-        "low",
-        "medium",
-        "high",
-        "xhigh",
-        "max",
-    ):
-        raise ConfigError(
-            f"REASONING_EFFORT must be minimal/low/medium/high/xhigh/max or None; got {reasoning_effort!r}"
-        )
+    if reasoning_effort is not None:
+        if isinstance(reasoning_effort, str):
+            reasoning_effort = reasoning_effort.lower()
+            normalized["reasoning_effort"] = reasoning_effort
+        if reasoning_effort not in (
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "fast",
+            "faster",
+        ):
+            raise ConfigError(
+                f"REASONING_EFFORT must be none/minimal/low/medium/high/xhigh/max/fast/faster or None; got {reasoning_effort!r}"
+            )
     n_gpu_layers = normalized.get("n_gpu_layers", normalized.get("N_GPU_LAYERS", DEFAULTS.get("N_GPU_LAYERS", -1)))
     if isinstance(n_gpu_layers, bool) or not isinstance(n_gpu_layers, int):
         raise ConfigError(

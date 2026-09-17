@@ -22,6 +22,9 @@ class GenerationParams:
     frequency_penalty: float | None = None
     max_tokens: int = 512
     stop: list[str] | None = None
+    reasoning_effort: str | None = None
+    chat_template_kwargs: dict[str, Any] | None = None
+    chat_template_args: dict[str, Any] | None = None
 
     def to_payload(self) -> dict:
         """Build API payload dict, omitting None fields."""
@@ -30,7 +33,12 @@ class GenerationParams:
             "temperature": self.temp,
         }
         if self.stop is not None:
-            d["stop"] = self.stop
+            if isinstance(self.stop, str):
+                d["stop"] = [self.stop]
+            elif isinstance(self.stop, (tuple, set)):
+                d["stop"] = list(self.stop)
+            else:
+                d["stop"] = self.stop
         for key in (
             "top_p",
             "min_p",
@@ -42,6 +50,20 @@ class GenerationParams:
             val = getattr(self, key)
             if val is not None:
                 d[key] = val
+
+        if self.reasoning_effort is not None:
+            d["reasoning_effort"] = self.reasoning_effort
+            chat_kwargs = dict(self.chat_template_kwargs or self.chat_template_args or {})
+            chat_kwargs["reasoning_effort"] = self.reasoning_effort
+            d["chat_template_kwargs"] = chat_kwargs
+            d["chat_template_args"] = chat_kwargs
+        elif self.chat_template_kwargs is not None:
+            d["chat_template_kwargs"] = self.chat_template_kwargs
+            d["chat_template_args"] = self.chat_template_kwargs
+        elif self.chat_template_args is not None:
+            d["chat_template_kwargs"] = self.chat_template_args
+            d["chat_template_args"] = self.chat_template_args
+
         return d
 
     def with_overrides(self, **overrides) -> "GenerationParams":
@@ -52,9 +74,12 @@ class GenerationParams:
 class LlamaClient:
     """Deep module for llama-server communication."""
 
-    def __init__(self, port: int):
+    def __init__(self, port: int, timeout: float = 420.0):
         self.port = port
         self.base_url = f"http://127.0.0.1:{port}"
+        # Enforce 420s turn timeout floor to prevent premature cancellation
+        effective_timeout = timeout if timeout is not None else 420.0
+        self.timeout = max(float(effective_timeout), 420.0)
 
     def complete(
         self, prompt: str, gen: GenerationParams | None = None, **kwargs
@@ -79,12 +104,43 @@ class LlamaClient:
                 if key in kwargs and kwargs[key] is not None:
                     payload[key] = kwargs[key]
 
+        if "reasoning_effort" not in payload and kwargs.get("reasoning_effort") is not None:
+            effort = kwargs["reasoning_effort"]
+            payload["reasoning_effort"] = effort
+            chat_kwargs = dict(
+                payload.get("chat_template_kwargs")
+                or kwargs.get("chat_template_kwargs")
+                or kwargs.get("chat_template_args")
+                or {}
+            )
+            chat_kwargs["reasoning_effort"] = effort
+            payload["chat_template_kwargs"] = chat_kwargs
+            payload["chat_template_args"] = chat_kwargs
+        elif (
+            "chat_template_kwargs" not in payload and kwargs.get("chat_template_kwargs") is not None
+        ):
+            payload["chat_template_kwargs"] = kwargs["chat_template_kwargs"]
+            payload["chat_template_args"] = kwargs["chat_template_kwargs"]
+        elif "chat_template_args" not in payload and kwargs.get("chat_template_args") is not None:
+            payload["chat_template_kwargs"] = kwargs["chat_template_args"]
+            payload["chat_template_args"] = kwargs["chat_template_args"]
+
         payload["messages"] = [{"role": "user", "content": prompt}]
         payload["stream"] = False
 
         # Stop tokens: from gen, from kwargs, or default
         if "stop" not in payload:
-            payload["stop"] = kwargs.get("stop", ["</s>", "Instruction:", "User:"])
+            raw_stop = kwargs.get("stop", ["</s>", "Instruction:", "User:"])
+            if isinstance(raw_stop, str):
+                payload["stop"] = [raw_stop]
+            elif isinstance(raw_stop, (tuple, set)):
+                payload["stop"] = list(raw_stop)
+            else:
+                payload["stop"] = raw_stop
+        elif isinstance(payload.get("stop"), str):
+            payload["stop"] = [payload["stop"]]
+        elif isinstance(payload.get("stop"), (tuple, set)):
+            payload["stop"] = list(payload["stop"])
 
         # Forward tools if present
         tools = kwargs.get("tools")
@@ -95,9 +151,13 @@ class LlamaClient:
             url, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}
         )
 
+        req_timeout = kwargs.get("timeout")
+        effective_timeout = req_timeout if req_timeout is not None else self.timeout
+        timeout = max(float(effective_timeout if effective_timeout is not None else 420.0), 420.0)
+
         try:
-            # Bound idle network waits while allowing long model generations.
-            with urllib.request.urlopen(req, timeout=120.0) as res:
+            # Enforce 420s turn timeout floor to prevent premature cancellation of reasoning turns.
+            with urllib.request.urlopen(req, timeout=timeout) as res:
                 raw_res = json.loads(res.read().decode())
                 choices = raw_res.get("choices", [])
                 choice = choices[0] if (choices and isinstance(choices[0], dict)) else {}

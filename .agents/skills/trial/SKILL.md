@@ -43,7 +43,8 @@ themselves.
   (`benchmark_search.py` / `python -m autoresearch.runners.run`). Never raw
   `llama-server` / `llama-bench` for eval.
 - Dense = no shared-mem / expert offload. MoE may use `N_CPU_MOE`. Use configured
-  `CTX_SIZE` (floor 2048).
+  `CTX_SIZE` (floor 2048). `CTX_SIZE` is inviolable: never reduce or suggest
+  reducing context size to fit memory, avoid OOM/Circuit Breaker, or resolve failed tasks.
 - Do not edit harness / vendor code when a Trial fails. Record the failure, move
   to the next queue item.
 - Never push results or tweak branches. Offline only.

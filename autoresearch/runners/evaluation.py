@@ -801,6 +801,25 @@ class ExperimentRunner:
         server_log = _new_server_log(model_filename)
         print(f"  [server-log] {server_log}")
 
+        reasoning_effort = norm.get("reasoning_effort")
+        chat_template_kwargs = norm.get("chat_template_kwargs") or norm.get("chat_template_args")
+        stop_val = norm.get("stop") or norm.get("stop_tokens")
+        model_identifiers = [
+            model_filename.lower(),
+            str(intent.model_path).lower(),
+            str(norm.get("model") or "").lower(),
+        ]
+        if stop_val is None and any(
+            needle in identifier
+            for needle in ("k2-horizon", "k2_horizon", "k2horizon")
+            for identifier in model_identifiers
+        ):
+            stop_val = ["<|ifm|im_end|>", "</s>"]
+        elif isinstance(stop_val, str):
+            stop_val = [stop_val]
+        elif isinstance(stop_val, (tuple, set)):
+            stop_val = list(stop_val)
+
         gen_params = GenerationParams(
             temp=norm.get("temp", 0.2),
             top_p=norm.get("top_p"),
@@ -818,6 +837,9 @@ class ExperimentRunner:
                 if (agentic_quick or agentic_full or agentic_coding)
                 else int(norm.get("max_tokens", 1024))
             ),
+            stop=stop_val,
+            reasoning_effort=reasoning_effort,
+            chat_template_kwargs=chat_template_kwargs,
         )
 
         trial_start = time.time()
@@ -859,7 +881,9 @@ class ExperimentRunner:
                 if getattr(runner, "vram_killed", False) is True:
                     _apply_watchdog_kill(res, runner)
                     return res
-                client = LlamaClient(runner.port)
+                raw_turn_timeout = norm.get("turn_timeout") or norm.get("timeout") or 420.0
+                turn_timeout = max(float(raw_turn_timeout), 420.0)
+                client = LlamaClient(runner.port, timeout=turn_timeout)
 
                 # Coding (HumanEval + MBPP + LCB + BigCode)
                 if include_coding:
@@ -900,7 +924,12 @@ class ExperimentRunner:
                         if n_tasks == 0:
                             raise FileNotFoundError(f"No Claw-Eval {tier} tasks found")
                         agentic_res = run_agentic_eval(
-                            client, task_ids, gen_params=gen_params, trials=1
+                            client,
+                            task_ids,
+                            gen_params=gen_params,
+                            trials=1,
+                            turn_timeout=turn_timeout,
+                            stop=stop_val,
                         )
                         res.task_ids = tuple(task_ids)
                         if tier == "full" or not agentic_full:

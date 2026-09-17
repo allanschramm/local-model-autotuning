@@ -474,3 +474,183 @@ def test_run_agent_loop_tool_call_length_stop_not_counted(monkeypatch, mock_llam
     )
     assert calls and calls[0]["tool"] == "gmail_list_messages"
     assert meta["length_stops"] == 0
+
+
+def test_run_agent_loop_model_specific_stop_tokens(monkeypatch, mock_llama_client):
+    """K2-Horizon stop token <|ifm|im_end|> must be respected in agent turn payload."""
+    from autoresearch.core.llama_client import GenerationParams
+
+    mock_llama_client.base_url = "http://127.0.0.1:18080"
+    captured_payloads = []
+
+    class _Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return json.dumps(
+                {"choices": [{"message": {"content": "finished", "tool_calls": []}}]}
+            ).encode()
+
+    def _mock_urlopen(req, timeout=None):
+        captured_payloads.append(json.loads(req.data.decode()))
+        return _Resp()
+
+    monkeypatch.setattr(
+        "autoresearch.benchmarks.agentic_runner.urllib.request.urlopen", _mock_urlopen
+    )
+
+    gen = GenerationParams(stop=["<|ifm|im_end|>", "</s>"], reasoning_effort="low")
+    run_agent_loop(
+        mock_llama_client,
+        {"prompt": {"text": "test prompt"}, "tools": [], "tool_endpoints": []},
+        gen_params=gen,
+        max_turns=1,
+    )
+
+    assert len(captured_payloads) == 1
+    assert captured_payloads[0]["stop"] == ["<|ifm|im_end|>", "</s>"]
+    assert captured_payloads[0]["reasoning_effort"] == "low"
+    assert captured_payloads[0]["chat_template_kwargs"] == {"reasoning_effort": "low"}
+    assert captured_payloads[0]["chat_template_args"] == {"reasoning_effort": "low"}
+
+
+def test_run_agent_loop_enforces_420s_timeout_floor(monkeypatch, mock_llama_client):
+    """Agent turns must enforce 420s timeout floor to avoid cancelling long reasoning turns."""
+    mock_llama_client.base_url = "http://127.0.0.1:18080"
+    mock_llama_client.timeout = 100.0  # sub-floor timeout on client
+    captured_timeouts = []
+
+    class _Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return json.dumps(
+                {"choices": [{"message": {"content": "done", "tool_calls": []}}]}
+            ).encode()
+
+    def _mock_urlopen(req, timeout=None):
+        captured_timeouts.append(timeout)
+        return _Resp()
+
+    monkeypatch.setattr(
+        "autoresearch.benchmarks.agentic_runner.urllib.request.urlopen", _mock_urlopen
+    )
+
+    # Calling with sub-floor turn_timeout=30.0
+    run_agent_loop(
+        mock_llama_client,
+        {"prompt": {"text": "test prompt"}, "tools": [], "tool_endpoints": []},
+        max_turns=1,
+        turn_timeout=30.0,
+    )
+    assert len(captured_timeouts) == 1
+    assert captured_timeouts[0] >= 420.0
+
+    # Calling with turn_timeout=None also respects >= 420.0 floor
+    captured_timeouts.clear()
+    run_agent_loop(
+        mock_llama_client,
+        {"prompt": {"text": "test prompt"}, "tools": [], "tool_endpoints": []},
+        max_turns=1,
+        turn_timeout=None,
+    )
+    assert len(captured_timeouts) == 1
+    assert captured_timeouts[0] >= 420.0
+
+
+def test_run_agent_loop_string_stop_token_normalized(monkeypatch, mock_llama_client):
+    """String stop token should be safely normalized to list in request payload."""
+    mock_llama_client.base_url = "http://127.0.0.1:18080"
+    captured_payloads = []
+
+    class _Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return json.dumps(
+                {"choices": [{"message": {"content": "done", "tool_calls": []}}]}
+            ).encode()
+
+    def _mock_urlopen(req, timeout=None):
+        captured_payloads.append(json.loads(req.data.decode()))
+        return _Resp()
+
+    monkeypatch.setattr(
+        "autoresearch.benchmarks.agentic_runner.urllib.request.urlopen", _mock_urlopen
+    )
+
+    run_agent_loop(
+        mock_llama_client,
+        {"prompt": {"text": "test prompt"}, "tools": [], "tool_endpoints": []},
+        stop="<|ifm|im_end|>",
+        max_turns=1,
+    )
+    assert len(captured_payloads) == 1
+    assert captured_payloads[0]["stop"] == ["<|ifm|im_end|>"]
+
+
+def test_run_agentic_eval_forwards_turn_timeout_and_stop(monkeypatch, tmp_path):
+    """run_agentic_eval should pass turn_timeout and stop to run_agent_loop."""
+    import yaml
+
+    from autoresearch.benchmarks.agentic_runner import run_agentic_eval
+
+    # Create dummy claw task
+    task_dir = tmp_path / "dummy_task"
+    task_dir.mkdir()
+    task_file = task_dir / "task.yaml"
+    task_file.write_text(
+        yaml.dump(
+            {
+                "prompt": {"text": "hello"},
+                "environment": {"max_turns": 2},
+            }
+        )
+    )
+
+    mock_client = MagicMock()
+    mock_client.port = 8080
+    mock_client.timeout = 420.0
+
+    captured_kwargs = {}
+
+    def _mock_run_agent_loop(client, task, **kwargs):
+        captured_kwargs.update(kwargs)
+        return "done", [], 1.0, {"length_stops": 0, "http_errors": []}
+
+    monkeypatch.setattr(
+        "autoresearch.benchmarks.agentic_runner.run_agent_loop", _mock_run_agent_loop
+    )
+    monkeypatch.setattr(
+        "autoresearch.benchmarks.agentic_runner.score_task",
+        lambda *a, **k: {
+            "score": 1.0,
+            "details": "ok",
+            "tool_calls_count": 0,
+            "tools_used": [],
+            "final_text_length": 4,
+        },
+    )
+    monkeypatch.setattr("autoresearch.benchmarks.agentic_runner.TASKS_DIR", tmp_path)
+
+    run_agentic_eval(
+        mock_client,
+        ["dummy_task"],
+        turn_timeout=500.0,
+        stop=["<|ifm|im_end|>", "</s>"],
+    )
+
+    assert captured_kwargs.get("turn_timeout") == 500.0
+    assert captured_kwargs.get("stop") == ["<|ifm|im_end|>", "</s>"]
