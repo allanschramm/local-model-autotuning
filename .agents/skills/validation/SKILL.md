@@ -48,6 +48,12 @@ Objective Vector Trial.
    - Benchmarks, model loads, and downloads must run until completion. Never set
      execution timeouts.
 
+6. **CTX_SIZE is Inviolable:**
+   - The configured test context length is an absolute evaluation requirement.
+   - **NEVER** reduce or suggest reducing `CTX_SIZE` to bypass memory ceilings or
+     RAM Circuit Breaker triggers. Address pressure through host hygiene, KV
+     quantization (`q4_0`), layer offloading, or lighter model quants.
+
 ---
 
 ## Inputs
@@ -192,3 +198,4 @@ Read the latest row from the canonical results store (`results.db` via `autorese
 - **NEVER** pass CLI parameter overrides for engine/sampler settings — edit `config.py`.
 - **NEVER** run raw `llama-server` or `llama-bench` manually for validation.
 - **NEVER** set execution timeouts on model validation commands.
+- **NEVER** suggest or apply `CTX_SIZE` reduction to solve RAM, VRAM, or Circuit Breaker pressure. Configured context is a fixed objective.
