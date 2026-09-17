@@ -38,6 +38,7 @@ node_modules/
 .antigravitycli/
 .mcp.json
 .pi-glla
+.scratch/
 
 # Models and large binaries (user provides their own)
 *.gguf

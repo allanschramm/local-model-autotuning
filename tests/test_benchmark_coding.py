@@ -397,6 +397,72 @@ class TestBenchmarkCoding(unittest.TestCase):
         text = "```\nx = 1\n```"
         self.assertEqual(benchmark_coding._strip_code(text), "x = 1")
 
+    def test_strip_code_ifm_think_tags(self):
+        """K2-Horizon <ifm|think> reasoning scratchpads must be cleanly stripped."""
+        text = "<ifm|think>\nAnalyzing problem...\nNeed to double n.\n</ifm|think>\n```python\ndef solve(n):\n    return n * 2\n```"
+        self.assertEqual(benchmark_coding._strip_code(text), "def solve(n):\n    return n * 2")
+
+    def test_strip_code_ifm_think_fast_tags(self):
+        """K2-Horizon <ifm|think_fast> reasoning scratchpads must be cleanly stripped."""
+        text = "<ifm|think_fast>\nQuick reasoning.\n</ifm|think_fast>\n```python\nprint(42)\n```"
+        self.assertEqual(benchmark_coding._strip_code(text), "print(42)")
+
+    def test_strip_code_ifm_think_faster_tags(self):
+        """K2-Horizon <ifm|think_faster> reasoning scratchpads must be cleanly stripped."""
+        text = "<ifm|think_faster>Immediate thought.</ifm|think_faster>\n```python\nx = 1\n```"
+        self.assertEqual(benchmark_coding._strip_code(text), "x = 1")
+
+    def test_strip_code_ifm_think_plain_code_no_syntax_error(self):
+        """Plain code following <ifm|think> should compile as valid Python without SyntaxError."""
+        import ast
+
+        text = "<ifm|think>scratchpad with <invalid> python syntax</ifm|think>\ndef foo():\n    return 'valid'"
+        code = benchmark_coding._strip_code(text)
+        self.assertEqual(code, "def foo():\n    return 'valid'")
+        ast.parse(code)
+
+    def test_strip_code_ifm_think_truncated(self):
+        """Truncated <ifm|think_fast> tag without closing tag returns empty."""
+        text = "<ifm|think_fast>Let me consider the edge cases..."
+        self.assertEqual(benchmark_coding._strip_code(text), "")
+
+    def test_strip_code_ifm_think_case_insensitive(self):
+        """Uppercase or mixed-case <IFM|THINK> tags must be cleanly stripped."""
+        import ast
+
+        text = "<IFM|THINK>Reasoning here.</IFM|THINK>\ndef solve():\n    return 42"
+        code = benchmark_coding._strip_code(text)
+        self.assertEqual(code, "def solve():\n    return 42")
+        ast.parse(code)
+
+    def test_strip_code_with_comparison_operators(self):
+        """Code containing < and > comparisons alongside <ifm|think> must not be corrupted."""
+        import ast
+
+        text = "<ifm|think>need a < b and c > d</ifm|think>\n```python\ndef check(a, b, c, d):\n    return a < b and c > d\n```"
+        code = benchmark_coding._strip_code(text)
+        self.assertEqual(code, "def check(a, b, c, d):\n    return a < b and c > d")
+        ast.parse(code)
+
+    def test_strip_code_compact_comparison_not_corrupted(self):
+        """Compact comparison expressions like x<think_limit or (x<think and y>0) must not be corrupted."""
+        import ast
+
+        text = "<ifm|think_fast>reasoning</ifm|think_fast>\n```python\ndef solve(x, think_limit, think, y):\n    if (x<think_limit):\n        return y > 0\n    if (x<think and y>0):\n        return 42\n    return 0\n```"
+        code = benchmark_coding._strip_code(text)
+        self.assertIn("x<think_limit", code)
+        self.assertIn("x<think and y>0", code)
+        ast.parse(code)
+
+    def test_strip_code_ifm_think_mixed_closing_tag(self):
+        """<ifm|think_fast> closed with </ifm|think> must be stripped cleanly."""
+        import ast
+
+        text = "<ifm|think_fast>Quick thinking</ifm|think>\n```python\ndef foo():\n    return 'bar'\n```"
+        code = benchmark_coding._strip_code(text)
+        self.assertEqual(code, "def foo():\n    return 'bar'")
+        ast.parse(code)
+
     # ------------------------------------------------------------------ _strip_code (bug fix)
 
     def test_strip_code_empty_input(self):

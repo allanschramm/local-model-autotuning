@@ -223,6 +223,36 @@ class TestNGpuLayersAndNuma(unittest.TestCase):
             with self.assertRaises(self.example.ConfigError):
                 self.example.validate_config(cfg)
 
+    def test_accepts_valid_reasoning_effort(self):
+        valid_efforts = (
+            None,
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "fast",
+            "faster",
+            "LOW",
+            "Fast",
+            "NONE",
+        )
+        for value in valid_efforts:
+            cfg = self.example.load_config()
+            cfg["REASONING_EFFORT"] = value
+            out = self.example.validate_config(cfg)
+            expected = value.lower() if isinstance(value, str) else value
+            self.assertEqual(out.get("reasoning_effort"), expected)
+
+    def test_rejects_bad_reasoning_effort(self):
+        for value in ("ultra", 123, True, ["low"], "disabled"):
+            cfg = self.example.load_config()
+            cfg["REASONING_EFFORT"] = value
+            with self.assertRaises(self.example.ConfigError):
+                self.example.validate_config(cfg)
+
 
 if __name__ == "__main__":
     unittest.main()

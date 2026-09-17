@@ -16,6 +16,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -204,7 +205,9 @@ def run_agent_loop(
     task: dict,
     gen_params: GenerationParams | None = None,
     max_turns: int = 20,
-) -> tuple[str, list[dict], float]:
+    turn_timeout: float = 420.0,
+    stop: list[str] | None = None,
+) -> tuple[str, list[dict], float, dict[str, Any]]:
     """Run one agent loop for a task.
 
     Uses llama-server's native /v1/chat/completions with tool calling.
@@ -232,6 +235,16 @@ def run_agent_loop(
     http_errors: list[str] = []
     t_start = time.time()
 
+    # Enforce 420s turn timeout floor to prevent premature cancellation
+    effective_timeout = max(
+        float(turn_timeout or getattr(client, "timeout", 420.0) or 420.0), 420.0
+    )
+    stop_tokens = stop if stop is not None else (gen.stop if gen.stop is not None else ["</s>"])
+    if isinstance(stop_tokens, str):
+        stop_tokens = [stop_tokens]
+    elif isinstance(stop_tokens, (tuple, set)):
+        stop_tokens = list(stop_tokens)
+
     for turn in range(max_turns):
         payload = {
             "messages": messages,
@@ -239,12 +252,29 @@ def run_agent_loop(
             "stream": False,
             "max_tokens": gen.max_tokens,
             "temperature": gen.temp,
-            "stop": ["</s>"],
+            "stop": stop_tokens,
         }
         for key in ("top_p", "top_k", "repeat_penalty"):
             val = getattr(gen, key, None)
             if val is not None:
                 payload[key] = val
+
+        if getattr(gen, "reasoning_effort", None) is not None:
+            payload["reasoning_effort"] = gen.reasoning_effort
+            chat_kwargs = dict(
+                getattr(gen, "chat_template_kwargs", None)
+                or getattr(gen, "chat_template_args", None)
+                or {}
+            )
+            chat_kwargs["reasoning_effort"] = gen.reasoning_effort
+            payload["chat_template_kwargs"] = chat_kwargs
+            payload["chat_template_args"] = chat_kwargs
+        elif getattr(gen, "chat_template_kwargs", None) is not None:
+            payload["chat_template_kwargs"] = gen.chat_template_kwargs
+            payload["chat_template_args"] = gen.chat_template_kwargs
+        elif getattr(gen, "chat_template_args", None) is not None:
+            payload["chat_template_kwargs"] = gen.chat_template_args
+            payload["chat_template_args"] = gen.chat_template_args
 
         url = f"{client.base_url}/v1/chat/completions"
         req = urllib.request.Request(
@@ -259,7 +289,7 @@ def run_agent_loop(
             # ≈ 152 s plus heavy prefill on 30-50k-token contexts; slow
             # CPU-offloaded MoE rigs (~8-15 t/s effective) need up to ~420 s
             # for a full 4096-token turn).
-            with urllib.request.urlopen(req, timeout=420.0) as resp:
+            with urllib.request.urlopen(req, timeout=effective_timeout) as resp:
                 raw = json.loads(resp.read().decode())
         except urllib.error.HTTPError as e:
             try:
@@ -458,6 +488,8 @@ def run_agentic_eval(
     task_ids: list[str],
     gen_params: GenerationParams | None = None,
     trials: int = 1,
+    turn_timeout: float = 420.0,
+    stop: list[str] | None = None,
 ) -> dict:
     """Run agentic evaluation on selected Claw-Eval tasks.
 
@@ -495,12 +527,26 @@ def run_agentic_eval(
 
         for trial in range(trials):
             with ServiceManager(task_dir, task) as svc:
-                final_text, tool_calls, elapsed, loop_meta = run_agent_loop(
-                    client,
-                    task,
-                    gen_params=gen,
-                    max_turns=task.get("environment", {}).get("max_turns", 20),
-                )
+                loop_kwargs: dict[str, Any] = {
+                    "turn_timeout": turn_timeout,
+                }
+                if stop is not None:
+                    loop_kwargs["stop"] = stop
+                try:
+                    final_text, tool_calls, elapsed, loop_meta = run_agent_loop(
+                        client,
+                        task,
+                        gen_params=gen,
+                        max_turns=task.get("environment", {}).get("max_turns", 20),
+                        **loop_kwargs,
+                    )
+                except TypeError:
+                    final_text, tool_calls, elapsed, loop_meta = run_agent_loop(
+                        client,
+                        task,
+                        gen_params=gen,
+                        max_turns=task.get("environment", {}).get("max_turns", 20),
+                    )
                 scoring = score_task(task, final_text, tool_calls, task_dir)
                 svc.reset_all()
 

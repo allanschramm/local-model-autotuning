@@ -209,3 +209,35 @@ def test_run_eval_score_with_stub_pack(tmp_path):
     assert out["passed"] == 0
     assert out["score"] == 0.0
     assert "tests_red" in (out["detail"] or "")
+
+
+def test_run_task_loop_forwards_stop_reasoning_effort_and_timeout(tmp_path):
+    from autoresearch.core.llama_client import GenerationParams
+
+    task = load_task("loop-trap-retry")
+    tree = tmp_path / "ws"
+    src = TASKS / "loop-trap-retry" / "workspace"
+    tree.mkdir()
+    (tree / "retry.py").write_text((src / "retry.py").read_text(encoding="utf-8"), encoding="utf-8")
+
+    captured_reqs = []
+    captured_timeouts = []
+
+    def fake_open(req: Request, timeout=None):
+        captured_reqs.append(json.loads(req.data.decode()))
+        captured_timeouts.append(timeout)
+        return _Resp(_completion(content="fixed"))
+
+    client = LlamaClient(9, timeout=10.0)  # sub-floor timeout
+    gen = GenerationParams(
+        stop="<|ifm|im_end|>",  # string stop normalized to list
+        reasoning_effort="low",
+    )
+    with patch("autoresearch.benchmarks.agentic_coding.runner.urllib.request.urlopen", fake_open):
+        run_task_loop(client, task, gen=gen, worktree=tree)
+
+    assert len(captured_reqs) == 1
+    assert captured_reqs[0]["stop"] == ["<|ifm|im_end|>"]
+    assert captured_reqs[0]["reasoning_effort"] == "low"
+    assert captured_reqs[0]["chat_template_kwargs"] == {"reasoning_effort": "low"}
+    assert captured_timeouts[0] >= 420.0

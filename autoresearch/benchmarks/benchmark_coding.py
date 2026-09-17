@@ -45,8 +45,14 @@ DATA_DIR = ROOT_DIR.parent / "data" / "benchmark_cache"
 # Helpers
 # ---------------------------------------------------------------------------
 
-_THINK_CLOSED_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
-_THINK_OPEN_RE = re.compile(r"<think>.*$", re.DOTALL)
+_THINK_CLOSED_RE = re.compile(
+    r"<(?:ifm\|)?think(?:_fast|_faster)?(?:\s+[^>\r\n]*?)?>.*?</(?:ifm\|)?think(?:_fast|_faster)?\s*>",
+    re.DOTALL | re.IGNORECASE,
+)
+_THINK_OPEN_RE = re.compile(
+    r"(?:^|(?<=[\r\n\s]))<(?:ifm\|)?think(?:_fast|_faster)?(?:\s+[^>\r\n]*?)?>.*$",
+    re.DOTALL | re.IGNORECASE,
+)
 _FENCE_RE = re.compile(r"```(?:python|py)?[ \t]*\n(.*?)```", re.DOTALL)
 
 

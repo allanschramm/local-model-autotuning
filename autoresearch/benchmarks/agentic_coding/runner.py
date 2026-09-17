@@ -245,10 +245,11 @@ def run_task_loop(
     task: dict[str, Any],
     gen_params: GenerationParams | None = None,
     *,
+    gen: GenerationParams | None = None,
     worktree: Path | None = None,
 ) -> dict[str, Any]:
     """Run one issue session. Caller may pass a prepared worktree (tests)."""
-    gen = gen_params or GenerationParams(max_tokens=2048)
+    gen = gen_params or gen or GenerationParams(max_tokens=2048)
     max_turns = int(task.get("max_turns", MAX_TURNS_DEFAULT))
     allowlisted = tuple(task.get("allowlist") or [])
     docs_only = bool(task.get("docs_only", False))
@@ -281,26 +282,50 @@ def run_task_loop(
             if detector.fail_reason:
                 fail_reason = detector.fail_reason
                 break
+            stop_val = gen.stop if gen and gen.stop is not None else ["</s>"]
+            if isinstance(stop_val, str):
+                stop_val = [stop_val]
+            elif isinstance(stop_val, (tuple, set)):
+                stop_val = list(stop_val)
             payload = {
                 "messages": messages,
                 "tools": TOOL_DEFS,
                 "stream": False,
                 "max_tokens": gen.max_tokens,
                 "temperature": gen.temp,
-                "stop": ["</s>"],
+                "stop": stop_val,
             }
             for key in ("top_p", "top_k", "repeat_penalty"):
                 val = getattr(gen, key, None)
                 if val is not None:
                     payload[key] = val
+
+            if getattr(gen, "reasoning_effort", None) is not None:
+                payload["reasoning_effort"] = gen.reasoning_effort
+                chat_kwargs = dict(
+                    getattr(gen, "chat_template_kwargs", None)
+                    or getattr(gen, "chat_template_args", None)
+                    or {}
+                )
+                chat_kwargs["reasoning_effort"] = gen.reasoning_effort
+                payload["chat_template_kwargs"] = chat_kwargs
+                payload["chat_template_args"] = chat_kwargs
+            elif getattr(gen, "chat_template_kwargs", None) is not None:
+                payload["chat_template_kwargs"] = gen.chat_template_kwargs
+                payload["chat_template_args"] = gen.chat_template_kwargs
+            elif getattr(gen, "chat_template_args", None) is not None:
+                payload["chat_template_kwargs"] = gen.chat_template_args
+                payload["chat_template_args"] = gen.chat_template_args
+
             url = f"{client.base_url}/v1/chat/completions"
             req = urllib.request.Request(
                 url,
                 data=json.dumps(payload).encode(),
                 headers={"Content-Type": "application/json"},
             )
+            turn_timeout = max(float(getattr(client, "timeout", 420.0) or 420.0), 420.0)
             try:
-                with urllib.request.urlopen(req, timeout=120.0) as resp:
+                with urllib.request.urlopen(req, timeout=turn_timeout) as resp:
                     raw = json.loads(resp.read().decode())
             except Exception as exc:
                 fail_reason = f"request_failed:{exc}"
