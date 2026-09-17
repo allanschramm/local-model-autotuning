@@ -25,6 +25,7 @@ Cards:
 - [Qwen3.5-9B](qwen3.5-9b.md) — UD claw **0.1333** / coding **rejected**; MTP claw **0.2000** / coding **0.495**
 - Qwen3.5-4B-MTP (`Qwen3.5-4B-MTP-Q4_K_M.gguf`) — claw **0.2667** / coding **0.385**; no dedicated card yet
 - [Qwen3.6-35B-A3B](qwen3.6-35b-a3b.md) — claw **0.5333** / coding **0.4300** (UD-Q4_K_XL @ 100k no-spec; Q3_K_XL vector incomplete)
+- [Qwen3.8-35B-A3B](qwen3.8-35b-a3b.md) — on_front; claw-full **0.7333** / coding **0.4900** @ 65k (MoE `n-cpu-moe 31`, bench **33.5 t/s**, generation TPS **42.8**)
 - [Qwen3.8-27B](qwen3.8-27b.md) — UD-IQ1_S dense (text-only GGUF of the multimodal publisher); bench 28.4 t/s @65k; reasoning-effort ladder xhigh/medium/low (the only verified one)
 - [Nemotron-3-Nano-4B](nemotron3-nano-4b.md) — dense `nemotron_h` hybrid; agentic 0.7333 / coding 0.5100 @131k; enable_thinking-only; daily budget 2048 unmeasured
 - [Qwen-AgentWorld-35B-A3B](qwen-agentworld-35b-a3b.md)
@@ -46,6 +47,7 @@ Cards:
 - [Spark-X2.5-4B](spark-x2.5-4b.md) — dense `spark2_5` (requires llama.cpp $\ge$ `b10828`); bench **73.1 t/s**, quick smoke **1.0000** (5/5), peak VRAM 6.8 GB @ 131k
 - [MiniCPM5-2B](minicpm5-2b.md) — claw **0.7333** / coding **0.3700** @ 131k, bench 127.3 t/s
 - [Fuse-2-MoE](fuse-2-moe.md) — claw **0.0000** / coding **0.0500** @ 32k, bench 56.4 t/s (custom Fuse4 architecture on `llama.cpp-fuse4`)
+- [K2-Horizon-7B](k2-horizon-7b.md) — claw **0.6000** / coding **0.4800** @ 65k (dense `k2_horizon`, IFM; 9.0B physical params; 40.5 KiB/tok KV footprint; 32k context boundary on 8 GB cards)
 - [VITRIOL technique](vitriol-technique.md) — stock MoE `--n-cpu-moe` + study notes on Randozart DMA fork (not Trial engine)
 
 Pareto frontier: [pareto-leaderboard.md](../discovery/pareto-leaderboard.md).  

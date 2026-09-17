@@ -47,6 +47,8 @@ User-facing guides for **discovering, evaluating, selecting, and optimizing** lo
 - [`nvfp4-quantization.md`](./nvfp4-quantization.md) — NVIDIA NVFP4 4-bit FP format: structure, scaling, memory, native vs Marlin fallback, ecosystem, repo relevance.
 - [`advanced-inference-optimizations.md`](./advanced-inference-optimizations.md) — high-performance techniques: CUDA graphs, tcmalloc/jemalloc, KV cache optimizations, and offload bottlenecks.
 - [`low-vram-optimizations.md`](./low-vram-optimizations.md) — strategies for VRAM-constrained GPUs: GGUF/EXL2/HQQ quants, KV cache compression, MoE offloading, and preventing system paging.
+- [`kv-cache-architecture-scaling.md`](./kv-cache-architecture-scaling.md) — KV cache scaling across attention architectures: dense MHA vs hybrid SSM (DeltaNet) vs sliding window (SWA); nominal parameter fallacy (untied 250k vocab) and why 7B can outgrow 12B VRAM on 8 GB cards.
+- [`moe-expert-offload-ram-hygiene.md`](./moe-expert-offload-ram-hygiene.md) — MoE expert offload math & RAM hygiene: balancing 35B architectures on 8 GB VRAM / 32 GB RAM rigs, lazy mmap paging, domain shift bursts, and why context reduction is the wrong lever.
 - [`vitriol-technique.md`](./vitriol-technique.md) — stock `--n-cpu-moe` vs Randozart/VITRIOL DMA fork (study only; Search stays upstream).
 - [`local-models-low-vram-configs.md`](./local-models-low-vram-configs.md) — optimal llama.cpp parameters for local and LM Studio models on 8 GB VRAM.
 

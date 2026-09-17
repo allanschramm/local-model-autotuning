@@ -74,6 +74,7 @@ One markdown file per GGUF model we run on the operator host. Cards are the cano
 - [`qwen-agentworld-35b-a3b.md`](./qwen-agentworld-35b-a3b.md) — Qwen AgentWorld 35B A3B model card.
 - [`qwen3.5-9b.md`](./qwen3.5-9b.md) — Qwen 3.5 9B; claw 0.1333; coding-10 **rejected** (VRAM) on 8 GB.
 - [`qwen3.6-35b-a3b.md`](./qwen3.6-35b-a3b.md) — Qwen 3.6 35B A3B model card.
+- [`qwen3.8-35b-a3b.md`](./qwen3.8-35b-a3b.md) — Qwen3.8-35B-A3B Distill Q4_K_M; **on_front claw 0.7333 / coding 0.4900 @65k, bench 33.5 t/s, gen TPS 42.8**; MoE `n-cpu-moe 31` (10 GPU layers), embedded-MTP nextn tensors (2026-09-17).
 - [`qwythos-9b-claude-mythos-5-1m.md`](./qwythos-9b-claude-mythos-5-1m.md) — Qwythos 9B Claude Mythos model card.
 - [`nanbeige4.2-3b.md`](./nanbeige4.2-3b.md) — Nanbeige4.2-3B looped dense (arch fork required).
 - [`kat-coder-v2.5-dev.md`](./kat-coder-v2.5-dev.md) — KAT IQ4_XS; claw **0.6000** + coding **0.640**.
@@ -82,4 +83,5 @@ One markdown file per GGUF model we run on the operator host. Cards are the cano
 - [`spark-x2.5-4b.md`](./spark-x2.5-4b.md) — Spark-X2.5-4B dense `spark2_5` (requires llama.cpp $\ge$ `b10828`); bench **73.1 t/s**, quick smoke **1.0000** (5/5), peak VRAM 6.8 GB @ 131k.
 - [`minicpm5-2b.md`](./minicpm5-2b.md) — MiniCPM5-2B Q4_K_M dense `llama`; claw 0.7333 / coding 0.3700 @ 131k, bench 127.3 t/s.
 - [`fuse-2-moe.md`](./fuse-2-moe.md) — Fuse-2-MoE Q4_K_M MoE hybrid `qwen35moe`; claw 0.0000 / coding 0.0500 @32k, bench 56.4 t/s (requires `llama.cpp-fuse4`).
+- [`k2-horizon-7b.md`](./k2-horizon-7b.md) — K2-Horizon-7B Q4_K_M dense `k2_horizon` (IFM; 9.0B physical params with untied 250k vocab; 100% full dense attention; 40.5 KiB/tok KV footprint; Trial post-mortem and 32k context boundary).
 - [`vitriol-technique.md`](./vitriol-technique.md) — stock `--n-cpu-moe` path + absorbed notes from Randozart/VITRIOL (fork = study only).
