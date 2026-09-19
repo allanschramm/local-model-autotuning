@@ -51,6 +51,7 @@ User-facing guides for **discovering, evaluating, selecting, and optimizing** lo
 - [`moe-expert-offload-ram-hygiene.md`](./moe-expert-offload-ram-hygiene.md) — MoE expert offload math & RAM hygiene: balancing 35B architectures on 8 GB VRAM / 32 GB RAM rigs, lazy mmap paging, domain shift bursts, and why context reduction is the wrong lever.
 - [`vitriol-technique.md`](./vitriol-technique.md) — stock `--n-cpu-moe` vs Randozart/VITRIOL DMA fork (study only; Search stays upstream).
 - [`local-models-low-vram-configs.md`](./local-models-low-vram-configs.md) — optimal llama.cpp parameters for local and LM Studio models on 8 GB VRAM.
+- [`wddm-vram-spill-and-context-degradation.md`](./wddm-vram-spill-and-context-degradation.md) — Windows WDDM VRAM spillover & long-context degradation: PCIe bandwidth collapse (40 TPS prefill), compaction peak memory triggers, zombie server retention, and KV sizing mitigations.
 
 ### 3. Inference Engines & Speculative Runtimes
 - [`inference-engines-landscape.md`](./inference-engines-landscape.md) — technical comparison & taxonomy guide of LLM inference engines (vLLM, SGLang, TensorRT-LLM, LMDeploy, llama.cpp & fork ecosystem [KoboldCpp, alpaca.cpp, TurboQuant, BeeLlama], Colibrì, TGI).
