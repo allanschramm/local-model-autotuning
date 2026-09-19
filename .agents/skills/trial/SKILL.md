@@ -4,7 +4,7 @@ description: >
   Run a full Objective-Vector Trial (Claw-Eval full = 15 tasks + coding-10) for one
   GGUF or a sequential queue of variants. Use whenever the user says trial / Trial
   a model, "trial this X model", "trial all X variants/quants", complete the
-  Objective Vector, or wants claw-full + coding-10 measured into results.tsv —
+  Objective Vector, or wants claw-full + coding-10 measured into results.db —
   even if they do not say the word "skill". Prefer this over ad-hoc llama-server
   or --validation-only when they want real frontier axes.
 ---
@@ -12,7 +12,7 @@ description: >
 # trial
 
 Operator skill for **full Trials**: one Fingerprint per GGUF basename, Claw full
-(15 tasks) + coding-10 (10 tasks/dataset), logged to `results.tsv`. Sequences run
+(15 tasks) + coding-10 (10 tasks/dataset), logged to `results.db` (SQLite). Sequences run
 **one at a time**; rejected or crashed items stay in the table and the queue
 continues.
 
@@ -92,7 +92,7 @@ Each distinct GGUF basename is its own Trial (quants are not interchangeable).
    `autoresearch/benchmarks/bench_config.py`). Do not shrink task counts.
    Optional Night selector (ADR 0013; **off** by default): add `--agentic-coding`.
    Required before claiming a Night pick that uses `agentic_coding`.
-3. **Read the latest `results.tsv` row** for that basename / Fingerprint.
+3. **Read the latest row from `results.db`** (SQLite) for that basename / Fingerprint.
    Status comes from the store (`on_front` | `dominated` | `incomplete` |
    `rejected`). Low scores are not rejections.
 4. **On reject or crash**: append whatever the harness wrote (or a table row
@@ -120,7 +120,7 @@ ALWAYS end with this table (one row per queue item):
 | 2 | `model-Q3_K_M.gguf` | rejected | 65536 | — | — | — | `family-preferred` | HOST_MEMORY_PREFLIGHT |
 ```
 
-- Pull numbers from the results store (`results.db` canonical, `results.tsv` legacy fallback — `scripts/rank_results.py` reads DB-first), not memory.
+- Pull numbers from the canonical results store (`results.db` via SQLite or `scripts/rank_results.py`), not memory.
 - `status` = Trial Status label from the store.
 - `notes` = reject reason, crash summary, or empty.
 - Optional follow-up: `.\venv\Scripts\python.exe scripts/rank_results.py` if the
@@ -133,7 +133,7 @@ ALWAYS end with this table (one row per queue item):
 - Leaving the previous model's sampler/engine in Baseline
 - CLI Baseline overrides instead of editing `config.py`
 - Stopping the whole sequence because one variant rejected
-- Committing aliases, `results.tsv`, or Baseline
+- Committing aliases, `results.db`, or Baseline
 
 ## References
 

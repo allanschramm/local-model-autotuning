@@ -11,15 +11,17 @@ Repository developers.
 ## Local Contracts
 - Baseline only via gitignored `autoresearch/core/config.py` (seed from `config.py.example`). No Trial CLI flag soup. `program.md` / harnesses fixed unless user asks.
 - **Upstream-first (mandatory):** Check upstream `llama.cpp/common/arg.cpp` `add_opt` (`~310` flags) + `docs/llamacpp-toolset.md` + `docs/llamacpp-flags-audit.md` before adding any `ENGINE_*/SAMPLER_*` flag or estimator — `90%` already exists upstream (`fit`/`mlock`/`yarn`/`dry`/`xtc`/`fit-target`/`load-mode`/`warmup`/`cache-ram`/`kv-unified`/`repack`/`yarn` etc.), harness is passthrough mapper in `autoresearch/core/llama_runner.py:895 _build_cmd`; keep only host/WDDM/thermal/Pareto gates (`common/fit.h:14` assumes unlimited host).
-- Do not edit vendor trees: `llama.cpp/`, `claw-eval/`, `VITRIOL/`, `llama.cpp-releases/`.
+- Do not edit vendor trees: `llama.cpp/`, `VITRIOL/`, `llama.cpp-releases/`. Benchmarks (including `claw-eval/`) are kept updated with upstream.
 - Never commit private paths, emails, hostnames, GPU SKUs, aliases, or machine Baseline.
 - `models/` is a real store directory. NEVER recursive/forced delete (`Remove-Item -Recurse`, `rm -rf`, `rmdir /s`) on the `models/` root — it wipes the GGUF store and private notes. Per-file deletes in subdirs are fine.
 - No command timeouts: Never set execution timeouts on commands run by the agent unless explicitly told. Benchmarks and model tests run until completion. This does not prohibit bounded network timeouts inside product code when needed to prevent a stalled service or request from blocking indefinitely.
 - **No autonomous autoloop:** When the user asks for a trial, hill climb, bench, validate, or any tuning/eval action, do **NOT** launch `autoloop.py` or the `/autoresearch` autonomous loop. Use the explicit harness (`benchmark_search.py`, `python -m autoresearch.runners.run`, or the Trial skill's `--agentic-full` command). `autoloop.py` is operator-only — if the user wanted the background hill-climb loop, they would start it themselves.
+- **Results Store is Strictly SQLite (`results.db`):** `results.db` (SQLite) is the sole canonical store for all Trial, validation, and benchmark outcomes. `results.tsv` is deprecated and must not be queried, grepped, or relied upon by agents for metrics or history. Always query `results.db` directly using SQLite or `autoresearch.core.results_db`.
 - **Context is Inviolable (Never reduce context):** Configured context (`CTX_SIZE`) is a core axis of the Pareto frontier (`ctx × TPS × agentic × coding`). When encountering RAM pressure, VRAM spill, circuit breaker trips, OOM, or throughput bottlenecks, NEVER reduce or suggest reducing `CTX_SIZE` as a solution. Address resource pressure strictly through host memory hygiene (closing background desktop applications), KV cache quantization (`q4_0`), layer offloading (`N_CPU_MOE`), batch/ubatch tuning, or selecting lighter weight quantizations (`IQ4_XS`, `Q3_K_M`), keeping the target context intact.
 
 ## Work Guidance
 - **Runtime (do not rebuild)**: use the prebuilt release `llama.cpp-releases/upstream/b10867` (nightly, CUDA 13.3) via `AUTORESEARCH_LLAMA_CPP_ROOT` — smoke-validated 2026-09-08 (Spark-X2.5 bench 73.1 t/s, quick 5/5); carries Nemotron-3.5 embedded-MTP (`nextn_predict_layers`) and `spark2_5` architecture support. `./llama.cpp` is source-only; its `build-cuda/` artifacts are stale (`b10099`, pre-MTP) and rebuilding does NOT fix Nemotron (`b10867` supersedes `b10819`; `b10375` remains on disk — Machine-scope env still points there, User scope is `b10867`).
+- **Windows binary execution**: When invoking `llama-server.exe` or `llama-cli.exe` directly on Windows (outside Python runners), always set the working directory to `build-cuda\bin` where companion DLLs (`llama.dll`, `ggml.dll`, `cudart64_13.dll`) reside. Invoking without `cwd` causes Windows loader failure `0xc0000135` and conhost pipe error `0x800700e8` (`ERROR_NO_DATA`).
 - Method + Trial procedure: `CONTEXT.md`, `docs/adr/`, `docs/discovery/`, `autoresearch/AGENTS.md`, `program.md`.
 - Full Trial operator skill (Claw-15 + coding-10, sequential queues): [`.agents/skills/trial/SKILL.md`](.agents/skills/trial/SKILL.md).
 
@@ -115,4 +117,4 @@ Default section order:
 - [.agents/skills/validation/SKILL.md](.agents/skills/validation/SKILL.md) — model validation skill (download, metadata check, smoke eval; tracked carve-out)
 - [.agents/skills/inference-research/SKILL.md](.agents/skills/inference-research/SKILL.md) — inference-performance research skill (flags, engines, quantization, spec decoding; engine-side only, no model search)
 - [.pre-commit-config.yaml](.pre-commit-config.yaml) · [.github/workflows/validate.yml](.github/workflows/validate.yml) · [pyproject.toml](pyproject.toml)
-- External read-only: `llama.cpp/` · `claw-eval/` · `llama.cpp-releases/` · `VITRIOL/`
+- External read-only: `llama.cpp/` · `llama.cpp-releases/` · `VITRIOL/`
