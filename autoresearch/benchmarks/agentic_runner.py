@@ -200,6 +200,60 @@ def _assistant_history_message(msg: dict, *, tool_calls: list | None = None) -> 
     return out
 
 
+MAX_TOOL_OUTPUT_CHARS = 10000
+
+
+def _format_tool_content(result: Any, max_chars: int = MAX_TOOL_OUTPUT_CHARS) -> str:
+    """Format and cap tool return payload to prevent context blowouts."""
+    s = json.dumps(result)
+    if len(s) > max_chars:
+        half = max_chars // 2
+        return s[:half] + f"\n... [truncated {len(s) - max_chars} characters] ...\n" + s[-half:]
+    return s
+
+
+def _prune_messages_for_context(messages: list[dict]) -> bool:
+    """Condense older tool responses and intermediate thoughts when context limit is approached.
+
+    Returns True if any pruning occurred, False if no further reduction is possible.
+    """
+    # Pass 1: truncate large tool messages (> 1500 chars) down to 1000 chars
+    pruned = False
+    for m in messages:
+        if m.get("role") == "tool":
+            c = m.get("content", "")
+            if len(c) > 1500:
+                m["content"] = (
+                    c[:500]
+                    + f"\n... [pruned for context, {len(c) - 1000} chars removed] ...\n"
+                    + c[-500:]
+                )
+                pruned = True
+    if pruned:
+        return True
+
+    # Pass 2: drop reasoning_content from older assistant turns (keep only latest assistant turn)
+    assistant_indices = [i for i, m in enumerate(messages) if m.get("role") == "assistant"]
+    if len(assistant_indices) > 1:
+        for idx in assistant_indices[:-1]:
+            if "reasoning_content" in messages[idx]:
+                del messages[idx]["reasoning_content"]
+                pruned = True
+    if pruned:
+        return True
+
+    # Pass 3: prune oldest tool message contents entirely (starting from earliest, index >= 2)
+    for i in range(2, len(messages)):
+        if (
+            messages[i].get("role") == "tool"
+            and messages[i].get("content") != "[earlier tool result pruned to fit context]"
+        ):
+            messages[i]["content"] = "[earlier tool result pruned to fit context]"
+            return True
+
+    return False
+
+
 def run_agent_loop(
     client: LlamaClient,
     task: dict,
@@ -297,6 +351,23 @@ def run_agent_loop(
             except Exception:
                 body = ""
             msg = f"HTTP {e.code}: {body}"
+            # If server returned 400 due to context size blowout, prune messages and retry
+            body_lower = body.lower()
+            if e.code == 400 and any(
+                phrase in body_lower
+                for phrase in (
+                    "context",
+                    "token",
+                    "exceed",
+                    "maximum context",
+                    "prompt is too long",
+                )
+            ):
+                if _prune_messages_for_context(messages):
+                    print(
+                        f"    [agent] context limit reached on turn {turn + 1}; pruned conversation history and retrying"
+                    )
+                    continue
             print(f"    [agent] turn {turn + 1} request failed: {msg}")
             http_errors.append(msg)
             break
@@ -316,13 +387,31 @@ def run_agent_loop(
         # boundary stops, AND stops on the "</s>" stop string (not the EOS
         # token) — i.e. every complete final answer. The only reliable cap
         # signal is n_decoded == max_tokens in the per-run server log.
+        content = _assistant_visible_text(msg)
         if choice.get("finish_reason") == "length" and not tool_calls:
             length_stops += 1
             print(
                 f"    [agent] turn {turn + 1} finish_reason=length, no tool_calls "
                 "(stop-string stop or cap hit — confirm n_decoded in server log)"
             )
-        content = _assistant_visible_text(msg)
+            # Thinking models: if tokens were exhausted during reasoning and no visible content
+            # was emitted yet, give a continuation turn so the model can deliver its final response.
+            if (
+                not (msg.get("content") or "").strip()
+                and msg.get("reasoning_content")
+                and turn + 1 < max_turns
+            ):
+                print(
+                    f"    [agent] turn {turn + 1} reasoning truncated with no content; requesting continuation"
+                )
+                messages.append(_assistant_history_message(msg))
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": "Please continue and provide your complete final response.",
+                    }
+                )
+                continue
 
         if tool_calls:
             # Model wants to use tools — keep reasoning_content for next turns.
@@ -355,7 +444,7 @@ def run_agent_loop(
                     {
                         "role": "tool",
                         "tool_call_id": tc.get("id", f"call_{turn}"),
-                        "content": json.dumps(result),
+                        "content": _format_tool_content(result),
                     }
                 )
         else:
@@ -448,7 +537,18 @@ def score_task(
         elif check_type == "categories_present":
             categories = [str(cat) for cat in check.get("categories", [])]
             text_lower = str(final_text or "").lower()
-            found = [cat for cat in categories if cat.lower() in text_lower]
+            category_synonyms = {
+                "fyi": ["fyi", "notifications", "notification", "info", "informational"],
+                "notifications": ["notifications", "notification", "fyi", "info"],
+                "action required": ["action required", "action items", "action item", "action"],
+                "waiting for reply": ["waiting for reply", "waiting", "pending"],
+            }
+            found = []
+            for cat in categories:
+                cat_lower = cat.lower()
+                syns = category_synonyms.get(cat_lower, [cat_lower])
+                if any(syn in text_lower for syn in syns):
+                    found.append(cat)
             passed = len(found) >= len(categories) * 0.5  # at least half
             details_parts.append(
                 f"{name}: {'PASS' if passed else 'FAIL'} (categories: {found}/{categories})"

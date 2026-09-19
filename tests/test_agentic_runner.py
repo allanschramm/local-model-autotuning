@@ -654,3 +654,150 @@ def test_run_agentic_eval_forwards_turn_timeout_and_stop(monkeypatch, tmp_path):
 
     assert captured_kwargs.get("turn_timeout") == 500.0
     assert captured_kwargs.get("stop") == ["<|ifm|im_end|>", "</s>"]
+
+
+def test_format_tool_content_truncates_large_payload():
+    """Tool content exceeding MAX_TOOL_OUTPUT_CHARS must be truncated safely."""
+    from autoresearch.benchmarks.agentic_runner import _format_tool_content
+
+    small_payload = {"status": "ok", "count": 42}
+    assert _format_tool_content(small_payload, max_chars=100) == json.dumps(small_payload)
+
+    large_payload = {"data": "x" * 200}
+    formatted = _format_tool_content(large_payload, max_chars=50)
+    assert len(formatted) < len(json.dumps(large_payload))
+    assert "... [truncated" in formatted
+
+
+def test_prune_messages_for_context():
+    """Messages list must be pruned progressively to avoid context blowouts."""
+    from autoresearch.benchmarks.agentic_runner import _prune_messages_for_context
+
+    messages = [
+        {"role": "system", "content": "You are an assistant."},
+        {"role": "user", "content": "Do task."},
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "old thought",
+            "tool_calls": [{"id": "1"}],
+        },
+        {"role": "tool", "content": "a" * 2000, "tool_call_id": "1"},
+        {"role": "assistant", "content": "", "reasoning_content": "recent thought"},
+    ]
+
+    # Pass 1: Pruning large tool responses
+    assert _prune_messages_for_context(messages) is True
+    assert len(messages[3]["content"]) < 1200
+    assert "... [pruned for context" in messages[3]["content"]
+
+    # Pass 2: Pruning old reasoning content from earlier assistant turns
+    assert _prune_messages_for_context(messages) is True
+    assert "reasoning_content" not in messages[2]
+    assert messages[4].get("reasoning_content") == "recent thought"
+
+
+def test_score_task_categories_present_synonyms(dummy_task_dir: Path):
+    """categories_present check should accept natural synonyms (e.g. notifications <-> fyi)."""
+    task = {
+        "scoring_components": [
+            {
+                "name": "triage_categories",
+                "weight": 1.0,
+                "check": {
+                    "type": "categories_present",
+                    "categories": ["fyi", "action required"],
+                },
+            }
+        ]
+    }
+    # Text uses "notifications" instead of "fyi", and "action items" instead of "action required"
+    text = "Emails sorted into: Notifications and Action Items."
+    result = score_task(task, text, [], dummy_task_dir)
+    assert result["score"] == 1.0
+    assert "triage_categories: PASS" in result["details"]
+
+
+def test_run_agent_loop_retries_on_context_error(monkeypatch, mock_llama_client, capsys):
+    """Context blowout HTTP 400 must trigger pruning and retry instead of immediately aborting."""
+    mock_llama_client.base_url = "http://127.0.0.1:18080"
+
+    calls = 0
+
+    class _MockResp:
+        def __init__(self, data):
+            self._data = data
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return json.dumps(self._data).encode()
+
+    def _mock_urlopen(req, *a, **k):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            # Turn 1: model returns a tool call
+            return _MockResp(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "tool_calls",
+                            "message": {
+                                "content": "",
+                                "tool_calls": [
+                                    {
+                                        "id": "c1",
+                                        "function": {"name": "fetch_info", "arguments": "{}"},
+                                    }
+                                ],
+                            },
+                        }
+                    ]
+                }
+            )
+        elif calls == 2:
+            # Turn 2: server rejects with 400 context blowout
+            raise urllib.error.HTTPError(
+                "http://127.0.0.1:18080/v1/chat/completions",
+                400,
+                "Bad Request",
+                email.message.Message(),
+                io.BytesIO(b'{"error":{"message":"request exceeds context size (32768)"}}'),
+            )
+        else:
+            # Turn 2 retry: server returns final response
+            return _MockResp(
+                {
+                    "choices": [
+                        {"finish_reason": "stop", "message": {"content": "Final triage completed."}}
+                    ]
+                }
+            )
+
+    monkeypatch.setattr(
+        "autoresearch.benchmarks.agentic_runner.urllib.request.urlopen", _mock_urlopen
+    )
+    monkeypatch.setattr(
+        "autoresearch.benchmarks.agentic_runner._call_mock_endpoint",
+        lambda ep, args: {"data": "x" * 2500},
+    )
+
+    task = {
+        "prompt": {"text": "Process emails"},
+        "tools": [{"name": "fetch_info"}],
+        "tool_endpoints": [{"tool_name": "fetch_info", "url": "http://127.0.0.1:9999"}],
+    }
+
+    text, tool_calls, elapsed, meta = run_agent_loop(
+        mock_llama_client,
+        task,
+        max_turns=4,
+    )
+    assert "context limit reached" in capsys.readouterr().out
+    assert text == "Final triage completed."
+    assert calls == 3
