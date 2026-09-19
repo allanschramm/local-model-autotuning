@@ -33,7 +33,7 @@ One short framing, then move to action:
   threads, MoE offload, MTP…). Hand-tuning is slow and easy to get wrong on
   limited VRAM/RAM.
 - **What this repo does:** autonomous **Search** over those flags for *your*
-  hardware. It records Trials in `results.tsv` and keeps a **Pareto Set** on
+  hardware. It records Trials in the SQLite results store (`results.db`) and keeps a **Pareto Set** on
   four maximize axes: configured context × TPS × agentic (Claw-Eval full) ×
   coding (coding-10).
 - **What it does *not* do:** re-quantize models, train weights, or pick a single

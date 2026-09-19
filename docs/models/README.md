@@ -39,6 +39,7 @@ Cards:
 - [Laguna-XS-2.1](laguna-xs-2.1.md) — claw-full **0.6667**; coding **0.195**
 - [Bonsai-27B](bonsai-27b.md) — claw **0.4667** / coding **0.455**
 - [Ternary-Bonsai-27B](ternary-bonsai-27b.md) — rejected (below TPS floor / PrismML)
+- [Ternary-Bonsai-2-27B](ternary-bonsai-2-27b.md) — on_front; claw **0.8000** / coding **0.4650** @ 32k, TPS **36.2 t/s** (PrismML CUDA, peak VRAM 7.7 GB)
 - [LFM2.5-1.2B](lfm2.5-1.2b.md) — claw **0.6000** / coding **0.350**
 - [LFM2.5-2.6B](lfm2.5-2.6b.md) — claw **0.8667** / coding **0.5050** (post-harness remasure; was false 0.3333)
 - [LFM2.5-8B-A1B](lfm2.5-8b-a1b.md) — claw ≤0.20 / coding **0.365**

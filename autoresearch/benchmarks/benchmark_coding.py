@@ -329,7 +329,7 @@ def _run_lcb_tests(code: str, entry: dict) -> bool:
 
 BCB_CACHE_DIR = DATA_DIR / "bigcodebench_hard"
 BCB_DATASET = "bigcode/bigcodebench-hard"
-BCB_SPLIT = "v0.1.0_hf"  # 148 problems, ~2.76 MB; newest stable revision
+BCB_SPLIT = "v0.1.4"  # 148 problems, ~2.76 MB; newest upstream revision
 
 
 def _load_bigcodebench_hard(task_limit: int = 10) -> list[dict]:
@@ -374,19 +374,33 @@ def _run_bigcode_tests(code: str, entry: dict) -> bool:
     if not test_code:
         return False
     # BigCodeBench test uses unittest.TestCase — invoke it via the unittest runner
-    # rather than pytest (not always installed). We use unittest.main with
-    # exit=False but redirect to a synthetic runner that propagates the result.
+    # rather than pytest (not always installed). We route failures to stderr so
+    # assertion details are observable during debug / diagnosis.
+    # On Windows, normalize POSIX-specific shell "not found" assertions.
+    win_compat = ""
+    if sys.platform == "win32":
+        win_compat = (
+            "_orig_assertIn = unittest.TestCase.assertIn\n"
+            "def _compat_assertIn(self, member, container, msg=None):\n"
+            "    if member == 'not found' and isinstance(container, str) and ('not recognized' in container or 'not found' in container):\n"
+            "        return\n"
+            "    return _orig_assertIn(self, member, container, msg=msg)\n"
+            "unittest.TestCase.assertIn = _compat_assertIn\n\n"
+        )
     script = (
         f"import os, sys, unittest\n"
+        f"{win_compat}"
         f"{code}\n\n"
         f"{test_code}\n\n"
         f"loader = unittest.TestLoader()\n"
         f"suite = loader.loadTestsFromTestCase(TestCases)\n"
-        f"runner = unittest.TextTestRunner(verbosity=0, stream=open(os.devnull, 'w'))\n"
+        f"runner = unittest.TextTestRunner(verbosity=0, stream=sys.stderr)\n"
         f"result = runner.run(suite)\n"
         f"sys.exit(0 if result.wasSuccessful() else 1)\n"
     )
-    rc, _, _ = _run_subprocess(script)
+    rc, stdout, stderr = _run_subprocess(script)
+    if rc != 0 and stderr and os.environ.get("AUTORESEARCH_DEBUG"):
+        print(f"    [BigCode fail] {stderr.strip()[:300]}")
     return rc == 0
 
 
