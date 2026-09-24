@@ -254,6 +254,27 @@ def _prune_messages_for_context(messages: list[dict]) -> bool:
     return False
 
 
+def _rewind_last_tool_turn(messages: list[dict]) -> bool:
+    """Drop the last assistant-with-tool_calls block and its tool results.
+
+    A 500 from argument re-parsing means the history carries a poisoned
+    tool_call (non-JSON arguments echoed from a previous turn). The poison
+    entered on the most recent tool turn, so rewind exactly that block;
+    older junk would have failed on an earlier turn. Returns True if rewound.
+    """
+    last_tool_turn = -1
+    for i, m in enumerate(messages):
+        if m.get("role") == "assistant" and m.get("tool_calls"):
+            last_tool_turn = i
+    if last_tool_turn < 0:
+        return False
+    end = last_tool_turn + 1
+    while end < len(messages) and messages[end].get("role") == "tool":
+        end += 1
+    del messages[last_tool_turn:end]
+    return True
+
+
 def run_agent_loop(
     client: LlamaClient,
     task: dict,
@@ -287,6 +308,7 @@ def run_agent_loop(
     all_tool_calls: list[dict] = []
     length_stops = 0
     http_errors: list[str] = []
+    retried_500 = False
     t_start = time.time()
 
     # Enforce 420s turn timeout floor to prevent premature cancellation
@@ -303,6 +325,13 @@ def run_agent_loop(
         payload = {
             "messages": messages,
             "tools": tool_defs,
+            # Single tool call per turn: multi-call bursts from tag-style
+            # templates (e.g. MiMo <tool_call>) get merged into one garbage
+            # arguments string server-side, which 500s the NEXT turn when
+            # the history is re-parsed (func_args_not_string, chat.cpp).
+            # Upstream knob: tools/server/server-common.cpp
+            # ("parallel_tool_calls", default = template caps).
+            "parallel_tool_calls": False,
             "stream": False,
             "max_tokens": gen.max_tokens,
             "temperature": gen.temp,
@@ -368,6 +397,18 @@ def run_agent_loop(
                         f"    [agent] context limit reached on turn {turn + 1}; pruned conversation history and retrying"
                     )
                     continue
+            if e.code == 500 and not retried_500:
+                # Argument re-parse failure: the history carries a poisoned
+                # tool_call. Rewind one tool turn and retry once per task
+                # instead of failing immediately; a second 500 falls through
+                # and fails the task (no progressive history destruction).
+                if _rewind_last_tool_turn(messages):
+                    retried_500 = True
+                    print(
+                        f"    [agent] turn {turn + 1} HTTP 500; rewound last tool turn and retrying"
+                    )
+                    http_errors.append(msg)
+                    continue
             print(f"    [agent] turn {turn + 1} request failed: {msg}")
             http_errors.append(msg)
             break
@@ -414,6 +455,40 @@ def run_agent_loop(
                 continue
 
         if tool_calls:
+            # History hygiene: never echo calls with non-JSON arguments
+            # back into the conversation — the server re-parses them on
+            # the next turn (func_args_not_string, chat.cpp) and answers
+            # HTTP 500, killing the whole task.
+            valid_calls = []
+            for tc in tool_calls:
+                args_raw = (tc.get("function", {}) or {}).get("arguments", "{}")
+                if isinstance(args_raw, dict):
+                    valid_calls.append(tc)
+                    continue
+                try:
+                    json.loads(args_raw or "{}")
+                    valid_calls.append(tc)
+                except (json.JSONDecodeError, TypeError, ValueError):
+                    print(
+                        f"    [agent] turn {turn + 1} dropping tool call "
+                        f"with non-JSON arguments: {str(args_raw)[:120]}"
+                    )
+            if not valid_calls:
+                # Keep roles alternating: a bare assistant message here
+                # would stack assistant turns and 400 the next request
+                # ("Cannot have 2 or more assistant messages at the end").
+                messages.append(_assistant_history_message(msg))
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            "Your tool call was malformed. Reply with exactly "
+                            "one tool call, or a final answer without tool calls."
+                        ),
+                    }
+                )
+                continue
+            tool_calls = valid_calls
             # Model wants to use tools — keep reasoning_content for next turns.
             messages.append(_assistant_history_message(msg, tool_calls=tool_calls))
 
@@ -421,8 +496,9 @@ def run_agent_loop(
                 func = tc.get("function", {})
                 tool_name = func.get("name", "")
                 try:
-                    args = json.loads(func.get("arguments", "{}"))
-                except json.JSONDecodeError:
+                    raw_args = func.get("arguments", "{}")
+                    args = raw_args if isinstance(raw_args, dict) else json.loads(raw_args or "{}")
+                except (json.JSONDecodeError, TypeError, ValueError):
                     args = {}
 
                 ep = endpoint_map.get(tool_name)
