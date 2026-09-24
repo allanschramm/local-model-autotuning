@@ -30,6 +30,7 @@ _NUMERIC_COLUMNS = frozenset(
         "agentic",
         "coding",
         "agentic_coding",
+        "mini_swe_agent",
         "memory_gb",
         "elapsed_sec",
         "tps",
@@ -74,6 +75,8 @@ _COLUMNS: list[str] = [
     "agentic",
     "coding",
     "agentic_coding",
+    "mini_swe_agent",
+    "mini_swe_agent_detail",
     "memory_gb",
     "elapsed_sec",
     "tps",
@@ -145,6 +148,8 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
 _MIGRATED_COLUMNS: dict[str, str] = {
     "reasoning_budget": "REAL",
     "reasoning_effort": "TEXT",
+    "mini_swe_agent": "REAL",
+    "mini_swe_agent_detail": "TEXT",
 }
 _BACKFILL_MARKER_KEY = "reasoning_columns_backfill_v1"
 
@@ -323,6 +328,7 @@ _TEXT_FMT: dict[str, str] = {
     "coding": "{:.6f}",
     "agentic": "{:.4f}",
     "agentic_coding": "{:.4f}",
+    "mini_swe_agent": "{:.4f}",
     "memory_gb": "{:.1f}",
     "tps": "{:.1f}",
     "bench_tg": "{:.1f}",

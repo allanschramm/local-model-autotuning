@@ -23,6 +23,7 @@ from autoresearch.benchmarks.agentic_benchmarks import get_full_tier_tasks, get_
 from autoresearch.benchmarks.agentic_coding.runner import run_agentic_coding_eval
 from autoresearch.benchmarks.agentic_runner import run_agentic_eval
 from autoresearch.benchmarks.benchmark_coding import run_benchmark as run_coding
+from autoresearch.benchmarks.mini_swe_agent.runner import run_mini_swe_agent_eval
 from autoresearch.core import config as core_config
 from autoresearch.core.hardware import (
     detect_gpu_temp_c,
@@ -182,6 +183,10 @@ class TrialResult:
     agentic_task_count: int = 0  # number of tasks evaluated
     agentic_coding_val: float | None = None  # SWE-lite passed/N (ADR 0013); None = not measured
     agentic_coding_detail: str = ""
+    mini_swe_agent_val: float | None = (
+        None  # DM-Code-Agent passed/N via mini-swe-agent; None = not measured
+    )
+    mini_swe_agent_detail: str = ""
     avg_tps: float = 0.0
     peak_vram_gb: float = 0.0
     bench_tg_tps: float = 0.0
@@ -608,6 +613,9 @@ class ExperimentRunner:
         agentic_coding = bool(
             norm.get("agentic_coding", False) or norm.get("include_agentic_coding", False)
         )
+        mini_swe_agent = bool(
+            norm.get("mini_swe_agent", False) or norm.get("include_mini_swe_agent", False)
+        )
         if is_validation:
             # Validation defaults to Claw quick smoke; respect an explicit
             # --no-agentic-quick so load/TPS-only smoke works without the
@@ -616,9 +624,17 @@ class ExperimentRunner:
                 agentic_quick = True
             agentic_full = False
             agentic_coding = False
+            mini_swe_agent = False
             include_coding = (
                 False  # validation = smoke gates only; coding-10 is canonical-Trial work
             )
+        if mini_swe_agent:
+            if agentic_quick or agentic_full or agentic_coding or include_coding:
+                print("  [mini-swe-agent] standalone selection: disabling other benchmarks")
+            include_coding = False
+            agentic_quick = False
+            agentic_full = False
+            agentic_coding = False
         if include_coding and (task_limit_val, lcb_limit_val, bigcode_limit_val) != (10, 10, 10):
             res.status = "FAIL: Coding preflight requires exactly 10 tasks per dataset"
             res.outcome = TrialOutcome.INVALID_CONFIG
@@ -834,7 +850,7 @@ class ExperimentRunner:
             # and starve the answer; server log showed n_decoded == 2048 exactly.
             max_tokens=(
                 max(int(norm.get("max_tokens", 1024)), 4096)
-                if (agentic_quick or agentic_full or agentic_coding)
+                if (agentic_quick or agentic_full or agentic_coding or mini_swe_agent)
                 else int(norm.get("max_tokens", 1024))
             ),
             stop=stop_val,
@@ -849,6 +865,7 @@ class ExperimentRunner:
             and not agentic_quick
             and not agentic_full
             and not agentic_coding
+            and not mini_swe_agent
         ):
             res.avg_tps = res.bench_tg_tps
             res.tps_source = "backend-bench"
@@ -971,6 +988,70 @@ class ExperimentRunner:
                         f"  [agentic-coding] {ac['passed']}/{ac['total']} "
                         f"score={ac['score']:.4f} {res.agentic_coding_detail}"
                     )
+                if mini_swe_agent:
+                    print("  [mini-swe-agent] DM-Code-Agent scoreboard via mini-swe-agent")
+                    base_url = f"http://{runner.intent.host}:{runner.port}/v1"
+                    model_filename = intent.model_path.name
+                    msa_task_limit = int(norm.get("mini_swe_agent_task_limit", 0) or 0)
+                    msa_suite = str(norm.get("mini_swe_agent_suite", "all") or "all")
+                    if msa_suite not in ("coding", "maintenance", "all"):
+                        print(
+                            f"  [mini-swe-agent] unknown suite {msa_suite!r}, falling back to 'all'"
+                        )
+                        msa_suite = "all"
+                    try:
+                        msa_task_ids = None
+                        if msa_task_limit > 0:
+                            from autoresearch.benchmarks.mini_swe_agent import (
+                                discover_tasks as _msa_discover,
+                            )
+
+                            msa_task_ids = _msa_discover(msa_suite)[:msa_task_limit]
+                            print(
+                                f"  [mini-swe-agent] limiting to first "
+                                f"{len(msa_task_ids)} of the suite"
+                            )
+                        ms = run_mini_swe_agent_eval(
+                            base_url=base_url,
+                            api_key="sk-no-auth-required",
+                            model_name=model_filename,
+                            model_filename=model_filename,
+                            task_ids=msa_task_ids,
+                            suite=msa_suite,
+                            gen_params=gen_params,
+                        )
+                        res.mini_swe_agent_val = float(ms["score"])
+                        suite_sig = str(ms.get("suite_signature") or "")
+                        upstream_commit = str(ms.get("upstream_commit") or "")
+                        detail = str(ms.get("detail") or "")
+                        provenance = []
+                        if upstream_commit:
+                            provenance.append(f"commit={upstream_commit}")
+                        if suite_sig:
+                            provenance.append(f"suite={suite_sig}")
+                        res.mini_swe_agent_detail = (
+                            "; ".join(provenance + [detail]) if provenance else detail
+                        )
+                        print(
+                            f"  [mini-swe-agent] {ms['passed']}/{ms['total']} "
+                            f"score={ms['score']:.4f} {res.mini_swe_agent_detail}"
+                        )
+                        print(f"  [mini-swe-agent] trajectory: {ms.get('trajectory_path', '')}")
+                    except FileNotFoundError as exc:
+                        # Missing uvx or fixtures — treat as `incomplete`,
+                        # never as `rejected`; the column stays None so
+                        # downstream Pareto logic does not see a 0.0 score.
+                        print(f"  [mini-swe-agent] SKIP: {exc}")
+                        res.mini_swe_agent_val = None
+                        res.mini_swe_agent_detail = f"skipped: {exc}"
+                    except Exception as exc:
+                        # Hard infra failure — record as incomplete (None),
+                        # never as a measured 0.0, so downstream Pareto
+                        # logic does not mistake a crashed harness for
+                        # "ran N tasks, passed 0".
+                        print(f"  [mini-swe-agent] FAIL: {exc}")
+                        res.mini_swe_agent_val = None
+                        res.mini_swe_agent_detail = f"error: {str(exc)[:200]}"
                 # Compute combined metrics
                 tps_list = []
                 if include_coding and res.coding_tps > 0:

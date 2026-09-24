@@ -10,6 +10,11 @@ INCLUDE_CODING = True  # coding-10 → complete Objective Vector (Pareto accepta
 INCLUDE_AGENTIC_QUICK = True  # smoke validation before the canonical Trial
 INCLUDE_AGENTIC_FULL = True  # Claw-Eval full → agentic Objective Vector axis
 INCLUDE_AGENTIC_CODING = False  # SWE-lite issue loop; Night selector (ADR 0013); opt-in
+INCLUDE_MINI_SWE_AGENT = False  # DM-Code-Agent scoreboard via mini-swe-agent; Night selector (sibling to agentic_coding); opt-in
+MINI_SWE_AGENT_TASK_LIMIT = (
+    0  # 0 = full suite; >0 = first N tasks (bounds wall-time for smoke runs)
+)
+MINI_SWE_AGENT_SUITE = "all"  # upstream DM-Code-Agent suite: coding | maintenance | all
 CODING_TASK_LIMIT = 10  # tasks per dataset for HE+ / MBPP+
 LCB_TASK_LIMIT = 10  # LiveCodeBench v6 sample (contamination-free competitive prog)
 BIGCODE_TASK_LIMIT = 10  # BigCodeBench Hard sample (library-call tasks)
@@ -50,6 +55,9 @@ def write_config(cfg: dict[str, Any], path: str | Path | None = None) -> None:
         "INCLUDE_AGENTIC_QUICK",
         "INCLUDE_AGENTIC_FULL",
         "INCLUDE_AGENTIC_CODING",
+        "INCLUDE_MINI_SWE_AGENT",
+        "MINI_SWE_AGENT_TASK_LIMIT",
+        "MINI_SWE_AGENT_SUITE",
         "CODING_TASK_LIMIT",
         "LCB_TASK_LIMIT",
         "BIGCODE_TASK_LIMIT",

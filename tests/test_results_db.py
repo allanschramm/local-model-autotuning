@@ -13,6 +13,7 @@ NUMERIC_COLS = [
     "ctx",
     "agentic",
     "coding",
+    "mini_swe_agent",
     "memory_gb",
 ]
 
@@ -122,7 +123,18 @@ def test_numeric_values_stored_typed(tmp_path):
     assert model == "Ornith-35B"
 
 
-def test_sync_from_tsv_populates_mirror(tmp_path):
+def test_mini_swe_agent_values_are_typed_and_detail_is_text(tmp_path):
+    conn = _conn(tmp_path)
+    results_db.upsert_row(
+        conn,
+        _row(mini_swe_agent="0.7500", mini_swe_agent_detail="suite=abc; task=pass"),
+    )
+    value, detail = conn.execute(
+        "SELECT mini_swe_agent, mini_swe_agent_detail FROM trials WHERE trial_id='t-0001'"
+    ).fetchone()
+    assert value == 0.75
+    assert detail == "suite=abc; task=pass"
+
     tsv = tmp_path / "results.tsv"
     _write_tsv(tsv, [_row(), _row(trial_id="t-0002")])
     n = results_db.sync_from_tsv(tsv, tmp_path / "results.db")
@@ -260,7 +272,15 @@ def _legacy_conn(tmp_path):
     """Connection with the pre-reasoning-column schema (pre-2026-08-29 layout)."""
     conn = sqlite3.connect(tmp_path / "results.db")
     legacy_cols = [
-        c for c in results_db._COLUMNS if c not in ("reasoning_budget", "reasoning_effort")
+        c
+        for c in results_db._COLUMNS
+        if c
+        not in (
+            "reasoning_budget",
+            "reasoning_effort",
+            "mini_swe_agent",
+            "mini_swe_agent_detail",
+        )
     ]
     cols_sql = ",\n  ".join(
         f"{results_db._q(c)} {'REAL' if c in results_db._NUMERIC_COLUMNS else 'TEXT'}"
@@ -271,7 +291,7 @@ def _legacy_conn(tmp_path):
     return conn
 
 
-def test_ensure_schema_migrates_legacy_db_without_reasoning_columns(tmp_path):
+def test_ensure_schema_migrates_legacy_db_without_reasoning_or_mini_columns(tmp_path):
     conn = _legacy_conn(tmp_path)
     conn.execute(
         f"INSERT INTO trials ({results_db._q('trial_id')}, {results_db._q('model')}) VALUES (?, ?)",
@@ -282,6 +302,8 @@ def test_ensure_schema_migrates_legacy_db_without_reasoning_columns(tmp_path):
     cols = {r[1] for r in conn.execute("PRAGMA table_info(trials)")}
     assert "reasoning_budget" in cols
     assert "reasoning_effort" in cols
+    assert "mini_swe_agent" in cols
+    assert "mini_swe_agent_detail" in cols
 
 
 def test_backfill_reasoning_columns_from_config_json(tmp_path):
