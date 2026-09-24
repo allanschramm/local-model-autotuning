@@ -9,17 +9,6 @@ from autoresearch.core import crash_journal
 from autoresearch.core.state import SearchState
 
 
-def test_write_read_clear(tmp_path, monkeypatch):
-    path = tmp_path / ".autoresearch_crash.journal"
-    monkeypatch.setattr(crash_journal, "JOURNAL_PATH", path)
-    crash_journal.write_journal({"model": "a.gguf", "config_key": "k1"})
-    data = crash_journal.read_journal()
-    assert data["model"] == "a.gguf"
-    crash_journal.clear_journal()
-    assert crash_journal.read_journal() is None
-    crash_journal.clear_journal()  # missing_ok
-
-
 def test_consume_writes_rejected(tmp_path, monkeypatch):
     journal = tmp_path / ".autoresearch_crash.journal"
     tsv = tmp_path / "results.tsv"

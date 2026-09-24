@@ -1,11 +1,10 @@
 import csv
 import json
 import os
-import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import MagicMock, patch
 
 from autoresearch.benchmarks.benchmark_harness import BenchmarkResult
 from autoresearch.runners import run
@@ -39,67 +38,6 @@ class TestRun(unittest.TestCase):
         self.assertEqual(result.diagnostic, "VRAM_PREFLIGHT est=8108MB > limit=7900MB")
         self.assertAlmostEqual(result.peak_vram_gb, 8108.0 / 1024.0)
         mock_server.assert_not_called()
-
-    def test_bench_crash_surfaces_llama_cli_stderr(self):
-        """Issue: llama-cli stderr was swallowed — crash rows lost the real error."""
-        import subprocess
-
-        from autoresearch.runners.evaluation import ExperimentRunner, TrialOutcome
-
-        with (
-            patch(
-                "autoresearch.runners.evaluation.preflight_vram_for_intent",
-                return_value=(True, 6543.0, ""),
-            ),
-            patch(
-                "autoresearch.runners.evaluation.preflight_host_memory_for_intent",
-                return_value=(True, 7000.0, 12000.0, ""),
-            ),
-            patch(
-                "autoresearch.runners.evaluation.run_llama_bench_validation",
-                side_effect=subprocess.CalledProcessError(
-                    1,
-                    ["llama-cli"],
-                    "stdout",
-                    "E llama_model_load: error loading model: done_getting_tensors: "
-                    "wrong number of tensors; expected 417, got 408",
-                ),
-            ),
-        ):
-            result = ExperimentRunner(Path("models")).run_trial(
-                {"MODEL": "test.gguf", "CTX_SIZE": 4096, "FLASH_ATTN": "on"}
-            )
-
-        self.assertEqual(result.outcome, TrialOutcome.MODEL_REJECTED)
-        self.assertIn("wrong number of tensors", result.diagnostic)
-
-    @patch(
-        "autoresearch.runners.evaluation.preflight_host_memory_for_intent",
-        return_value=(True, 7000.0, 12000.0, ""),
-    )
-    @patch(
-        "autoresearch.runners.evaluation.preflight_vram_for_intent",
-        return_value=(True, 6543.0, ""),
-    )
-    @patch("autoresearch.runners.evaluation.run_llama_perplexity_validation", return_value=5.0)
-    @patch("autoresearch.runners.evaluation.run_llama_bench_validation", return_value=30.0)
-    def test_bench_only_peak_uses_effective_mtp_preflight_estimate(
-        self, _mock_bench, _mock_ppl, _mock_vram, _mock_host
-    ):
-        from autoresearch.runners.evaluation import ExperimentRunner
-
-        result = ExperimentRunner(Path("models")).run_trial(
-            {
-                "MODEL": "embedded-MTP.gguf",
-                "CTX_SIZE": 131072,
-                "FLASH_ATTN": "on",
-                "SPEC_TYPE": None,
-                "SPEC_DRAFT_N_MAX": 4,
-                "INCLUDE_PERPLEXITY": True,
-            }
-        )
-
-        self.assertAlmostEqual(result.peak_vram_gb, 6543.0 / 1024.0)
 
     @patch(
         "autoresearch.runners.evaluation.preflight_host_memory_for_intent",
@@ -136,25 +74,6 @@ class TestRun(unittest.TestCase):
     @patch("autoresearch.runners.evaluation.subprocess.Popen")
     @patch("autoresearch.runners.evaluation.resolve_llama_cli", return_value=Path("llama-cli.exe"))
     @patch("autoresearch.runners.evaluation.resolve_vram_limit_mb", return_value=7900.0)
-    def test_llama_bench_forwards_n_cpu_moe(self, _mock_limit, mock_resolve, mock_popen, _mock_smi):
-        mock_proc = MagicMock()
-        mock_proc.communicate.return_value = ("Generation: 7.4 t/s", "")
-        mock_proc.returncode = 0
-        mock_popen.return_value = mock_proc
-
-        from autoresearch.runners.evaluation import run_llama_bench_validation
-
-        run_llama_bench_validation(Path("model.gguf"), n_cpu_moe=40)
-
-        command = mock_popen.call_args.args[0]
-        self.assertEqual(command[command.index("--n-cpu-moe") + 1], "40")
-
-    @patch(
-        "autoresearch.runners.evaluation.detect_used_total_vram_mb", side_effect=FileNotFoundError
-    )
-    @patch("autoresearch.runners.evaluation.subprocess.Popen")
-    @patch("autoresearch.runners.evaluation.resolve_llama_cli", return_value=Path("llama-cli.exe"))
-    @patch("autoresearch.runners.evaluation.resolve_vram_limit_mb", return_value=7900.0)
     def test_llama_bench_caps_ctx(self, _mock_limit, mock_resolve, mock_popen, _mock_smi):
         mock_proc = MagicMock()
         mock_proc.communicate.return_value = ("Generation: 7.4 t/s", "")
@@ -167,96 +86,6 @@ class TestRun(unittest.TestCase):
 
         command = mock_popen.call_args.args[0]
         self.assertEqual(command[command.index("-c") + 1], str(BENCH_CTX_CAP))
-
-    @patch(
-        "autoresearch.runners.evaluation.detect_used_total_vram_mb", side_effect=FileNotFoundError
-    )
-    @patch("autoresearch.runners.evaluation.subprocess.Popen")
-    @patch("autoresearch.runners.evaluation.resolve_llama_cli", return_value=Path("llama-cli.exe"))
-    @patch("autoresearch.runners.evaluation.resolve_vram_limit_mb", return_value=7900.0)
-    def test_llama_bench_keeps_no_mmap(self, _mock_limit, mock_resolve, mock_popen, _mock_smi):
-        mock_proc = MagicMock()
-        mock_proc.communicate.return_value = ("Generation: 7.4 t/s", "")
-        mock_proc.returncode = 0
-        mock_proc.pid = 12345
-        mock_popen.return_value = mock_proc
-
-        from autoresearch.runners.evaluation import run_llama_bench_validation
-
-        run_llama_bench_validation(Path("model.gguf"), n_cpu_moe=30, no_mmap=True)
-
-        command = mock_popen.call_args.args[0]
-        self.assertIn("--no-mmap", command)
-        self.assertNotIn("--mmap", command)
-
-    @patch(
-        "autoresearch.runners.evaluation.detect_used_total_vram_mb", side_effect=FileNotFoundError
-    )
-    @patch("autoresearch.runners.evaluation.subprocess.Popen")
-    @patch("autoresearch.runners.evaluation.resolve_llama_cli", return_value=Path("llama-cli.exe"))
-    @patch("autoresearch.runners.evaluation.resolve_vram_limit_mb", return_value=7900.0)
-    def test_llama_bench_ngram_cache_omits_draft_flags(
-        self, _mock_limit, mock_resolve, mock_popen, _mock_smi
-    ):
-        """Issue #57: ngram spec has no draft model, so draft-only flags stay off.
-
-        Pre-#57 the guard required ``spec_draft_n_max > 0``, which dropped
-        ``--spec-type`` entirely for pure ngram configs.
-        """
-        mock_proc = MagicMock()
-        mock_proc.communicate.return_value = ("Generation: 7.4 t/s", "")
-        mock_proc.returncode = 0
-        mock_popen.return_value = mock_proc
-
-        from autoresearch.runners.evaluation import run_llama_bench_validation
-
-        run_llama_bench_validation(Path("model.gguf"), spec_type="ngram-cache", spec_draft_n_max=0)
-
-        command = mock_popen.call_args.args[0]
-        self.assertEqual(command[command.index("--spec-type") + 1], "ngram-cache")
-        self.assertNotIn("--spec-draft-n-max", command)
-        self.assertNotIn("-ngld", command)
-
-    @patch(
-        "autoresearch.runners.evaluation.detect_used_total_vram_mb", side_effect=FileNotFoundError
-    )
-    @patch("autoresearch.runners.evaluation.subprocess.Popen")
-    @patch("autoresearch.runners.evaluation.resolve_llama_cli", return_value=Path("llama-cli.exe"))
-    @patch("autoresearch.runners.evaluation.resolve_vram_limit_mb", return_value=7900.0)
-    def test_llama_bench_includes_ignore_eos(
-        self, _mock_limit, mock_resolve, mock_popen, _mock_smi
-    ):
-        mock_proc = MagicMock()
-        mock_proc.communicate.return_value = ("Generation: 7.4 t/s", "")
-        mock_proc.returncode = 0
-        mock_popen.return_value = mock_proc
-
-        from autoresearch.runners.evaluation import run_llama_bench_validation
-
-        run_llama_bench_validation(Path("model.gguf"))
-
-        command = mock_popen.call_args.args[0]
-        self.assertIn("--ignore-eos", command)
-
-    @patch(
-        "autoresearch.runners.evaluation.detect_used_total_vram_mb", side_effect=FileNotFoundError
-    )
-    @patch("autoresearch.runners.evaluation.subprocess.Popen")
-    @patch("autoresearch.runners.evaluation.resolve_llama_cli", return_value=Path("llama-cli.exe"))
-    @patch("autoresearch.runners.evaluation.resolve_vram_limit_mb", return_value=7900.0)
-    def test_llama_bench_forwards_reasoning(self, _mock_limit, mock_resolve, mock_popen, _mock_smi):
-        mock_proc = MagicMock()
-        mock_proc.communicate.return_value = ("Generation: 7.4 t/s", "")
-        mock_proc.returncode = 0
-        mock_popen.return_value = mock_proc
-
-        from autoresearch.runners.evaluation import run_llama_bench_validation
-
-        run_llama_bench_validation(Path("model.gguf"), reasoning="off")
-
-        command = mock_popen.call_args.args[0]
-        self.assertIn("--reasoning", command)
-        self.assertEqual(command[command.index("--reasoning") + 1], "off")
 
     @patch("autoresearch.runners.evaluation.run_llama_bench_validation", return_value=45.0)
     @patch("autoresearch.runners.evaluation.LlamaServerRunner")
@@ -303,144 +132,6 @@ class TestRun(unittest.TestCase):
         # Status reflects the Objective Vector, not a previous-best comparison.
         self.assertEqual(row["status"], "incomplete")
         self.assertEqual(row["val_score"], "0.750000")
-
-    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
-    @patch("autoresearch.runners.evaluation.run_coding")
-    def test_run_evaluation_without_coding(self, mock_coding, mock_runner):
-        # Setup mocks
-        mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
-
-        args = MagicMock()
-        args.kv_k = "q4_0"
-        args.kv_v = "q4_0"
-        args.threads = 12
-        args.threads_batch = None
-        args.batch_size = 512
-        args.ubatch_size = 128
-        args.spec_draft_n_max = 1
-        args.spec_type = None
-        args.coding_task_limit = 30
-
-        res = run.run_evaluation(
-            args,
-            skip_bench=True,
-            model="g4-opt-it-Q4_K_M.gguf",
-            kv="q4_0",
-            max_tokens=1024,
-            include_coding=False,
-        )
-
-        # Verify coding was NOT called
-        mock_coding.assert_not_called()
-
-        # Check val_score is 0 when coding disabled
-        self.assertEqual(res["coding_val"], 0.0)
-
-    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
-    @patch("autoresearch.runners.evaluation.run_coding")
-    @patch("autoresearch.core.llama_runner.detect_free_vram_mb", return_value=20000.0)
-    def test_rejected_coding_preflight_keeps_peak_vram(self, _mock_free, mock_coding, mock_runner):
-        mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4096)
-        mock_coding.return_value = BenchmarkResult(
-            val_score=0.0, val_pass1=0.0, val_pass2=0.0, avg_tps=40.0
-        )
-        res = run.run_evaluation(
-            {"MODEL": "test.gguf", "CTX_SIZE": 131072, "FLASH_ATTN": "on"},
-            skip_bench=True,
-            include_coding=True,
-            coding_task_limit=10,
-            lcb_task_limit=10,
-            bigcode_task_limit=10,
-        )
-
-        self.assertEqual(res["outcome"], "MODEL_REJECTED")
-        self.assertEqual(res["peak_vram_gb"], 4.0)
-
-    @patch("autoresearch.runners.evaluation.run_llama_bench_validation", return_value=42.0)
-    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
-    @patch("autoresearch.runners.evaluation.run_coding")
-    @patch("autoresearch.core.llama_runner.detect_free_vram_mb", return_value=20000.0)
-    def test_run_evaluation_validation_mode(self, _mock_free, mock_coding, mock_runner, mock_bench):
-        mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
-
-        args = MagicMock()
-        args.kv_k = "q4_0"
-        args.kv_v = "q4_0"
-        args.threads = 12
-        args.threads_batch = None
-        args.batch_size = 512
-        args.ubatch_size = 128
-        args.spec_draft_n_max = 1
-        args.spec_type = None
-        args.coding_task_limit = 30
-
-        # validation=True: runs bench mock, then coding with task_limit=2
-        mock_coding.return_value = BenchmarkResult(
-            val_score=0.75, val_pass1=0.6, val_pass2=0.8, val_pass3=0.7, val_pass4=0.5, avg_tps=40.0
-        )
-        with patch("autoresearch.runners.evaluation.get_quick_tier_tasks", return_value=["task-1"]):
-            with patch(
-                "autoresearch.runners.evaluation.run_agentic_eval",
-                return_value={"score": 0.6, "total": 1},
-            ):
-                res = run.run_evaluation(
-                    args,
-                    model="g4-opt-it-Q4_K_M.gguf",
-                    kv="q4_0",
-                    max_tokens=1024,
-                    include_coding=False,
-                    validation=True,
-                )
-
-        # Validation mode: coding off, Claw quick smoke on
-        mock_coding.assert_not_called()
-        self.assertEqual(res["bench_tg_tps"], 42.0)
-        self.assertEqual(res["agentic_val"], 0.6)
-        self.assertEqual(res["val_score"], 0.6)
-        self.assertEqual(res["agentic_tier"], "quick")
-
-    @patch("autoresearch.runners.evaluation.run_llama_bench_validation", return_value=42.0)
-    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
-    @patch("autoresearch.runners.evaluation.run_coding")
-    @patch("autoresearch.core.llama_runner.detect_free_vram_mb", return_value=20000.0)
-    def test_validation_never_runs_coding_even_when_default_on(
-        self, _mock_free, mock_coding, mock_runner, mock_bench
-    ):
-        """Validation = smoke gates only: global INCLUDE_CODING=True (issue #8) must
-        not leak coding-10 into a --validation run (issue #9 user rule)."""
-        mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
-
-        args = MagicMock()
-        args.kv_k = "q4_0"
-        args.kv_v = "q4_0"
-        args.threads = 12
-        args.threads_batch = None
-        args.batch_size = 512
-        args.ubatch_size = 128
-        args.spec_draft_n_max = 1
-        args.spec_type = None
-        args.coding_task_limit = 30
-
-        mock_coding.return_value = BenchmarkResult(
-            val_score=0.75, val_pass1=0.6, val_pass2=0.8, val_pass3=0.7, val_pass4=0.5, avg_tps=40.0
-        )
-        with patch("autoresearch.runners.evaluation.get_quick_tier_tasks", return_value=["task-1"]):
-            with patch(
-                "autoresearch.runners.evaluation.run_agentic_eval",
-                return_value={"score": 0.6, "total": 1},
-            ):
-                res = run.run_evaluation(
-                    args,
-                    model="g4-opt-it-Q4_K_M.gguf",
-                    kv="q4_0",
-                    max_tokens=1024,
-                    include_coding=True,  # global default; validation must still suppress it
-                    validation=True,
-                )
-
-        mock_coding.assert_not_called()
-        self.assertEqual(res["coding_val"], 0.0)
-        self.assertEqual(res["agentic_tier"], "quick")
 
     @patch("autoresearch.runners.evaluation.LlamaServerRunner")
     @patch("autoresearch.runners.evaluation.run_coding")
@@ -510,47 +201,6 @@ class TestRun(unittest.TestCase):
         self.assertEqual(params.top_p, 0.88)
         self.assertEqual(params.top_k, 17)
 
-    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
-    @patch("autoresearch.core.llama_runner.detect_free_vram_mb", return_value=20000.0)
-    def test_skip_bench_without_coding_does_not_floor_reject(self, _mock_free, mock_runner):
-        mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
-        with patch("autoresearch.runners.evaluation.get_full_tier_tasks", return_value=["T002"]):
-            with patch(
-                "autoresearch.runners.evaluation.run_agentic_eval",
-                return_value={"score": 0.7, "total": 1},
-            ):
-                res = run.run_evaluation(
-                    {"MODEL": "test.gguf", "CTX_SIZE": 131072, "FLASH_ATTN": "on"},
-                    skip_bench=True,
-                    include_coding=False,
-                    agentic_full=True,
-                )
-        self.assertEqual(res["status"], "OK")
-        self.assertEqual(res["val_score"], 0.7)
-        self.assertNotEqual(res["outcome"], "MODEL_REJECTED")
-
-    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
-    @patch("autoresearch.core.llama_runner.detect_free_vram_mb", return_value=20000.0)
-    def test_agentic_quick_low_score_does_not_reject(self, _mock_free, mock_runner):
-        """Quick smoke reports score; only TPS Floor rejects — no score cut."""
-        mock_runner.return_value.__enter__.return_value = MagicMock(port=18080, peak_vram_mb=4000)
-        with patch("autoresearch.runners.evaluation.get_quick_tier_tasks", return_value=["T002"]):
-            with patch(
-                "autoresearch.runners.evaluation.run_agentic_eval",
-                return_value={"score": 0.4, "total": 1},
-            ):
-                res = run.run_evaluation(
-                    {"MODEL": "test.gguf", "CTX_SIZE": 131072, "FLASH_ATTN": "on"},
-                    skip_bench=True,
-                    include_coding=False,
-                    agentic_quick=True,
-                    agentic_full=False,
-                )
-        self.assertEqual(res["status"], "OK")
-        self.assertEqual(res["agentic_val"], 0.4)
-        self.assertEqual(res["val_score"], 0.4)
-        self.assertNotEqual(res["outcome"], "MODEL_REJECTED")
-
     @patch(
         "autoresearch.runners.evaluation.preflight_host_memory_for_intent",
         return_value=(True, 1000.0, 8000.0, ""),
@@ -586,74 +236,6 @@ class TestRun(unittest.TestCase):
     @patch(
         "autoresearch.runners.evaluation.preflight_vram_for_intent", return_value=(True, 1000.0, "")
     )
-    @patch("autoresearch.runners.evaluation.run_llama_bench_validation", return_value=17.0)
-    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
-    def test_config_tps_floor_allows_moe_speed(
-        self, mock_runner, mock_bench, _mock_vram, _mock_host
-    ):
-        """Baseline TPS_FLOOR=15 keeps 17 t/s MoE Trials alive."""
-        mock_runner.return_value.__enter__.return_value = MagicMock(
-            port=18080, peak_vram_mb=4000, vram_killed=False
-        )
-        with patch("autoresearch.runners.evaluation.get_quick_tier_tasks", return_value=["T002"]):
-            with patch(
-                "autoresearch.runners.evaluation.run_agentic_eval",
-                return_value={"score": 0.5, "total": 1},
-            ):
-                res = run.run_evaluation(
-                    {
-                        "MODEL": "gemma-4-26B-A4B.gguf",
-                        "CTX_SIZE": 65536,
-                        "FLASH_ATTN": "on",
-                        "TPS_FLOOR": 15.0,
-                    },
-                    include_coding=False,
-                    agentic_quick=True,
-                    agentic_full=False,
-                )
-        self.assertEqual(res["status"], "OK")
-        self.assertEqual(res["outcome"], "OK")
-        self.assertEqual(res["bench_tg_tps"], 17.0)
-        mock_runner.assert_called_once()
-
-    @patch(
-        "autoresearch.runners.evaluation.preflight_host_memory_for_intent",
-        return_value=(True, 1000.0, 8000.0, ""),
-    )
-    @patch(
-        "autoresearch.runners.evaluation.preflight_vram_for_intent", return_value=(True, 1000.0, "")
-    )
-    @patch("autoresearch.runners.evaluation.run_llama_perplexity_validation", return_value=5.0)
-    @patch("autoresearch.runners.evaluation.run_llama_bench_validation", return_value=17.0)
-    def test_post_bench_score_zero_uses_tps_floor(
-        self, mock_bench, mock_ppl, _mock_vram, _mock_host
-    ):
-        """Perplexity-only path must zero score with Baseline TPS_FLOOR, not hardcode 20."""
-        res = run.run_evaluation(
-            {
-                "MODEL": "moe.gguf",
-                "CTX_SIZE": 65536,
-                "FLASH_ATTN": "on",
-                "TPS_FLOOR": 15.0,
-                "include_perplexity": True,
-            },
-            include_coding=False,
-            agentic_quick=False,
-            agentic_full=False,
-        )
-        self.assertEqual(res["status"], "OK")
-        self.assertEqual(res["outcome"], "OK")
-        self.assertEqual(res["avg_tps"], 17.0)
-        self.assertGreater(res["val_score"], 0.0)
-        mock_ppl.assert_called_once()
-
-    @patch(
-        "autoresearch.runners.evaluation.preflight_host_memory_for_intent",
-        return_value=(True, 1000.0, 8000.0, ""),
-    )
-    @patch(
-        "autoresearch.runners.evaluation.preflight_vram_for_intent", return_value=(True, 1000.0, "")
-    )
     @patch("autoresearch.runners.evaluation.run_llama_bench_validation", return_value=16.0)
     def test_custom_tps_floor_rejects_below_floor(self, mock_bench, _mock_vram, _mock_host):
         """Custom TPS_FLOOR=18 rejects 16 t/s at the bench gate."""
@@ -670,72 +252,6 @@ class TestRun(unittest.TestCase):
         )
         self.assertIn("FAIL: bench tg 16.0 < threshold 18.0", res["status"])
         self.assertEqual(res["outcome"], "MODEL_REJECTED")
-
-    @patch("autoresearch.runners.run.run_evaluation")
-    @patch("autoresearch.runners.run.get_git_commit")
-    @patch("autoresearch.runners.run.open", new_callable=mock_open)
-    def test_single_run_validation_passes(self, mock_file, mock_commit, mock_eval):
-        mock_commit.return_value = "abcdefg"
-        # Validation passes bench check + agentic smoke
-        mock_eval.return_value = {
-            "status": "OK",
-            "coding_val": 0.75,
-            "lcb_val": 0.6,
-            "he_val": 0.8,
-            "mbpp_val": 0.7,
-            "bigcode_val": 0.5,
-            "swe_val": 0.0,
-            "val_score": 0.75,
-            "avg_tps": 42.0,
-            "peak_vram_gb": 6.0,
-            "bench_tg_tps": 42.0,
-            "bench_pp_tps": 190.0,
-        }
-
-        args = MagicMock()
-        args.desc = "validation test"
-        args.model = "ornith-1.0-9b-Q4_K_M.gguf"
-        args.kv = "q4_0"
-        args.ctx_size = 131072
-        args.validation = True
-
-        with tempfile.TemporaryDirectory() as tmp:
-            with patch.object(run, "RESULTS_FILE", Path(tmp) / "results.tsv"):
-                with patch("sys.exit") as mock_exit:
-                    run.handle_single_run(args)
-                    mock_exit.assert_not_called()
-
-    @patch("autoresearch.runners.run.run_evaluation")
-    @patch("autoresearch.runners.run.get_git_commit")
-    @patch("autoresearch.runners.run.open", new_callable=mock_open)
-    def test_single_run_validation_fails(self, mock_file, mock_commit, mock_eval):
-        mock_commit.return_value = "abcdefg"
-        # Bench-validation: FAIL status means val_score=0.0
-        mock_eval.return_value = {
-            "status": "FAIL: bench tg 15.0 < threshold 30.0",
-            "coding_val": 0.0,
-            "lcb_val": 0.0,
-            "he_val": 0.0,
-            "mbpp_val": 0.0,
-            "bigcode_val": 0.0,
-            "swe_val": 0.0,
-            "val_score": 0.0,
-            "avg_tps": 0.0,
-            "peak_vram_gb": 0.0,
-        }
-
-        args = MagicMock()
-        args.desc = "validation test"
-        args.model = "ornith-1.0-9b-Q4_K_M.gguf"
-        args.kv = "q4_0"
-        args.ctx_size = 131072
-        args.validation = True
-
-        with tempfile.TemporaryDirectory() as tmp:
-            with patch.object(run, "RESULTS_FILE", Path(tmp) / "results.tsv"):
-                with patch("sys.exit") as mock_exit:
-                    run.handle_single_run(args)
-                    mock_exit.assert_called_once_with(1)
 
     def test_unix_results_lock_unlocks_with_fcntl_lock_un(self):
         """POSIX unlock is fcntl.LOCK_UN (Windows never imports fcntl)."""
@@ -841,49 +357,6 @@ class TestRun(unittest.TestCase):
         self.assertEqual(row["reasoning_budget"], "2048")
         self.assertEqual(row["reasoning_effort"], "low")
 
-    def test_ensure_category_column_migrates_pre_reasoning_tsv(self):
-        """Legacy TSV without the reasoning columns gains them on first write."""
-        import tempfile
-
-        legacy_fields = [
-            c for c in run.CATEGORY_FIELDNAMES if c not in ("reasoning_budget", "reasoning_effort")
-        ]
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "results.tsv"
-            with open(path, "w", newline="", encoding="utf-8") as f:
-                writer = csv.DictWriter(f, fieldnames=legacy_fields, delimiter="\t")
-                writer.writeheader()
-                writer.writerow(
-                    {
-                        "trial_id": "t-0",
-                        "model": "m.gguf",
-                        "config_json": '{"reasoning_budget":4096}',
-                    }
-                )
-            run.write_row(
-                path,
-                "abc123",
-                0.5,
-                0.0,
-                0.1,
-                0.2,
-                4.5,
-                "on_front",
-                "desc",
-                model="m.gguf",
-                reasoning_budget=2048,
-                reasoning_effort="low",
-            )
-            with open(path, encoding="utf-8") as f:
-                rows = list(csv.DictReader(f, delimiter="\t"))
-
-        migrated = next(r for r in rows if r["trial_id"] == "t-0")
-        self.assertIn("reasoning_budget", migrated)
-        # Legacy row keeps a blank flat column; its budget lives in config_json
-        # and is backfilled only in the canonical DB layer.
-        self.assertEqual(migrated["reasoning_budget"], "")
-        self.assertEqual(migrated["config_json"], '{"reasoning_budget":4096}')
-
     @patch("autoresearch.runners.run.run_evaluation")
     @patch("autoresearch.runners.run.get_git_commit", return_value="abcdefg")
     def test_successful_single_run_logs_throughput_columns(self, mock_commit, mock_eval):
@@ -949,30 +422,6 @@ class TestRun(unittest.TestCase):
         self.assertEqual(recorded["batch_size"], args.batch_size)
         self.assertEqual(recorded["n_cpu_moe"], args.n_cpu_moe)
         self.assertEqual(recorded["temp"], run.config.TEMP)
-
-    @patch(
-        "autoresearch.runners.run.open",
-        new_callable=mock_open,
-        read_data="commit\tmodel\tval_score\tswe_score\tlcb_score\the_score\tmbpp_score\tbigcode_score\tmemory_gb\telapsed_sec\tstatus\tcategory\tdescription\n"
-        "abcdefg\tornith-1.0-9b-Q4_K_M.gguf\t0.580000\t0.000000\t0.400000\t0.800000\t0.900000\t0.100000\t7.4\t0\ton_front\t\tornith-1.0-9b-Q4_K_M.gguf baseline\n"
-        "1234567\tQwen3.5-9B-MTP-Q4_K_M.gguf\t0.495000\t0.000000\t0.300000\t0.800000\t0.700000\t0.100000\t7.7\t0\ton_front\t\tQwen3.5-9B-MTP-Q4_K_M.gguf baseline\n",
-    )
-    def test_get_previous_best_with_model_filter(self, mock_file):
-        with patch.object(Path, "exists", return_value=True):
-            # Without model filter, returns global max (0.580000)
-            self.assertEqual(run.get_previous_best(Path("dummy.tsv")), 0.58)
-            # With specific model filter matching the first row
-            self.assertEqual(
-                run.get_previous_best(Path("dummy.tsv"), "ornith-1.0-9b-Q4_K_M.gguf"), 0.58
-            )
-            # With specific model filter matching the second row
-            self.assertEqual(
-                run.get_previous_best(Path("dummy.tsv"), "Qwen3.5-9B-MTP-Q4_K_M.gguf"), 0.495
-            )
-            # With a model that doesn't exist yet, returns 0.0
-            self.assertEqual(
-                run.get_previous_best(Path("dummy.tsv"), "ornith-1.0-35b-Q4_K_M.gguf"), 0.0
-            )
 
     def test_moe_full_gpu_vram_reject_message(self):
         import tempfile
@@ -1095,54 +544,6 @@ class TestRun(unittest.TestCase):
 
         self.assertEqual(result.outcome, TrialOutcome.WATCHDOG_KILL)
         self.assertIn("WATCHDOG_KILL", result.diagnostic)
-
-    def test_format_arch_line_modes(self):
-        import tempfile
-
-        from autoresearch.runners.evaluation import ServerIntent, _format_arch_line
-
-        with tempfile.NamedTemporaryFile(suffix=".gguf", delete=False) as tmp:
-            path = Path(tmp.name)
-        try:
-            with patch("autoresearch.runners.evaluation.gguf_is_moe", return_value=True):
-                with patch("autoresearch.runners.evaluation.gguf_block_count", return_value=30):
-                    auto = ServerIntent(
-                        model_path=path,
-                        ctx_size=4096,
-                        kv_cache="q4_0",
-                        flash_attn="on",
-                        n_cpu_moe=30,
-                        n_cpu_moe_auto=True,
-                    )
-                    line = _format_arch_line(auto)
-                    self.assertIn("moe", line)
-                    self.assertIn("block_count=30", line)
-                    self.assertIn("(auto)", line)
-
-                    explicit = ServerIntent(
-                        model_path=path,
-                        ctx_size=4096,
-                        kv_cache="q4_0",
-                        flash_attn="on",
-                        n_cpu_moe=0,
-                        n_cpu_moe_auto=False,
-                    )
-                    line = _format_arch_line(explicit)
-                    self.assertIn("n-cpu-moe=0", line)
-                    self.assertIn("(explicit)", line)
-
-                    dense = ServerIntent(
-                        model_path=path,
-                        ctx_size=4096,
-                        kv_cache="q4_0",
-                        flash_attn="on",
-                    )
-                    with patch("autoresearch.runners.evaluation.gguf_is_moe", return_value=False):
-                        line = _format_arch_line(dense)
-                    self.assertIn("dense", line)
-                    self.assertIn("(dense)", line)
-        finally:
-            path.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

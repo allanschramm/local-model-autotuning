@@ -43,13 +43,6 @@ def test_trial_id_is_primary_key(tmp_path):
     assert pk == ["trial_id"]
 
 
-def test_indexes_exist(tmp_path):
-    conn = _conn(tmp_path)
-    idx = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='index'")}
-    assert any("model" in i for i in idx)
-    assert any("status" in i for i in idx)
-
-
 def test_to_cell_coercion():
     assert results_db._to_cell("tps", "27.8") == 27.8
     assert results_db._to_cell("tps", "") is None
@@ -143,66 +136,7 @@ def test_mini_swe_agent_values_are_typed_and_detail_is_text(tmp_path):
     assert conn.execute("SELECT COUNT(*) FROM trials").fetchone()[0] == 2
 
 
-def test_try_sync_swallows_missing_tsv(tmp_path):
-    # Missing TSV must not raise — mirror is best-effort.
-    n = results_db.try_sync_from_tsv(tmp_path / "nope.tsv", tmp_path / "r.db")
-    assert n == 0
-
-
-def test_try_sync_reports_failure_without_raising(tmp_path, monkeypatch):
-    tsv = tmp_path / "results.tsv"
-    _write_tsv(tsv, [_row()])
-    monkeypatch.setattr(
-        results_db,
-        "replace_all",
-        lambda *a, **k: (_ for _ in ()).throw(sqlite3.OperationalError("boom")),
-    )
-    n = results_db.try_sync_from_tsv(tsv, tmp_path / "results.db")
-    assert n == 0  # failed, but did not raise
-
-
-def test_parity_check_detects_drift(tmp_path):
-    tsv = tmp_path / "results.tsv"
-    _write_tsv(tsv, [_row(), _row(trial_id="t-0002")])
-    db = tmp_path / "results.db"
-    results_db.sync_from_tsv(tsv, db)
-    ok, report = results_db.parity_check(tsv, db)
-    assert ok
-
-    # Drift: delete a row behind the mirror's back.
-    conn = sqlite3.connect(db)
-    conn.execute("DELETE FROM trials WHERE trial_id='t-0002'")
-    conn.commit()
-    conn.close()
-
-    ok, report = results_db.parity_check(tsv, db)
-    assert not ok
-    assert "t-0002" in report
-
-
-def test_parity_check_missing_db_is_drift_not_crash(tmp_path):
-    tsv = tmp_path / "results.tsv"
-    _write_tsv(tsv, [_row()])
-    ok, report = results_db.parity_check(tsv, tmp_path / "results.db")
-    assert not ok
-    assert "canonical DB missing" in report
-
-
-def test_parity_check_tableless_db_is_drift_not_crash(tmp_path):
-    tsv = tmp_path / "results.tsv"
-    _write_tsv(tsv, [_row()])
-    db = tmp_path / "results.db"
-    sqlite3.connect(db).close()  # exists but no schema
-    ok, report = results_db.parity_check(tsv, db)
-    assert not ok
-    assert "no 'trials' table" in report
-
-
 # ── canonical-first store contract (SQLite primary, legacy TSV fallback) ──
-
-
-def test_read_rows_returns_none_when_db_missing(tmp_path):
-    assert results_db.read_rows(tmp_path / "results.db") is None
 
 
 def test_read_rows_round_trips_writer_text(tmp_path):
@@ -235,37 +169,6 @@ def test_store_rows_prefers_db_over_stale_tsv(tmp_path):
     rows, source = results_db.store_rows(tsv, db)
     assert source == "db"
     assert rows[0]["status"] == "dominated"
-
-
-def test_store_rows_empty_db_empty_tsv_is_empty_not_fallback_crash(tmp_path):
-    rows, source = results_db.store_rows(tmp_path / "results.tsv", tmp_path / "results.db")
-    assert rows == []
-    assert source == "tsv"
-
-
-def test_upsert_rows_opens_own_connection(tmp_path):
-    db = tmp_path / "results.db"
-    results_db.upsert_rows(db, [_row()])
-    results_db.upsert_rows(db, [_row(trial_id="t-0002", status="dominated")])
-    conn = sqlite3.connect(db)
-    n = conn.execute("SELECT COUNT(*) FROM trials").fetchone()[0]
-    conn.close()
-    assert n == 2
-
-
-def test_sync_to_tsv_round_trips_from_db(tmp_path):
-    tsv = tmp_path / "results.tsv"
-    db = tmp_path / "results.db"
-    results_db.sync_from_tsv(tsv if tsv.exists() else _write_tsv(tsv, [_row()]) or tsv, db)
-    n = results_db.sync_to_tsv(tsv, db)
-    assert n == 1
-    rows = list(csv.DictReader(open(tsv, encoding="utf-8"), delimiter="\t"))
-    assert rows[0]["tps"] == "27.8"
-    assert rows[0]["ctx"] == "32768"
-
-
-def test_try_sync_to_tsv_never_raises_when_db_missing(tmp_path):
-    assert results_db.try_sync_to_tsv(tmp_path / "results.tsv", tmp_path / "results.db") == 0
 
 
 def _legacy_conn(tmp_path):

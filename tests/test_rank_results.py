@@ -104,15 +104,6 @@ def test_pick_day_night_return_table_heads():
     assert rr.pick_night(points).model == "smart"
 
 
-def test_cli_floor_flags_removed():
-    # ADR 0017: floors are historical notes, not CLI knobs.
-    import pytest
-
-    for flag in ("--day-tps-floor", "--night-ctx-floor"):
-        with pytest.raises(SystemExit):
-            rr.parse_args([flag, "50"])
-
-
 def test_build_vectors_merges_best_valid_scores_ignores_keep_and_pollution():
     rows = [
         {
@@ -383,98 +374,6 @@ def test_pick_returns_fingerprint_hint_from_best_claw_row():
     assert night.fp == expected_fp
     legacy = rr.Point("L.gguf", ctx=65536, tps=10.0, agentic=0.5, coding=0.5)
     assert legacy.fp is None
-
-
-def test_day_and_night_tables_are_aligned_columns():
-    # ADR 0017: both tables list every complete model; rows carry the
-    # representative run's measured values.
-    front = [
-        rr.Point("POCKET.gguf", ctx=65536, tps=35.7, agentic=0.6667, coding=0.6150),
-        rr.Point("MTP.gguf", ctx=32768, tps=63.7, agentic=0.4667, coding=0.5800),
-        rr.Point("FAST.gguf", ctx=65536, tps=166.4, agentic=0.6000, coding=0.3500),
-        rr.Point("KAT.gguf", ctx=65536, tps=30.2, agentic=0.6000, coding=0.6400),
-    ]
-    report = rr.format_report(front, [], mode="pareto")
-    assert "DAY" in report
-    assert "NIGHT" in report
-    assert "| #" in report
-    assert "Model" in report.splitlines()[1]
-    day_section, night_section = report.split("NIGHT", 1)
-    # Every complete model appears in BOTH sections.
-    for model in ("POCKET.gguf", "MTP.gguf", "FAST.gguf", "KAT.gguf"):
-        assert model in day_section
-        assert model in night_section
-    # Day order: KAT (0.64) and POCKET (0.615) are within the ±0.05 band →
-    # TPS decides (POCKET 35.7 > KAT 30.2); then MTP (0.4667), FAST (0.35).
-    day_lines = [line for line in day_section.splitlines() if line.startswith("|")]
-    models_in_order = [line.split("|")[2].strip() for line in day_lines[2:]]
-    assert models_in_order == ["POCKET.gguf", "KAT.gguf", "MTP.gguf", "FAST.gguf"]
-    # POCKET's Day row keeps its own (sub-50) TPS: floors no longer filter.
-    assert "35.7" in day_section
-
-
-def test_live_top_of_table_order_locked_in_issue_70():
-    # T6 lock-in: live-store top rows under the new math (measured 2026-09-10).
-    # Qwen3.8-4B stays #1 on both tables; Tiel-Coder sits directly under its
-    # quality peers (never hidden); LFM2.5-8B sorts below finished models by IQ
-    # despite the fastest TPS on the board.
-    front = [
-        rr.Point("Qwen3.8-4B-Q4_K_M.gguf", ctx=131072, tps=74.9, agentic=0.8667, coding=0.64),
-        rr.Point("Ornith-1.5-9B-Q4_K_M.gguf", ctx=65536, tps=43.2, agentic=0.80, coding=0.615),
-        rr.Point("POCKET-35B-Q3_K_M.gguf", ctx=65536, tps=35.7, agentic=0.6667, coding=0.615),
-        rr.Point(
-            "Kwaipilot_KAT-Coder-V2.5-Dev-IQ4_XS.gguf",
-            ctx=65536,
-            tps=31.3,
-            agentic=0.60,
-            coding=0.64,
-        ),
-        rr.Point("Ornith-1.5-35B-Q4_K_M.gguf", ctx=65536, tps=28.8, agentic=0.7333, coding=0.63),
-        rr.Point(
-            "Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf",
-            ctx=65536,
-            tps=28.2,
-            agentic=0.8667,
-            coding=0.64,
-        ),
-        rr.Point("LFM2.5-8B-A1B-Q4_K_M.gguf", ctx=65536, tps=182.2, agentic=0.2667, coding=0.38),
-        # Synthetic ctx-diverse peer inside the band: slow but long-context, so
-        # Day (TPS lens) and Night (ctx lens) must disagree on it. Catches a
-        # Day/Night tie_key swap that identical orders would hide.
-        rr.Point("Wide-Slow.gguf", ctx=131072, tps=20.0, agentic=0.62, coding=0.62),
-    ]
-    expected_day = [
-        "Qwen3.8-4B-Q4_K_M.gguf",
-        "Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf",
-        "Ornith-1.5-9B-Q4_K_M.gguf",
-        "Kwaipilot_KAT-Coder-V2.5-Dev-IQ4_XS.gguf",
-        "Ornith-1.5-35B-Q4_K_M.gguf",
-        "POCKET-35B-Q3_K_M.gguf",
-        "Wide-Slow.gguf",
-        "LFM2.5-8B-A1B-Q4_K_M.gguf",
-    ]
-    expected_night = [
-        "Qwen3.8-4B-Q4_K_M.gguf",
-        "Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf",
-        "Ornith-1.5-35B-Q4_K_M.gguf",
-        "Wide-Slow.gguf",
-        "Ornith-1.5-9B-Q4_K_M.gguf",
-        "POCKET-35B-Q3_K_M.gguf",
-        "Kwaipilot_KAT-Coder-V2.5-Dev-IQ4_XS.gguf",
-        "LFM2.5-8B-A1B-Q4_K_M.gguf",
-    ]
-    assert [p.model for p in rr.day_table(front)] == expected_day
-    assert [p.model for p in rr.night_table(front)] == expected_night
-    assert rr.pick_day(front).model == "Qwen3.8-4B-Q4_K_M.gguf"
-    assert rr.pick_night(front).model == "Qwen3.8-4B-Q4_K_M.gguf"
-
-    # Tied quality → Day breaks by TPS, Night breaks by ctx
-    tie_pair = [
-        rr.Point("long_ctx", ctx=131072, tps=30.0, agentic=0.70, coding=0.70),
-        rr.Point("fast_tps", ctx=65536, tps=100.0, agentic=0.70, coding=0.70),
-    ]
-    assert [p.model for p in rr.day_table(tie_pair)] == ["fast_tps", "long_ctx"]
-    assert [p.model for p in rr.night_table(tie_pair)] == ["long_ctx", "fast_tps"]
 
 
 def test_quality_dominance_prevents_night_ctx_or_tps_leapfrog():

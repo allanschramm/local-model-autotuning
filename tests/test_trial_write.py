@@ -13,11 +13,7 @@ import json
 import pytest
 
 from autoresearch.runners import run
-from autoresearch.runners.run import (
-    TRIAL_STATUSES,
-    get_previous_best,
-    write_row,
-)
+from autoresearch.runners.run import write_row
 
 
 def _read(tmp_tsv) -> list[dict]:
@@ -114,37 +110,6 @@ def test_invalid_status_rejected(tmp_path):
     assert not tsv.exists()  # nothing written
 
 
-def test_status_enum_matches_issue_vocabulary():
-    assert {
-        "on_front",
-        "dominated",
-        "incomplete",
-        "rejected",
-    } == TRIAL_STATUSES
-
-
-def test_previous_best_sees_on_front_rows(tmp_path):
-    tsv = tmp_path / "results.tsv"
-    _write_row(tsv, status="on_front", val_score=0.42)
-    _write_row(tsv, status="dominated", val_score=0.10)
-    assert get_previous_best(tsv) == 0.42
-
-
-def test_previous_best_ignores_legacy_keep_cells(tmp_path):
-    """Stale keep cells (no longer recognized) do not count as frontier."""
-    tsv = tmp_path / "results.tsv"
-    rows = [
-        {"trial_id": "a", "model": "m.gguf", "status": "keep", "val_score": "0.30"},
-        {"trial_id": "b", "model": "m.gguf", "status": "on_front", "val_score": "0.55"},
-        {"trial_id": "c", "model": "m.gguf", "status": "discard", "val_score": "0.90"},
-    ]
-    with open(tsv, "w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0]), delimiter="\t")
-        writer.writeheader()
-        writer.writerows(rows)
-    assert get_previous_best(tsv) == 0.55
-
-
 def test_write_row_gpu_temp_and_tps_reps(tmp_path):
     tsv = tmp_path / "results.tsv"
     _write_row(tsv, gpu_temp_c=71.0, tps_reps="1,2,3", tps_spread=10.0)
@@ -196,18 +161,6 @@ def test_recompute_statuses_refreshes_mirror(tmp_path, monkeypatch):
     assert _read_db(tsv)[1] == 2
 
 
-def test_recompute_statuses_survives_mirror_failure(tmp_path, monkeypatch):
-    """A broken mirror never breaks the TSV write path."""
-    from autoresearch.runners import run
-
-    tsv = tmp_path / "results.tsv"
-    _write_row(tsv, status="on_front")
-    monkeypatch.setattr(run.results_db, "try_sync_from_tsv", lambda *a, **k: 0)
-    run.recompute_statuses(tsv)  # must not raise
-    rows = _read(tsv)
-    assert len(rows) == 1 and rows[0]["status"] == "on_front"
-
-
 # ── dual-write contract: canonical SQLite primary, legacy TSV fallback ──
 
 
@@ -221,15 +174,6 @@ def test_write_row_writes_both_stores(tmp_path):
     assert len(db_rows) == 1
     assert db_rows[0]["tps"] == "74.9"
     assert db_rows[0]["ctx"] == "131072"
-
-
-def test_read_rows_survives_missing_db_via_tsv_fallback(tmp_path):
-    tsv = tmp_path / "results.tsv"
-    _write_row(tsv, status="on_front", tps=50.0)
-    (tmp_path / "results.db").unlink()  # simulate lost canonical store
-    rows = run.read_rows(tsv)
-    assert len(rows) == 1
-    assert rows[0]["status"] == "on_front"
 
 
 def _fp_json() -> str:

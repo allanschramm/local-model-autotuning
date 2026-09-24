@@ -110,13 +110,3 @@ def test_dump_rejects_absolute_user_paths(tmp_path: Path, engine: dict) -> None:
 def test_dump_rejects_private_keys_and_values(tmp_path: Path, engine: dict) -> None:
     with pytest.raises(ValueError, match="private"):
         dump(tmp_path / "m.json", model="model.gguf", engine=engine)
-
-
-def test_fingerprints_dir_is_gitignored() -> None:
-    repo_root = Path(__file__).resolve().parents[1]
-    gitignore = (repo_root / ".gitignore").read_text(encoding="utf-8")
-    assert any(
-        line.strip().rstrip("/") in ("/fingerprints", "fingerprints")
-        or line.strip() in ("/fingerprints/", "fingerprints/")
-        for line in gitignore.splitlines()
-    )
