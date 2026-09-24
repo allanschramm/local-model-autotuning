@@ -40,3 +40,4 @@ Repository developers.
 
 ## Child DOX Index
 - [benchmarks/agentic_coding/AGENTS.md](benchmarks/agentic_coding/AGENTS.md) — SWE-lite frozen issues + loop detector (ADR 0013)
+- [benchmarks/mini_swe_agent/AGENTS.md](benchmarks/mini_swe_agent/AGENTS.md) — pinned DM-Code-Agent 30-task real-SWE eval via guarded `mini-swe-agent` subprocesses (sibling to SWE-lite; observation-only in v1)

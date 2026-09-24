@@ -376,3 +376,13 @@ Incomplete vectors (smoke only). Session: [2026-08-12-qwen36-dflash-tps.md](../s
 - Which candidate, if any, is authorized for a full Claw + coding-10 Objective Vector on a **spec** Fingerprint? Speed smokes stay `incomplete`.
 - No QAT-labelled Qwen3.6-35B-A3B artifact was found in the inspected official Qwen, Unsloth, or ggml-org inventories. Treat QAT as **not identified**, not as a claim that no third party can publish one later.
 - Unmeasured max-TPS ladder: Q3/IQ quant, `N_CPU_MOE` sweep, lower CTX, EXL3 study — see session brainstorm.
+
+## Daily SWE eval (DM-Code-Agent 30-task via `mini-swe-agent`)
+
+The operator's daily-SWE eval against this alias runs via `mini-swe-agent` (env-only wire-up to the harness `llama-server`) on the DM-Code-Agent 30-task frozen benchmark. Layered next to SWE-lite (ADR 0013) as another Night selector; **not** a Pareto axis in v1.
+
+- **Run:** `python -m autoresearch.runners.run --mini-swe-agent --desc "msa-baseline-qwen3.6-35b-a3b"`
+- **Schema:** writes `mini_swe_agent_val` (passed/total) and `mini_swe_agent_detail` (per-task `<id>=<verdict>`) into `results.db`. Backward-compatible `ALTER TABLE` migration; existing rows read `NULL` for the new columns.
+- **Operator guide:** [`../discovery/mini-swe-agent-benchmark.md`](../discovery/mini-swe-agent-benchmark.md).
+- **Acceptance gate:** ≥ 18/30 (~60 %) on this alias; per-task wall-time ≤ 4× `esagduyu`'s 3.3 min baseline on Qwen3.6-35B-A3B; trajectory JSONL non-empty for every task; hidden tests never in the prompt.
+- **Deferral:** promotion to a fifth Pareto axis is ADR 0018 territory. v1 lives in the new column as an observation; Day/Night Usage Profile rules (ADR 0017) stay unchanged.

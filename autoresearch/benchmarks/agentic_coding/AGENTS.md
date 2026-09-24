@@ -21,5 +21,8 @@ Repository developers. Parent: [`autoresearch/AGENTS.md`](../../AGENTS.md).
 ## Verification
 `.\venv\Scripts\python.exe -m pytest tests/test_agentic_coding.py`
 
+## Note on the future replacement
+The DM-Code-Agent 30-task real-SWE eval ([`benchmarks/mini_swe_agent/AGENTS.md`](../mini_swe_agent/AGENTS.md)) is the operator's v1 sibling of SWE-lite. Both layers write their own columns in `results.db` (`mini_swe_agent` is observation-only in v1 — the leaderboard does not render it yet). Retiring SWE-lite in favor of DM-Code-Agent is **out of scope for v1** and is a separate ADR (likely 0019); the 5-task frozen pack stays because it is hermetic, no external fixture, runnable in CI.
+
 ## Child DOX Index
 None

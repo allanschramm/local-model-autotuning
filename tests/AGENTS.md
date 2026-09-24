@@ -23,3 +23,5 @@ Repository developers.
 
 ## Child DOX Index
 None — `tests/` is a leaf directory.
+
+> Per-test-file pointer (not enumerated above because `tests/` stays a leaf): `tests/test_mini_swe_agent.py` exercises the pinned DM-Code-Agent loader, single-tool-call mini-swe-agent config, per-task trajectory/no-progress abort, guarded subprocess timeout, scope rules, and suite fingerprint.

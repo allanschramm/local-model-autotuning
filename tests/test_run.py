@@ -4,6 +4,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, mock_open, patch
 
 from autoresearch.benchmarks.benchmark_harness import BenchmarkResult
@@ -11,6 +12,16 @@ from autoresearch.runners import run
 
 
 class TestRun(unittest.TestCase):
+    def test_mini_swe_agent_category_precedes_default_full(self):
+        args = SimpleNamespace(
+            validation=False,
+            mini_swe_agent=True,
+            agentic_full=True,
+            agentic_coding=False,
+            agentic_quick=False,
+        )
+        self.assertEqual(run.determine_category(args), "mini-swe-agent")
+
     @patch("autoresearch.runners.evaluation.LlamaServerRunner")
     @patch(
         "autoresearch.runners.evaluation.preflight_vram_for_intent",
@@ -459,6 +470,45 @@ class TestRun(unittest.TestCase):
         self.assertEqual(res["val_score"], 0.8)
         self.assertEqual(res["tps_source"], "skipped")
         self.assertEqual(res["outcome"], "OK")
+
+    @patch("autoresearch.runners.evaluation.run_mini_swe_agent_eval")
+    @patch("autoresearch.runners.evaluation.LlamaServerRunner")
+    @patch("autoresearch.core.llama_runner.detect_free_vram_mb", return_value=20000.0)
+    def test_mini_swe_agent_forwards_generation_params(self, _mock_free, mock_runner, mock_mini):
+        entered = MagicMock(
+            port=18080,
+            peak_vram_mb=4000,
+            vram_killed=False,
+            intent=MagicMock(host="127.0.0.1", model_path=Path("test.gguf")),
+        )
+        mock_runner.return_value.__enter__.return_value = entered
+        mock_mini.return_value = {
+            "score": 1.0,
+            "passed": 1,
+            "total": 1,
+            "detail": "task=pass",
+            "suite_signature": "sig",
+        }
+        result = run.run_evaluation(
+            {
+                "MODEL": "test.gguf",
+                "CTX_SIZE": 131072,
+                "FLASH_ATTN": "on",
+                "TEMP": 0.33,
+                "TOP_P": 0.88,
+                "TOP_K": 17,
+            },
+            skip_bench=True,
+            include_coding=True,
+            agentic_full=True,
+            mini_swe_agent=True,
+        )
+        self.assertEqual(result["mini_swe_agent_val"], 1.0)
+        self.assertIn("suite=sig", result["mini_swe_agent_detail"])
+        params = mock_mini.call_args.kwargs["gen_params"]
+        self.assertEqual(params.temp, 0.33)
+        self.assertEqual(params.top_p, 0.88)
+        self.assertEqual(params.top_k, 17)
 
     @patch("autoresearch.runners.evaluation.LlamaServerRunner")
     @patch("autoresearch.core.llama_runner.detect_free_vram_mb", return_value=20000.0)

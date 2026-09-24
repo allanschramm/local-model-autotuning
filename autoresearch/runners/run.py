@@ -101,6 +101,8 @@ def determine_category(args) -> str:
     """Infer run category from CLI args."""
     if getattr(args, "validation", False):
         return CATEGORY_VALIDATION
+    if getattr(args, "mini_swe_agent", False):
+        return "mini-swe-agent"
     if getattr(args, "agentic_full", False):
         return "agentic-full"
     if getattr(args, "agentic_coding", False):
@@ -252,6 +254,28 @@ def parse_args():
         action=argparse.BooleanOptionalAction,
         default=getattr(bench_config, "INCLUDE_AGENTIC_CODING", False),
         help="Run SWE-lite issue loop (ADR 0013 Night selector; use --agentic-coding to enable)",
+    )
+    parser.add_argument(
+        "--mini-swe-agent",
+        dest="mini_swe_agent",
+        action=argparse.BooleanOptionalAction,
+        default=getattr(bench_config, "INCLUDE_MINI_SWE_AGENT", False),
+        help="Run DM-Code-Agent 30-task real-SWE eval via mini-swe-agent "
+        "(layers next to SWE-lite per ADR 0013; off by default; opt-in)",
+    )
+    parser.add_argument(
+        "--mini-swe-agent-task-limit",
+        type=int,
+        default=getattr(bench_config, "MINI_SWE_AGENT_TASK_LIMIT", 0),
+        help="Limit DM-Code-Agent scoreboard to first N tasks (0 = full suite; "
+        "smoke runs use a small N to bound Trial wall-time)",
+    )
+    parser.add_argument(
+        "--mini-swe-agent-suite",
+        type=str,
+        default=getattr(bench_config, "MINI_SWE_AGENT_SUITE", "all"),
+        choices=["coding", "maintenance", "all"],
+        help="DM-Code-Agent suite to run (default: bench_config MINI_SWE_AGENT_SUITE)",
     )
     parser.add_argument(
         "--list-agentic-benchmarks",
@@ -605,6 +629,8 @@ CATEGORY_FIELDNAMES = [
     "agentic",
     "coding",
     "agentic_coding",
+    "mini_swe_agent",
+    "mini_swe_agent_detail",
     "memory_gb",
     "elapsed_sec",
     "tps",
@@ -699,6 +725,8 @@ def write_row(
     agentic: float | None = None,
     coding: float | None = None,
     agentic_coding: float | None = None,
+    mini_swe_agent: float | None = None,
+    mini_swe_agent_detail: str = "",
     category: str = "",
     elapsed_sec: float = 0.0,
     model: str = "",
@@ -748,7 +776,9 @@ def write_row(
         "evaluation_profile": evaluation_profile or category,
         "scoring_benchmark": scoring_benchmark
         or (
-            "agentic-coding"
+            "mini-swe-agent"
+            if category == "mini-swe-agent"
+            else "agentic-coding"
             if category == "agentic-coding"
             else "claw-eval"
             if category.startswith("agentic")
@@ -766,6 +796,8 @@ def write_row(
         "agentic": _tsv_cell(agentic, ".4f"),
         "coding": _tsv_cell(coding, ".6f"),
         "agentic_coding": _tsv_cell(agentic_coding, ".4f"),
+        "mini_swe_agent": _tsv_cell(mini_swe_agent, ".4f"),
+        "mini_swe_agent_detail": mini_swe_agent_detail,
         "memory_gb": f"{memory_gb:.1f}",
         "elapsed_sec": f"{elapsed_sec:.0f}",
         "tps": _tsv_cell(tps, ".1f"),
@@ -858,6 +890,8 @@ def run_evaluation(cfg: dict | Any, skip_bench: bool = False, **overrides) -> di
         "agentic_task_count": tr.agentic_task_count,
         "agentic_coding_val": tr.agentic_coding_val,
         "agentic_coding_detail": tr.agentic_coding_detail,
+        "mini_swe_agent_val": getattr(tr, "mini_swe_agent_val", None),
+        "mini_swe_agent_detail": getattr(tr, "mini_swe_agent_detail", ""),
         "avg_tps": tr.avg_tps,
         "peak_vram_gb": tr.peak_vram_gb,
         "bench_tg_tps": tr.bench_tg_tps,
@@ -926,13 +960,17 @@ def handle_single_run(args):
     agentic_quick = getattr(args, "agentic_quick", False) is True
     agentic_full = getattr(args, "agentic_full", False) is True
     agentic_coding = getattr(args, "agentic_coding", False) is True
+    mini_swe_agent = getattr(args, "mini_swe_agent", False) is True
+    include_coding = getattr(args, "include_coding", False) is True and not mini_swe_agent
 
     # Run evaluation
     res = run_evaluation(
         args,
+        include_coding=include_coding,
         agentic_quick=agentic_quick,
         agentic_full=agentic_full,
         agentic_coding=agentic_coding,
+        mini_swe_agent=mini_swe_agent,
     )
 
     failed = res["status"] != "OK" or res.get("outcome", "OK") != "OK"
@@ -974,9 +1012,7 @@ def handle_single_run(args):
     # coding-10 is canonical-Trial work; validation = smoke gates only (run_trial
     # forces include_coding off). Mirror that so the vector never claims a
     # 0.0 coding axis on a validation row.
-    coding_measured = getattr(args, "include_coding", False) is True and not getattr(
-        args, "validation", False
-    )
+    coding_measured = include_coding and not getattr(args, "validation", False)
     # Claw quick is smoke, not the agentic axis (ADR 0006: agentic = Claw full).
     agentic_full = res.get("agentic_tier") == "full"
     vector = classify.ObjectiveVector(
@@ -1005,6 +1041,11 @@ def handle_single_run(args):
             f" agentic_coding={res['agentic_coding_val']:.4f}"
             f" ({res.get('agentic_coding_detail') or ''})"
         )
+    if res.get("mini_swe_agent_val") is not None:
+        details += (
+            f" mini_swe_agent={res['mini_swe_agent_val']:.4f}"
+            f" ({res.get('mini_swe_agent_detail') or ''})"
+        )
     details += f" bench_tg={res.get('bench_tg_tps', 0.0):.1f}"
     details += f" | {args.desc}"
 
@@ -1024,6 +1065,8 @@ def handle_single_run(args):
         agentic=vector.agentic,
         coding=vector.coding,
         agentic_coding=res.get("agentic_coding_val"),
+        mini_swe_agent=res.get("mini_swe_agent_val"),
+        mini_swe_agent_detail=res.get("mini_swe_agent_detail") or "",
         category=determine_category(args),
         elapsed_sec=res.get("elapsed_sec", 0.0),
         tps=res.get("avg_tps"),

@@ -14,6 +14,7 @@ from autoresearch.benchmarks.agentic_runner import (
     ServiceManager,
     _assistant_history_message,
     _assistant_visible_text,
+    _rewind_last_tool_turn,
     run_agent_loop,
     run_agentic_eval,
     score_task,
@@ -801,3 +802,220 @@ def test_run_agent_loop_retries_on_context_error(monkeypatch, mock_llama_client,
     assert "context limit reached" in capsys.readouterr().out
     assert text == "Final triage completed."
     assert calls == 3
+
+
+def test_rewind_last_tool_turn_drops_poisoned_block():
+    """Rewind must drop the last assistant+tool_calls block and its tools."""
+    messages = [
+        {"role": "system", "content": "s"},
+        {"role": "user", "content": "u"},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [{"id": "c0", "function": {"name": "a", "arguments": "{}"}}],
+        },
+        {"role": "tool", "tool_call_id": "c0", "content": "{}"},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [{"id": "c1", "function": {"name": "b", "arguments": "junk"}}],
+        },
+        {"role": "tool", "tool_call_id": "c1", "content": "{}"},
+    ]
+    assert _rewind_last_tool_turn(messages) is True
+    assert messages == messages[:4]
+    assert all(m.get("role") != "tool" or m["tool_call_id"] == "c0" for m in messages)
+
+
+def test_rewind_last_tool_turn_no_block():
+    """Rewind with no tool turn must leave history untouched."""
+    messages = [
+        {"role": "system", "content": "s"},
+        {"role": "user", "content": "u"},
+        {"role": "assistant", "content": "plain answer"},
+    ]
+    assert _rewind_last_tool_turn(messages) is False
+    assert len(messages) == 3
+
+
+def _mock_resp(payload: dict):
+    class _Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return json.dumps(payload).encode()
+
+    return _Resp()
+
+
+def test_run_agent_loop_sends_parallel_tool_calls_false(monkeypatch, mock_llama_client):
+    """Payload must force single tool call per turn (MiMo tag-burst guard)."""
+    mock_llama_client.base_url = "http://127.0.0.1:18080"
+    bodies = []
+
+    def _mock_urlopen(req, timeout=None):
+        bodies.append(json.loads(req.data.decode()))
+        return _mock_resp({"choices": [{"message": {"content": "done"}}]})
+
+    monkeypatch.setattr(
+        "autoresearch.benchmarks.agentic_runner.urllib.request.urlopen", _mock_urlopen
+    )
+    text, _calls, _elapsed, _meta = run_agent_loop(
+        mock_llama_client,
+        {"prompt": {"text": "x"}, "tools": [], "tool_endpoints": []},
+        max_turns=2,
+    )
+    assert text == "done"
+    assert bodies and bodies[0]["parallel_tool_calls"] is False
+
+
+def test_run_agent_loop_drops_non_json_tool_call(monkeypatch, mock_llama_client):
+    """Junk arguments must not poison history; loop nudges and continues."""
+    mock_llama_client.base_url = "http://127.0.0.1:18080"
+    bodies = []
+    calls = 0
+
+    def _mock_urlopen(req, timeout=None):
+        nonlocal calls
+        calls += 1
+        bodies.append(json.loads(req.data.decode()))
+        if calls == 1:
+            return _mock_resp(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": "",
+                                "tool_calls": [
+                                    {
+                                        "id": "c1",
+                                        "function": {
+                                            "name": "ghost",
+                                            "arguments": '{"a": "broken</parameter></function></tool_call>',
+                                        },
+                                    }
+                                ],
+                            }
+                        }
+                    ]
+                }
+            )
+        return _mock_resp({"choices": [{"message": {"content": "recovered"}}]})
+
+    monkeypatch.setattr(
+        "autoresearch.benchmarks.agentic_runner.urllib.request.urlopen", _mock_urlopen
+    )
+    text, tool_calls, _elapsed, _meta = run_agent_loop(
+        mock_llama_client,
+        {"prompt": {"text": "x"}, "tools": [], "tool_endpoints": []},
+        max_turns=3,
+    )
+    assert text == "recovered"
+    assert tool_calls == []
+    # Second request must carry a user nudge, not a stacked assistant turn.
+    last_msgs = bodies[1]["messages"]
+    assert last_msgs[-1]["role"] == "user"
+    assert "malformed" in last_msgs[-1]["content"]
+    assert sum(1 for m in last_msgs if m.get("tool_calls")) == 0
+
+
+def test_run_agent_loop_retries_http_500_once(monkeypatch, mock_llama_client):
+    """HTTP 500 rewinds one tool turn and retries instead of failing the task."""
+    mock_llama_client.base_url = "http://127.0.0.1:18080"
+    calls = 0
+
+    def _mock_urlopen(req, timeout=None):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _mock_resp(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": "",
+                                "tool_calls": [
+                                    {
+                                        "id": "c1",
+                                        "function": {"name": "ghost", "arguments": "{}"},
+                                    }
+                                ],
+                            }
+                        }
+                    ]
+                }
+            )
+        if calls == 2:
+            raise urllib.error.HTTPError(
+                "http://127.0.0.1:18080/v1/chat/completions",
+                500,
+                "Internal Server Error",
+                email.message.Message(),
+                io.BytesIO(b'{"error":{"message":"Failed to parse tool call arguments as JSON"}}'),
+            )
+        return _mock_resp({"choices": [{"message": {"content": "recovered"}}]})
+
+    monkeypatch.setattr(
+        "autoresearch.benchmarks.agentic_runner.urllib.request.urlopen", _mock_urlopen
+    )
+    text, _tool_calls, _elapsed, meta = run_agent_loop(
+        mock_llama_client,
+        {"prompt": {"text": "x"}, "tools": [], "tool_endpoints": []},
+        max_turns=4,
+    )
+    assert text == "recovered"
+    assert calls == 3
+    assert len(meta["http_errors"]) == 1
+    assert "HTTP 500" in meta["http_errors"][0]
+
+
+def test_run_agent_loop_http_500_retries_only_once(monkeypatch, mock_llama_client):
+    """A second HTTP 500 fails the task — rewind happens at most once."""
+    mock_llama_client.base_url = "http://127.0.0.1:18080"
+    calls = 0
+
+    def _mock_urlopen(req, timeout=None):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return _mock_resp(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": "",
+                                "tool_calls": [
+                                    {
+                                        "id": "c1",
+                                        "function": {"name": "ghost", "arguments": "{}"},
+                                    }
+                                ],
+                            },
+                        }
+                    ]
+                }
+            )
+        raise urllib.error.HTTPError(
+            "http://127.0.0.1:18080/v1/chat/completions",
+            500,
+            "Internal Server Error",
+            email.message.Message(),
+            io.BytesIO(b'{"error":{"message":"Failed to parse tool call arguments as JSON"}}'),
+        )
+
+    monkeypatch.setattr(
+        "autoresearch.benchmarks.agentic_runner.urllib.request.urlopen", _mock_urlopen
+    )
+    text, _tool_calls, _elapsed, meta = run_agent_loop(
+        mock_llama_client,
+        {"prompt": {"text": "x"}, "tools": [], "tool_endpoints": []},
+        max_turns=6,
+    )
+    # First 500 rewound + retried (call 2); second 500 failed the task (call 3).
+    assert calls == 3
+    assert len(meta["http_errors"]) == 2
+    assert text != "recovered"
