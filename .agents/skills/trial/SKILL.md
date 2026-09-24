@@ -4,9 +4,10 @@ description: >
   Run a full Objective-Vector Trial (Claw-Eval full = 15 tasks + coding-10) for one
   GGUF or a sequential queue of variants. Use whenever the user says trial / Trial
   a model, "trial this X model", "trial all X variants/quants", complete the
-  Objective Vector, or wants claw-full + coding-10 measured into results.db —
-  even if they do not say the word "skill". Prefer this over ad-hoc llama-server
-  or --validation-only when they want real frontier axes.
+  Objective Vector, wants claw-full + coding-10 measured into results.db, or explicitly
+  requests the standalone mini-swe-agent / DM-Code-Agent suite — even if they do not
+  say the word "skill". Prefer this over ad-hoc llama-server or --validation-only
+  when they want real frontier axes.
 ---
 
 # trial
@@ -47,6 +48,8 @@ themselves.
   reducing context size to fit memory, avoid OOM/Circuit Breaker, or resolve failed tasks.
 - Do not edit harness / vendor code when a Trial fails. Record the failure, move
   to the next queue item.
+- Mini-swe-agent is standalone, not part of `--agentic-full`. When explicitly
+  requested, pass its one-task wiring smoke before starting the 30-task suite.
 - Never push results or tweak branches. Offline only.
 - Never commit `models/aliases/` or machine Baseline.
 
@@ -105,6 +108,16 @@ Each distinct GGUF basename is its own Trial (quants are not interchangeable).
    `untested` / notes when rejected or crashed before a stable measure.
 6. Advance to the next queue item.
 
+### 1b. Optional mini-swe-agent gate
+
+Run this only when the user explicitly requests mini-swe; it is not part of the
+four-axis Trial.
+
+1. Run one task: `.\venv\Scripts\python.exe -m autoresearch.runners.run --mini-swe-agent --mini-swe-agent-task-limit 1 --desc "msa-smoke <basename>"`.
+2. Read the newest `autoresearch/runners/logs/mini-swe-agent-*.jsonl` line. Continue only when `changed_files` is non-empty and `mini_exit_status` is not `RepeatedFormatError`.
+3. Run the 30-task suite without `--mini-swe-agent-task-limit`. The harness aborts after two consecutive no-progress format failures, so a broken tool-call path cannot consume the remaining suite budget.
+4. Read the final `results.db` row; an aborted suite remains `NULL`, never a measured zero.
+
 ### 2. Closeout
 
 Print one markdown results table covering the whole queue, then stop.
@@ -130,6 +143,7 @@ ALWAYS end with this table (one row per queue item):
 
 - Parallel Trials or GPU burns
 - `--validation` when the user asked for a full Trial
+- Launching the 30-task mini-swe suite before its one-task wiring smoke passes
 - Leaving the previous model's sampler/engine in Baseline
 - CLI Baseline overrides instead of editing `config.py`
 - Stopping the whole sequence because one variant rejected

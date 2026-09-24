@@ -31,6 +31,7 @@ User-facing guides for **discovering, evaluating, selecting, and optimizing** lo
 - [`agent-onboarding.md`](./agent-onboarding.md) — onboarding guide for future agents.
 - [`good-enough-tuning.md`](./good-enough-tuning.md) — default speed path: validation smoke → autoloop `--mode tps` (keeps write the Fingerprint file) → `model-up` → Pi; numeric benches optional via apply-to-Baseline (ADR 0014).
 - [`agentic-coding-benchmarks.md`](./agentic-coding-benchmarks.md) — Claw tiers + SWE-lite `--agentic-coding` (ADR 0013).
+- [`mini-swe-agent-benchmark.md`](./mini-swe-agent-benchmark.md) — pinned DM-Code-Agent 30-task real-SWE eval via guarded `mini-swe-agent` subprocesses, one-task wiring smoke, single-tool-call/no-progress guards, official changed-file/verifier semantics, and a recorded suite signature; observation-only in v1.
 - [`claw-eval-leaderboard.md`](./claw-eval-leaderboard.md) — ranked Claw-Eval full/quick scores on this 8 GB rig + operational lessons.
 - [`visual-pack.md`](./visual-pack.md) — Pi visual-pack stub on the Fingerprint bus: same file as daily Pi, camera rubric optional, never writes rank (issue #54, ADR 0014 phase 4).
 - [`visual-pack-prompt.md`](./visual-pack-prompt.md) — frozen workspace-shaped sample prompt 01 (notes-CLI fix); do not edit, add numbered files.
