@@ -257,11 +257,6 @@ def test_posix_signal_falls_back_when_shares_parent_group(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_default_grace_period_is_two_seconds():
-    assert process_guard.TEARDOWN_GRACE_SECONDS == 2.0
-    assert process_guard.ProcessGuard().grace_seconds == 2.0
-
-
 def test_teardown_terminates_then_waits_then_force_kills(monkeypatch):
     monkeypatch.setattr(process_guard, "IS_WINDOWS", False)
     monkeypatch.setattr(process_guard, "IS_LINUX", False)
@@ -273,18 +268,6 @@ def test_teardown_terminates_then_waits_then_force_kills(monkeypatch):
     assert proc.sigs == [signal.SIGTERM, process_guard.SIGKILL]
     assert proc.waits == [0.5, None]
     assert guard._procs == []
-
-
-def test_teardown_skips_already_finished_procs(monkeypatch):
-    monkeypatch.setattr(process_guard, "IS_WINDOWS", False)
-    monkeypatch.setattr(process_guard, "IS_LINUX", False)
-    guard = process_guard.ProcessGuard(grace_seconds=0.5)
-    proc = _DummyProc(alive=False)
-    monkeypatch.setattr(guard, "_signal", lambda child, sig: child.sigs.append(sig))
-    guard.attach(proc)
-    guard.teardown()
-    assert proc.sigs == []
-    assert proc.waits == []
 
 
 def test_teardown_closes_job_object_on_windows(monkeypatch):
@@ -318,17 +301,6 @@ def test_terminate_and_kill_signal_every_live_proc(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_spawn_attaches_automatically(monkeypatch):
-    monkeypatch.setattr(process_guard, "IS_WINDOWS", False)
-    monkeypatch.setattr(process_guard, "IS_LINUX", False)
-    captured: dict = {}
-    monkeypatch.setattr(process_guard.subprocess, "Popen", _fake_popen(captured))
-    guard = process_guard.ProcessGuard(grace_seconds=0.1)
-    proc = guard.spawn(["dummy"], stdout=subprocess.DEVNULL)
-    assert proc in guard._procs
-    assert captured["kwargs"]["stdout"] is subprocess.DEVNULL
-
-
 def test_attach_registers_and_assigns_to_job(monkeypatch):
     monkeypatch.setattr(process_guard, "IS_WINDOWS", True)
     monkeypatch.setattr(process_guard, "IS_LINUX", False)
@@ -344,48 +316,9 @@ def test_attach_registers_and_assigns_to_job(monkeypatch):
     assert assign_calls == [(555, proc.pid)]
 
 
-def test_windows_signal_uses_terminate_kill(monkeypatch):
-    monkeypatch.setattr(process_guard, "IS_WINDOWS", True)
-    monkeypatch.setattr(process_guard, "IS_LINUX", False)
-    monkeypatch.setattr(process_guard, "_create_job_object", lambda: 555)
-    guard = process_guard.ProcessGuard(grace_seconds=0.1)
-    proc = _DummyProc()
-    guard._signal(proc, signal.SIGTERM)
-    guard._signal(proc, process_guard.SIGKILL)
-    assert proc.sigs == [signal.SIGTERM, process_guard.SIGKILL]
-
-
 # ---------------------------------------------------------------------------
 # Pre-flight orphan sweep (issue #37, ADR 0010 decision 2)
 # ---------------------------------------------------------------------------
-
-
-def test_harness_ports_cover_expected_defaults():
-    assert list(process_guard.HARNESS_PORTS) == [18080, 28080, *range(9100, 9115)]
-
-
-def test_target_process_names_cover_expected_defaults():
-    assert set(process_guard.TARGET_PROCESS_NAMES) == {
-        "llama-server",
-        "llama-cli",
-        "llama-bench",
-        "llama-perplexity",
-        "sglang",
-    }
-
-
-def test_run_capture_captures_stdout(monkeypatch):
-    monkeypatch.setattr(process_guard, "IS_WINDOWS", False)
-    out = process_guard._run_capture([sys.executable, "-c", "print('hello')"])
-    assert "hello" in out
-
-
-def test_run_capture_returns_empty_when_command_missing(monkeypatch):
-    def boom(*args, **kwargs):
-        raise FileNotFoundError()
-
-    monkeypatch.setattr(process_guard.subprocess, "run", boom)
-    assert process_guard._run_capture(["no-such-cmd"]) == ""
 
 
 NETSTAT_SAMPLE = """Active Connections
@@ -415,26 +348,6 @@ def test_posix_listeners_parse(monkeypatch):
     monkeypatch.setattr(process_guard, "IS_WINDOWS", False)
     monkeypatch.setattr(process_guard, "_run_capture", lambda cmd: "1234\n5678\nbad\n0\n")
     assert process_guard._listeners_posix(process_guard.HARNESS_PORTS) == {1234, 5678}
-
-
-def test_posix_listeners_builds_lsof_args(monkeypatch):
-    monkeypatch.setattr(process_guard, "IS_WINDOWS", False)
-    captured: dict = {}
-
-    def fake_run(cmd):
-        captured["cmd"] = cmd
-        return "1234\n"
-
-    monkeypatch.setattr(process_guard, "_run_capture", fake_run)
-    process_guard._listeners_posix([18080, 28080])
-    assert captured["cmd"] == [
-        "lsof",
-        "-nP",
-        "-sTCP:LISTEN",
-        "-t",
-        "-iTCP:18080",
-        "-iTCP:28080",
-    ]
 
 
 TASKLIST_SAMPLE = (
@@ -517,26 +430,6 @@ def test_terminate_pid_posix_no_force_after_graceful_exit(monkeypatch):
     assert kills == [(7, signal.SIGTERM)]
 
 
-def test_terminate_pid_skips_dead_process(monkeypatch):
-    monkeypatch.setattr(process_guard, "IS_WINDOWS", False)
-    monkeypatch.setattr(process_guard, "_pid_exists", lambda pid: False)
-    kills: list = []
-    monkeypatch.setattr(process_guard.os, "kill", lambda pid, sig: kills.append((pid, sig)))
-    process_guard._terminate_pid(5, grace_seconds=0.1)
-    assert kills == []
-
-
-def test_terminate_pid_tolerates_disappearing_process(monkeypatch):
-    monkeypatch.setattr(process_guard, "IS_WINDOWS", False)
-    monkeypatch.setattr(process_guard, "_pid_exists", lambda pid: True)
-
-    def boom(pid, sig):
-        raise ProcessLookupError()
-
-    monkeypatch.setattr(process_guard.os, "kill", boom)
-    process_guard._terminate_pid(5, grace_seconds=0.1)
-
-
 def test_cleanup_kills_only_name_plus_port_intersection(monkeypatch):
     monkeypatch.setattr(process_guard, "IS_WINDOWS", True)
     monkeypatch.setattr(process_guard, "listeners_on_ports", lambda ports: {101, 202, 303})
@@ -579,13 +472,3 @@ def test_cleanup_end_to_end_with_fake_commands(monkeypatch):
     result = process_guard.cleanup_leftover_processes([18080, 28080], ["llama-server"])
     assert result == [1234]
     assert killed == [1234]
-
-
-def test_teardown_ignores_stale_job_on_non_windows(monkeypatch):
-    guard = process_guard.ProcessGuard.__new__(process_guard.ProcessGuard)
-    guard._procs = []
-    guard._lock = __import__("threading").Lock()
-    guard._job = 123
-    monkeypatch.setattr(process_guard, "IS_WINDOWS", False)
-    guard.teardown()
-    assert guard._job is None

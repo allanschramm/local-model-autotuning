@@ -7,24 +7,6 @@ from pathlib import Path
 from autoresearch.core.llama_runner import ServerIntent, resolve_model_path
 
 
-def test_resolve_prefers_direct_relative_path(tmp_path: Path):
-    models = tmp_path / "models"
-    target = models / "draft" / "mtp.gguf"
-    target.parent.mkdir(parents=True)
-    target.write_bytes(b"x")
-
-    assert resolve_model_path(models, "draft/mtp.gguf") == target
-
-
-def test_resolve_basename_under_publisher_model(tmp_path: Path):
-    models = tmp_path / "models"
-    target = models / "lmstudio-community" / "gemma-4-e4b-it-gguf" / "gemma.gguf"
-    target.parent.mkdir(parents=True)
-    target.write_bytes(b"x")
-
-    assert resolve_model_path(models, "gemma.gguf") == target
-
-
 def test_resolve_skips_aliases_and_cache(tmp_path: Path):
     models = tmp_path / "models"
     decoy = models / "aliases" / "x" / "gemma.gguf"
@@ -50,28 +32,6 @@ def test_resolve_skips_vision(tmp_path: Path):
     real.write_bytes(b"r")
 
     assert resolve_model_path(models, "gemma.gguf") == real
-
-
-def test_resolve_missing_returns_direct_path(tmp_path: Path):
-    models = tmp_path / "models"
-    models.mkdir()
-    got = resolve_model_path(models, "missing.gguf")
-    assert got == models / "missing.gguf"
-    assert not got.exists()
-
-
-def test_available_gguf_names_skips_draft_vision(tmp_path: Path):
-    from autoloop import _available_gguf_names
-
-    models = tmp_path / "models"
-    main = models / "local" / "m" / "main.gguf"
-    draft = models / "draft" / "d.gguf"
-    vision = models / "vision" / "v.gguf"
-    for p in (main, draft, vision):
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_bytes(b"x")
-
-    assert _available_gguf_names(models) == ["main.gguf"]
 
 
 def test_from_config_resolves_nested_model_and_draft(tmp_path: Path, monkeypatch):

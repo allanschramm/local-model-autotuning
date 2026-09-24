@@ -84,16 +84,6 @@ def test_watchdog_healthy_does_not_kill(monkeypatch):
     assert killed == []
 
 
-def test_watchdog_exits_when_pid_gone(monkeypatch):
-    monkeypatch.setattr(cb, "free_ram_mb", lambda: 20_000)
-    monkeypatch.setattr(cb, "process_rss_mb", lambda pid: None)
-    monkeypatch.setattr(cb, "_pid_alive", lambda pid: False)
-
-    thread = cb.start_ram_watchdog(999, poll_s=0.01)
-    thread.join(2.0)
-    assert not thread.is_alive()
-
-
 def test_watchdog_degraded_warns_once(monkeypatch):
     """Unavailable readers must never kill; warn once and keep polling."""
     killed: list[int] = []

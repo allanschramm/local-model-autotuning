@@ -36,7 +36,7 @@ Repository developers.
 
 ## Verification
 - Run `pytest` on tests checking core runners (`test_llama_runner.py`, `test_llama_client.py`).
-- Run `pytest tests/test_search_strategy.py` and `pytest tests/test_state.py` for core optimization loop and state verification.
+- Run `pytest tests/test_state.py` for state verification. Search-strategy behavior is verified E2E, not by unit tests (root Testing rules).
 
 ## Child DOX Index
 - [benchmarks/agentic_coding/AGENTS.md](benchmarks/agentic_coding/AGENTS.md) — SWE-lite frozen issues + loop detector (ADR 0013)

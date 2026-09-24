@@ -34,7 +34,7 @@ Still not rank — a pass here elects nothing.
 
 - Visual results **never** write `results.tsv` / `results.db`, Pareto status,
   or `on_front`. No new TSV column, no rank writer — the stub is docs-only
-  by design (guarded by `tests/test_visual_pack.py`).
+  by design.
 - No full-stack CRUD/API bench here — that is a later pack (ADR 0014 v1
   non-goals). No vendored third-party launcher trees.
 - Sampler stays user/card choice, as in the TPS climb.

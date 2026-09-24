@@ -8,14 +8,11 @@ from __future__ import annotations
 
 import csv
 import json
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
 from autoresearch.core import recompute
-from autoresearch.core.pareto import ObjectiveVector
 from autoresearch.runners import run
 
 BASELINE = {
@@ -26,10 +23,6 @@ BASELINE = {
     "TEMP": 0.4,
     "TOP_P": 0.95,
 }
-
-
-def v(**kw) -> ObjectiveVector:
-    return ObjectiveVector(**kw)
 
 
 def cfg_json(**over) -> str:
@@ -284,11 +277,6 @@ def test_model_scope_respects_bucket_isolation(store):
     assert out == {"a8": "on_front", "b16": "on_front"}
 
 
-def test_invalid_scope_rejected():
-    with pytest.raises(ValueError):
-        recompute.recompute_rows([], scope="machine")
-
-
 def test_recompute_rows_pure_and_idempotent():
     rows = [
         row(
@@ -312,56 +300,6 @@ def test_recompute_rows_pure_and_idempotent():
     # Input untouched (pure function).
     assert rows[0]["status"] == "incomplete" and rows[1]["status"] == "incomplete"
     assert recompute.recompute_rows(first) == first
-
-
-def test_cli_runs_from_repo_root(store):
-    write_store(store, [row(trial_id="a", tps="30.0", agentic="0.6", coding="0.6")])
-    proc = subprocess.run(
-        [sys.executable, "scripts/recompute_status.py", str(store)],
-        capture_output=True,
-        text=True,
-    )
-    assert proc.returncode == 0
-    assert "statuses refreshed" in proc.stdout
-    assert read_store(store) == {"a": "on_front"}
-
-
-def test_cli_model_scope_rewrites_with_per_model_statuses(store):
-    # ADR 0017: the default scope is per-model and persists; --scope model
-    # rewrites the store with same-basename-only statuses.
-    a = row(
-        trial_id="a",
-        model="A.gguf",
-        tps="40.0",
-        agentic="0.7",
-        coding="0.7",
-        config_json=cfg_json(MODEL="A"),
-    )
-    b = row(
-        trial_id="b",
-        model="B.gguf",
-        tps="30.0",
-        agentic="0.6",
-        coding="0.6",
-        config_json=cfg_json(MODEL="B"),
-    )
-    write_store(store, [a, b])
-    proc = subprocess.run(
-        [sys.executable, "scripts/recompute_status.py", "--scope", "model", str(store)],
-        capture_output=True,
-        text=True,
-    )
-    assert proc.returncode == 0
-    assert read_store(store) == {"a": "on_front", "b": "on_front"}
-
-
-def test_cli_help_exits_zero():
-    proc = subprocess.run(
-        [sys.executable, "scripts/recompute_status.py", "--help"],
-        capture_output=True,
-        text=True,
-    )
-    assert proc.returncode == 0
 
 
 def test_morris_screen_rows_never_join_domination(store):

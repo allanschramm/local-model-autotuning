@@ -31,6 +31,12 @@ Repository developers.
 - Method + Trial procedure: `CONTEXT.md`, `docs/adr/`, `docs/discovery/`, `autoresearch/AGENTS.md`, `program.md`.
 - Full Trial operator skill (Claw-15 + coding-10, sequential queues): [`.agents/skills/trial/SKILL.md`](.agents/skills/trial/SKILL.md).
 
+## Testing
+- Never write unit tests after you write code.
+- Highly prefer E2E tests as the sole testing mechanism. Use them to verify complex features work. At the end of E2E tests, produce a verifiable and repeatable artifact.
+- If you must test a system in isolation, first write down all the ways it could fail, then write the code.
+- E2E here = a harness run that ends in a `results.db` artifact (`benchmark_search.py --validation`, Trial claw-full/coding-10, `scripts/setup-check.sh`). The unit suite in `tests/` is a closed set of exceptions: silent store/rank corruption, security holes, platform branches the rig never executes, and fail-closed hardware gates (contract in `tests/AGENTS.md`).
+
 ## Verification
 - `.\venv\Scripts\python.exe -m pytest` (or `scripts/run_validate.py` / pre-commit). Never system-global Python.
 - Local Windows pytest does not execute POSIX branches (`fcntl`, Unix-only paths). After every push, wait for `.github/workflows/validate.yml` (`ubuntu-latest`) with `.\venv\Scripts\python.exe scripts\watch_validate.py` until it exits 0. A green local suite is not CI-complete.
