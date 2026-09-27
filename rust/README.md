@@ -28,9 +28,13 @@ Prerequisites:
 # 1. Install maturin into the venv (one-time)
 .\venv\Scripts\python.exe -m pip install maturin
 
-# 2. Develop build (debug or release) — installs the wheel into the active venv
-cd rust
-..\venv\Scripts\python.exe -m maturin develop --release
+# 2. Develop build (debug or release) — installs the wheel into the active venv.
+#    IMPORTANT: cwd must point at the subcrate, not at the cargo workspace
+#    root. maturin 1.15 chokes on a workspace-only Cargo.toml (no [package]
+#    field) and reports a TOML parse error. Use the subcrate as cwd:
+cd rust\autoresearch-core
+..\..\venv\Scripts\python.exe -m maturin develop --release
+cd ..\..
 
 # 3. Run the unit tests (Rust + parity)
 cd rust
@@ -44,9 +48,9 @@ Linux / macOS:
 
 ```bash
 python3 -m pip install maturin
-cd rust
+cd rust/autoresearch-core
 python3 -m maturin develop --release
-cd ..
+cd ../..
 cargo test --manifest-path rust/Cargo.toml
 ```
 

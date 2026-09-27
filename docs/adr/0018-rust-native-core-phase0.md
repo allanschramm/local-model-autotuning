@@ -74,5 +74,5 @@ Strategies:
 | 2      | `fingerprint` port                     | ✅       | 16/16 + 34 pytest |
 | 3      | `state` port                          | ✅       | 4/4 + 2 pytest  |
 | 4      | `pareto` port                          | ✅       | 17/17 + 11 pytest |
-| 5      | CI Ubuntu + ADR + wiki                 | pending  | TBD           |
-| 6      | Allan handoff + speedup report        | pending  | TBD           |
+| 5      | CI Ubuntu + ADR + wiki                 | ✅       | `.github/workflows/rust-ci.yml` (separate from `validate.yml` until Python edition is deprecated) |
+| 6      | Allan handoff + speedup report        | ✅       | `docs/sessions/2026-09-27-rust-phase0-criterion.md`; `scripts/smoke_{inspect,fp,bindings}.py` rewrite (drop bad `complete()` / `Trial(...)` calls + non-canonical `[engine,sampler]` parity) |

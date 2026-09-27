@@ -1,0 +1,92 @@
+name: rust-ci
+
+# Dedicated CI for the Rust native core worktree (branch
+# `allanschramm/rust`). Runs alongside `validate.yml` until the Python
+# edition is deprecated and the Rust kernel becomes the only hot path.
+# Triggers only when Rust-side or smoke-script files change.
+
+on:
+  push:
+    paths:
+      - "rust/**"
+      - "scripts/smoke_*.py"
+      - ".github/workflows/rust-ci.yml"
+  pull_request:
+    paths:
+      - "rust/**"
+      - "scripts/smoke_*.py"
+      - ".github/workflows/rust-ci.yml"
+
+# Same branch pushed + PR-opened = two events; keep only the newest run.
+concurrency:
+  group: rust-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      # Reads rust/rust-toolchain.toml (channel = "stable", MSRV 1.82).
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust -> target
+
+      - name: Install maturin (PyO3 build backend)
+        run: python -m pip install maturin==1.15
+
+      - name: Install Python runtime deps (parity surface)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Builds the autoresearch_core PyO3 wheel and installs it into the
+      # runner's Python. `maturin develop` is NOT usable here: it requires an
+      # active virtualenv, and actions/setup-python provides a bare
+      # interpreter on the runner, so `develop` aborts with "Couldn't find a
+      # virtualenv or conda environment". `build` + `pip install` is the
+      # path maturin itself recommends for that case. `working-directory`
+      # must point at the subcrate because maturin 1.15 chokes on a
+      # workspace-only Cargo.toml (no `[package]` field).
+      - name: maturin build + pip install
+        working-directory: rust/autoresearch-core
+        run: |
+          python -m maturin build --release --out dist
+          python -m pip install --force-reinstall --no-deps "$(ls dist/*.whl | head -n 1)"
+
+      # Rust kernel: unit + parity golden tests. --all-targets catches
+      # bench compilation regressions at CI time.
+      - name: cargo test (Rust kernel)
+        working-directory: rust
+        run: cargo test --all-targets
+
+      # Python-side acceptance: every public PyO3-exposed symbol resolves,
+      # 100-config parity sweep returns byte-identical SHA-256 hex digests.
+      - name: Smoke bindings (Python ↔ Rust parity)
+        run: |
+          python scripts/smoke_inspect.py
+          python scripts/smoke_fp.py
+          python scripts/smoke_bindings.py
+
+      # Phase-0 acceptance suite must remain 100 % green. These tests
+      # exercise the Python shim layer that re-exports the Rust kernel,
+      # so a passing run proves the zero-ruptura contract.
+      - name: Pytest parity suite (Phase-0)
+        run: |
+          python -m pytest \
+            tests/test_pareto.py \
+            tests/test_state.py \
+            tests/test_fingerprint.py \
+            tests/test_fingerprint_apply.py \
+            tests/test_fingerprint_trial.py \
+            tests/test_classify.py \
+            -v

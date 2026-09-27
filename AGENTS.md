@@ -120,6 +120,7 @@ Default section order:
 ## Child DOX Index
 
 - [autoresearch/AGENTS.md](autoresearch/AGENTS.md) — package (config, runners, benchmarks)
+- [rust/AGENTS.md](rust/AGENTS.md) — Rust native core worktree (`allanschramm/rust` branch); Phase 0 PyO3 lib + Phase 1 `autoresearch-loop` binary
 - [ui/AGENTS.md](ui/AGENTS.md) — operator dashboard
 - [docs/AGENTS.md](docs/AGENTS.md) — docs tree (`models/`, `adr/`, `discovery/`, `sessions/`)
 - [scripts/AGENTS.md](scripts/AGENTS.md) — operator scripts
@@ -129,5 +130,5 @@ Default section order:
 - [.agents/skills/trial/SKILL.md](.agents/skills/trial/SKILL.md) — full Trial skill (Claw-15 + coding-10; tracked carve-out under otherwise-gitignored `.agents/`)
 - [.agents/skills/validation/SKILL.md](.agents/skills/validation/SKILL.md) — model validation skill (download, metadata check, smoke eval; tracked carve-out)
 - [.agents/skills/inference-research/SKILL.md](.agents/skills/inference-research/SKILL.md) — inference-performance research skill (flags, engines, quantization, spec decoding; engine-side only, no model search)
-- [.pre-commit-config.yaml](.pre-commit-config.yaml) · [.github/workflows/validate.yml](.github/workflows/validate.yml) · [pyproject.toml](pyproject.toml)
+- [.pre-commit-config.yaml](.pre-commit-config.yaml) · [.github/workflows/validate.yml](.github/workflows/validate.yml) · [.github/workflows/rust-ci.yml](.github/workflows/rust-ci.yml) · [pyproject.toml](pyproject.toml)
 - External read-only: `llama.cpp/` · `llama.cpp-releases/` · `VITRIOL/`
