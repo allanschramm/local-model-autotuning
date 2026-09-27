@@ -1,0 +1,31 @@
+[workspace]
+resolver = "2"
+members = [
+    "autoresearch-core",
+]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.82"
+license = "MIT"
+authors = ["Allan Schramm <ailocal.com.br>"]
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"] }
+sha2 = "0.10"
+regex = "1.10"
+thiserror = "1"
+tempfile = "3"
+criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+opt-level = 3
+strip = true
+
+[profile.bench]
+opt-level = 3
+lto = false

@@ -1,0 +1,7 @@
+# Reproducible Rust toolchain pin.
+# PyO3 0.22 requires rust >= 1.65; we document 1.82+ as the project MSRV in
+# Cargo.toml. `rustup` will install/use the matching channel locally; CI
+# uses a stable toolchain with MSRV >= 1.82.
+[toolchain]
+channel = "stable"
+components = ["clippy", "rustfmt"]

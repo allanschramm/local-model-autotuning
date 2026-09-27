@@ -24,7 +24,7 @@ To start a fresh Search:
 4. **Verify local assets exist**:
    - GGUF models in `models/`
    - `llama-server` (accessible via `autoresearch/core/llama_runner.py`)
-5. **Initialize results.tsv**:
+5. **Initialize canonical store** — `results.db` (SQLite, gitignored) is the single source of truth for Trial outcomes. `results.tsv` is kept only as a legacy export mirror; production readers must use `autoresearch.core.results_db.load_rows()` (SQLite-first, TSV fallback).
    - Ensure the header matches the unified benchmark runner output.
 
 Once the setup is clean, begin the Search.
@@ -67,7 +67,7 @@ If a Trial falls below the **TPS Floor** (Baseline `TPS_FLOOR`, default 20.0 TPS
 - Drive Trials via raw `llama-server` / CLI flag soup — change `config.py`, then run the harness.
 
 ## Output format
-Each Trial logs exclusively to the canonical results file `results.tsv`. No other log files should be committed. The output is tab-separated with schema columns owned by `CATEGORY_FIELDNAMES` in `autoresearch/runners/run.py` (scores, throughput `tps`/`bench_tg`, flat Baseline knobs, `config_json`, `tps_source`, `description`). Callers must pass measured throughput and Baseline fields into `write_row` — do not rely on stuffing them only into `description`.
+Each Trial logs to the canonical store `results.db` (SQLite). An append-only mirror `results.tsv` is kept as a legacy export; production code reads via `autoresearch.core.results_db.load_rows()` (SQLite-first, TSV fallback). The schema columns are owned by `CATEGORY_FIELDNAMES` in `autoresearch/runners/run.py` (scores, throughput `tps`/`bench_tg`, flat Baseline knobs, `config_json`, `tps_source`, `description`). Callers must pass measured throughput and Baseline fields into `write_row` — do not rely on stuffing them only into `description`.
 
 ## The Search Process
 
@@ -78,12 +78,12 @@ Run `python autoloop.py` to start the SearchStrategy loop:
 3. Generates Neighbors by mutating a single parameter within the Search Space.
 4. Evaluates each Neighbor via a new Trial. If it joins or improves the per-model Pareto Set (`SearchStrategy.improves_set`) → writes new Baseline to `config.py` (engine-only / quality-only incomplete vectors fall back to the legacy scalar rule).
 5. If at a Local Maxima → triggers a Random Restart.
-6. Loops forever until `Ctrl+C` (SIGINT). Baseline persists in `config.py`; visited memory in `.autoresearch_state.json`; results in `results.tsv`.
+6. Loops forever until `Ctrl+C` (SIGINT). Baseline persists in `config.py`; visited memory in `.autoresearch_state.json`; results in `results.db` (canonical) with `results.tsv` legacy mirror.
 
 ### Manual mode
 1. Edit `autoresearch/core/config.py` Baseline with a hypothesis.
 2. Run: `python benchmark_search.py --desc "your hypothesis"` (or `python -m autoresearch.runners.run --validation --desc "..."`).
-3. Analyze `results.tsv`.
+3. Analyze `results.db` (e.g., `scripts/rank_results.py` → Pareto / Day / Night views).
 4. If improved, keep the `config.py` edit. Otherwise revert `config.py`.
 
 ## Autonomy rule
@@ -120,6 +120,6 @@ You can download models from HuggingFace. Place them in the `models/` directory.
 - **Via Agent**: Ask your coding assistant to download a specific GGUF model into the `models/` directory for you.
 
 ### Troubleshooting (Wrong Model / Format)
-- **Non-GGUF file**: If you download a PyTorch/safetensors weight file (e.g., `.bin`, `.safetensors`), `llama-server` will fail to parse it, log a `FAIL` status in `results.tsv`, and skip the configuration without breaking the loop.
+- **Non-GGUF file**: If you download a PyTorch/safetensors weight file (e.g., `.bin`, `.safetensors`), `llama-server` will fail to parse it, log a `FAIL` status in `results.db` (mirrored in `results.tsv`), and skip the configuration without breaking the loop.
 - **Unsupported architecture**: If the GGUF uses a brand new, unsupported neural architecture, `llama-server` will exit during startup, which is caught safely as a trial failure.
-- **Corrupt GGUF**: If the model file is corrupt/truncated, the server will fail to load it, log `FAIL` to `results.tsv`, and gracefully continue.
+- **Corrupt GGUF**: If the model file is corrupt/truncated, the server will fail to load it, log `FAIL` to `results.db` (mirrored in `results.tsv`), and gracefully continue.

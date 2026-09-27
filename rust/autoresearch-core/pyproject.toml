@@ -1,0 +1,18 @@
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[project]
+name = "autoresearch-core"
+version = "0.1.0"
+description = "Native core for ailocal-model-autotuning (fingerprint scrub + state + Pareto)."
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+[tool.maturin]
+# The compiled extension lives at `autoresearch_core` (matching the Cargo
+# `[lib] name`). Submodules (e.g. `autoresearch_core.pareto`) are added at
+# runtime by the PyO3 `#[pymodule]` entry-point.
+#
+# Bindings operate read/write against the operator's venv; the wheel never
+# touches system Python (AGENTS.md contract).

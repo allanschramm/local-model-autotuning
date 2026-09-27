@@ -1,80 +1,42 @@
-# state.py
-# Visited-memory module for the Search. Baseline lives in config.py.
+"""Visited-memory module for the Search (issue #53, ADR 0014).
 
-import json
-import os
-import tempfile
+The visited set + Morris pin dictionary + atomic JSON persistence now
+live in `autoresearch_core.state` (a pure-Rust crate exposed via PyO3 +
+maturin). Baseline I/O still goes through `autoresearch.core.config` so
+the Python contract is unchanged.
+"""
+
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Any
 
-import autoresearch.core.config as config
-from autoresearch.core.config import ConfigError, validate_config, write_baseline
+from autoresearch_core.state import SearchState as _RustSearchState
+
+from autoresearch.core import config as _config
+from autoresearch.core.config import (  # noqa: F401  (re-exported for tests + shim mocking)
+    ConfigError,
+    validate_config,
+    write_baseline,
+)
 
 
 class SearchState:
     """Deep module for visited memory. Baseline read/write goes through config.py."""
 
-    def __init__(self, state_path: Path | str | None = None):
-        self.state_path = Path(state_path) if state_path is not None else config.STATE_FILE
-        self._visited = set()
-        self._morris: dict[str, Any] = {}
-        self._load_from_disk()
-
-    def _load_from_disk(self) -> None:
-        """Load visited history from disk. Ignore legacy baseline payloads."""
-        if not self.state_path.exists():
-            self._visited = set()
-            self._morris = {}
-            return
-
-        try:
-            data = json.loads(self.state_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as exc:
-            raise ConfigError(f"Failed to read state file: {exc}")
-
-        schema_version = data.get("schema_version")
-        if schema_version not in (1, 2, 3):
-            raise ConfigError(f"Unsupported state schema: {schema_version}")
-
-        self._visited = set(data.get("visited", []))
-        self._morris = data.get("morris") or {}
-        if not isinstance(self._morris, dict):
-            self._morris = {}
-
-    def _write_to_disk(self) -> None:
-        """Atomically serialize visited memory. Sync write for crash resilience."""
-        data = {
-            "schema_version": config.STATE_SCHEMA_VERSION,
-            "visited": sorted(list(self._visited)),
-            "morris": self._morris,
-        }
-
-        self.state_path.parent.mkdir(parents=True, exist_ok=True)
-        fd, tmp_name = tempfile.mkstemp(
-            prefix=f".{self.state_path.name}.", dir=self.state_path.parent
-        )
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as handle:
-                json.dump(data, handle, indent=2, sort_keys=True)
-                handle.write("\n")
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.replace(tmp_name, self.state_path)
-        finally:
-            if os.path.exists(tmp_name):
-                try:
-                    os.unlink(tmp_name)
-                except OSError:
-                    pass
+    def __init__(self, state_path: Path | str | None = None) -> None:
+        path = Path(state_path) if state_path is not None else _config.STATE_FILE
+        self._rust = _RustSearchState(str(path))
+        self.state_path = path
 
     def get_baseline(self) -> dict[str, Any]:
         """Return current Baseline from config.py."""
-        return config.load_config()
+        return _config.load_config()
 
     def update_baseline(self, new_cfg: dict[str, Any]) -> None:
         """Merge into Baseline and persist via config.write_baseline."""
-        merged = config.load_config()
-        for key in config.CONFIG_KEYS:
+        merged = _config.load_config()
+        for key in _config.CONFIG_KEYS:
             if key in new_cfg:
                 merged[key] = new_cfg[key]
         write_baseline(validate_config(merged))
@@ -82,31 +44,27 @@ class SearchState:
     @property
     def visited(self) -> set[str]:
         """Return a copy of the visited configurations set."""
-        return set(self._visited)
+        return set(self._rust.visited)
 
     def is_visited(self, config_key: str) -> bool:
         """Check if a specific config key has been marked as visited."""
-        return config_key in self._visited
+        return self._rust.is_visited(config_key)
 
     def mark_visited(self, config_key: str, persist: bool = True) -> None:
         """Mark a configuration key as visited, optionally persisting to disk."""
-        self._visited.add(config_key)
-        if persist:
-            self._write_to_disk()
+        self._rust.mark_visited(config_key, persist)
 
     def morris_pins_for(self, model: str) -> dict:
         """Return stored Morris pins for a model basename, or {}."""
-        entry = self._morris.get(model) or {}
-        pins = entry.get("pins") if isinstance(entry, dict) else None
-        return dict(pins) if isinstance(pins, dict) else {}
+        return dict(self._rust.morris_pins_for(model))
 
     def set_morris(self, model: str, pins: dict, effects: dict) -> None:
         """Persist Morris pins and elementary-effects for a model."""
-        self._morris[model] = {"pins": dict(pins), "effects": dict(effects)}
-        self._write_to_disk()
+        self._rust.set_morris(model, dict(pins), dict(effects))
 
     def reset(self) -> None:
         """Clear visited history and Morris pins. Baseline stays in config.py."""
-        self._visited = set()
-        self._morris = {}
-        self._write_to_disk()
+        self._rust.reset()
+
+
+__all__ = ["SearchState"]

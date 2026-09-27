@@ -1,105 +1,47 @@
 """Fingerprint file IO (issue #49, ADR 0014 bus).
 
-Portable hill-climb -> launcher bus: GGUF **basename** + the ENGINE_DEFAULTS
-used for that climb, optional SAMPLER_DEFAULTS. Machine-local JSON under a
-gitignored ``fingerprints/`` directory. This is NOT the Pareto Fingerprint
-hash in :mod:`autoresearch.core.pareto` (a sha256 of engine + sampler).
+The implementation now lives in `autoresearch_core.fingerprint` (a
+pure-Rust crate exposed via PyO3 + maturin). This module is a thin
+compatibility shim so every existing import — including the dual-write
+TSV mirror log and the Trial gate (issue #53) — continues to work
+unchanged.
 
-No GPU, no launcher/eval imports — pure stdlib so roundtrip works in tests.
+History (carried verbatim from the previous pure-Python module):
+
+    Portable hill-climb -> launcher bus: GGUF **basename** + the
+    ENGINE_DEFAULTS used for that climb, optional SAMPLER_DEFAULTS.
+    Machine-local JSON under a gitignored ``fingerprints/`` directory.
+    This is NOT the Pareto Fingerprint hash in
+    :mod:`autoresearch.core.pareto` (a sha256 of engine + sampler).
+
+    No GPU, no launcher/eval imports — pure stdlib so roundtrip works in
+    tests.
 """
 
 from __future__ import annotations
 
-import json
-import re
-from collections.abc import Mapping
-from pathlib import Path, PurePath, PureWindowsPath
+from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 1
+from autoresearch_core.fingerprint import (  # noqa: F401
+    FINGERPRINT_SCHEMA_VERSION,
+    SCHEMA_VERSION,
+    FingerprintError,
+)
+from autoresearch_core.fingerprint import (
+    dump as _rust_dump,
+)
+from autoresearch_core.fingerprint import (
+    load as _rust_load,
+)
+from autoresearch_core.fingerprint import (
+    mismatch_reason as _rust_mismatch_reason,
+)
+
+# Re-export the Rust constant under the canonical Python name.
+SCHEMA_VERSION: int = int(SCHEMA_VERSION)
 
 DEFAULT_DIR_NAME = "fingerprints"
-
-# Key names that must never land in a shared file (case-insensitive match).
-_PRIVATE_KEYS = frozenset(
-    {
-        "hostname",
-        "host",
-        "machine",
-        "user",
-        "username",
-        "email",
-        "gpu",
-        "gpu_sku",
-        "gpu_model",
-        "alias",
-        "alias_name",
-        "model_alias",
-    }
-)
-
-_ABSOLUTE_PATH_RE = re.compile(
-    r"^(?:[A-Za-z]:[\\/]|\\\\|/|~[\\/]?)"  # drive, UNC, POSIX abs, tilde
-)
-_EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
-_URL_RE = re.compile(r"[a-zA-Z][a-zA-Z0-9+.-]*://")
-_GPU_SKU_RE = re.compile(r"\b(?:RTX|GTX|GT|RX|ARC|A100|H100|H200|B200)\b", re.IGNORECASE)
-_HOSTNAME_RE = re.compile(
-    r"(?i)^(localhost|([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+(local|lan|internal|[a-z]{2,}))$"
-)
-# Dotted basenames that must not trip the hostname check (e.g. "model.gguf").
-_FILENAME_EXT_RE = re.compile(r"(?i)\.(gguf|bin|safetensors|csv|json|md|txt|yaml|yml|log|ggml)$")
-
-
-class FingerprintError(ValueError):
-    """Raised when a Fingerprint payload leaks private data or breaks schema."""
-
-
-def _basename(name: str) -> str:
-    """Strip any directory components (POSIX + Windows) to a pure basename."""
-    base = PureWindowsPath(name).name or PurePath(name).name or name
-    return PurePath(base).name
-
-
-def _looks_like_basename(name: str) -> bool:
-    return (
-        "/" not in name
-        and "\\" not in name
-        and not _ABSOLUTE_PATH_RE.match(name)
-        and PureWindowsPath(name).name == name
-        and PurePath(name).name == name
-    )
-
-
-def _check_value(key: str, value: Any) -> None:
-    if isinstance(value, str):
-        if _ABSOLUTE_PATH_RE.match(value.strip()):
-            raise FingerprintError(f"private absolute path in {key!r}: {value!r}")
-        if _EMAIL_RE.search(value) or _URL_RE.search(value):
-            raise FingerprintError(f"private contact/host value in {key!r}: {value!r}")
-        if _GPU_SKU_RE.search(value):
-            raise FingerprintError(f"private GPU SKU value in {key!r}: {value!r}")
-        stripped = value.strip()
-        if (
-            ("." in stripped or stripped.lower() == "localhost")
-            and "/" not in stripped
-            and "\\" not in stripped
-            and not _FILENAME_EXT_RE.search(stripped)
-            and _HOSTNAME_RE.match(stripped)
-        ):
-            raise FingerprintError(f"private hostname value in {key!r}: {value!r}")
-    elif isinstance(value, Mapping):
-        _check_mapping(value)
-    elif isinstance(value, (list, tuple)):
-        for item in value:
-            _check_value(key, item)
-
-
-def _check_mapping(data: Mapping[str, Any]) -> None:
-    for key, value in data.items():
-        if str(key).strip().lower() in _PRIVATE_KEYS:
-            raise FingerprintError(f"private key {key!r} must not be fingerprinted")
-        _check_value(str(key), value)
 
 
 def default_dir(root: Path | str | None = None) -> Path:
@@ -109,9 +51,19 @@ def default_dir(root: Path | str | None = None) -> Path:
 
 
 def path_for(model_basename: str, directory: Path | str | None = None) -> Path:
-    """Return the one-file-per-basename path for ``model_basename``."""
-    stem = PurePath(_basename(model_basename)).stem
-    parent = default_dir() if directory is None else Path(directory)
+    """Return the one-file-per-basename path for ``model_basename``.
+
+    Pure-Python implementation kept here so consumer-side patches (e.g.
+    ``unittest.mock.patch``) can intercept it; the path layout is part of
+    the on-disk contract and does not benefit from the Rust port.
+    """
+    from pathlib import Path as _P
+
+    base = str(model_basename)
+    # Strip POSIX + Windows directory components to a basename.
+    cleaned = base.replace("\\", "/").strip()
+    stem = _P(cleaned).stem if cleaned else ""
+    parent = default_dir() if directory is None else _P(directory)
     return parent / f"{stem}.json"
 
 
@@ -119,90 +71,18 @@ def dump(
     path: Path | str,
     *,
     model: str,
-    engine: Mapping[str, Any],
-    sampler: Mapping[str, Any] | None = None,
+    engine: dict[str, Any],
+    sampler: dict[str, Any] | None = None,
 ) -> Path:
-    """Write a Fingerprint file; return the path written.
-
-    ``model`` may carry directories — only the basename is stored. Absolute
-    user paths, hostnames, emails, alias names, and GPU SKUs in ``engine`` /
-    ``sampler`` raise :class:`FingerprintError`.
-    """
-    if not isinstance(engine, Mapping):
-        raise FingerprintError("engine must be a mapping of ENGINE_DEFAULTS")
-    if sampler is not None and not isinstance(sampler, Mapping):
-        raise FingerprintError("sampler must be a mapping of SAMPLER_DEFAULTS or None")
-
-    base = _basename(model.strip())
-    if not base:
-        raise FingerprintError("model must be a non-empty GGUF basename")
-
-    engine_clean = dict(engine)
-    engine_clean["MODEL"] = base
-    _check_mapping(engine_clean)
-    sampler_clean = dict(sampler) if sampler is not None else None
-    if sampler_clean is not None:
-        _check_mapping(sampler_clean)
-
-    payload: dict[str, Any] = {
-        "schema_version": SCHEMA_VERSION,
-        "model": base,
-        "engine": engine_clean,
-    }
-    if sampler_clean is not None:
-        payload["sampler"] = sampler_clean
-
-    target = Path(path)
-    if target.parent != Path(".") and str(target.parent):
-        target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return target
-
-
-def _checked_mapping(
-    value: Any, what: str, target: Path, *, required: bool
-) -> dict[str, Any] | None:
-    """Validate a load() engine/sampler section and scrub it for private data."""
-    if value is None and not required:
-        return None
-    if not isinstance(value, dict) or not value:
-        raise FingerprintError(f"invalid Fingerprint {what} in {target}: mapping required")
-    _check_mapping(value)
-    return dict(value)
+    """Write a Fingerprint file; return the path written. Mirrors the
+    Python contract."""
+    written = _rust_dump(path, model=model, engine=engine, sampler=sampler)
+    return Path(written)
 
 
 def load(path: Path | str) -> dict[str, Any]:
     """Load a Fingerprint file; reject missing schema or private leakage."""
-    target = Path(path)
-    try:
-        payload = json.loads(target.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise FingerprintError(f"invalid Fingerprint JSON in {target}: {exc}") from exc
-    if not isinstance(payload, dict):
-        raise FingerprintError(f"invalid Fingerprint payload in {target}: not an object")
-
-    version = payload.get("schema_version")
-    if version != SCHEMA_VERSION:
-        raise FingerprintError(
-            f"unsupported Fingerprint schema_version {version!r} in {target} "
-            f"(want {SCHEMA_VERSION}); schema_version is required"
-        )
-
-    model = payload.get("model")
-    if not isinstance(model, str) or not model or not _looks_like_basename(model):
-        raise FingerprintError(
-            f"invalid Fingerprint model {model!r} in {target}: GGUF basename only"
-        )
-
-    engine = _checked_mapping(payload.get("engine"), "engine", target, required=True)
-    sampler = _checked_mapping(payload.get("sampler"), "sampler", target, required=False)
-
-    return {
-        "schema_version": SCHEMA_VERSION,
-        "model": model,
-        "engine": dict(engine),
-        "sampler": dict(sampler) if sampler is not None else None,
-    }
+    return _rust_load(path)
 
 
 def apply(
@@ -214,21 +94,15 @@ def apply(
 
     Engine is always applied; the optional sampler only when the file
     carries one — an omitted sampler leaves the Baseline sampler alone.
-    Existing benches keep reading Baseline (no scorer change); only the
-    Baseline moves. Values validate via ``write_baseline``.
 
-    Unknown keys raise: ``write_baseline`` only copies ``CONFIG_KEYS``, so
-    a typo'd key would otherwise vanish while the caller reports success.
-    The config module imports lazily so this file stays pure-stdlib at
-    import time (roundtrip works with no Baseline present).
+    The Rust port handles schema + scrub validation; the merge into the
+    live `config.py` stays Python-side because `config.write_baseline`
+    owns the operator's mutable Baseline file.
     """
     data = load(path)
     from autoresearch.core import config as config_module
 
     cfg = dict(data["engine"])
-    # Top-level `model` is the file's validated identity (ADR 0014); the
-    # engine mapping may lack MODEL or carry a stale one (hand-edited or
-    # third-party file), so pin it — never run new flags on the old GGUF.
     cfg["MODEL"] = data["model"]
     if data.get("sampler") is not None:
         cfg.update(data["sampler"])
@@ -241,10 +115,6 @@ def apply(
 
 
 # ENGINE_DEFAULTS split (single source; scripts/model_up.py imports both):
-# server keys map to llama-server flags (same engine = same server Pi sees);
-# harness-only keys are budgets/floors/gates carried in the file but never
-# emitted as flags. A Trial scores flags, so only server keys (+ MODEL
-# identity) can reject it as a Fingerprint mismatch (issue #53).
 SERVER_ENGINE_KEYS = frozenset(
     {
         "CTX_SIZE",
@@ -295,53 +165,48 @@ HARNESS_ONLY_ENGINE_KEYS = frozenset(
 
 def mismatch_reason(
     model_basename: str,
-    baseline_engine: Mapping[str, Any],
+    baseline_engine: dict[str, Any],
     *,
     directory: Path | str | None = None,
+    _target_path: str | Path | None = None,
 ) -> str | None:
     """Trial gate (issue #53): None = Trial may proceed, else the reject reason.
 
-    No Fingerprint file for ``model_basename`` → None (Baseline-only behavior
-    unchanged). Otherwise the file's frozen server flags must equal the live
-    Baseline engine; harness-only drift (TPS_FLOOR, VRAM limits, …) never
-    rejects. Unreadable/invalid files and unknown keys fail closed with a
-    reason — never an exception, never a quality score.
+    The optional ``_target_path`` argument is reserved for the Python shim
+    to pre-resolve the on-disk path (after running ``path_for``), so that
+    tests can patch ``path_for`` and still drive the gating logic through
+    Rust. Production callers use either ``directory=...`` (Rust computes the
+    path) or pass nothing (defaults to ``./fingerprints/<stem>.json``).
     """
-    base = _basename((model_basename or "").strip())
-    if not base:
-        return "Fingerprint check: Trial has no model basename; refusing to score"
-    baseline = {str(k).upper(): v for k, v in dict(baseline_engine).items()}
-    target = path_for(base, directory)
-    if not target.is_file():
-        return None
-    try:
-        data = load(target)
-    except FingerprintError as exc:
-        return f"Fingerprint {target.name} for {base} is invalid ({exc}); delete it or re-climb"
-    except OSError as exc:
-        return f"Fingerprint {target.name} for {base} is unreadable ({exc}); delete it or re-climb"
-    if data["model"] != base:
-        return (
-            f"Fingerprint {target.name} serves {data['model']!r}, not the Trial model "
-            f"{base!r}; delete it or re-climb"
-        )
-    file_engine = data["engine"]
-    unknown = sorted(
-        k
-        for k in file_engine
-        if k not in SERVER_ENGINE_KEYS and k not in HARNESS_ONLY_ENGINE_KEYS and k != "MODEL"
+    target: str | None = None
+    if _target_path is not None:
+        target = str(_target_path)
+    elif directory is not None:
+        target = str(path_for(model_basename, directory))
+    else:
+        # Fall back to the Python `path_for` so consumer-side patches
+        # (e.g. ``unittest.mock.patch``) still drive the gate. The Rust
+        # implementation would otherwise resolve the path itself and the
+        # mock would be ignored.
+        target = str(path_for(model_basename))
+    return _rust_mismatch_reason(
+        model_basename,
+        baseline_engine,
+        directory=str(directory) if directory else None,
+        _target_path=target,
     )
-    if unknown:
-        return f"Fingerprint {target.name} for {base} has unknown engine keys {unknown}; delete it or re-climb"
-    diffs = [
-        f"{key} Baseline={baseline.get(key)!r} file={file_engine.get(key)!r}"
-        for key in sorted(SERVER_ENGINE_KEYS | {"MODEL"})
-        if baseline.get(key) != file_engine.get(key)
-    ]
-    if not diffs:
-        return None
-    return (
-        f"Fingerprint mismatch for {base} ({target.name}): " + "; ".join(diffs) + " "
-        "(Baseline engine differs from the TPS-climbed flags; "
-        "apply the Fingerprint or re-climb before scoring)"
-    )
+
+
+__all__ = [
+    "SCHEMA_VERSION",
+    "DEFAULT_DIR_NAME",
+    "FingerprintError",
+    "default_dir",
+    "path_for",
+    "dump",
+    "load",
+    "apply",
+    "SERVER_ENGINE_KEYS",
+    "HARNESS_ONLY_ENGINE_KEYS",
+    "mismatch_reason",
+]

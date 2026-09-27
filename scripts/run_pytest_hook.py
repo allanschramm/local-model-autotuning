@@ -11,7 +11,15 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _venv_python() -> Path | None:
-    for rel in ("venv/Scripts/python.exe", "venv/bin/python"):
+    # Both `venv/` and `.venv/` are accepted. `.venv/` is the canonical name
+    # this repo standardizes on; `venv/` is kept as a fallback for older
+    # checkouts.
+    for rel in (
+        ".venv/Scripts/python.exe",
+        ".venv/bin/python",
+        "venv/Scripts/python.exe",
+        "venv/bin/python",
+    ):
         candidate = ROOT / rel
         if candidate.is_file():
             return candidate

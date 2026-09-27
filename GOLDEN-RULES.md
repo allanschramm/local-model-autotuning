@@ -25,7 +25,7 @@
 *   **TPS llama-cli guard**: Caps `-c` at `BENCH_CTX_CAP` (4096); watches dedicated + Shared.
 *   **TPS Floor**: User-set in Baseline `ENGINE_DEFAULTS['TPS_FLOOR']` (default **20.0**). Below this, `val_score` is zeroed / Trial rejects. MoE on 8GB often needs **15–18** — lower the floor per model; do not hardcode in harness.
 *   **Shared Memory Mitigation**: Shared GPU bucket (not “normal RAM”) freezes via pagefile/SSD. Dedicated-only keepout is not enough — Shared absolute kill + `GGML_CUDA_NO_PINNED=1` are the MoE guards.
-*   **Loop Resilience**: All model server startup failures, bad configurations, or exceptions are caught at the Trial level. They log a `FAIL` status to `results.tsv` and proceed to the next candidate configuration instead of crashing the search loop.
+*   **Loop Resilience**: All model server startup failures, bad configurations, or exceptions are caught at the Trial level. They log a `FAIL` status to `results.db` (with the `results.tsv` legacy mirror) and proceed to the next candidate configuration instead of crashing the search loop.
 *   **NVML Failsafe**: If NVML query fails mid-run, set `nvml = None` in the exception block immediately to avoid repetitive CDLL calling overhead.
 *   **Testing CDLL**: When writing unit tests for VRAM sampling, always mock `ctypes.CDLL` to raise an exception. This forces fallback to the mocked `nvidia-smi` parser and avoids testing against host GPU status.
 
@@ -45,7 +45,7 @@
 *   **Fixed protocol**: `program.md` and `autoresearch/benchmarks/*` stay fixed unless the user explicitly requests a change.
 *   **No Code Edits**: The looping agent is strictly forbidden from editing codebase source code (e.g., `run.py`, benchmarks, tests) under any circumstances. If any error, bug, or exception occurs during the Search, the agent MUST NOT attempt to edit code to fix it. Instead, the agent MUST immediately stop execution, print the full traceback/error, and warn the user.
 *   **Unified Evaluation**: Every round runs the active agentic gate (Claw-Eval full Val Score; quick as smoke). Optional Coding preflight uses exactly 10 tasks per dataset when enabled.
-*   **Canonical Results File**: All runs must log results exclusively to the single canonical tab-separated file `results.tsv`. No other results CSV, TSV, or log files should be committed or left in the workspace.
+*   **Canonical Results Store**: All runs log to the single canonical SQLite database `results.db` (typed columns, indexed, gitignored). An append-only mirror `results.tsv` is kept as a legacy export. Production readers must use `autoresearch.core.results_db.load_rows()` (SQLite-first, TSV fallback). No ad-hoc results CSV/TSV/log files should be committed.
 *   **Offline Results**: Benchmark results and search tweak branches must be kept offline and local-only. Never push result/tweak branches or local benchmark scores to the remote public repository to avoid polluting the public history or messing up other users' results.
 *   **Hardware-Aware Path Resolution**: Path constants in `config.py` (e.g., `MODEL`) must use portable references — never absolute system paths (`/home/user/...`). Use `models/` (relative) or environment variables.
 
@@ -80,7 +80,7 @@ When asked to "validate a model", follow this exact procedure:
    - Translates config flags to llama-server CLI args
    - Manages server lifecycle (start, health-check, teardown)
    - Monitors VRAM via NVML sampling
-   - Logs results to results.tsv
+   - Logs results to `results.db` (canonical) with `results.tsv` as a legacy export mirror
 
 3. **What the --validation flag does** — Gates 0–2, always:
    - **Gate 0 (arch + VRAM):** dense vs MoE from GGUF, resolve `N_CPU_MOE`, VRAM preflight (MoE full-GPU over limit → reject).
@@ -89,7 +89,7 @@ When asked to "validate a model", follow this exact procedure:
 
 4. **One model at a time** — Never run multiple validations in parallel. All models share the same GPU (CUDA device 0) and default port 18080. Each validation must finish (PASS or FAIL) before the next starts.
 
-5. **Result in results.tsv** — Written with category `validation` and Trial Status `incomplete` (smoke-only; missing agentic/coding axes never join the front) — or `rejected` when a hard gate fails. Read the latest entry per model for comparison.
+5. **Result in `results.db`** — Written with category `validation` and Trial Status `incomplete` (smoke-only; missing agentic/coding axes never join the front) — or `rejected` when a hard gate fails. Read the latest entry per model for comparison via `rank_results.py` (SQLite-first).
 
 **RULES**:
 - Do NOT run `llama-server` or `llama-bench` directly. The harness handles everything.

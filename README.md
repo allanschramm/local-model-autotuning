@@ -65,7 +65,7 @@ O agente vai:
 5. Semear e editar o Baseline (`cp autoresearch/core/config.py.example autoresearch/core/config.py`, depois definir `MODEL`)
 6. Caminho padrão de speed: smoke `--validation` → `autoloop.py --mode tps` → só então Claw full no campeão ([docs/discovery/good-enough-tuning.md](docs/discovery/good-enough-tuning.md))
 
-**Resultado:** `results.tsv` com os Trials + `config.py` local com a melhor config de velocidade (visited em `.autoresearch_state.json`). Qualidade agentic fica pro check do campeão, não pra cada vizinho.
+**Resultado:** `results.db` (SQLite, store canônico) com os Trials; `config.py` local com a melhor config de velocidade (visited em `.autoresearch_state.json`). `results.tsv` fica apenas como espelho legacy export — operadores só devem ler o `.db` via `scripts/rank_results.py` ou `autoresearch.core.results_db`. Qualidade agentic fica pro check do campeão, não pra cada vizinho.
 
 ---
 
@@ -182,7 +182,8 @@ Este repositório inclui uma jornada publicada de 6 aulas em HTML (Módulo 0 + S
 | `benchmark_search.py` | CLI runner | **Não** |
 | `autoresearch/benchmarks/*` | Lógica de avaliação | **Não** |
 | `program.md` | Protocolo do Search | **Não** |
-| `results.tsv` | Métricas dos trials | **Só append** |
+| `results.db` | Métricas dos trials (SQLite, store canônico) | **Não mexer direto** — escrita via `run.write_row` (DB first, TSV espelho) |
+| `results.tsv` | Espelho legacy dos trials (TSV) | **Não mexer** — gerado por mirror automático; não usar como fonte de leitura |
 | `scripts/rank_results.py` | Ranking Pareto / Day / Night a partir do TSV | **Não** (só lê) |
 
 ### Val Score
@@ -208,7 +209,7 @@ HE+/MBPP+/LCB/BigCode ficam como preflight rápido opcional, não como medida fi
 
 - Checagem de VRAM antes de subir o servidor
 - Flash attention sempre ligado
-- Todas as falhas logadas como `FAIL` no results.tsv, loop continua
+- Todas as falhas logadas como `FAIL` em `results.db` (com espelho legacy em `results.tsv`), loop continua
 - Nunca faz push pro remote
 
 ---
@@ -335,7 +336,7 @@ Se preferir fazer na mão:
 2. Se ainda não tiver: `cp autoresearch/core/config.py.example autoresearch/core/config.py`
 3. Ajuste o Baseline em `autoresearch/core/config.py` (`MODEL` = basename do GGUF)
 4. Rode `python3 benchmark_search.py --desc "sua hipótese"` (sem flag soup)
-5. Cheque `results.tsv` pelos resultados (ou `.\venv\Scripts\python.exe scripts\rank_results.py` pro ranking Pareto/Day/Night)
+5. Cheque `results.db` pelos resultados (ou `.\venv\Scripts\python.exe scripts\rank_results.py` pro ranking Pareto/Day/Night — lê SQLite-first, TSV só como fallback)
 6. Keep se o Val Score melhorou, reverte o `config.py` caso contrário
 
 ---
