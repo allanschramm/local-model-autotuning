@@ -26,5 +26,27 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # The Python modules autoresearch/core/{pareto,state,fingerprint}.py are
+      # thin shims that re-export the Rust PyO3 extension. Without the wheel
+      # installed, the whole pytest suite fails at collection with
+      # "No module named 'autoresearch_core'". Local runs get this for free
+      # because the venv already has the develop-build; CI must do it.
+      #
+      # `maturin build` (not `develop`): actions/setup-python gives a bare
+      # interpreter, and `maturin develop` aborts with "Couldn't find a
+      # virtualenv or conda environment". working-directory must be the
+      # subcrate — maturin 1.15 chokes on the cargo-workspace root.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust -> target
+
+      - name: Build + install the autoresearch_core wheel
+        run: |
+          python -m pip install maturin==1.15
+          cd rust/autoresearch-core
+          python -m maturin build --release --out dist
+          python -m pip install --force-reinstall --no-deps "$(ls dist/*.whl | head -n 1)"
+
       - name: Ruff + pytest
         run: python scripts/run_validate.py
