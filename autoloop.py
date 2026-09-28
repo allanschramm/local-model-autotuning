@@ -32,6 +32,7 @@ from autoresearch.core.config import (
 from autoresearch.core.crash_journal import clear_journal, read_journal, write_journal
 from autoresearch.core.hardware import detect_hardware_capabilities
 from autoresearch.core.llama_runner import (
+    _build_memory_budget,
     estimate_vram_mb,
     load_mode_flag,
     preflight_host_memory,
@@ -669,7 +670,22 @@ def preflight_vram_ok(cfg: dict[str, Any], vram_limit: float | None) -> bool:
             spec_type=spec_type,
             spec_draft_n_max=int(cfg.get("SPEC_DRAFT_N_MAX", 0) or 0),
         )
-        if est > vram_limit:
+        # The budget decision belongs to MemoryBudget (single source of truth
+        # shared with the harness preflight). The estimate stays here because
+        # the module-level name is the test seam.
+        #
+        # NOTE: the physical-keepout clamp is deliberately NOT applied here.
+        # This gate is the hill-climb search screen and compares the estimate
+        # against the operator's *configured* budget; the keepout clamp belongs
+        # to the serving path (LlamaServerRunner), which is where WDDM Sysmem
+        # Fallback actually matters. Passing total_vram_mb=None keeps this
+        # comparison byte-identical to the original `est > vram_limit`.
+        budget = _build_memory_budget(
+            vram_limit,
+            cfg.get("VRAM_HEADROOM_MB"),
+            apply_physical_clamp=False,
+        )
+        if not budget.fits(est, n_cpu_moe=n_cpu_moe):
             return False
     return preflight_host_ok(cfg)
 

@@ -35,6 +35,7 @@ from autoresearch.core.hardware import (
     detect_total_vram_mb,
     detect_used_total_vram_mb,
 )
+from autoresearch.core.memory_budget import MemoryBudget
 from autoresearch.core.model_arch import (
     gguf_block_count,
     gguf_expert_bytes_mb,
@@ -731,6 +732,63 @@ def preflight_vram(
     return True, est, ""
 
 
+def _build_memory_budget(
+    vram_limit_mb: float | int | None = None,
+    headroom_mb: float | int | None = None,
+    apply_physical_clamp: bool = True,
+) -> MemoryBudget:
+    """Fold the current env/config/probe state into one MemoryBudget.
+
+    This is the single impure boundary: it is the only place in the decision
+    path that reads env, consults config.DEFAULTS, and asks the hardware for
+    the physical VRAM total. Everything downstream is pure policy on the
+    resulting object.
+
+    ``apply_physical_clamp=False`` is for the hill-climb search screen, which
+    compares an estimate against the operator's *configured* budget and must not
+    silently narrow its own search space against the device ceiling. The serving
+    path keeps the clamp, because that is where the WDDM Sysmem Fallback guard
+    applies.
+    """
+    keepout_env = os.environ.get("AUTORESEARCH_PHYSICAL_VRAM_KEEPOUT_MB")
+    keepout = float(keepout_env) if keepout_env else DEFAULT_PHYSICAL_VRAM_KEEPOUT_MB
+    # config.DEFAULTS wins when the key exists; the env var is the operator
+    # override on top of it. Mirrors resolve_vram_limit_mb's precedence.
+    keepout = float(config.DEFAULTS.get("PHYSICAL_VRAM_KEEPOUT_MB", keepout))
+    # resolve_vram_limit_mb applies the physical clamp itself. When the caller
+    # opted out of that clamp we must therefore skip that resolver and pass the
+    # configured value straight through, or the clamp would happen twice.
+    resolved_limit = (
+        float(vram_limit_mb)
+        if (vram_limit_mb is not None and not apply_physical_clamp)
+        else resolve_vram_limit_mb(vram_limit_mb)
+    )
+    return MemoryBudget.resolve(
+        vram_limit_mb=resolved_limit,
+        vram_headroom_mb=resolve_vram_headroom_mb(headroom_mb),
+        shared_vram_limit_mb=resolve_shared_vram_limit_mb(),
+        cuda_free_floor_mb=resolve_cuda_free_floor_mb(),
+        physical_keepout_mb=keepout,
+        free_clamp_enabled=free_vram_clamp_enabled(),
+        total_vram_mb=_safe_detect_total_vram_mb() if apply_physical_clamp else None,
+    )
+
+
+def _safe_detect_total_vram_mb() -> float | None:
+    """Physical VRAM total, or None when the probe is unavailable.
+
+    An unknown device is not a reason to refuse a Trial, so probe failure
+    degrades to None (no clamp) rather than to zero (clamp everything away).
+    """
+    try:
+        total = detect_total_vram_mb()
+    except Exception:
+        return None
+    if total is None or total <= 0:
+        return None
+    return float(total)
+
+
 def preflight_vram_effective(
     model_path: Path,
     ctx_size: int,
@@ -751,10 +809,15 @@ def preflight_vram_effective(
     otherwise false-rejects expert-CPU offload (measured peaks far below free).
     Runtime VRAM monitoring remains the OOM kill guard.
     The reject reason records both configured and effective budgets.
+
+    The budget arithmetic is delegated to ``MemoryBudget``; the seven legacy
+    resolvers remain exported below for backwards compatibility, but they are no
+    longer the decision path.
     """
-    configured = resolve_vram_limit_mb(vram_limit_mb)
+    budget = _build_memory_budget(vram_limit_mb, headroom_mb)
+    configured = budget.vram_limit_mb
     moe_offload = n_cpu_moe is not None and int(n_cpu_moe) > 0
-    clamp_on = free_vram_clamp_enabled()
+    clamp_on = budget.free_clamp_enabled
     if moe_offload or not clamp_on:
         effective = float(configured)
         if not moe_offload:
@@ -767,7 +830,11 @@ def preflight_vram_effective(
     else:
         if free_vram_mb is None:
             free_vram_mb = detect_free_vram_mb()
-        effective = effective_vram_limit_mb(configured, free_vram_mb, headroom_mb)
+        effective = budget.effective_vram_limit_mb(
+            n_cpu_moe=n_cpu_moe,
+            free_vram_mb=free_vram_mb,
+            headroom_mb=headroom_mb,
+        )
     ok, est, reason = preflight_vram(
         model_path,
         ctx_size,
@@ -781,13 +848,13 @@ def preflight_vram_effective(
     )
     if ok or effective == configured:
         return ok, est, reason
-    headroom = resolve_vram_headroom_mb(headroom_mb)
-    return (
-        False,
+    enriched = budget.reject_reason(
         est,
-        f"VRAM_PREFLIGHT est={est:.0f}MB > effective={effective:.0f}MB "
-        f"(configured={configured:.0f}MB free={free_vram_mb:.0f}MB headroom={headroom:.0f}MB)",
+        n_cpu_moe=n_cpu_moe,
+        free_vram_mb=free_vram_mb,
+        headroom_mb=headroom_mb,
     )
+    return (False, est, enriched or reason)
 
 
 def resolve_spec_estimate_args(

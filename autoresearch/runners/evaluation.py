@@ -53,6 +53,14 @@ from autoresearch.core.llama_runner import (
 )
 from autoresearch.core.model_arch import gguf_block_count, gguf_has_mtp, gguf_is_moe
 from autoresearch.core.sglang_runner import SGLangServerRunner, run_sglang_bench_validation
+from autoresearch.runners.trial_verdict import (
+    BenchmarkSelection,
+    ModelKind,
+    TrialEvidence,
+    VerdictReason,
+    moe_vram_reject_message,
+    verdict_for,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -118,26 +126,47 @@ def _format_arch_line(intent: ServerIntent) -> str:
 
 
 def _moe_vram_reject(intent: ServerIntent, est_mb: float, limit_mb: float) -> str | None:
-    """Explicit reject when MoE model exceeds physical VRAM budget."""
-    if est_mb <= limit_mb:
-        return None
+    """Explicit reject when MoE model exceeds physical VRAM budget.
+
+    Thin adapter over ``trial_verdict`` — the decision rule itself now lives in
+    the pure decision layer, where it is reachable through a public seam. This
+    wrapper keeps the historical signature for existing callers.
+    """
+    return moe_vram_reject_message(
+        TrialEvidence(
+            vram_est_mb=est_mb,
+            vram_limit_mb=limit_mb,
+            vram_fits=est_mb <= limit_mb,
+            host_est_mb=0.0,
+            host_budget_mb=0.0,
+            host_fits=True,
+            model_kind=ModelKind.MOE if _intent_is_moe(intent) else ModelKind.DENSE,
+            n_cpu_moe=intent.n_cpu_moe,
+            model_exists=intent.model_path.is_file(),
+        )
+    )
+
+
+def _intent_is_moe(intent: ServerIntent) -> bool:
+    """Whether the model file is provably MoE (never guesses on failure)."""
     path = intent.model_path
     if not path.is_file():
-        return None
+        return False
     try:
-        if not gguf_is_moe(path):
-            return None
+        return bool(gguf_is_moe(path))
     except Exception:
-        return None
-    if intent.n_cpu_moe == 0:
-        return (
-            f"MoE full-GPU (N_CPU_MOE=0) est={est_mb:.0f}MB > limit={limit_mb:.0f}MB; "
-            "set N_CPU_MOE=None for auto block_count offload"
-        )
-    return (
-        f"MoE offload (N_CPU_MOE={intent.n_cpu_moe}) est={est_mb:.0f}MB > limit={limit_mb:.0f}MB; "
-        "exceeds physical VRAM limit"
-    )
+        return False
+
+
+def _intent_model_kind(intent: ServerIntent) -> ModelKind:
+    """Architecture evidence for the decision layer, with UNKNOWN on failure."""
+    path = intent.model_path
+    if not path.is_file():
+        return ModelKind.UNKNOWN
+    try:
+        return ModelKind.MOE if gguf_is_moe(path) else ModelKind.DENSE
+    except Exception:
+        return ModelKind.UNKNOWN
 
 
 def resolve_tps_floor(norm: dict[str, Any] | None = None) -> float:
@@ -582,26 +611,11 @@ class ExperimentRunner:
             print(
                 f"  [vram-preflight] est={est_vram:.0f}MB limit={vram_limit_mb:.0f}MB ok={ok_vram}"
             )
-        if not ok_vram:
-            moe_reject = _moe_vram_reject(intent, est_vram, vram_limit_mb)
-            reason = moe_reject or vram_reason
-            res.status = f"FAIL: {reason}"
-            res.outcome = TrialOutcome.MODEL_REJECTED
-            res.diagnostic = reason
-            res.peak_vram_gb = est_vram / 1024.0
-            return res
-
         ok_host, est_host, budget_host, host_reason = preflight_host_memory_for_intent(
             intent,
             headroom_mb=norm.get("host_memory_headroom_mb", norm.get("HOST_MEMORY_HEADROOM_MB")),
         )
         print(f"  [host-preflight] est={est_host:.0f}MB budget={budget_host:.0f}MB ok={ok_host}")
-        if not ok_host:
-            res.status = f"FAIL: {host_reason}"
-            res.outcome = TrialOutcome.MODEL_REJECTED
-            res.diagnostic = host_reason
-            res.peak_vram_gb = est_vram / 1024.0
-            return res
 
         max_tokens = norm.get("max_tokens", 1024)
         include_coding = bool(norm.get("include_coding", False))
@@ -623,40 +637,69 @@ class ExperimentRunner:
         mini_swe_agent = bool(
             norm.get("mini_swe_agent", False) or norm.get("include_mini_swe_agent", False)
         )
-        if is_validation:
-            # Validation defaults to Claw quick smoke; respect an explicit
-            # --no-agentic-quick so load/TPS-only smoke works without the
-            # optional claw-eval vendor tree.
-            if not (agentic_quick or agentic_full):
-                agentic_quick = True
-            agentic_full = False
-            agentic_coding = False
-            mini_swe_agent = False
-            include_coding = (
-                False  # validation = smoke gates only; coding-10 is canonical-Trial work
-            )
-        if mini_swe_agent:
-            if agentic_quick or agentic_full or agentic_coding or include_coding:
-                print("  [mini-swe-agent] standalone selection: disabling other benchmarks")
-            include_coding = False
-            agentic_quick = False
-            agentic_full = False
-            agentic_coding = False
-        if include_coding and (task_limit_val, lcb_limit_val, bigcode_limit_val) != (10, 10, 10):
-            res.status = "FAIL: Coding preflight requires exactly 10 tasks per dataset"
-            res.outcome = TrialOutcome.INVALID_CONFIG
-            res.diagnostic = res.status[6:]
-            return res
+
+        # Benchmark-selection normalization (validation defaults, the
+        # mini-swe-agent standalone rule, coding-10 arity) lives in the pure
+        # decision layer; run_trial only consumes the resolved value.
+        selection = BenchmarkSelection.resolved(
+            agentic_quick=agentic_quick,
+            agentic_full=agentic_full,
+            agentic_coding=agentic_coding,
+            mini_swe_agent=mini_swe_agent,
+            include_coding=include_coding,
+            coding_task_limits=(task_limit_val, lcb_limit_val, bigcode_limit_val),
+            is_validation=is_validation,
+        )
+        requested_other_benchmarks = (
+            agentic_quick or agentic_full or agentic_coding or include_coding
+        )
+        include_coding = selection.include_coding
+        agentic_quick = selection.agentic_quick
+        agentic_full = selection.agentic_full
+        agentic_coding = selection.agentic_coding
+        mini_swe_agent = selection.mini_swe_agent
+        if (
+            norm.get("mini_swe_agent", False) or norm.get("include_mini_swe_agent", False)
+        ) and requested_other_benchmarks:
+            print("  [mini-swe-agent] standalone selection: disabling other benchmarks")
+
         agentic_tiers: list[tuple[str, list[str]]] = []
         if agentic_quick:
             agentic_tiers.append(("quick", get_quick_tier_tasks()))
         if agentic_full:
             agentic_tiers.append(("full", get_full_tier_tasks()))
-        if any(not task_ids for _, task_ids in agentic_tiers):
-            missing = next(tier for tier, task_ids in agentic_tiers if not task_ids)
-            res.status = f"FAIL: No agentic {missing} tasks found"
-            res.outcome = TrialOutcome.INFRA_ERROR
-            res.diagnostic = res.status[6:]
+        missing_tier = next((tier for tier, task_ids in agentic_tiers if not task_ids), None)
+
+        # ── one decision, from the pure layer ─────────────────────────────
+        verdict = verdict_for(
+            TrialEvidence(
+                vram_est_mb=est_vram,
+                vram_limit_mb=vram_limit_mb,
+                vram_fits=ok_vram,
+                vram_reason=vram_reason,
+                host_est_mb=est_host,
+                host_budget_mb=budget_host,
+                host_fits=ok_host,
+                host_reason=host_reason,
+                model_kind=_intent_model_kind(intent),
+                n_cpu_moe=intent.n_cpu_moe,
+                model_exists=intent.model_path.is_file(),
+                selection=selection,
+                missing_agentic_tier=missing_tier,
+            )
+        )
+        if verdict is not None:
+            res.status = f"FAIL: {verdict.message}"
+            res.outcome = TrialOutcome(verdict.trial_verdict.value)
+            res.diagnostic = verdict.message
+            # peak_vram_gb is only meaningful for a *resource* rejection. A
+            # malformed config or a missing tier has no measured peak; keep the
+            # 0.0 default so downstream consumers can tell them apart.
+            if verdict.reason in (
+                VerdictReason.VRAM_EXCEEDED,
+                VerdictReason.HOST_MEMORY_EXCEEDED,
+            ):
+                res.peak_vram_gb = est_vram / 1024.0
             return res
 
         # ── Pre-check: llama-bench validation ────────────────────────────
