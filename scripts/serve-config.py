@@ -38,7 +38,10 @@ if str(REPO_ROOT) not in sys.path:
 
 from autoresearch.core.llama_runner import (
     IS_WINDOWS,
+    FlagDriftError,
     _binary_candidates,
+    assert_flags_supported,
+    load_mode_flag,
     preflight_host_memory,
     preflight_vram,
     resolve_model_path,
@@ -159,9 +162,8 @@ def build_args(cfg: dict) -> tuple[list[str], str, int, str]:
     if flash and str(flash).lower() != "off":
         args += ["--flash-attn", str(flash)]
 
-    # --- mmap / mlock ---
-    if cfg.get("NO_MMAP"):
-        args += ["--no-mmap"]
+    # --- model loading mode (NO_MMAP/MLOCK -> --load-mode) ---
+    args += load_mode_flag(bool(cfg.get("NO_MMAP")), bool(cfg.get("MLOCK")))
 
     # --- prefix cache reuse (prompt KV shifting) ---
     cache_reuse = cfg.get("CACHE_REUSE", cfg.get("cache_reuse"))
@@ -375,6 +377,12 @@ def cmd_serve() -> int:
         )
         return 2
 
+    try:
+        assert_flags_supported([str(binary)] + args, binary)
+    except FlagDriftError as exc:
+        print(f"ERROR: {exc}")
+        return 2
+
     LOG.parent.mkdir(parents=True, exist_ok=True)
     log = open(LOG, "w")
     server_env = os.environ.copy()
@@ -419,6 +427,11 @@ def cmd_print_cmd() -> int:
     print(f"# Alias (model name for OpenAI-compat clients): {alias}")
     print()
     if binary:
+        try:
+            assert_flags_supported([str(binary)] + args, binary)
+        except FlagDriftError as exc:
+            print(f"ERROR: {exc}")
+            return 2
         parts = [str(binary)] + [repr(a) if " " in a else a for a in args]
         print(" ".join(parts))
     return 0

@@ -2,6 +2,8 @@
 
 This document provides the optimal `llama.cpp` configuration parameters to run all target models in our local store (`models/local/` and `models/lmstudio-community/`) on consumer hardware with **8 GB of VRAM** (specifically optimized for an 8 GB-class discrete NVIDIA rig with 16–24 GB of System RAM).
 
+> **Flag rename (2026-09-28):** the `--no-mmap` / `--mlock` shown in the blocks below are **retired upstream** ([#26934](https://github.com/ggml-org/llama.cpp/pull/26934)) and the current build rejects them. Read every `--no-mmap` as the Baseline knob `NO_MMAP: True`, which the harness emits as `--load-mode none`. Set the Baseline in `autoresearch/core/config.py` — do not hand-write these blocks against a raw binary.
+
 ---
 
 ## 1. Optimal Parameter Decision Matrix

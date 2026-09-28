@@ -33,6 +33,7 @@ from autoresearch.core.crash_journal import clear_journal, read_journal, write_j
 from autoresearch.core.hardware import detect_hardware_capabilities
 from autoresearch.core.llama_runner import (
     estimate_vram_mb,
+    load_mode_flag,
     preflight_host_memory,
     resolve_model_path,
     resolve_spec_estimate_args,
@@ -403,8 +404,10 @@ def _compile_alias_flags(model_name: str, new_cfg: dict, existing_flags: list) -
         flags.append(f"--ubatch-size {new_cfg['UBATCH_SIZE']}")
     if new_cfg.get("CONT_BATCHING"):
         flags.append("--cont-batching")
-    if new_cfg.get("NO_MMAP"):
-        flags.append("--no-mmap")
+    no_mmap = bool(new_cfg.get("NO_MMAP"))
+    mlock = bool(new_cfg.get("MLOCK"))
+    if no_mmap or mlock:
+        flags.append(" ".join(load_mode_flag(no_mmap, mlock)))
 
     spec_type = new_cfg.get("SPEC_TYPE")
     if spec_type and spec_type != "none":

@@ -36,10 +36,13 @@ from autoresearch.core.llama_runner import (
     WATCHDOG_KILL_LEGACY_MARKER,
     WATCHDOG_KILL_LEGACY_REASON,
     ConfigError,
+    FlagDriftError,
     LlamaServerRunner,
     ServerIntent,
+    assert_flags_supported,
     dedicated_vram_kill_ceil,
     is_spec_enabled,
+    load_mode_flag,
     preflight_host_memory_for_intent,
     preflight_vram_for_intent,
     resolve_llama_cli,
@@ -158,6 +161,10 @@ class TrialOutcome(str, Enum):
     # Runtime VRAM-policy kill (issue #72): the harness watchdog stopped a
     # healthy server on its VRAM budget — never a model OOM rejection.
     WATCHDOG_KILL = "WATCHDOG_KILL"
+    # Environment/engine problem, not the model and not harness code: missing
+    # binary, unprobeable output, or `FlagDriftError` (the engine build dropped
+    # a flag the harness forwards). Triage as an engine bump, never a harness
+    # defect — `CODE_ERROR` is reserved for our own logic.
     INFRA_ERROR = "INFRA_ERROR"
     CODE_ERROR = "CODE_ERROR"
 
@@ -267,7 +274,8 @@ def run_llama_bench_validation(
     Caps ``-c`` at ``BENCH_CTX_CAP`` so TPS smoke does not allocate Trial-sized
     KV without a VRAM kill. Watches dedicated keepout ceil + absolute Shared GPU
     ceil (MoE+NO_MMAP can thrash Shared→pagefile while dedicated stays ~4–5 GB).
-    Sets ``GGML_CUDA_NO_PINNED=1``. Keeps ``NO_MMAP``.
+    Sets ``GGML_CUDA_NO_PINNED=1``. Carries ``NO_MMAP``/``MLOCK`` through
+    ``load_mode_flag`` as an explicit ``--load-mode``.
     """
     llama_cli = resolve_llama_cli()
     bench_ctx = min(int(ctx_size), BENCH_CTX_CAP)
@@ -302,10 +310,8 @@ def run_llama_bench_validation(
         cache_type_k,
         "-ctv",
         cache_type_v,
-        "--no-mmap" if no_mmap else "--mmap",
     ]
-    if mlock:
-        cmd += ["--mlock"]
+    cmd += load_mode_flag(no_mmap, mlock)
     cmd += [
         "--no-warmup",
         "--simple-io",
@@ -346,6 +352,7 @@ def run_llama_bench_validation(
                 draft_path = model_path.parent / draft_path
             cmd += ["--spec-draft-model", str(draft_path)]
 
+    assert_flags_supported(cmd, llama_cli)
     print(f"  [cli-bench] {' '.join(str(a) for a in cmd)}")
     limit = resolve_vram_limit_mb(vram_limit_mb)
     shared_limit = resolve_shared_vram_limit_mb()
@@ -1096,7 +1103,7 @@ class ExperimentRunner:
             res.status = f"FAIL: {str(e)[:50]}"
             res.outcome = (
                 TrialOutcome.INFRA_ERROR
-                if isinstance(e, (FileNotFoundError, OSError))
+                if isinstance(e, (FileNotFoundError, OSError, FlagDriftError))
                 else TrialOutcome.CODE_ERROR
             )
             res.diagnostic = str(e)
