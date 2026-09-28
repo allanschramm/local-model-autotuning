@@ -9,7 +9,7 @@ use pyo3::types::{PyDict, PyList};
 
 use serde_json::{Map, Value};
 
-use crate::error::{CoreError, CoreResult};
+use crate::error::CoreError;
 use crate::state::SearchState as RustSearchState;
 
 /// Python-facing handle for `autoresearch.core.state.SearchState`.
@@ -68,7 +68,7 @@ impl PySearchState {
 
     fn set_morris<'py>(
         &mut self,
-        py: Python<'py>,
+        _py: Python<'py>,
         model: &str,
         pins: &Bound<'py, PyDict>,
         effects: &Bound<'py, PyDict>,

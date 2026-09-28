@@ -35,10 +35,12 @@ pub fn load(target: &Path) -> CoreResult<Map<String, Value>> {
         source,
     })?;
     let payload: Value = serde_json::from_str(&raw)?;
-    let obj = payload.as_object().ok_or_else(|| CoreError::ScrubViolation {
-        path: "$".into(),
-        reason: format!("invalid Fingerprint payload in {target:?}: not an object"),
-    })?;
+    let obj = payload
+        .as_object()
+        .ok_or_else(|| CoreError::ScrubViolation {
+            path: "$".into(),
+            reason: format!("invalid Fingerprint payload in {target:?}: not an object"),
+        })?;
 
     // Schema version check.
     let version = obj
@@ -57,12 +59,13 @@ pub fn load(target: &Path) -> CoreResult<Map<String, Value>> {
         });
     }
 
-    let model = obj.get("model").and_then(Value::as_str).ok_or_else(|| {
-        CoreError::ScrubViolation {
-            path: "$.model".into(),
-            reason: format!("invalid Fingerprint model in {target:?}: GGUF basename only"),
-        }
-    })?;
+    let model =
+        obj.get("model")
+            .and_then(Value::as_str)
+            .ok_or_else(|| CoreError::ScrubViolation {
+                path: "$.model".into(),
+                reason: format!("invalid Fingerprint model in {target:?}: GGUF basename only"),
+            })?;
     if !looks_like_basename(model) {
         return Err(CoreError::ScrubViolation {
             path: "$.model".into(),
@@ -73,12 +76,13 @@ pub fn load(target: &Path) -> CoreResult<Map<String, Value>> {
     }
 
     // Engine is required.
-    let engine_obj = obj.get("engine").and_then(Value::as_object).ok_or_else(|| {
-        CoreError::ScrubViolation {
+    let engine_obj = obj
+        .get("engine")
+        .and_then(Value::as_object)
+        .ok_or_else(|| CoreError::ScrubViolation {
             path: "$.engine".into(),
             reason: format!("invalid Fingerprint engine in {target:?}: mapping required"),
-        }
-    })?;
+        })?;
     if engine_obj.is_empty() {
         return Err(CoreError::ScrubViolation {
             path: "$.engine".into(),
@@ -128,10 +132,7 @@ fn looks_like_basename(name: &str) -> bool {
         return false;
     }
     // Mimic `PureWindowsPath(name).name == name and PurePath(name).name == name`.
-    let posix = std::path::Path::new(s)
-        .file_name()
-        .and_then(|x| x.to_str())
-        == Some(s);
+    let posix = std::path::Path::new(s).file_name().and_then(|x| x.to_str()) == Some(s);
     let win = match s.rfind('\\') {
         Some(idx) => &s[idx + 1..] == s,
         None => true,
@@ -143,7 +144,6 @@ fn looks_like_basename(name: &str) -> bool {
 mod tests {
     use super::*;
     use serde_json::json;
-    use tempfile::NamedTempFile;
 
     fn write(tmp: &std::path::Path, name: &str, content: &str) -> std::path::PathBuf {
         let path = tmp.join(name);
@@ -173,10 +173,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let content = r#"{"schema_version": 99, "model": "Q.gguf", "engine": {"MODEL": "Q.gguf"}}"#;
         let path = write(tmp.path(), "f.json", content);
-        assert!(matches!(
-            load(&path),
-            Err(CoreError::SchemaMismatch { .. })
-        ));
+        assert!(matches!(load(&path), Err(CoreError::SchemaMismatch { .. })));
     }
 
     #[test]
@@ -184,7 +181,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         // `email` is in the private-key set.
         let mut map = Map::new();
-        map.insert("email".to_string(), json!("allan@example.com"));
+        map.insert("email".to_string(), json!("operator@example.com"));
         map.insert("MODEL".to_string(), json!("Q.gguf"));
         let payload = json!({"schema_version": 1, "model": "Q.gguf", "engine": map});
         let path = write(

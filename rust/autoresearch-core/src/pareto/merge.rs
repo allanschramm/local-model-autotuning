@@ -14,7 +14,9 @@ pub fn merge(trials: &[Trial]) -> Vec<Trial> {
     let mut grouped: BTreeMap<String, ObjectiveVector> = BTreeMap::new();
 
     for t in trials {
-        let entry = grouped.entry(t.fp.clone()).or_insert_with(ObjectiveVector::default);
+        let entry = grouped
+            .entry(t.fp.clone())
+            .or_insert_with(ObjectiveVector::default);
         entry.ctx = pick_max_f64(entry.ctx, t.vector.ctx);
         entry.tps = pick_max_f64(entry.tps, t.vector.tps);
         entry.agentic = pick_max_f64(entry.agentic, t.vector.agentic);

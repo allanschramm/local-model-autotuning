@@ -16,7 +16,9 @@ pub fn dominates<V1: VectorLike, V2: VectorLike>(a: &V1, b: &V2) -> bool {
     let b_agentic = b.agentic();
     let b_coding = b.coding();
 
-    let completes = [a_ctx, a_tps, a_agentic, a_coding, b_ctx, b_tps, b_agentic, b_coding];
+    let completes = [
+        a_ctx, a_tps, a_agentic, a_coding, b_ctx, b_tps, b_agentic, b_coding,
+    ];
     if completes.iter().any(Option::is_none) {
         return false;
     }

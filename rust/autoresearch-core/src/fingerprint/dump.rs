@@ -117,7 +117,13 @@ mod tests {
         let target = tmp.path().join("m.json");
         let mut engine = Map::new();
         engine.insert("CTX_SIZE".into(), json!(1024));
-        let written = dump(&target, "C:\\Users\\allan\\models\\Qwen.gguf", &engine, None).unwrap();
+        let written = dump(
+            &target,
+            "C:\\Users\\operator\\models\\Qwen.gguf",
+            &engine,
+            None,
+        )
+        .unwrap();
         let content = std::fs::read_to_string(&written).unwrap();
         // Basename lands in the model field.
         assert!(content.contains("\"model\": \"Qwen.gguf\""));

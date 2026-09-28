@@ -110,8 +110,7 @@ impl SearchState {
         let mut entry = serde_json::Map::new();
         entry.insert("pins".to_string(), Value::Object(pins));
         entry.insert("effects".to_string(), Value::Object(effects));
-        self.morris
-            .insert(model.to_string(), Value::Object(entry));
+        self.morris.insert(model.to_string(), Value::Object(entry));
         self.persist()
     }
 
@@ -133,4 +132,3 @@ mod tests {
         assert!(st.morris.is_empty());
     }
 }
-

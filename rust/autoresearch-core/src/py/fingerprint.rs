@@ -29,12 +29,15 @@ create_exception!(
 
 fn scrub_or_py(e: CoreError) -> PyErr {
     match e {
-        CoreError::ScrubViolation { path, reason } => FingerprintError::new_err(format!(
-            "scrub violation at '{path}': {reason}"
+        CoreError::ScrubViolation { path, reason } => {
+            FingerprintError::new_err(format!("scrub violation at '{path}': {reason}"))
+        }
+        CoreError::SchemaMismatch {
+            file_version,
+            expected,
+        } => FingerprintError::new_err(format!(
+            "unsupported Fingerprint schema_version {file_version} (want {expected})"
         )),
-        CoreError::SchemaMismatch { file_version, expected } => FingerprintError::new_err(
-            format!("unsupported Fingerprint schema_version {file_version} (want {expected})"),
-        ),
         CoreError::Io { source, .. } => PyOSError::new_err(source.to_string()),
         other => PyErr::new::<PyValueError, _>(other.to_string()),
     }
@@ -57,8 +60,8 @@ fn py_dump(
         None => None,
     };
     let target_path = path_for_callable(path)?;
-    let written = dump(&target_path, model, &engine_map, sampler_map.as_ref())
-        .map_err(scrub_or_py)?;
+    let written =
+        dump(&target_path, model, &engine_map, sampler_map.as_ref()).map_err(scrub_or_py)?;
     path_from(&written, path, py)
 }
 
@@ -79,8 +82,8 @@ fn py_mismatch_reason(
 ) -> PyResult<Option<String>> {
     let baseline = pythonize_obj_map(baseline_engine)?;
     let r#override = _target_path.map(std::path::Path::new);
-    let result = mismatch_reason(model_basename, &baseline, directory, r#override)
-        .map_err(scrub_or_py)?;
+    let result =
+        mismatch_reason(model_basename, &baseline, directory, r#override).map_err(scrub_or_py)?;
     Ok(result)
 }
 
@@ -106,9 +109,10 @@ fn pythonize_obj_map(obj: &Bound<'_, PyAny>) -> PyResult<Map<String, Value>> {
         return Ok(Map::new());
     }
     let v: Value = pythonize_to_json(obj)?;
-    let m = v.as_object().cloned().ok_or_else(|| {
-        PyValueError::new_err("engine must be a mapping of ENGINE_DEFAULTS")
-    })?;
+    let m = v
+        .as_object()
+        .cloned()
+        .ok_or_else(|| PyValueError::new_err("engine must be a mapping of ENGINE_DEFAULTS"))?;
     Ok(m)
 }
 
@@ -208,7 +212,11 @@ fn path_for_callable(arg: &Bound<'_, PyAny>) -> PyResult<std::path::PathBuf> {
     )))
 }
 
-fn path_from(p: &std::path::Path, original: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<Py<PyAny>> {
+fn path_from(
+    p: &std::path::Path,
+    original: &Bound<'_, PyAny>,
+    py: Python<'_>,
+) -> PyResult<Py<PyAny>> {
     // Try to mirror the input's type (string vs Path). The Python
     // `dump()` always re-emits a string for portability; pathlib.Path
     // round-tripping through PyO3 is noisy enough that we keep things
@@ -232,8 +240,14 @@ fn _ensure_load_path(py: Python<'_>) -> CoreResult<()> {
 }
 
 pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    parent.add("FingerprintError", parent.py().get_type_bound::<FingerprintError>())?;
-    parent.add("FINGERPRINT_SCHEMA_VERSION", fingerprint::FINGERPRINT_SCHEMA_VERSION)?;
+    parent.add(
+        "FingerprintError",
+        parent.py().get_type_bound::<FingerprintError>(),
+    )?;
+    parent.add(
+        "FINGERPRINT_SCHEMA_VERSION",
+        fingerprint::FINGERPRINT_SCHEMA_VERSION,
+    )?;
     parent.add("SCHEMA_VERSION", fingerprint::FINGERPRINT_SCHEMA_VERSION)?;
     parent.add_function(wrap_pyfunction!(py_dump, parent)?)?;
     parent.add_function(wrap_pyfunction!(py_load, parent)?)?;

@@ -95,7 +95,9 @@ mod tests {
         let sampler = serde_json::json!({"top_k": 40});
         let h = fingerprint_hash(&engine, &sampler);
         assert_eq!(h.len(), 64);
-        assert!(h.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
+        assert!(h
+            .chars()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
     }
 
     #[test]

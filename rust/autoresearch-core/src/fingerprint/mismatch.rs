@@ -232,7 +232,6 @@ fn json_to_str(value: &Value) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
 
     fn engine_from(pairs: &[(&str, &str)]) -> Map<String, Value> {
         let mut m = Map::new();

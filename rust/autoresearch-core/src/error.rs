@@ -109,8 +109,8 @@ mod tests {
 
     #[test]
     fn serde_json_error_roundtrips() {
-        let serde_err = serde_json::from_str::<serde_json::Value>("not json")
-            .expect_err("must fail");
+        let serde_err =
+            serde_json::from_str::<serde_json::Value>("not json").expect_err("must fail");
         let err: CoreError = serde_err.into();
         match err {
             CoreError::SerdeJson(_) => {}

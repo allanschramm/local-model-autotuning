@@ -1,7 +1,7 @@
 //! Atomic JSON persistence for `SearchState`. Port of the Python
 //! `_write_to_disk` (`tempfile.mkstemp` + `os.replace` with `fsync`).
 
-use std::fs::{self, File};
+use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -23,7 +23,13 @@ pub fn write_atomic(target: &Path, data: &serde_json::Value) -> CoreResult<()> {
     let dir_owned = dir
         .map(|p| p.to_path_buf())
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
-    let prefix = format!(".{}.", target.file_name().and_then(|s| s.to_str()).unwrap_or("state"));
+    let prefix = format!(
+        ".{}.",
+        target
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("state")
+    );
     let mut tmp = tempfile::Builder::new()
         .prefix(&prefix)
         .suffix(".tmp")
@@ -91,7 +97,10 @@ pub fn append_visited(target: &Path, key: &str) -> CoreResult<serde_json::Value>
         .entry("visited")
         .or_insert_with(|| serde_json::Value::Array(Vec::new()));
     let arr = visited.as_array_mut().expect("visited is array");
-    if !arr.iter().any(|v| v == &serde_json::Value::String(key.into())) {
+    if !arr
+        .iter()
+        .any(|v| v == &serde_json::Value::String(key.into()))
+    {
         arr.push(serde_json::Value::String(key.into()));
         arr.sort_by(|a, b| match (a.as_str(), b.as_str()) {
             (Some(x), Some(y)) => x.cmp(y),
@@ -121,7 +130,11 @@ mod tests {
     fn read_validated_rejects_unknown_schema() {
         let tmp = tempfile::tempdir().unwrap();
         let target = tmp.path().join("state.json");
-        std::fs::write(&target, br#"{"schema_version": 99, "visited": [], "morris": {}}"#).unwrap();
+        std::fs::write(
+            &target,
+            br#"{"schema_version": 99, "visited": [], "morris": {}}"#,
+        )
+        .unwrap();
         let result = read_validated(&target);
         assert!(matches!(result, Err(CoreError::ScrubViolation { .. })));
     }

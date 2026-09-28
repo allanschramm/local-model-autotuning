@@ -19,12 +19,7 @@ pub struct PyObjectiveVector {
 impl PyObjectiveVector {
     #[new]
     #[pyo3(signature = (ctx=None, tps=None, agentic=None, coding=None))]
-    fn new(
-        ctx: Option<f64>,
-        tps: Option<f64>,
-        agentic: Option<f64>,
-        coding: Option<f64>,
-    ) -> Self {
+    fn new(ctx: Option<f64>, tps: Option<f64>, agentic: Option<f64>, coding: Option<f64>) -> Self {
         Self {
             inner: RustObjectiveVector {
                 ctx,
@@ -130,7 +125,10 @@ fn fingerprint(
         Some(s) => pydict_to_json(s)?,
         None => serde_json::Value::Null,
     };
-    Ok(crate::pareto::fingerprint_hash(&engine_value, &sampler_value))
+    Ok(crate::pareto::fingerprint_hash(
+        &engine_value,
+        &sampler_value,
+    ))
 }
 
 /// `pareto.dominates(a, b) -> bool` — 4-axis strict dominance.
@@ -242,21 +240,11 @@ fn wrap_objective_vector<'py>(
     py: Python<'py>,
     v: RustObjectiveVector,
 ) -> PyResult<Bound<'py, PyObjectiveVector>> {
-    Bound::new(
-        py,
-        PyObjectiveVector {
-            inner: v,
-        },
-    )
+    Bound::new(py, PyObjectiveVector { inner: v })
 }
 
 fn wrap_trial<'py>(py: Python<'py>, t: RustTrial) -> PyResult<Bound<'py, PyTrial>> {
-    Bound::new(
-        py,
-        PyTrial {
-            inner: t,
-        },
-    )
+    Bound::new(py, PyTrial { inner: t })
 }
 
 pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {

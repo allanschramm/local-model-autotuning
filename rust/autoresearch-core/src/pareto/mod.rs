@@ -25,8 +25,7 @@ mod tests {
         // The Python `from autoresearch.core.pareto import …` imports look up
         // each of these. The names must remain stable across the port.
         let _name: fn(&ObjectiveVector, &ObjectiveVector) -> bool = dominates;
-        let _name2: fn(&serde_json::Value, &serde_json::Value) -> String =
-            fingerprint_hash;
+        let _name2: fn(&serde_json::Value, &serde_json::Value) -> String = fingerprint_hash;
         let _name3: fn(&[Trial]) -> Vec<Trial> = merge;
         let _name4: fn(&[ObjectiveVector]) -> Vec<ObjectiveVector> = pareto_set;
     }
