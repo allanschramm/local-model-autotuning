@@ -198,6 +198,216 @@ class TrialOutcome(str, Enum):
     CODE_ERROR = "CODE_ERROR"
 
 
+def _server_runner_class(intent: ServerIntent) -> type:
+    """Which server implementation backs this Trial.
+
+    The engine is chosen by *artifact shape*: a directory is an SGLang
+    model tree, a file is a GGUF for llama.cpp. Keeping this in one adapter
+    function means a future engine is a new branch here, not a new `if`
+    threaded through run_trial.
+    """
+    return SGLangServerRunner if intent.model_path.is_dir() else LlamaServerRunner
+
+
+def _make_server_runner(
+    intent: ServerIntent,
+    *,
+    log_path: Path,
+    vram_limit_mb: float,
+) -> LlamaServerRunner | SGLangServerRunner:
+    """Build the runner for this Trial's engine.
+
+    ``vram_limit_mb`` is only meaningful to the llama.cpp runner (SGLang has
+    no VRAM kill guard of ours), so the adapter passes it conditionally rather
+    than making every engine adapter accept an argument it ignores.
+    """
+    runner_cls = _server_runner_class(intent)
+    kwargs: dict[str, Any] = {"log_path": log_path}
+    if runner_cls is LlamaServerRunner:
+        kwargs["vram_limit_mb"] = vram_limit_mb
+    return runner_cls(intent, **kwargs)
+
+
+def _bench_validation_for(intent: ServerIntent):
+    """The bench-validation callable for this Trial's engine.
+
+    Same artifact-shape dispatch as the server: llama.cpp benches with
+    `llama-bench`, SGLang with `sglang.bench_one_batch`. Returns the median
+    helper plus a human label for the log line, so run_trial never branches on
+    the engine.
+    """
+    if intent.model_path.is_dir():
+        return median_sglang_bench_validation, "sglang"
+    return median_llama_bench_validation, "llama-bench"
+
+
+def _bench_kwargs_for(
+    intent: ServerIntent,
+    *,
+    reps: int,
+    vram_limit_mb: float,
+) -> dict[str, Any]:
+    """Engine-specific arguments for the bench-validation callable.
+
+    llama.cpp benches the real serving configuration (so the measurement
+    reflects ctx/kv/offload); SGLang benches one fixed batch. That asymmetry is
+    why this is an adapter rather than a shared signature.
+    """
+    if intent.model_path.is_dir():
+        return {
+            "model_path": intent.model_path,
+            "batch_size": 1,  # We use 1 here for bench
+            "n_prompt": BENCH_N_PROMPT,
+            "n_gen": BENCH_N_GEN,
+        }
+    return {
+        "model_path": intent.model_path,
+        "ngl": intent.ngl,
+        "threads": intent.threads,
+        "batch_size": intent.batch_size,
+        "ubatch_size": intent.ubatch_size,
+        "flash_attn": intent.flash_attn,
+        "cache_type_k": intent.kv_cache_k or intent.kv_cache,
+        "cache_type_v": intent.kv_cache_v or intent.kv_cache,
+        "ctx_size": intent.ctx_size,
+        "threads_batch": intent.threads_batch,
+        "no_mmap": intent.no_mmap,
+        "mlock": intent.mlock,
+        "cont_batching": intent.cont_batching,
+        "spec_type": intent.spec_type,
+        "spec_draft_n_max": intent.spec_draft_n_max,
+        "spec_draft_model": intent.spec_draft_model,
+        "n_cpu_moe": intent.n_cpu_moe,
+        "n_gen": BENCH_N_GEN,
+        "vram_limit_mb": vram_limit_mb,
+        "reasoning": intent.reasoning,
+    }
+
+
+def _run_bench_precheck(
+    res: TrialResult,
+    intent: ServerIntent,
+    *,
+    reps: int,
+    vram_limit_mb: float,
+    bench_tts_threshold: float,
+    is_validation: bool,
+    idle_c: float | None,
+    thermal_wait: bool,
+) -> bool:
+    """Run the throughput pre-check before the full Trial. Returns True to continue.
+
+    This is a whole phase, not a step: measure tg throughput, record the
+    evidence on ``res``, and either pass or return a populated result for the
+    caller to hand back. Extracted from run_trial so the orchestration function
+    reads as a sequence of phases rather than a 580-line body.
+
+    The two engines keep their own error translation because they genuinely
+    differ: the llama.cpp path maps a missing binary, a crash, and a watchdog
+    kill to three different outcomes, while SGLang only has the generic case.
+    """
+    is_sglang = intent.model_path.is_dir()
+    label = "sglang" if is_sglang else "llama-cli"
+    wait_gpu_near_idle(idle_c=idle_c, enabled=thermal_wait)
+    bench_fn = median_sglang_bench_validation if is_sglang else median_llama_bench_validation
+
+    try:
+        bench_tg, rep_vals, gpu_c = bench_fn(
+            **_bench_kwargs_for(intent, reps=reps, vram_limit_mb=vram_limit_mb),
+            reps=reps,
+            idle_c=idle_c,
+            thermal_wait=thermal_wait,
+        )
+    except FileNotFoundError as e:
+        print(f"  [FAIL] llama-cli not found: {e}")
+        res.status = "FAIL: llama-cli not found"
+        res.outcome = TrialOutcome.INFRA_ERROR
+        res.diagnostic = str(e)
+        return False
+    except subprocess.CalledProcessError as e:
+        err_tail = (e.stderr or "").strip()[-800:]
+        print(f"  [FAIL] llama-cli crashed: {e}")
+        if err_tail:
+            print(f"  [stderr] {err_tail}")
+        res.status = "FAIL: llama-cli crashed"
+        res.diagnostic = err_tail or str(e)
+        res.outcome = TrialOutcome.MODEL_REJECTED
+        return False
+    except RuntimeError as e:
+        msg = str(e)
+        if "WATCHDOG_KILL" in msg or WATCHDOG_KILL_LEGACY_MARKER in msg:
+            reason = msg if msg.startswith("WATCHDOG_KILL") else WATCHDOG_KILL_LEGACY_REASON
+            print(f"  [FAIL] llama-cli {reason}")
+            res.status = f"FAIL: {reason}"
+            res.outcome = TrialOutcome.WATCHDOG_KILL
+            res.diagnostic = reason
+            return False
+        print(f"  [FAIL] llama-cli error: {e}")
+        res.status = f"FAIL: llama-cli error: {str(e)[:50]}"
+        res.outcome = TrialOutcome.INFRA_ERROR
+        res.diagnostic = str(e)
+        return False
+    except Exception as e:
+        print(f"  [FAIL] {label} bench error: {e}")
+        res.status = f"FAIL: {label} bench error: {str(e)[:50]}"
+        res.outcome = TrialOutcome.INFRA_ERROR
+        res.diagnostic = str(e)
+        return False
+
+    res.bench_tg_tps = bench_tg
+    res.tps_reps = rep_vals
+    res.tps_spread = _tps_spread(rep_vals, bench_tg)
+    if gpu_c is not None:
+        res.gpu_temp_c = gpu_c
+
+    if is_sglang:
+        print(f"  [bench] sglang.bench_one_batch tg {BENCH_N_GEN}: {bench_tg:.1f} t/s")
+    else:
+        print(f"  [bench] tg {BENCH_N_GEN}: {bench_tg:.1f} t/s")
+
+    below = verdict_for(
+        TrialEvidence(
+            vram_est_mb=0.0,
+            vram_limit_mb=1.0,
+            vram_fits=True,
+            host_est_mb=0.0,
+            host_budget_mb=0.0,
+            host_fits=True,
+            bench_tg_tps=bench_tg,
+            bench_threshold_tps=bench_tts_threshold,
+        )
+    )
+    if below is not None:
+        print(
+            f"  [FAIL] {label} bench tg {bench_tg:.1f} t/s below "
+            f"threshold {bench_tts_threshold:.1f}"
+        )
+        # The two engines have historically worded this status differently, and
+        # the store keeps the raw string, so preserve each form exactly.
+        if is_sglang:
+            res.status = (
+                f"FAIL: sglang bench tg {bench_tg:.1f} < threshold {bench_tts_threshold:.1f}"
+            )
+        else:
+            res.status = f"FAIL: bench tg {bench_tg:.1f} < threshold {bench_tts_threshold:.1f}"
+        res.outcome = TrialOutcome.MODEL_REJECTED
+        return False
+
+    if is_validation:
+        if is_sglang:
+            print(
+                f"  [OK] SGLang bench validation passed: tg {bench_tg:.1f} t/s "
+                f">= {bench_tts_threshold:.1f}"
+            )
+        else:
+            print(
+                f"  [OK] Bench validation passed: tg {bench_tg:.1f} t/s "
+                f">= {bench_tts_threshold:.1f}"
+            )
+            # Fall through to the configured agentic smoke validation.
+    return True
+
+
 @dataclass
 class TrialResult:
     """Typed result of one trial. Replaces dict-as-return-type pattern.
@@ -702,140 +912,20 @@ class ExperimentRunner:
                 res.peak_vram_gb = est_vram / 1024.0
             return res
 
-        # ── Pre-check: llama-bench validation ────────────────────────────
-        if not skip_bench:
-            if intent.model_path.is_dir():
-                try:
-                    reps = int(
-                        cfg_dict.get("TPS_REPS", core_config.ENGINE_DEFAULTS.get("TPS_REPS", 3))
-                        or 3
-                    )
-                    wait_gpu_near_idle(idle_c=self._idle_gpu_c, enabled=self.thermal_wait)
-                    bench_tg, rep_vals, gpu_c = median_sglang_bench_validation(
-                        model_path=intent.model_path,
-                        batch_size=1,  # We use 1 here for bench
-                        n_prompt=BENCH_N_PROMPT,
-                        n_gen=BENCH_N_GEN,
-                        reps=reps,
-                        idle_c=self._idle_gpu_c,
-                        thermal_wait=self.thermal_wait,
-                    )
-                    res.bench_tg_tps = bench_tg
-                    res.tps_reps = rep_vals
-                    res.tps_spread = _tps_spread(rep_vals, bench_tg)
-                    res.gpu_temp_c = gpu_c
-                    print(f"  [bench] sglang.bench_one_batch tg {BENCH_N_GEN}: {bench_tg:.1f} t/s")
-
-                    if bench_tg < bench_tts_threshold:
-                        print(
-                            f"  [FAIL] sglang bench tg {bench_tg:.1f} t/s below threshold {bench_tts_threshold:.1f}"
-                        )
-                        res.status = f"FAIL: sglang bench tg {bench_tg:.1f} < threshold {bench_tts_threshold:.1f}"
-                        res.outcome = TrialOutcome.MODEL_REJECTED
-                        return res
-
-                    if is_validation:
-                        print(
-                            f"  [OK] SGLang bench validation passed: tg {bench_tg:.1f} t/s >= {bench_tts_threshold:.1f}"
-                        )
-                except Exception as e:
-                    print(f"  [FAIL] sglang bench error: {e}")
-                    res.status = f"FAIL: sglang bench error: {str(e)[:50]}"
-                    res.outcome = TrialOutcome.INFRA_ERROR
-                    res.diagnostic = str(e)
-                    return res
-            else:
-                try:
-                    reps = int(
-                        cfg_dict.get("TPS_REPS", core_config.ENGINE_DEFAULTS.get("TPS_REPS", 3))
-                        or 3
-                    )
-                    wait_gpu_near_idle(idle_c=self._idle_gpu_c, enabled=self.thermal_wait)
-                    bench_tg, rep_vals, gpu_c = median_llama_bench_validation(
-                        model_path=intent.model_path,
-                        ngl=intent.ngl,
-                        threads=intent.threads,
-                        batch_size=intent.batch_size,
-                        ubatch_size=intent.ubatch_size,
-                        flash_attn=intent.flash_attn,
-                        cache_type_k=intent.kv_cache_k or intent.kv_cache,
-                        cache_type_v=intent.kv_cache_v or intent.kv_cache,
-                        ctx_size=intent.ctx_size,
-                        threads_batch=intent.threads_batch,
-                        no_mmap=intent.no_mmap,
-                        mlock=intent.mlock,
-                        cont_batching=intent.cont_batching,
-                        spec_type=intent.spec_type,
-                        spec_draft_n_max=intent.spec_draft_n_max,
-                        spec_draft_model=intent.spec_draft_model,
-                        n_cpu_moe=intent.n_cpu_moe,
-                        n_gen=BENCH_N_GEN,
-                        vram_limit_mb=vram_limit_mb,
-                        reasoning=intent.reasoning,
-                        reps=reps,
-                        idle_c=self._idle_gpu_c,
-                        thermal_wait=self.thermal_wait,
-                    )
-                except FileNotFoundError as e:
-                    print(f"  [FAIL] llama-cli not found: {e}")
-                    res.status = "FAIL: llama-cli not found"
-                    res.outcome = TrialOutcome.INFRA_ERROR
-                    res.diagnostic = str(e)
-                    return res
-                except subprocess.CalledProcessError as e:
-                    err_tail = (e.stderr or "").strip()[-800:]
-                    print(f"  [FAIL] llama-cli crashed: {e}")
-                    if err_tail:
-                        print(f"  [stderr] {err_tail}")
-                    res.status = "FAIL: llama-cli crashed"
-                    res.diagnostic = err_tail or str(e)
-                    res.outcome = TrialOutcome.MODEL_REJECTED
-                    return res
-                except RuntimeError as e:
-                    msg = str(e)
-                    if "WATCHDOG_KILL" in msg or WATCHDOG_KILL_LEGACY_MARKER in msg:
-                        reason = (
-                            msg if msg.startswith("WATCHDOG_KILL") else WATCHDOG_KILL_LEGACY_REASON
-                        )
-                        print(f"  [FAIL] llama-cli {reason}")
-                        res.status = f"FAIL: {reason}"
-                        res.outcome = TrialOutcome.WATCHDOG_KILL
-                        res.diagnostic = reason
-                        return res
-                    print(f"  [FAIL] llama-cli error: {e}")
-                    res.status = f"FAIL: llama-cli error: {str(e)[:50]}"
-                    res.outcome = TrialOutcome.INFRA_ERROR
-                    res.diagnostic = str(e)
-                    return res
-                except Exception as e:
-                    print(f"  [FAIL] llama-cli error: {e}")
-                    res.status = f"FAIL: llama-cli error: {str(e)[:50]}"
-                    res.outcome = TrialOutcome.INFRA_ERROR
-                    res.diagnostic = str(e)
-                    return res
-
-                res.bench_tg_tps = bench_tg
-                res.tps_reps = rep_vals
-                res.tps_spread = _tps_spread(rep_vals, bench_tg)
-                if gpu_c is not None:
-                    res.gpu_temp_c = gpu_c
-                print(f"  [bench] tg {BENCH_N_GEN}: {bench_tg:.1f} t/s")
-
-                if bench_tg < bench_tts_threshold:
-                    print(
-                        f"  [FAIL] llama-cli tg {bench_tg:.1f} t/s below threshold {bench_tts_threshold:.1f}"
-                    )
-                    res.status = (
-                        f"FAIL: bench tg {bench_tg:.1f} < threshold {bench_tts_threshold:.1f}"
-                    )
-                    res.outcome = TrialOutcome.MODEL_REJECTED
-                    return res
-
-                if is_validation:
-                    print(
-                        f"  [OK] Bench validation passed: tg {bench_tg:.1f} t/s >= {bench_tts_threshold:.1f}"
-                    )
-                    # Fall through to the configured agentic smoke validation.
+        # ── Pre-check: throughput gate ───────────────────────────────────
+        # Extracted to its own phase: measure, record evidence, decide. The
+        # engine-specific error translation lives with the phase, not here.
+        if not skip_bench and not _run_bench_precheck(
+            res,
+            intent,
+            reps=int(cfg_dict.get("TPS_REPS", core_config.ENGINE_DEFAULTS.get("TPS_REPS", 3)) or 3),
+            vram_limit_mb=vram_limit_mb,
+            bench_tts_threshold=bench_tts_threshold,
+            is_validation=is_validation,
+            idle_c=self._idle_gpu_c,
+            thermal_wait=self.thermal_wait,
+        ):
+            return res
 
         # ── Perplexity validation ────────────────────────────────────────
         include_perplexity = bool(norm.get("include_perplexity", False))
@@ -938,11 +1028,11 @@ class ExperimentRunner:
             gpu_c = wait_gpu_near_idle(idle_c=self._idle_gpu_c, enabled=self.thermal_wait)
             if gpu_c is not None:
                 res.gpu_temp_c = gpu_c
-            runner_cls = SGLangServerRunner if intent.model_path.is_dir() else LlamaServerRunner
-            runner_kwargs: dict[str, Any] = {"log_path": server_log}
-            if runner_cls is LlamaServerRunner:
-                runner_kwargs["vram_limit_mb"] = vram_limit_mb
-            runner = runner_cls(intent, **runner_kwargs)
+            runner = _make_server_runner(
+                intent,
+                log_path=server_log,
+                vram_limit_mb=vram_limit_mb,
+            )
             with runner as entered_runner:
                 runner = entered_runner
                 if getattr(runner, "vram_killed", False) is True:

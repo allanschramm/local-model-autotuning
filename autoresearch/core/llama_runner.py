@@ -1045,9 +1045,7 @@ def preflight_host_memory(
         MEMORY_CLASS_DISCRETE,
         MEMORY_CLASS_UNIFIED,
         detect_host_ram_mb,
-        host_memory_budget_mb,
         is_unified_memory_host,
-        resolve_host_headroom_mb,
     )
 
     if unified is None:
@@ -1077,7 +1075,11 @@ def preflight_host_memory(
             )
         return True, est, 0.0, ""
 
-    budget = host_memory_budget_mb(ram_mb, unified=unified, headroom_mb=headroom_mb)
+    # The budget arithmetic (headroom by memory class, the usable figure, and
+    # the rejection message) is owned by MemoryBudget; this function only
+    # supplies the injected facts.
+    host = MemoryBudget.for_host(ram_mb, unified=unified, headroom_mb=headroom_mb)
+    budget = host.host_budget_mb
     if budget is None:
         if unified:
             return (
@@ -1088,7 +1090,6 @@ def preflight_host_memory(
             )
         return True, est, 0.0, ""
 
-    headroom = resolve_host_headroom_mb(ram_mb, unified=unified, override_mb=headroom_mb)
     if est > budget:
         return (
             False,
@@ -1096,7 +1097,7 @@ def preflight_host_memory(
             budget,
             (
                 f"HOST_MEMORY_PREFLIGHT est={est:.0f}MB > budget={budget:.0f}MB "
-                f"(ram={ram_mb:.0f} headroom={headroom:.0f} class={mem_class})"
+                f"(ram={ram_mb:.0f} headroom={host.host_headroom_mb:.0f} class={mem_class})"
             ),
         )
     return True, est, budget, ""

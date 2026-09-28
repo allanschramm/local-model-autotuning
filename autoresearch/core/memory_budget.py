@@ -29,6 +29,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from autoresearch.core.hardware import resolve_host_headroom_mb
+
 __all__ = [
     "DEFAULT_CUDA_FREE_FLOOR_MB",
     "DEFAULT_PHYSICAL_VRAM_KEEPOUT_MB",
@@ -86,6 +88,82 @@ class MemoryBudget:
 
     total_vram_mb: float | None = None
     """Physical dedicated VRAM, when the caller could detect it."""
+
+    # --- host-memory policy (populated by :meth:`for_host`) ---
+    host_budget_mb: float | None = None
+    """Usable host RAM after headroom, or None when RAM could not be detected."""
+
+    host_headroom_mb: float = 0.0
+    """The headroom that was subtracted to produce ``host_budget_mb``."""
+
+    unified_memory: bool = False
+    """Whether the host is unified-memory (Apple silicon) rather than discrete."""
+
+    @classmethod
+    def for_host(
+        cls,
+        ram_mb: float | None,
+        *,
+        unified: bool,
+        headroom_mb: float | None,
+    ) -> MemoryBudget:
+        """Build a host-memory view. Pure: RAM and headroom are injected.
+
+        The headroom formula (a floor-or-ratio of total RAM, depending on the
+        memory class) is the *only* thing the callers used to need to know;
+        this method owns it so the budget, the effective figure, and the
+        rejection message can never disagree.
+        """
+        if ram_mb is None or ram_mb <= 0:
+            return cls(
+                vram_limit_mb=DEFAULT_VRAM_LIMIT_MB,
+                physical_keepout_mb=DEFAULT_PHYSICAL_VRAM_KEEPOUT_MB,
+                shared_vram_limit_mb=DEFAULT_SHARED_VRAM_LIMIT_MB,
+                cuda_free_floor_mb=DEFAULT_CUDA_FREE_FLOOR_MB,
+                vram_headroom_mb=DEFAULT_VRAM_HEADROOM_MB,
+                free_clamp_enabled=False,
+                host_budget_mb=None,
+                host_headroom_mb=0.0,
+                unified_memory=unified,
+            )
+        headroom = resolve_host_headroom_mb(ram_mb, unified=unified, override_mb=headroom_mb)
+        return cls(
+            vram_limit_mb=DEFAULT_VRAM_LIMIT_MB,
+            physical_keepout_mb=DEFAULT_PHYSICAL_VRAM_KEEPOUT_MB,
+            shared_vram_limit_mb=DEFAULT_SHARED_VRAM_LIMIT_MB,
+            cuda_free_floor_mb=DEFAULT_CUDA_FREE_FLOOR_MB,
+            vram_headroom_mb=DEFAULT_VRAM_HEADROOM_MB,
+            free_clamp_enabled=False,
+            host_budget_mb=max(0.0, float(ram_mb) - float(headroom)),
+            host_headroom_mb=float(headroom),
+            unified_memory=unified,
+        )
+
+    def host_fits(self, est_mb: float) -> bool:
+        """Whether a host estimate fits. Unknown RAM fails closed."""
+        if self.host_budget_mb is None:
+            return False
+        return float(est_mb) <= self.host_budget_mb
+
+    def host_reject_reason(self, est_mb: float) -> str | None:
+        """Why the host gate refuses, or None when it fits.
+
+        Unknown RAM is its own message: on a unified host it is a hard fail
+        (fail closed, issue #22), while on a discrete NVIDIA host the VRAM gate
+        remains the authority and an empty reason is the historical behaviour.
+        """
+        if self.host_fits(est_mb):
+            return None
+        if self.host_budget_mb is None:
+            return (
+                f"HOST_MEMORY_PREFLIGHT est={float(est_mb):.0f}MB: host RAM unknown "
+                f"({'unified' if self.unified_memory else 'discrete'}) — cannot verify fit"
+            )
+        return (
+            f"HOST_MEMORY_PREFLIGHT est={float(est_mb):.0f}MB > "
+            f"budget={self.host_budget_mb:.0f}MB "
+            f"(headroom={self.host_headroom_mb:.0f}MB)"
+        )
 
     @property
     def kill_ceil_mb(self) -> float:
