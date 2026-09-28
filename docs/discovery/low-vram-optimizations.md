@@ -75,6 +75,8 @@ On Windows, when VRAM usage approaches 100%, the NVIDIA driver automatically red
 
 ## 6. Host Memory Pinning & Page-Fault Elimination (`--no-mmap` & `--mlock`)
 
+> **Flags renamed (2026-09-28).** `--no-mmap` and `--mlock` were removed upstream ([#26934](https://github.com/ggml-org/llama.cpp/pull/26934)) and are rejected by the current build (`error: invalid argument`). The Baseline knobs `NO_MMAP` / `MLOCK` are unchanged and are the contract here; the harness translates them to `--load-mode` (`none` / `mlock` / `mmap` / `mmap+mlock`). The measured rows below are the historical `--no-mmap` / `--mlock` comparison and are kept as provenance.
+
 When running MoE models with expert CPU offloading (`--n-cpu-moe N`), standard `mmap` lazy loading causes OS page-fault overhead as active experts cycle per token.
 
 *   **`--no-mmap`:** Forces `llama.cpp` to allocate system memory explicitly and load all host weights upfront into RAM. Eliminates disk I/O stuttering during generation.

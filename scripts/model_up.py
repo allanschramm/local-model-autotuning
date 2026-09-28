@@ -25,7 +25,9 @@ from autoresearch.core import fingerprint
 from autoresearch.core.fingerprint import FingerprintError
 from autoresearch.core.llama_runner import (
     IS_WINDOWS,
+    assert_flags_supported,
     is_spec_enabled,
+    load_mode_flag,
     resolve_llama_server,
     resolve_model_path,
 )
@@ -275,10 +277,7 @@ def fingerprint_flags(engine: dict, *, model_path: Path, server_binary: Path) ->
     threads_batch = engine.get("THREADS_BATCH")
     if threads_batch is not None:
         cmd += ["--threads-batch", str(threads_batch)]
-    if engine.get("NO_MMAP"):
-        cmd += ["--no-mmap"]
-    if engine.get("MLOCK"):
-        cmd += ["--mlock"]
+    cmd += load_mode_flag(bool(engine.get("NO_MMAP")), bool(engine.get("MLOCK")))
     if engine.get("JINJA"):
         cmd += ["--jinja"]
     reasoning_budget = engine.get("REASONING_BUDGET")
@@ -383,6 +382,7 @@ def build_command(cfg: AliasConfig) -> tuple[list[str], Path]:
         str(cfg.port),
     ]
     cmd += fingerprint_flags(data["engine"], model_path=model_path, server_binary=binary)
+    assert_flags_supported(cmd, binary)
     return cmd, model_path
 
 

@@ -11,10 +11,12 @@ from autoresearch.core.llama_client import (
 )
 from autoresearch.core.llama_runner import (
     ROOT_DIR,
+    FlagDriftError,
     LlamaServerRunner,
     ServerIntent,
     engine_version_tag,
     estimate_vram_mb,
+    load_mode_flag,
     preflight_vram,
     preflight_vram_for_intent,
     resolve_llama_bench,
@@ -57,6 +59,8 @@ __all__ = [
     "resolve_llama_server",
     "resolve_llama_bench",
     "engine_version_tag",
+    "load_mode_flag",
+    "FlagDriftError",
     "run_sglang_bench_validation",
     "ROOT_DIR",
 ]

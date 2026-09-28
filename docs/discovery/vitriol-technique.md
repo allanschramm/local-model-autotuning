@@ -74,7 +74,7 @@ When MoE experts sit in CPU RAM (`--n-cpu-moe N`), standard OS `mmap` lazy-loadi
 | **`--no-mmap`** | 37.4 t/s | **+11.0%** (pre-loads experts upfront, no disk I/O) |
 | **`--no-mmap --mlock`** | **38.1 t/s** | **+13.1%** (pins 15.6 GB in physical RAM, zero OS paging) |
 
-*Rule:* Use `NO_MMAP=True` and `MLOCK=True` in `config.py` when system host RAM has sufficient headroom (validated via `HOST_MEMORY_PREFLIGHT`). On small dense models (e.g. LFM2.5 1.2B), `--no-mmap` yields ~3% speedup.
+*Rule:* Use `NO_MMAP=True` and `MLOCK=True` in `config.py` when system host RAM has sufficient headroom (validated via `HOST_MEMORY_PREFLIGHT`). Those Baseline keys are the contract; the harness emits `--load-mode` (`none` / `mlock`), since `--no-mmap` / `--mlock` were removed upstream (#26934) and the table above is the historical measurement. On small dense models (e.g. LFM2.5 1.2B), `NO_MMAP=True` yields ~3% speedup.
 - MTP / `--spec-type draft-mtp` — on **this** path, speculative + heavy CPU experts can **hurt** (sync); validate per model (see `local-models-low-vram-configs.md`)  
 - `--n-cpu-moe-draft` when draft is MoE  
 - Fit-first: `N_CPU_MOE=0` when preflight says full GPU fits  

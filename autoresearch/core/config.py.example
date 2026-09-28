@@ -55,6 +55,9 @@ ENGINE_DEFAULTS = {
     # CSV (repo-relative) + slot count. Both None → no --moe-cache-* flags.
     'MOE_CACHE_PROFILE': None,
     'MOE_CACHE_SLOTS': None,
+    # Model loading mode. True = no mmap. Emitted as `--load-mode` (NONE/MMAP/
+    # MLOCK/MMAP+MLOCK) — upstream retired --mmap/--no-mmap/--mlock. Pair with
+    # MLOCK only after HOST_MEMORY_PREFLIGHT; mmap+mlock pins the whole file.
     'NO_MMAP': False,
     'JINJA': True,
     'REASONING_BUDGET': None,

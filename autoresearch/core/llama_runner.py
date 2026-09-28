@@ -12,6 +12,7 @@ Encapsulates the lifecycle of a llama.cpp server process, including:
 
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -154,6 +155,147 @@ def _binary_candidates(name: str) -> tuple[Path, ...]:
     if on_path:
         seen.append(Path(on_path))
     return tuple(seen)
+
+
+# ── load-mode passthrough (upstream #26934) ──────────────────────────────
+# Upstream folded `--mmap` / `--no-mmap` / `--mlock` into one `--load-mode MODE`
+# enum. The harness keeps `NO_MMAP` / `MLOCK` as Baseline knobs (Fingerprint files,
+# results.db rows and config.py all key on them) and translates here, at the CLI
+# boundary, so an engine bump never touches the store schema.
+#
+# `NO_MMAP x MLOCK` is a bijection onto the four meaningful modes:
+#     (False, False) -> mmap         (False, True) -> mmap+mlock
+#     (True,  False) -> none         (True,  True) -> mlock
+# No information is lost. The default is emitted explicitly (`mmap`, not `auto`)
+# so a Trial command line is reproducible across devices instead of inheriting
+# a device-dependent upstream default.
+_LOAD_MODES = {
+    (False, False): "mmap",
+    (False, True): "mmap+mlock",
+    (True, False): "none",
+    (True, True): "mlock",
+}
+
+# Fork-only passthrough: codacus expert-cache knobs are not upstream common
+# args, so `--help` never lists them. Exempt by design (opt-in Baseline keys).
+FORK_ONLY_FLAGS = frozenset({"--moe-cache-profile", "--moe-cache-slots"})
+
+
+def load_mode_flag(no_mmap: bool, mlock: bool) -> list[str]:
+    """Baseline `NO_MMAP`/`MLOCK` -> the `--load-mode` argv pair.
+
+    Single source for every emitter (server runner, llama-cli bench, model_up,
+    serve-config). The legacy `--mmap`/`--no-mmap`/`--mlock` trio is gone from
+    b11149 and from the pinned v0.5.0 `common/arg.cpp`.
+    """
+    return ["--load-mode", _LOAD_MODES[(bool(no_mmap), bool(mlock))]]
+
+
+class FlagDriftError(RuntimeError):
+    """The harness emitted a flag the resolved engine build does not accept.
+
+    Engine bumps rename and remove flags; a stale passthrough otherwise fails
+    deep inside a Trial with a cryptic `error: invalid argument` line. Raise at
+    build time instead, naming the flag and the build.
+    """
+
+
+# One help line of a llama.cpp `--help` dump is an alias list followed by a
+# value placeholder and the description, padded to a column. Aliases appear in
+# any order and several per line, and short ones are multi-character:
+#   `-ngl,  --gpu-layers, --n-gpu-layers N   max. number of layers to store in VRAM`
+#   `-ncmoe, --n-cpu-moe N                   keep the Mixture of Experts ...`
+#   `--spec-draft-model, -md, --model-draft FNAME`
+#   `--fim-qwen-1.5b-default                 use default Qwen 2.5 Coder 1.5B`
+# The alias list is tokenized from the left and stops at the first description
+# word. Only a token directly after a flag counts as a value placeholder (`N`,
+# `MODE`, `FNAME`), which is what keeps enum continuation lines
+# (`- auto: mmap, ...`) and negative numbers out of the flag set. Long flags
+# may contain `.` (upstream ships `--fim-qwen-1.5b-default`), so a narrower
+# charset here would report a working flag as drift.
+_HELP_FLAG_TOKEN_RE = re.compile(r"^(?:--[\w.-]+|-[A-Za-z][\w-]*)$")
+_HELP_PLACEHOLDER_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
+_HELP_PROMPT_RE = re.compile(r"^[>|\s]*")
+_LONG_FLAG_RE = re.compile(r"^--[\w.-]+$")
+
+_HELP_FLAGS_CACHE: dict[str, frozenset[str]] = {}
+
+
+def _parse_help_flags(help_text: str) -> set[str]:
+    """Long flags declared by a llama.cpp `--help` dump."""
+    flags: set[str] = set()
+    for line in help_text.splitlines():
+        tokens = _HELP_PROMPT_RE.sub("", line).split()
+        for index, token in enumerate(tokens):
+            token = token.rstrip(",")
+            if _HELP_FLAG_TOKEN_RE.match(token):
+                if token.startswith("--"):
+                    flags.add(token)
+                continue  # next alias in the list
+            if index and _HELP_PLACEHOLDER_RE.match(token) and tokens[index - 1].startswith("-"):
+                continue  # value placeholder for the previous flag
+            break  # description column reached
+    return flags
+
+
+def supported_flags(binary: Path) -> frozenset[str] | None:
+    """Long flags accepted by `binary --help`, cached per binary path.
+
+    Returns None when the probe cannot answer (binary missing, `--help` erroring,
+    no flag parsed) so an unprobeable build skips the drift check instead of
+    failing a Trial on a guess. The resolvers only ever return existing paths, so
+    a None here means the probe was the problem, never a valid build.
+    """
+    key = str(binary)
+    if key in _HELP_FLAGS_CACHE:
+        return _HELP_FLAGS_CACHE[key]
+    if not Path(binary).is_file():
+        return None
+    try:
+        raw = subprocess.check_output(
+            [key, "--help"],
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60,
+            creationflags=subprocess.CREATE_NO_WINDOW if IS_WINDOWS else 0,
+        )
+    except Exception:
+        return None
+    flags = _parse_help_flags(raw)
+    if not flags:
+        return None
+    frozen = frozenset(flags)
+    _HELP_FLAGS_CACHE[key] = frozen
+    return frozen
+
+
+def assert_flags_supported(cmd: list[str], binary: Path) -> None:
+    """Fail closed when `cmd` carries long flags this engine build dropped.
+
+    Fork-only passthrough (`FORK_ONLY_FLAGS`) is exempt; an unprobeable build
+    skips the check. This is the guard that turns the next engine bump from a
+    silent Trial failure into an actionable message at the first command build.
+    """
+    accepted = supported_flags(binary)
+    if accepted is None:
+        return
+    unknown = sorted(
+        {str(tok) for tok in cmd[1:] if _LONG_FLAG_RE.match(str(tok)) and str(tok) not in accepted}
+        - FORK_ONLY_FLAGS
+    )
+    if not unknown:
+        return
+    tag = engine_version_tag(Path(binary))
+    where = f"{tag} ({binary})" if tag else str(binary)
+    raise FlagDriftError(
+        f"flag drift vs {where}: {', '.join(unknown)} not accepted by this build. "
+        f"Upstream renamed or removed these. Check the passthrough that built this "
+        f"command (load_mode_flag, or the call site that forwarded the flag) against "
+        f"llama.cpp/common/arg.cpp add_opt; {binary.name} --help lists what this build "
+        f"accepts. Do not migrate Baseline keys for a flag rename."
+    )
 
 
 LLAMA_SERVER_CANDIDATES = _binary_candidates("llama-server")
@@ -1088,10 +1230,7 @@ class LlamaServerRunner:
         if self.intent.threads_batch is not None:
             cmd += ["--threads-batch", str(self.intent.threads_batch)]
 
-        if self.intent.no_mmap:
-            cmd += ["--no-mmap"]
-        if self.intent.mlock:
-            cmd += ["--mlock"]
+        cmd += load_mode_flag(self.intent.no_mmap, self.intent.mlock)
         if self.intent.jinja:
             cmd += ["--jinja"]
         if self.intent.reasoning_budget is not None:
@@ -1169,9 +1308,21 @@ class LlamaServerRunner:
             )
             cmd += ["--n-cpu-moe", str(self.intent.n_cpu_moe)]
 
+        assert_flags_supported(cmd, self.llama_server)
         return cmd
 
     def __enter__(self):
+        try:
+            return self._start()
+        except BaseException:
+            # `with` never entered, so __exit__ never runs: release the VRAM
+            # sampler, any spawned process and the ProcessGuard here. Every step
+            # is None-guarded and idempotent, so the explicit _cleanup_all()
+            # calls on the port-failover paths in _start() stay correct.
+            self._cleanup_all()
+            raise
+
+    def _start(self):
         self._start_vram_sampler()
 
         server_env = os.environ.copy()
