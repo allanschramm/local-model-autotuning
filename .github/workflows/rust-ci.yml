@@ -3,17 +3,35 @@ name: rust-ci
 # Dedicated CI for the Rust native core worktree (branch
 # `allanschramm/rust`). Runs alongside `validate.yml` until the Python
 # edition is deprecated and the Rust kernel becomes the only hot path.
-# Triggers only when Rust-side or smoke-script files change.
+#
+# Trigger scope: anything that can change what the Rust core does, or the
+# parity contract it upholds.
+#  - rust/**               the crate and its build
+#  - autoresearch/core/**  the Python shims that re-export the kernel; a change
+#                          here can silently break parity with the Rust side
+#  - tests/test_{memory_budget,trial_verdict,deepening_integration}*.py
+#                          the parity + regression gates
+#  - scripts/smoke_*.py    the E2E parity scripts
+# Without the shim/test paths, a refactor that changes how the kernel is
+# consumed would ship with rust-ci never running.
 
 on:
   push:
     paths:
       - "rust/**"
+      - "autoresearch/core/**"
+      - "tests/test_memory_budget.py"
+      - "tests/test_trial_verdict.py"
+      - "tests/test_deepening_integration.py"
       - "scripts/smoke_*.py"
       - ".github/workflows/rust-ci.yml"
   pull_request:
     paths:
       - "rust/**"
+      - "autoresearch/core/**"
+      - "tests/test_memory_budget.py"
+      - "tests/test_trial_verdict.py"
+      - "tests/test_deepening_integration.py"
       - "scripts/smoke_*.py"
       - ".github/workflows/rust-ci.yml"
 
