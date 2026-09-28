@@ -71,7 +71,7 @@ rust/
     │   ├── error.rs              # FingerprintError + PyO3 exception mapping
     │   └── py/                   # #[pymodule] autoresearch_core + bindings
     ├── benches/                  # criterion isolated speedup measurement
-    └── tests/                    # unit + parity golden tests
+    └── src/                      # unit tests are inline #[cfg(test)] modules
 ```
 
 ## Acceptance gates (Phase 0)

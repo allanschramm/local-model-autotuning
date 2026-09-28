@@ -2,9 +2,9 @@
 the operator-facing ``autoloop`` import path with the same workload that
 the loop performs in production.
 
-This is the **acceptance harness** for Phase 0: even though the wall-clock
-speedup per call is limited by PyO3 marshalling (see
-``bench_rust_vs_python.py``), the **contract** must hold:
+This is a **contract smoke**, not the Phase-0 acceptance gate. It checks
+that the *contracts* still hold when exercised through the operator import
+path, with a temp state dir and no server:
 
   * ``autoloop.py`` imports cleanly with the Rust shim in place.
   * ``SearchState`` roundtrips state on disk in the same JSON shape the
@@ -13,10 +13,13 @@ speedup per call is limited by PyO3 marshalling (see
     strings for the same model + baseline.
   * ``pareto.pareto_set`` returns the same set membership ordering as the
     pre-Rust code, including ``incomplete`` drop behavior.
-  * ``results.db`` SQLite store stays the canonical trial log; the TSV
-    mirror still appends.
 
-Run with::
+It does NOT run a Trial and does NOT touch ``results.db``. The real Phase-0
+gate is ``benchmark_search.py --validation``, which boots a real
+``llama-server``, measures throughput and writes a ``results.db`` row — run
+that, not this, to certify a port.
+
+Run the contract smoke with::
 
     .venv\\Scripts\\python.exe scripts\\smoke_e2e.py
 """

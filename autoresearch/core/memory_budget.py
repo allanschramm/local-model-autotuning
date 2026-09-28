@@ -29,8 +29,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from autoresearch.core.hardware import resolve_host_headroom_mb
-
 __all__ = [
     "DEFAULT_CUDA_FREE_FLOOR_MB",
     "DEFAULT_PHYSICAL_VRAM_KEEPOUT_MB",
@@ -96,6 +94,13 @@ class MemoryBudget:
     host_headroom_mb: float = 0.0
     """The headroom that was subtracted to produce ``host_budget_mb``."""
 
+    host_ram_mb: float | None = None
+    """Total physical RAM, kept for the rejection message."""
+
+    host_memory_class: str = ""
+    """``unified`` or ``discrete_gpu``, per the hardware module's MEMORY_CLASS_*.
+    Kept so the rejection message is byte-identical to the historical one."""
+
     unified_memory: bool = False
     """Whether the host is unified-memory (Apple silicon) rather than discrete."""
 
@@ -105,14 +110,16 @@ class MemoryBudget:
         ram_mb: float | None,
         *,
         unified: bool,
-        headroom_mb: float | None,
+        headroom_mb: float,
+        memory_class: str = "",
     ) -> MemoryBudget:
-        """Build a host-memory view. Pure: RAM and headroom are injected.
+        """Build a host-memory view. Pure: RAM and headroom are both injected.
 
-        The headroom formula (a floor-or-ratio of total RAM, depending on the
-        memory class) is the *only* thing the callers used to need to know;
-        this method owns it so the budget, the effective figure, and the
-        rejection message can never disagree.
+        ``headroom_mb`` is the ALREADY-RESOLVED headroom, not a request for
+        one. Resolution is deliberately not done here: `resolve_host_headroom_mb`
+        reads `os.environ` and `config.DEFAULTS`, which would make this
+        constructor impure and break the "everything impure lives in
+        `_build_memory_budget`" contract. Callers pass the resolved figure.
         """
         if ram_mb is None or ram_mb <= 0:
             return cls(
@@ -124,9 +131,10 @@ class MemoryBudget:
                 free_clamp_enabled=False,
                 host_budget_mb=None,
                 host_headroom_mb=0.0,
+                host_ram_mb=None,
+                host_memory_class=memory_class,
                 unified_memory=unified,
             )
-        headroom = resolve_host_headroom_mb(ram_mb, unified=unified, override_mb=headroom_mb)
         return cls(
             vram_limit_mb=DEFAULT_VRAM_LIMIT_MB,
             physical_keepout_mb=DEFAULT_PHYSICAL_VRAM_KEEPOUT_MB,
@@ -134,8 +142,10 @@ class MemoryBudget:
             cuda_free_floor_mb=DEFAULT_CUDA_FREE_FLOOR_MB,
             vram_headroom_mb=DEFAULT_VRAM_HEADROOM_MB,
             free_clamp_enabled=False,
-            host_budget_mb=max(0.0, float(ram_mb) - float(headroom)),
-            host_headroom_mb=float(headroom),
+            host_budget_mb=max(0.0, float(ram_mb) - float(headroom_mb)),
+            host_headroom_mb=float(headroom_mb),
+            host_ram_mb=float(ram_mb),
+            host_memory_class=memory_class,
             unified_memory=unified,
         )
 
@@ -148,21 +158,22 @@ class MemoryBudget:
     def host_reject_reason(self, est_mb: float) -> str | None:
         """Why the host gate refuses, or None when it fits.
 
-        Unknown RAM is its own message: on a unified host it is a hard fail
-        (fail closed, issue #22), while on a discrete NVIDIA host the VRAM gate
-        remains the authority and an empty reason is the historical behaviour.
+        Byte-equivalent to the historical inline string, including the `ram=`
+        and `class=` tokens, so any consumer matching on the message keeps
+        working.
         """
         if self.host_fits(est_mb):
             return None
         if self.host_budget_mb is None:
             return (
-                f"HOST_MEMORY_PREFLIGHT est={float(est_mb):.0f}MB: host RAM unknown "
-                f"({'unified' if self.unified_memory else 'discrete'}) — cannot verify fit"
+                f"HOST_MEMORY_PREFLIGHT ram_unknown class={self.host_memory_class} "
+                f"est={float(est_mb):.0f}MB"
             )
         return (
             f"HOST_MEMORY_PREFLIGHT est={float(est_mb):.0f}MB > "
             f"budget={self.host_budget_mb:.0f}MB "
-            f"(headroom={self.host_headroom_mb:.0f}MB)"
+            f"(ram={self.host_ram_mb:.0f} headroom={self.host_headroom_mb:.0f} "
+            f"class={self.host_memory_class})"
         )
 
     @property

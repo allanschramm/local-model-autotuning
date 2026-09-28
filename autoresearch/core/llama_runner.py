@@ -1075,10 +1075,18 @@ def preflight_host_memory(
             )
         return True, est, 0.0, ""
 
-    # The budget arithmetic (headroom by memory class, the usable figure, and
-    # the rejection message) is owned by MemoryBudget; this function only
-    # supplies the injected facts.
-    host = MemoryBudget.for_host(ram_mb, unified=unified, headroom_mb=headroom_mb)
+    # The budget arithmetic (usable figure + rejection message) is owned by
+    # MemoryBudget. Headroom resolution stays here because it reads env/config
+    # and MemoryBudget is pure by contract.
+    from autoresearch.core.hardware import resolve_host_headroom_mb
+
+    resolved_headroom = resolve_host_headroom_mb(ram_mb, unified=unified, override_mb=headroom_mb)
+    host = MemoryBudget.for_host(
+        ram_mb,
+        unified=unified,
+        headroom_mb=resolved_headroom,
+        memory_class=mem_class,
+    )
     budget = host.host_budget_mb
     if budget is None:
         if unified:
@@ -1090,16 +1098,9 @@ def preflight_host_memory(
             )
         return True, est, 0.0, ""
 
-    if est > budget:
-        return (
-            False,
-            est,
-            budget,
-            (
-                f"HOST_MEMORY_PREFLIGHT est={est:.0f}MB > budget={budget:.0f}MB "
-                f"(ram={ram_mb:.0f} headroom={host.host_headroom_mb:.0f} class={mem_class})"
-            ),
-        )
+    reason = host.host_reject_reason(est)
+    if reason is not None:
+        return False, est, budget, reason
     return True, est, budget, ""
 
 

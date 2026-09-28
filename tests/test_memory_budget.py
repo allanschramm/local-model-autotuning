@@ -181,5 +181,76 @@ def test_budget_is_immutable():
         b.vram_limit_mb = 1.0  # type: ignore[misc]
 
 
-def test_two_budgets_with_the_same_inputs_are_equal():
-    assert _budget() == _budget()
+# --- the host side (for_host / host_fits / host_reject_reason) ---------------
+#
+# The host figures are injected already-resolved, so these tests never touch
+# env, config, or a RAM probe — that resolution is the caller's job and the
+# purity of this module is exactly what makes it testable here.
+
+
+def _host(ram: float | None, *, unified: bool, headroom: float) -> MemoryBudget:
+    return MemoryBudget.for_host(
+        ram,
+        unified=unified,
+        headroom_mb=headroom,
+        memory_class="unified_memory" if unified else "discrete_gpu",
+    )
+
+
+def test_host_budget_is_ram_minus_headroom():
+    h = _host(32000.0, unified=False, headroom=4096.0)
+    assert h.host_budget_mb == pytest.approx(27904.0)
+    assert h.host_headroom_mb == pytest.approx(4096.0)
+    assert h.host_ram_mb == pytest.approx(32000.0)
+    assert h.host_memory_class == "discrete_gpu"
+
+
+def test_host_budget_never_goes_negative():
+    h = _host(1000.0, unified=False, headroom=99999.0)
+    assert h.host_budget_mb == pytest.approx(0.0)
+
+
+def test_unknown_ram_yields_no_budget():
+    h = _host(None, unified=False, headroom=4096.0)
+    assert h.host_budget_mb is None
+    assert h.host_fits(1.0) is False, "unknown RAM must fail closed"
+
+
+def test_zero_ram_yields_no_budget():
+    assert _host(0.0, unified=False, headroom=4096.0).host_budget_mb is None
+
+
+def test_host_fits_under_budget():
+    assert _host(32000.0, unified=False, headroom=4096.0).host_fits(20000.0) is True
+
+
+def test_host_fails_over_budget():
+    assert _host(32000.0, unified=False, headroom=4096.0).host_fits(30000.0) is False
+
+
+def test_host_reject_reason_is_none_when_it_fits():
+    assert _host(32000.0, unified=False, headroom=4096.0).host_reject_reason(20000.0) is None
+
+
+def test_host_reject_reason_carries_ram_headroom_and_class():
+    """Byte-equivalent to the historical inline message, tokens included."""
+    h = _host(32000.0, unified=False, headroom=4096.0)
+    reason = h.host_reject_reason(30000.0)
+    assert reason == (
+        "HOST_MEMORY_PREFLIGHT est=30000MB > budget=27904MB "
+        "(ram=32000 headroom=4096 class=discrete_gpu)"
+    )
+
+
+def test_host_reject_reason_for_unknown_ram_uses_the_ram_unknown_form():
+    h = _host(None, unified=True, headroom=0.0)
+    reason = h.host_reject_reason(1234.0)
+    assert reason == "HOST_MEMORY_PREFLIGHT ram_unknown class=unified_memory est=1234MB"
+
+
+def test_for_host_does_not_read_env(monkeypatch):
+    """Purity guard: the object must not consult AUTORESEARCH_HOST_HEADROOM_MB."""
+    monkeypatch.setenv("AUTORESEARCH_HOST_HEADROOM_MB", "999999")
+    monkeypatch.setenv("AUTORESEARCH_VRAM_LIMIT_MB", "1")
+    h = _host(32000.0, unified=False, headroom=4096.0)
+    assert h.host_budget_mb == pytest.approx(27904.0)

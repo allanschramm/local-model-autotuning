@@ -31,7 +31,9 @@ the trial loop, plus the eventual port of `llama_runner.py` (1 323 LOC,
   re-export 100 % of the public symbols from `autoresearch_core.*`.
   `autoloop.py` and the rest of the harness must continue to work
   unchanged. Per-surface parity is gated by the Python test suite
-  (`67 pytest` contract) and the parity smoke scripts.
+  (67 tests across `test_pareto` / `test_state` / `test_fingerprint*` /
+  `test_classify`) plus 69 more in the three parity files listed under
+  Verification.
 - **`maturin develop --release`** is the develop-install flow. The wheel
   is built and installed into the active `.venv`. abi3-py311 means the
   wheel is reusable across CPython 3.11–3.13.
@@ -105,10 +107,16 @@ cd ..
 
 ### Workflow conventions
 
-- New module file → put it under `src/<area>/<topic>.rs` with full
-  `#[cfg(test)]` coverage first; only after parity does it earn the
-  PyO3 binding in `src/py/<area>.rs`.
-- Pure-Rust first, PyO3 second.
+- New module file → put it under `src/<area>/<topic>.rs`. The root
+  `AGENTS.md` Testing Contract governs test-first here: prefer the E2E
+  harness (`benchmark_search.py`, which ends in a `results.db` row) as the
+  gate, and add `#[cfg(test)]` only where the `tests/AGENTS.md` closed set
+  allows it — silent store/rank corruption, security holes, platform
+  branches the rig never executes, and fail-closed hardware gates. A port is
+  not done until the shim parity suite and the E2E Trial both pass; a unit
+  test alone proves neither.
+- Pure-Rust first, PyO3 second. A module earns its binding in
+  `src/py/<area>.rs` only after the shim parity is green.
 - New error class → use `#[pyclass(extends=PyValueError)]` or a
   similarly narrow exception subclass; never a generic `PyRuntimeError`.
 - Reference upstream-first (root AGENTS.md): any new
@@ -118,19 +126,32 @@ cd ..
 
 ## Verification
 
-- `cargo fmt --check` clean.
-- `cargo clippy --all-targets -- -D warnings` (PyO3-internal `gil-refs`
-  warnings remain tolerated — known upstream noise).
-- `cargo test --all-targets` → 50/50 unit tests pass.
+- `cargo fmt --check` clean (run `cargo fmt` from `rust/autoresearch-core`).
+- `cargo test` → 50/50 pass, no `unused` warnings. Keep it that way: dead
+  imports are the only warning class this crate can realistically hold at
+  zero.
+- `cargo clippy --all-targets` is **not** clean and is not a gate. The
+  remaining lints are PyO3-generated (deprecated `__pymethod_*__::SIGNATURE`
+  constants, the `gil-refs` cfg name) plus doc-backtick nits in files this
+  branch does not own. Read the output for *new* lints; do not gate on `-D
+  warnings` until PyO3 is upgraded.
 - `maturin develop --release` exits 0 with no warnings.
 - `scripts/smoke_{inspect,fp,bindings}.py` all exit 0. The bindings
   smoke ends in `ALL OK` and a `100/100 hashes identical` line.
-- `pytest` runs above stay 100 % green (67/67 today; grows with Phase 1
-  acceptance surface).
+- `pytest` runs above stay 100 % green (67/67 shim-parity today, plus 69 in
+  the three parity files; both numbers grow with the Phase 1 acceptance
+  surface). Re-derive them from the suite rather than trusting this line.
+- **E2E is the real gate.** A port is not done until
+  `benchmark_search.py --validation` completes a Trial and writes a
+  `results.db` row — the shim parity suite above proves the surface matches,
+  but only the harness proves the decision path still admits a real model.
 - CI: `.github/workflows/rust-ci.yml` runs on `ubuntu-latest` and
   covers the kernel test + smoke + pytest chain. Local Windows is not
   CI-equivalent (POSIX-only branches in pytest); watch
   `rust-ci` for a green status before declaring a sprint done.
+  `validate.yml` covers the rest of the repo and also builds the wheel —
+  the Python shims re-export the Rust extension, so a missing
+  `autoresearch_core` fails collection for the entire suite there.
 
 ## Child DOX Index
 
