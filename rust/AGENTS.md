@@ -8,9 +8,11 @@ DOX hierarchy: README.md → local Cargo / PyO3 contracts → this AGENTS.md. --
 Rust workspace for the CPU-bound modules of `ailocal-model-autotuning`.
 Phase 0 (closed 2026-09-27) lands the three hot-path modules behind a
 PyO3 binding exposed as the `autoresearch_core` Python package. Phase 1
-(additive) will add an `autoresearch-loop` binary that bypasses PyO3 in
-the trial loop, plus the eventual port of `llama_runner.py` (1 323 LOC,
-**T1 carry-over, Allan decision pending**).
+will add a native `autoresearch-loop` binary that owns the loop, the
+clock, the subprocess and the results store — see
+[`docs/adr/0019-rust-native-core-ownership.md`](../docs/adr/0019-rust-native-core-ownership.md),
+which supersedes the Phase 0 PyO3 strategy — plus the eventual port of
+`llama_runner.py` (1 738 LOC, **T1 carry-over, Allan decision pending**).
 
 ## Ownership
 
@@ -31,9 +33,33 @@ the trial loop, plus the eventual port of `llama_runner.py` (1 323 LOC,
   re-export 100 % of the public symbols from `autoresearch_core.*`.
   `autoloop.py` and the rest of the harness must continue to work
   unchanged. Per-surface parity is gated by the Python test suite
-  (67 tests across `test_pareto` / `test_state` / `test_fingerprint*` /
-  `test_classify`) plus 69 more in the three parity files listed under
-  Verification.
+  (67 tests across `test_pareto` / `test_state` / `test_fingerprint*`;
+  **plus** `test_classify`, which is *not* Rust coverage — see below)
+  plus 69 more in the three parity files listed under Verification.
+- **The shims re-export AND re-implement (corrected 2026-09-28).** The
+  zero-ruptura line above is true about *coverage* and misleading about
+  *content*. `pareto.py`, `state.py` and `fingerprint.py` each define real
+  Python on top of the Rust symbols: `pareto.AXES` + `class VectorLike`
+  (`:31,34`), `class SearchState` in full (`state.py:24-67`),
+  `def dump/load/apply/mismatch_reason/path_for/default_dir` plus
+  `DEFAULT_DIR_NAME`, `SERVER_ENGINE_KEYS`, `HARNESS_ONLY_ENGINE_KEYS`
+  (`fingerprint.py`). In `fingerprint.py:53-58` the docstring says the
+  Python was kept **on purpose so tests can `unittest.mock.patch` it**, and
+  `mismatch_reason` (`:181-191`) keeps a whole if/elif/else for that.
+  Consequence: `config.write_baseline` — the regex rewriter of the
+  operator's `config.py` — is reachable from the shim layer via
+  `fingerprint.apply` (`:113-114`) and `SearchState.update_baseline`
+  (`state.py:36-42`). Do not describe these modules as pure re-exports.
+- **`classify` was never ported (corrected 2026-09-28).** The crate has no
+  `classify`: `src/lib.rs:13-16` declares `error`/`fingerprint`/`pareto`/
+  `state`, `src/py/mod.rs:6-8,17-30` registers three submodules, and the
+  token `classify` appears zero times in the crate. `autoresearch/core/
+  classify.py` is 258 lines of pure Python reaching Rust only transitively
+  through the `pareto` shim. Consequently `test_classify.py` **cannot**
+  gate Rust parity and is excluded from the parity count. Related: no test
+  under `tests/` imports `autoresearch_core` at all — Rust coverage there
+  is entirely indirect through the shims, so "67/67" measures *shim parity*,
+  not direct Rust coverage.
 - **`maturin develop --release`** is the develop-install flow. The wheel
   is built and installed into the active `.venv`. abi3-py311 means the
   wheel is reusable across CPython 3.11–3.13.

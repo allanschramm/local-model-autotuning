@@ -19,9 +19,9 @@ from autoresearch.core.llama_runner import (
     load_mode_flag,
     preflight_vram,
     preflight_vram_for_intent,
+    probe_machine_budget,
     resolve_llama_bench,
     resolve_llama_server,
-    resolve_vram_limit_mb,
 )
 from autoresearch.core.model_arch import is_dense_model, is_moe_model
 from autoresearch.core.search import (
@@ -52,7 +52,7 @@ __all__ = [
     "estimate_vram_mb",
     "preflight_vram",
     "preflight_vram_for_intent",
-    "resolve_vram_limit_mb",
+    "probe_machine_budget",
     "is_dense_model",
     "is_moe_model",
     "detect_hardware_capabilities",

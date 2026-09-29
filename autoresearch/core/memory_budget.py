@@ -27,7 +27,7 @@ asks for more is refused.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 __all__ = [
     "DEFAULT_CUDA_FREE_FLOOR_MB",
@@ -35,6 +35,8 @@ __all__ = [
     "DEFAULT_SHARED_VRAM_LIMIT_MB",
     "DEFAULT_VRAM_HEADROOM_MB",
     "DEFAULT_VRAM_LIMIT_MB",
+    "MachineBudget",
+    "MachineFacts",
     "MemoryBudget",
 ]
 
@@ -55,6 +57,108 @@ DEFAULT_SHARED_VRAM_LIMIT_MB = 2048.0
 
 DEFAULT_CUDA_FREE_FLOOR_MB = 256.0
 """CUDA-free kill floor used when the CUDA-free probe is available."""
+
+
+@dataclass(frozen=True)
+class MachineFacts:
+    """The machine-probed half of the policy — sampled once per process.
+
+    Splitting these from the per-Trial config is what lets the runner probe
+    once and reuse. The hardware does not change between Trials; ``VRAM_LIMIT_MB``
+    does. Before the split, every consumer had to re-derive both halves and
+    the physical probe ran per decision.
+
+    This dataclass is **pure data**. Reading it from env/config/probe is
+    ``llama_runner.probe_machine_facts`` — the single impure boundary.
+    """
+
+    total_vram_mb: float | None = None
+    """Physical dedicated VRAM, or None when the probe was unavailable."""
+
+    configured_vram_limit_mb: float = DEFAULT_VRAM_LIMIT_MB
+    """The Baseline's VRAM limit, *before* the physical-keepout clamp.
+
+    Resolved once from ``arg > env > config > default`` so the precedence
+    survives the split. ``for_trial`` defaults to this when the Trial does not
+    override it — without this field the per-Trial budget would silently fall
+    back to the module default and ignore ``config.DEFAULTS['VRAM_LIMIT_MB']``.
+    """
+
+    physical_keepout_mb: float = DEFAULT_PHYSICAL_VRAM_KEEPOUT_MB
+    """Dedicated VRAM kept free so WDDM CUDA Sysmem Fallback never arms."""
+
+    vram_headroom_mb: float = DEFAULT_VRAM_HEADROOM_MB
+    """Default margin subtracted from free-at-start VRAM (issue #10)."""
+
+    shared_vram_limit_mb: float = DEFAULT_SHARED_VRAM_LIMIT_MB
+    """Absolute Shared-GPU kill ceiling."""
+
+    cuda_free_floor_mb: float = DEFAULT_CUDA_FREE_FLOOR_MB
+    """CUDA-free kill floor."""
+
+    free_clamp_enabled: bool = False
+    """Whether the free-at-start clamp applies (operator opt-in)."""
+
+
+@dataclass(frozen=True)
+class MachineBudget:
+    """A probed machine, ready to answer "what budget does this Trial get?".
+
+    This is the object an ``ExperimentRunner`` builds **once** and holds for
+    the whole Search. It carries no per-Trial config: the configured limit and
+    an explicit headroom are arguments to :meth:`for_trial`, not state.
+
+    Why it exists (architecture review, candidate 1): the Trial decision path
+    used to call ``resolve_vram_limit_mb`` on every Trial, re-probing physical
+    VRAM and re-reading env/config each time. Two consequences, both bad:
+
+    * the physical VRAM probe ran per decision, and
+    * a Trial's budget could disagree with the server's budget, because each
+      resolved its own copy of the same rule.
+
+    With the snapshot injected, the Trial and the server read the *same*
+    object. Divergence stops being a class of bug.
+    """
+
+    facts: MachineFacts
+    """The machine-probed values. Frozen; shared by every Trial."""
+
+    def for_trial(
+        self,
+        vram_limit_mb: float | int | None = None,
+        headroom_mb: float | int | None = None,
+        *,
+        apply_physical_clamp: bool = True,
+    ) -> MemoryBudget:
+        """The budget for one Trial. Pure: reads nothing.
+
+        Precedence is preserved across the split: an explicit per-Trial
+        override wins, then the Baseline's configured limit, then — only when
+        neither is present — the module default. The physical-keepout clamp is
+        applied unless the caller opted out.
+
+        ``apply_physical_clamp=False`` is for the hill-climb search screen,
+        which compares against the operator's *configured* budget and must not
+        narrow its own search space against the device ceiling. The serving
+        path keeps the clamp, because that is where the WDDM Sysmem Fallback
+        guard applies. Opting out drops the physical total so the clamp cannot
+        fire — passing it would silently clamp anyway, because
+        :meth:`MemoryBudget.resolve` always applies the ceil.
+        """
+        limit = (
+            self.facts.configured_vram_limit_mb if vram_limit_mb is None else float(vram_limit_mb)
+        )
+        return MemoryBudget.resolve(
+            vram_limit_mb=limit,
+            vram_headroom_mb=(
+                headroom_mb if headroom_mb is not None else self.facts.vram_headroom_mb
+            ),
+            shared_vram_limit_mb=self.facts.shared_vram_limit_mb,
+            cuda_free_floor_mb=self.facts.cuda_free_floor_mb,
+            physical_keepout_mb=self.facts.physical_keepout_mb,
+            free_clamp_enabled=self.facts.free_clamp_enabled,
+            total_vram_mb=self.facts.total_vram_mb if apply_physical_clamp else None,
+        )
 
 
 @dataclass(frozen=True)
@@ -266,6 +370,38 @@ class MemoryBudget:
             f"(configured={self.vram_limit_mb:.0f}MB "
             f"{free_txt}headroom={headroom:.0f}MB)"
         )
+
+    def with_overrides(
+        self,
+        *,
+        vram_limit_mb: float | int | None = None,
+        vram_headroom_mb: float | int | None = None,
+        apply_physical_clamp: bool = True,
+    ) -> MemoryBudget:
+        """Re-resolve this machine snapshot against a Trial's config overrides.
+
+        This is the seam that removes the per-decision re-derivation. The
+        machine half is already probed and folded; only the two values that
+        legitimately vary per Trial (the configured limit and an explicit
+        headroom) are re-applied, and the physical-keepout clamp is redone
+        because the *limit* moved.
+
+        Pure: reads nothing. ``apply_physical_clamp=False`` preserves the
+        hill-climb screen's contract of comparing against the operator's
+        configured budget rather than the device ceiling.
+        """
+        configured = self.vram_limit_mb if vram_limit_mb is None else float(vram_limit_mb)
+        headroom = self.vram_headroom_mb if vram_headroom_mb is None else float(vram_headroom_mb)
+        budget = replace(
+            self,
+            vram_limit_mb=configured,
+            vram_headroom_mb=headroom,
+        )
+        if not apply_physical_clamp:
+            return budget
+        if budget.kill_ceil_mb < configured:
+            return replace(budget, vram_limit_mb=budget.kill_ceil_mb)
+        return budget
 
     @classmethod
     def resolve(

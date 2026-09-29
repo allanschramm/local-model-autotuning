@@ -45,12 +45,12 @@ from autoresearch.core.llama_runner import (
     load_mode_flag,
     preflight_host_memory_for_intent,
     preflight_vram_for_intent,
+    probe_machine_budget,
     resolve_llama_cli,
     resolve_llama_perplexity,
-    resolve_shared_vram_limit_mb,
-    resolve_vram_limit_mb,
     watchdog_kill_reason,
 )
+from autoresearch.core.memory_budget import MachineBudget
 from autoresearch.core.model_arch import gguf_block_count, gguf_has_mtp, gguf_is_moe
 from autoresearch.core.sglang_runner import SGLangServerRunner, run_sglang_bench_validation
 from autoresearch.runners.trial_verdict import (
@@ -214,17 +214,24 @@ def _make_server_runner(
     *,
     log_path: Path,
     vram_limit_mb: float,
+    machine: MachineBudget | None = None,
 ) -> LlamaServerRunner | SGLangServerRunner:
     """Build the runner for this Trial's engine.
 
-    ``vram_limit_mb`` is only meaningful to the llama.cpp runner (SGLang has
-    no VRAM kill guard of ours), so the adapter passes it conditionally rather
-    than making every engine adapter accept an argument it ignores.
+    ``vram_limit_mb`` and ``machine`` are only meaningful to the llama.cpp
+    runner (SGLang has no VRAM kill guard of ours), so the adapter passes them
+    conditionally rather than making every engine adapter accept arguments it
+    ignores.
+
+    Handing the server the *same* ``machine`` snapshot the Trial preflight used
+    is the point: the kill guard and the accept/reject decision then read one
+    resolution of the policy instead of two that can drift.
     """
     runner_cls = _server_runner_class(intent)
     kwargs: dict[str, Any] = {"log_path": log_path}
     if runner_cls is LlamaServerRunner:
         kwargs["vram_limit_mb"] = vram_limit_mb
+        kwargs["machine"] = machine
     return runner_cls(intent, **kwargs)
 
 
@@ -246,12 +253,16 @@ def _bench_kwargs_for(
     *,
     reps: int,
     vram_limit_mb: float,
+    machine: MachineBudget | None = None,
 ) -> dict[str, Any]:
     """Engine-specific arguments for the bench-validation callable.
 
     llama.cpp benches the real serving configuration (so the measurement
     reflects ctx/kv/offload); SGLang benches one fixed batch. That asymmetry is
     why this is an adapter rather than a shared signature.
+
+    ``machine`` rides along on the llama.cpp branch only — SGLang has no VRAM
+    kill guard of ours, so passing it there would be an argument nobody reads.
     """
     if intent.model_path.is_dir():
         return {
@@ -260,7 +271,7 @@ def _bench_kwargs_for(
             "n_prompt": BENCH_N_PROMPT,
             "n_gen": BENCH_N_GEN,
         }
-    return {
+    kwargs: dict[str, Any] = {
         "model_path": intent.model_path,
         "ngl": intent.ngl,
         "threads": intent.threads,
@@ -282,6 +293,9 @@ def _bench_kwargs_for(
         "vram_limit_mb": vram_limit_mb,
         "reasoning": intent.reasoning,
     }
+    if machine is not None:
+        kwargs["machine"] = machine
+    return kwargs
 
 
 def _run_bench_precheck(
@@ -294,6 +308,7 @@ def _run_bench_precheck(
     is_validation: bool,
     idle_c: float | None,
     thermal_wait: bool,
+    machine: MachineBudget | None = None,
 ) -> bool:
     """Run the throughput pre-check before the full Trial. Returns True to continue.
 
@@ -313,7 +328,7 @@ def _run_bench_precheck(
 
     try:
         bench_tg, rep_vals, gpu_c = bench_fn(
-            **_bench_kwargs_for(intent, reps=reps, vram_limit_mb=vram_limit_mb),
+            **_bench_kwargs_for(intent, reps=reps, vram_limit_mb=vram_limit_mb, machine=machine),
             reps=reps,
             idle_c=idle_c,
             thermal_wait=thermal_wait,
@@ -507,6 +522,7 @@ def run_llama_bench_validation(
     n_gen: int = BENCH_N_GEN,
     vram_limit_mb: float | int | None = None,
     reasoning: str | None = None,
+    machine: MachineBudget | None = None,
 ) -> float:
     """Run llama-cli with given config. Returns tg t/s. Raises on failure.
 
@@ -593,8 +609,13 @@ def run_llama_bench_validation(
 
     assert_flags_supported(cmd, llama_cli)
     print(f"  [cli-bench] {' '.join(str(a) for a in cmd)}")
-    limit = resolve_vram_limit_mb(vram_limit_mb)
-    shared_limit = resolve_shared_vram_limit_mb()
+    # The cli-bench watchdog reads the same machine snapshot the Trial preflight
+    # and the server sampler read. One resolution of the policy, three consumers
+    # — the ceil cannot drift between them.
+    machine = machine or probe_machine_budget()
+    limit = machine.for_trial(vram_limit_mb).vram_limit_mb
+    shared_limit = machine.facts.shared_vram_limit_mb
+    keepout = machine.facts.physical_keepout_mb
     stop = threading.Event()
     vram_killed = {"value": False, "reason": ""}
     cli_env = os.environ.copy()
@@ -604,7 +625,7 @@ def run_llama_bench_validation(
         while not stop.is_set():
             try:
                 used, total = detect_used_total_vram_mb()
-                ceil = dedicated_vram_kill_ceil(limit, total)
+                ceil = dedicated_vram_kill_ceil(limit, total, keepout)
                 if used > ceil:
                     vram_killed["value"] = True
                     vram_killed["reason"] = watchdog_kill_reason(
@@ -784,6 +805,12 @@ class ExperimentRunner:
         self.models_dir = Path(models_dir)
         self.thermal_wait = thermal_wait
         self._idle_gpu_c = detect_gpu_temp_c()
+        # The machine is probed ONCE and held for the runner's lifetime. Every
+        # Trial re-resolves only its own config against this snapshot, so the
+        # physical VRAM probe and the env/config reads stop running per
+        # decision. This is the deepening: the Trial no longer derives the
+        # memory policy, it is handed one.
+        self.machine = probe_machine_budget()
 
     def run_trial(
         self,
@@ -810,10 +837,19 @@ class ExperimentRunner:
             return res
         model_filename = intent.model_path.name
         print(_format_arch_line(intent))
-        vram_limit_mb = resolve_vram_limit_mb(norm.get("vram_limit_mb"))
+        # The Trial's budget comes from the runner's machine snapshot, not from
+        # re-deriving the policy here. `run_trial` orchestrates; it does not
+        # decide how much memory the machine has.
+        budget = self.machine.for_trial(
+            norm.get("vram_limit_mb"), headroom_mb=norm.get("VRAM_HEADROOM_MB")
+        )
+        vram_limit_mb = budget.vram_limit_mb
 
         ok_vram, est_vram, vram_reason = preflight_vram_for_intent(
-            intent, vram_limit_mb, headroom_mb=norm.get("VRAM_HEADROOM_MB")
+            intent,
+            vram_limit_mb,
+            headroom_mb=norm.get("VRAM_HEADROOM_MB"),
+            machine=self.machine,
         )
         if vram_reason:
             print(f"  [vram-preflight] est={est_vram:.0f}MB ok={ok_vram} — {vram_reason}")
@@ -924,6 +960,7 @@ class ExperimentRunner:
             is_validation=is_validation,
             idle_c=self._idle_gpu_c,
             thermal_wait=self.thermal_wait,
+            machine=self.machine,
         ):
             return res
 
@@ -1032,6 +1069,7 @@ class ExperimentRunner:
                 intent,
                 log_path=server_log,
                 vram_limit_mb=vram_limit_mb,
+                machine=self.machine,
             )
             with runner as entered_runner:
                 runner = entered_runner

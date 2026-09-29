@@ -35,7 +35,7 @@ from autoresearch.core.hardware import (
     detect_total_vram_mb,
     detect_used_total_vram_mb,
 )
-from autoresearch.core.memory_budget import MemoryBudget
+from autoresearch.core.memory_budget import MachineBudget, MachineFacts, MemoryBudget
 from autoresearch.core.model_arch import (
     gguf_block_count,
     gguf_expert_bytes_mb,
@@ -714,9 +714,15 @@ def preflight_vram(
     n_cpu_moe: int | None = None,
     spec_type: str | None = None,
     spec_draft_n_max: int = 0,
+    machine: MachineBudget | None = None,
 ) -> tuple[bool, float, str]:
-    """Return (ok, estimate_mb, reason). reason non-empty when rejected."""
-    limit = resolve_vram_limit_mb(vram_limit_mb)
+    """Return (ok, estimate_mb, reason). reason non-empty when rejected.
+
+    This is the innermost gate: it estimates and compares. ``machine`` lets the
+    caller supply the probed snapshot so the deepest layer reads no env and
+    asks the hardware nothing.
+    """
+    limit = (machine or probe_machine_budget()).for_trial(vram_limit_mb).vram_limit_mb
     est = estimate_vram_mb(
         model_path,
         ctx_size,
@@ -732,46 +738,78 @@ def preflight_vram(
     return True, est, ""
 
 
-def _build_memory_budget(
-    vram_limit_mb: float | int | None = None,
-    headroom_mb: float | int | None = None,
-    apply_physical_clamp: bool = True,
-) -> MemoryBudget:
-    """Fold the current env/config/probe state into one MemoryBudget.
+def resolve_configured_vram_limit_mb() -> float:
+    """The Baseline's VRAM limit, UNCLAMPED, from ``env > config > default``.
 
-    This is the single impure boundary: it is the only place in the decision
-    path that reads env, consults config.DEFAULTS, and asks the hardware for
-    the physical VRAM total. Everything downstream is pure policy on the
-    resulting object.
+    Split out of :func:`resolve_vram_limit_mb` so the *configured* half of the
+    policy can be sampled once and reused, while the physical-keepout clamp
+    stays a per-Trial decision (the hill-climb screen opts out of it, and it
+    must not be baked into the snapshot).
 
-    ``apply_physical_clamp=False`` is for the hill-climb search screen, which
-    compares an estimate against the operator's *configured* budget and must not
-    silently narrow its own search space against the device ceiling. The serving
-    path keeps the clamp, because that is where the WDDM Sysmem Fallback guard
-    applies.
+    Precedence: ``AUTORESEARCH_VRAM_LIMIT_MB`` > ``config.DEFAULTS['VRAM_LIMIT_MB']``
+    > module default. The explicit-arg case belongs to the caller.
+    """
+    env = os.environ.get("AUTORESEARCH_VRAM_LIMIT_MB")
+    if env:
+        return float(env)
+    return float(config.DEFAULTS.get("VRAM_LIMIT_MB", DEFAULT_VRAM_LIMIT_MB))
+
+
+def probe_machine_facts() -> MachineFacts:
+    """Sample the machine's memory policy inputs. **The single impure seam.**
+
+    Reads env and ``config.DEFAULTS``, and asks the hardware once for the
+    physical VRAM total. Everything downstream consumes the resulting
+    :class:`MachineFacts` without touching env or the GPU again.
+
+    Probing once per process (rather than once per decision) is the point of
+    this function existing separately from :func:`_build_memory_budget`.
     """
     keepout_env = os.environ.get("AUTORESEARCH_PHYSICAL_VRAM_KEEPOUT_MB")
     keepout = float(keepout_env) if keepout_env else DEFAULT_PHYSICAL_VRAM_KEEPOUT_MB
     # config.DEFAULTS wins when the key exists; the env var is the operator
     # override on top of it. Mirrors resolve_vram_limit_mb's precedence.
     keepout = float(config.DEFAULTS.get("PHYSICAL_VRAM_KEEPOUT_MB", keepout))
-    # resolve_vram_limit_mb applies the physical clamp itself. When the caller
-    # opted out of that clamp we must therefore skip that resolver and pass the
-    # configured value straight through, or the clamp would happen twice.
-    resolved_limit = (
-        float(vram_limit_mb)
-        if (vram_limit_mb is not None and not apply_physical_clamp)
-        else resolve_vram_limit_mb(vram_limit_mb)
-    )
-    return MemoryBudget.resolve(
-        vram_limit_mb=resolved_limit,
-        vram_headroom_mb=resolve_vram_headroom_mb(headroom_mb),
+    return MachineFacts(
+        total_vram_mb=_safe_detect_total_vram_mb(),
+        configured_vram_limit_mb=resolve_configured_vram_limit_mb(),
+        physical_keepout_mb=keepout,
+        vram_headroom_mb=resolve_vram_headroom_mb(),
         shared_vram_limit_mb=resolve_shared_vram_limit_mb(),
         cuda_free_floor_mb=resolve_cuda_free_floor_mb(),
-        physical_keepout_mb=keepout,
         free_clamp_enabled=free_vram_clamp_enabled(),
-        total_vram_mb=_safe_detect_total_vram_mb() if apply_physical_clamp else None,
     )
+
+
+def probe_machine_budget() -> MachineBudget:
+    """Probe the machine once and return the reusable snapshot.
+
+    An ``ExperimentRunner`` holds this for its lifetime and calls
+    ``for_trial(...)`` per Trial, so the physical probe and the env/config
+    reads happen once instead of per decision.
+    """
+    return MachineBudget(facts=probe_machine_facts())
+
+
+def _build_memory_budget(
+    vram_limit_mb: float | int | None = None,
+    headroom_mb: float | int | None = None,
+    apply_physical_clamp: bool = True,
+    machine: MachineBudget | None = None,
+) -> MemoryBudget:
+    """One Trial's budget. Legacy single-shot entry point.
+
+    Kept for callers that have no long-lived runner (operator scripts, the
+    hill-climb screen). When a ``machine`` snapshot is supplied it is reused
+    instead of re-probing; otherwise this probes exactly as before, so
+    behaviour is unchanged for every existing caller.
+    """
+    budget = (machine or probe_machine_budget()).for_trial(
+        vram_limit_mb,
+        headroom_mb,
+        apply_physical_clamp=apply_physical_clamp,
+    )
+    return budget
 
 
 def _safe_detect_total_vram_mb() -> float | None:
@@ -801,6 +839,7 @@ def preflight_vram_effective(
     spec_draft_n_max: int = 0,
     headroom_mb: float | int | None = None,
     free_vram_mb: float | None = None,
+    machine: MachineBudget | None = None,
 ) -> tuple[bool, float, str]:
     """Headroom wrapper around preflight_vram (issue #10).
 
@@ -813,8 +852,12 @@ def preflight_vram_effective(
     The budget arithmetic is delegated to ``MemoryBudget``; the seven legacy
     resolvers remain exported below for backwards compatibility, but they are no
     longer the decision path.
+
+    ``machine`` is the probed snapshot. Passing one avoids re-probing physical
+    VRAM and re-reading env/config, which is what lets an ``ExperimentRunner``
+    hold one snapshot across a whole Search.
     """
-    budget = _build_memory_budget(vram_limit_mb, headroom_mb)
+    budget = _build_memory_budget(vram_limit_mb, headroom_mb, machine=machine)
     configured = budget.vram_limit_mb
     moe_offload = n_cpu_moe is not None and int(n_cpu_moe) > 0
     clamp_on = budget.free_clamp_enabled
@@ -845,6 +888,7 @@ def preflight_vram_effective(
         n_cpu_moe=n_cpu_moe,
         spec_type=spec_type,
         spec_draft_n_max=spec_draft_n_max,
+        machine=machine,
     )
     if ok or effective == configured:
         return ok, est, reason
@@ -880,6 +924,7 @@ def preflight_vram_for_intent(
     intent: "ServerIntent",
     vram_limit_mb: float | None = None,
     headroom_mb: float | int | None = None,
+    machine: MachineBudget | None = None,
 ) -> tuple[bool, float, str]:
     spec_type, _, draft_path = resolve_spec_estimate_args(
         intent.model_path,
@@ -898,6 +943,7 @@ def preflight_vram_for_intent(
         spec_type=spec_type,
         spec_draft_n_max=intent.spec_draft_n_max,
         headroom_mb=headroom_mb,
+        machine=machine,
     )
 
 
@@ -1232,11 +1278,17 @@ class LlamaServerRunner:
         intent: ServerIntent,
         log_path: Path | None = None,
         vram_limit_mb: float | None = None,
+        machine: MachineBudget | None = None,
     ):
         self.intent = intent
         self.log_path = log_path
-        self.vram_limit_mb = resolve_vram_limit_mb(vram_limit_mb)
-        self.shared_vram_limit_mb = resolve_shared_vram_limit_mb()
+        # The machine snapshot, kept for the sampler's per-tick kill guard.
+        # Holding it is what makes the server's budget and the Trial's budget
+        # the same object instead of two independent resolutions of the same
+        # rule — the divergence this closes is a real class of bug.
+        self.machine = machine or probe_machine_budget()
+        self.vram_limit_mb = self.machine.for_trial(vram_limit_mb).vram_limit_mb
+        self.shared_vram_limit_mb = self.machine.facts.shared_vram_limit_mb
 
         self.port: int | None = None
         self.peak_vram_mb: float = 0.0
@@ -1603,13 +1655,15 @@ class LlamaServerRunner:
             )
         else:
             print(
-                f"  [VRAM] CUDA-free guard active (floor={resolve_cuda_free_floor_mb():.0f}MB; "
+                f"  [VRAM] CUDA-free guard active (floor={self.machine.facts.cuda_free_floor_mb:.0f}MB; "
                 "NVML used is peak-metric only — desktop committed memory is evictable).",
                 flush=True,
             )
 
+        cuda_floor = self.machine.facts.cuda_free_floor_mb
         dense = is_dense_model(self.intent.model_path)
         limit = self.vram_limit_mb
+        keepout = self.machine.facts.physical_keepout_mb
         shared_limit = self.shared_vram_limit_mb
         shared_tick = 0
 
@@ -1624,24 +1678,26 @@ class LlamaServerRunner:
             if cuda_guard:
                 if cuda_free_now is None:
                     return  # transient probe miss: no kill decision this tick
-                floor = resolve_cuda_free_floor_mb()
-                if cuda_free_now < floor:
+                if cuda_free_now < cuda_floor:
                     self.vram_killed = True
                     self.vram_kill_reason = watchdog_kill_reason(
                         "cuda_free",
-                        f"cuda_free={cuda_free_now:.0f}MB<floor={floor:.0f}MB",
+                        f"cuda_free={cuda_free_now:.0f}MB<floor={cuda_floor:.0f}MB",
                         f"{kind}={self.intent.model_path.name}",
                     )
                     print(
                         f"  [VRAM] CUDA FREE EXHAUSTED cuda_free={cuda_free_now:.0f}MB < "
-                        f"floor={floor:.0f}MB ({kind}={self.intent.model_path.name}) — killing "
+                        f"floor={cuda_floor:.0f}MB ({kind}={self.intent.model_path.name}) — killing "
                         "(allocation failure imminent)",
                         flush=True,
                     )
                     self._cleanup_process()
                     self._stop_event.set()
                 return
-            ceil = dedicated_vram_kill_ceil(limit, total_mb)
+            # Ceiling straight off the machine snapshot: same keepout the
+            # preflight used, so the runtime guard and the accept/reject
+            # decision cannot disagree. Reads nothing per tick.
+            ceil = dedicated_vram_kill_ceil(limit, total_mb, keepout)
             if current > ceil:
                 self.vram_killed = True
                 self.vram_kill_reason = watchdog_kill_reason(

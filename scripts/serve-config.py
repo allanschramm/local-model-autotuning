@@ -44,8 +44,8 @@ from autoresearch.core.llama_runner import (
     load_mode_flag,
     preflight_host_memory,
     preflight_vram,
+    probe_machine_budget,
     resolve_model_path,
-    resolve_vram_limit_mb,
 )
 
 CONFIG = REPO_ROOT / "autoresearch" / "core" / "config.py"
@@ -311,7 +311,10 @@ def _preflight_or_exit(cfg: dict) -> None:
     draft = cfg.get("SPEC_DRAFT_MODEL")
     draft_path = resolve_model_path(MODELS_DIR, draft) if draft else None
     n_cpu_moe, _ = resolve_n_cpu_moe(model_path, cfg.get("N_CPU_MOE"))
-    vram_limit = resolve_vram_limit_mb(cfg.get("VRAM_LIMIT_MB"))
+    # One probed snapshot for the launcher's own gates, so the printed limit and
+    # the preflight verdict cannot come from two different resolutions.
+    machine = probe_machine_budget()
+    vram_limit = machine.for_trial(cfg.get("VRAM_LIMIT_MB")).vram_limit_mb
 
     ok_v, est_v, reason_v = preflight_vram(
         model_path,
@@ -321,6 +324,7 @@ def _preflight_or_exit(cfg: dict) -> None:
         draft_path=draft_path,
         vram_limit_mb=vram_limit,
         n_cpu_moe=n_cpu_moe,
+        machine=machine,
     )
     if not ok_v:
         print(f"ERROR: {reason_v}", file=sys.stderr)

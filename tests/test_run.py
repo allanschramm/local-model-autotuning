@@ -73,16 +73,25 @@ class TestRun(unittest.TestCase):
     )
     @patch("autoresearch.runners.evaluation.subprocess.Popen")
     @patch("autoresearch.runners.evaluation.resolve_llama_cli", return_value=Path("llama-cli.exe"))
-    @patch("autoresearch.runners.evaluation.resolve_vram_limit_mb", return_value=7900.0)
-    def test_llama_bench_caps_ctx(self, _mock_limit, mock_resolve, mock_popen, _mock_smi):
+    def test_llama_bench_caps_ctx(self, mock_resolve, mock_popen, _mock_smi):
         mock_proc = MagicMock()
         mock_proc.communicate.return_value = ("Generation: 7.4 t/s", "")
         mock_proc.returncode = 0
         mock_popen.return_value = mock_proc
 
+        from autoresearch.core.memory_budget import MachineBudget, MachineFacts
         from autoresearch.runners.evaluation import BENCH_CTX_CAP, run_llama_bench_validation
 
-        run_llama_bench_validation(Path("model.gguf"), ctx_size=65536)
+        # No mock of a module global: the budget is now a real object handed in,
+        # so the test builds the real type instead of patching a resolver. The
+        # physical total is None, so no keepout clamp applies.
+        machine = MachineBudget(
+            facts=MachineFacts(
+                total_vram_mb=None,
+                configured_vram_limit_mb=7900.0,
+            )
+        )
+        run_llama_bench_validation(Path("model.gguf"), ctx_size=65536, machine=machine)
 
         command = mock_popen.call_args.args[0]
         self.assertEqual(command[command.index("-c") + 1], str(BENCH_CTX_CAP))

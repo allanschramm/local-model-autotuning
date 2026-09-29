@@ -115,6 +115,10 @@ def test_validation_trial_runs_only_the_quick_smoke(capsys):
     runner.models_dir = REPO_ROOT / "models"
     runner._idle_gpu_c = None
     runner.thermal_wait = False
+    # run_trial no longer derives the memory policy: it reads the runner's
+    # machine snapshot. Bypassing __init__ means providing it here, which is
+    # exactly the contract the deepening introduced.
+    runner.machine = ev.probe_machine_budget()
 
     with (
         patch.object(ev.ServerIntent, "from_config", return_value=(_stub_intent(), norm)),
