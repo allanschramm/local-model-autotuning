@@ -44,6 +44,16 @@ def main() -> int:
     ).returncode
     if code != 0:
         return code
+    # Fail closed on throwaway files in the repo root, before the slow suite.
+    print("+", py, "scripts/check_no_root_litter.py", flush=True)
+    code = subprocess.run(
+        [py, str(ROOT / "scripts" / "check_no_root_litter.py")],
+        cwd=str(ROOT),
+        env=env,
+        check=False,
+    ).returncode
+    if code != 0:
+        return code
     # Reuse pre-commit pytest entry (same flags / venv rules).
     print("+", py, "scripts/run_pytest_hook.py", flush=True)
     return subprocess.run(

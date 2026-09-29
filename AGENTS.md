@@ -6,6 +6,10 @@
 - Highly prefer E2E tests as the sole testing mechanism. Use them to verify complex features work. At the end of E2E tests, produce a verifiable and repeatable artifact.
 - If you must test a system in isolation, FIRST write all the ways it could fail, THEN write the code.
 
+## Housekeeping Contract
+
+- **Never leave throwaway files in the repo root.** Scratch scripts, redirected logs, and probe notes go in `.scratch/tmp/` (gitignored) or the OS temp dir — not the root. `scripts/check_no_root_litter.py` fails closed on this in pre-commit and CI (`run_validate.py`); it prints the file, the rule, and the remediation. `*.log` being gitignored hid this litter from `git status`, which is exactly why nothing failed while it accumulated — the guard exists to catch what `git status` cannot.
+
 <!-- Scope: repo development agents. Research loop agents → read program.md -->
 
 ## Purpose

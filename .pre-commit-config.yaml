@@ -40,6 +40,13 @@ repos:
 
   - repo: local
     hooks:
+      - id: root-litter
+        name: no throwaway files in repo root
+        entry: python scripts/check_no_root_litter.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
       - id: pytest
         name: pytest (owned Python changed)
         entry: python scripts/run_pytest_hook.py
