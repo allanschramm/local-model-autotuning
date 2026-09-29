@@ -7,6 +7,26 @@ prefer the DB and fall back to the TSV when it is missing or unseeded
 primary, TSV append best-effort in ``run.write_row``). Either store can be
 rebuilt from the other: :func:`sync_from_tsv` seeds the DB, :func:`sync_to_tsv`
 rewrites the legacy log.
+
+Direction of repair (wayfinder map, ticket 08 §1 — data-loss bug found while
+deciding the cut)
+---------------------------------------------------------------------------
+**The canonical store is only ever repaired from itself.** A failed *partial*
+``upsert_rows`` is healed by :func:`upsert_rows_retrying` — repeating the
+upsert — and never by ``replace_all`` from the legacy TSV.
+
+The inverted heal was a live data-loss bug: a Trial whose DB write succeeded
+but whose best-effort TSV append failed left the row in the DB only
+(``run.write_row`` swallows the append error); the next partial-write failure
+called ``try_sync_from_tsv`` → ``replace_all`` → ``DELETE FROM trials`` +
+INSERT from the TSV, **deleting the row that only the DB had**. That ran
+exactly in the branches where the code had just established the DB as
+authoritative. :func:`assert_no_row_loss` is the fail-closed guard that makes
+the regression impossible to ship silently.
+
+``sync_from_tsv`` survives for the *one* legitimate direction: seeding a DB
+that is absent or un-migrated from the store it was derived from, where no
+authoritative row can be lost.
 """
 
 from __future__ import annotations
@@ -16,7 +36,20 @@ import json
 import os
 import sqlite3
 import tempfile
+import time
 from pathlib import Path
+
+
+class StoreRowLossError(RuntimeError):
+    """The canonical store lost a ``trial_id`` it already had.
+
+    Raised by :func:`assert_no_row_loss`. This is a data-loss alarm, not a
+    validation complaint: it means a Trial that was measured and written is no
+    longer in ``results.db``. The message tells the operator what to do (and,
+    just as importantly, what *not* to do — re-running the legacy heal is what
+    caused the loss in the first place).
+    """
+
 
 # Columns stored as REAL (blank -> NULL). Everything else TEXT.
 _NUMERIC_COLUMNS = frozenset(
@@ -271,10 +304,18 @@ def sync_from_tsv(results_file: Path, db_path: Path | None = None) -> int:
 
 
 def try_sync_from_tsv(results_file: Path, db_path: Path | None = None) -> int:
-    """Best-effort DB seed/heal from the legacy TSV: never raises, logs.
+    """Best-effort DB seed from the legacy TSV: never raises, logs.
 
-    Used for one-shot seeding when the canonical DB is missing and for
-    healing after a failed DB write (the TSV mirror holds the rows).
+    **Scope narrowed 2026-09-28 (wayfinder ticket 08 §1).** This used to be the
+    generic "heal the DB" call, which made it fire after a failed *partial*
+    upsert — and it rebuilds via ``replace_all`` (``DELETE FROM trials``), so it
+    destroyed rows that existed only in the canonical store.
+
+    It is now only for the legitimate direction: seeding a DB that is absent or
+    un-migrated, from the store it was derived from. A caller that was using it
+    as an error heal must use :func:`upsert_rows_retrying` instead, which
+    repairs the store from itself. :func:`assert_no_row_loss` is the guard that
+    proves the narrowed scope did not reintroduce the loss.
     """
     try:
         return sync_from_tsv(results_file, db_path)
@@ -288,6 +329,22 @@ def parity_check(results_file: Path, db_path: Path | None = None) -> tuple[bool,
 
     A missing or un-migrated DB (no `trials` table) is drift, not a
     crash: reports (False, reason) so callers can rebuild.
+
+    **Asymmetric on purpose (2026-09-28, wayfinder ticket 08 §6).** The two
+    directions are not the same severity, and the original symmetric verdict
+    was a latent false-positive generator:
+
+    - ``in TSV, not in mirror`` — the canonical store is **missing a measured
+      Trial**. This is data loss, and it is the direction a Trial write must
+      fail on.
+    - ``in mirror, not in TSV`` — the legacy log is **missing a Trial the
+      canonical store has**. Legitimate and expected while the TSV append
+      stays best-effort (``run.write_row`` swallows append failures): the row
+      is safe in the DB. Reported loudly, never fatal.
+
+    :func:`report_store_integrity` folds this asymmetry into the per-write
+    gate; the symmetric verdict is kept for the operator tool, where "the two
+    files disagree" is genuinely the thing being asked.
     """
     db_path = db_path or default_db_path(Path(results_file))
     rows = _read_tsv(Path(results_file))
@@ -314,6 +371,51 @@ def parity_check(results_file: Path, db_path: Path | None = None) -> tuple[bool,
     if problems:
         return False, "; ".join(problems)
     return True, f"parity OK: {len(rows)} rows"
+
+
+def report_store_integrity(results_file: Path, db_path: Path | None = None) -> tuple[bool, str]:
+    """Per-write store integrity gate (wayfinder ticket 13, Gate 3).
+
+    This is the detector that existed and never ran: ``parity_check`` was
+    written, wired only to an operator script, and no Trial write ever
+    consulted it. It is connected here because the owner migration happens
+    against the production store, and migrating blind is what the map forbids.
+
+    Unlike :func:`parity_check` this is **asymmetric and fail-closed on the
+    direction that loses data**:
+
+    - canonical DB missing a ``trial_id`` the TSV has → raise. A measured
+      Trial is absent from the store of record.
+    - canonical DB having a row the TSV lacks → print, return ``True``. The
+      TSV append is best-effort by design; the row is safe in the DB and the
+      next export closes the gap.
+
+    Returns ``(ok, report)`` so the caller can log without branching on the
+    message.
+    """
+    db_path = db_path or default_db_path(Path(results_file))
+    ok, report = parity_check(results_file, db_path)
+    if ok:
+        return True, report
+
+    # Re-derive with the asymmetry: which direction is the drift?
+    tsv_ids = {r.get("trial_id", "") for r in _read_tsv(Path(results_file))}
+    db_ids = trial_ids(db_path)
+    lost = sorted(tsv_ids - db_ids)
+    if lost:
+        raise StoreRowLossError(
+            f"canonical store is missing {len(lost)} trial(s) present in the legacy "
+            f"TSV, e.g. {lost[:5]}{'…' if len(lost) > 5 else ''}. A Trial was "
+            f"measured and did not reach results.db. Do NOT re-run the legacy "
+            f"heal blindly — check whether an export or a backup is newer first."
+        )
+    behind = sorted(db_ids - tsv_ids)
+    print(
+        f"[results] legacy TSV is behind the canonical store by {len(behind)} "
+        f"row(s), e.g. {behind[:5]}{'…' if len(behind) > 5 else ''}. The rows are "
+        f"safe in results.db; the next export closes the gap."
+    )
+    return True, f"canonical store complete ({len(db_ids)} trials); TSV behind by {len(behind)}"
 
 
 # Text formats mirroring the write path (run.write_row cell formatting), so DB
@@ -397,6 +499,105 @@ def upsert_rows(db_path: Path, rows: list[dict]) -> None:
         ensure_schema(conn)
         with conn:
             conn.executemany(_insert_sql(), (_cells(r) for r in rows))
+    finally:
+        conn.close()
+
+
+#: Retries for a partial upsert before giving up. Transient SQLite contention
+#: (``database is locked`` under a concurrent reader) is real and resolves on
+#: its own; a structural error is not, and must surface rather than be retried
+#: forever. Three attempts with a growing delay is enough to ride out a
+#: concurrent read without turning a real failure into a hang.
+UPSERT_RETRY_ATTEMPTS = 3
+UPSERT_RETRY_DELAY_SECONDS = 0.05
+
+#: Errors worth retrying: the DB is reachable, contention is transient.
+_RETRYABLE = (sqlite3.OperationalError,)
+
+
+def upsert_rows_retrying(
+    db_path: Path,
+    rows: list[dict],
+    *,
+    attempts: int = UPSERT_RETRY_ATTEMPTS,
+    delay: float = UPSERT_RETRY_DELAY_SECONDS,
+) -> None:
+    """Upsert with bounded retry, and verify nothing was lost.
+
+    This is the **only** correct heal for a failed partial upsert. The store is
+    repaired from itself: the same rows are written again. It must never be
+    ``replace_all`` from the legacy TSV — that inverts the authority and
+    deletes rows that only the canonical store had (ticket 08 §1).
+
+    ``sqlite3.OperationalError`` is retried; anything else (bad row shape,
+    constraint violation, disk failure) is re-raised immediately because
+    retrying cannot fix it. After the last attempt the original error is
+    re-raised, so the caller still fails loud.
+    """
+    last: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            upsert_rows(db_path, rows)
+            return
+        except _RETRYABLE as exc:
+            last = exc
+            if attempt < attempts:
+                time.sleep(delay * attempt)
+    assert last is not None  # loop body only exits via return or raise
+    raise last
+
+
+def assert_no_row_loss(db_path: Path, before_ids: set[str], *, context: str) -> None:
+    """Fail closed if any ``trial_id`` present before a write is now gone.
+
+    The store contract is **append/upsert, never destructive**. Every write
+    path in the harness is an upsert, so the ``trial_id`` set is monotonically
+    growing; a shrink means something wiped the table (the inverted heal) and
+    a Trial has been silently destroyed. This turns that class of silent
+    corruption into a loud failure at the point of the write.
+
+    ``before_ids`` empty (fresh store) skips the check — there is nothing to
+    lose yet, and the DB may not even exist.
+    """
+    if not before_ids:
+        return
+    db_path = Path(db_path)
+    if not db_path.exists():
+        raise StoreRowLossError(
+            f"canonical store vanished during {context}: {db_path} (had {len(before_ids)} trials)"
+        )
+    conn = sqlite3.connect(db_path)
+    try:
+        present = {r[0] for r in conn.execute("SELECT trial_id FROM trials")}
+    except sqlite3.DatabaseError as exc:
+        raise StoreRowLossError(
+            f"canonical store unreadable during {context}: {db_path} ({exc})"
+        ) from exc
+    finally:
+        conn.close()
+    lost = before_ids - present
+    if lost:
+        raise StoreRowLossError(
+            f"data loss during {context}: {len(lost)} trial(s) removed from the "
+            f"canonical store, e.g. {sorted(lost)[:5]}. The store is upsert-only; "
+            f"a heal that rebuilds it from results.tsv is the cause. "
+            f"DO NOT re-run the heal — restore from the -wal/-journal or a backup."
+        )
+
+
+def trial_ids(db_path: Path) -> set[str]:
+    """The ``trial_id`` set currently in the canonical store ([] when absent)."""
+    db_path = Path(db_path)
+    if not db_path.exists():
+        return set()
+    conn = sqlite3.connect(db_path)
+    try:
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if "trials" not in tables:
+            return set()
+        return {r[0] for r in conn.execute("SELECT trial_id FROM trials")}
+    except sqlite3.DatabaseError:
+        return set()
     finally:
         conn.close()
 

@@ -5,6 +5,8 @@ from __future__ import annotations
 import csv
 import sqlite3
 
+import pytest
+
 from autoresearch.core import results_db
 
 NUMERIC_COLS = [
@@ -259,3 +261,150 @@ def test_upsert_derives_reasoning_columns_from_config_json(tmp_path):
         "SELECT reasoning_budget, reasoning_effort FROM trials WHERE trial_id = 't-1'"
     ).fetchone()
     assert got == (2048, "low")
+
+
+# ── Store row-loss gate (wayfinder ticket 08 §1 · ticket 13 Gate 3) ──────────
+#
+# Failure modes, written down first (tests/AGENTS.md):
+#   1. A failed partial upsert was healed by `try_sync_from_tsv` →
+#      `replace_all` → `DELETE FROM trials`, deleting rows that existed only
+#      in the canonical store. Silent, exit 0.
+#   2. An unbounded retry would mask a structural error as a hang.
+#   3. A symmetric parity verdict false-positives on "row in DB, absent from
+#      TSV", which is legitimate while the TSV append is best-effort.
+#   4. The heal direction must be canonical → mirror in every branch.
+
+
+def test_upsert_rows_retrying_keeps_rows_the_tsv_never_had(tmp_path):
+    """Mode 1: a row known only to the DB survives a failed status write.
+
+    Reproduces the exact data-loss shape: the Trial's DB write succeeded, its
+    TSV append failed (swallowed by write_row), then a later partial upsert
+    failed. The old heal rebuilt the table from the TSV and deleted the row.
+    """
+    db = tmp_path / "results.db"
+    tsv = tmp_path / "results.tsv"
+    # Row lives in the DB only — the TSV never captured it.
+    results_db.upsert_rows_retrying(db, [_row(trial_id="db-only")])
+
+    before = results_db.trial_ids(db)
+    assert before == {"db-only"}
+
+    # Simulate the partial-upsert failure the old code healed destructively.
+    results_db.upsert_rows_retrying(db, [_row(trial_id="new", status="dominated")])
+
+    # The correct heal: the store is repaired from itself, and nothing is lost.
+    results_db.assert_no_row_loss(db, before, context="test")
+    assert {"db-only", "new"} <= results_db.trial_ids(db)
+
+
+def test_assert_no_row_loss_raises_when_the_table_is_wiped(tmp_path):
+    """Mode 1 guard: the detector fires on the destructive heal itself."""
+    db = tmp_path / "results.db"
+    results_db.upsert_rows_retrying(db, [_row(trial_id="t-0001")])
+    before = results_db.trial_ids(db)
+    assert before == {"t-0001"}
+
+    # Exactly what the old `try_sync_from_tsv` did to a DB-only row.
+    conn = sqlite3.connect(db)
+    try:
+        results_db.replace_all(conn, [])  # DELETE FROM trials, insert nothing
+    finally:
+        conn.close()
+
+    with pytest.raises(results_db.StoreRowLossError) as exc:
+        results_db.assert_no_row_loss(db, before, context="test")
+    assert "t-0001" in str(exc.value)
+
+
+def test_upsert_rows_retrying_reraises_after_bounded_attempts(tmp_path, monkeypatch):
+    """Mode 2: retry is bounded — a structural error surfaces, it does not hang."""
+    calls: list[int] = []
+
+    def _boom(*_a, **_kw):
+        calls.append(1)
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(results_db, "upsert_rows", _boom)
+    with pytest.raises(sqlite3.OperationalError):
+        results_db.upsert_rows_retrying(tmp_path / "results.db", [_row()], delay=0.0)
+    assert len(calls) == results_db.UPSERT_RETRY_ATTEMPTS
+
+
+def test_upsert_rows_retrying_does_not_retry_structural_errors(tmp_path, monkeypatch):
+    """Mode 2: only transient contention is retried; a bad row fails at once."""
+    calls: list[int] = []
+
+    def _boom(*_a, **_kw):
+        calls.append(1)
+        raise sqlite3.IntegrityError("UNIQUE constraint failed")
+
+    monkeypatch.setattr(results_db, "upsert_rows", _boom)
+    with pytest.raises(sqlite3.IntegrityError):
+        results_db.upsert_rows_retrying(tmp_path / "results.db", [_row()], delay=0.0)
+    assert len(calls) == 1
+
+
+def test_report_store_integrity_tolerates_tsv_behind_db(tmp_path):
+    """Mode 3: a row missing from the TSV is NOT data loss — the DB has it.
+
+    The drift is one-directional on purpose: the DB holds a row the legacy log
+    never captured (its append failed), and the log holds nothing the DB is
+    missing. That is the legitimate best-effort state, and the gate must pass.
+    """
+    db = tmp_path / "results.db"
+    tsv = tmp_path / "results.tsv"
+    _write_tsv(tsv, [_row(trial_id="t-0001")])
+    # The DB has t-0001 (the log's row) plus t-0002, whose append never landed.
+    results_db.upsert_rows_retrying(db, [_row(trial_id="t-0001"), _row(trial_id="t-0002")])
+
+    ok, report = results_db.report_store_integrity(tsv, db)
+    assert ok is True
+    assert "behind" in report
+
+
+def test_report_store_integrity_raises_when_drift_is_bidirectional(tmp_path):
+    """Mode 3: both directions at once is corruption, not a lagging mirror.
+
+    This is the case the first draft of the gate got wrong — it reported the
+    benign direction and returned True while a real loss was present in the
+    other direction. Loss wins over "the log is behind".
+    """
+    db = tmp_path / "results.db"
+    tsv = tmp_path / "results.tsv"
+    results_db.upsert_rows_retrying(db, [_row(trial_id="db-only")])
+    _write_tsv(tsv, [_row(trial_id="tsv-only")])
+
+    with pytest.raises(results_db.StoreRowLossError) as exc:
+        results_db.report_store_integrity(tsv, db)
+    assert "tsv-only" in str(exc.value)
+
+
+def test_report_store_integrity_raises_when_db_lost_a_row(tmp_path):
+    """Mode 3: the reverse direction is data loss and fails closed."""
+    db = tmp_path / "results.db"
+    tsv = tmp_path / "results.tsv"
+    results_db.upsert_rows_retrying(db, [_row(trial_id="t-0001")])
+    _write_tsv(tsv, [_row(trial_id="t-0001"), _row(trial_id="t-0002")])
+
+    with pytest.raises(results_db.StoreRowLossError) as exc:
+        results_db.report_store_integrity(tsv, db)
+    assert "t-0002" in str(exc.value)
+
+
+def test_store_ids_never_shrink_across_a_recompute(tmp_path):
+    """Mode 4, end to end: recompute_statuses preserves every trial_id.
+
+    The regression the wayfinder ticket recorded was observed through this
+    path, so the guard is asserted on the path itself, not only on the helper.
+    """
+    from autoresearch.runners import run
+
+    tsv = tmp_path / "results.tsv"
+    db = tmp_path / "results.db"
+    run.write_row(tsv, "abc123", 0.5, 0.4, 0.3, 0.2, 1.0, "on_front", "e2e", model="M.gguf")
+    first = results_db.trial_ids(db)
+    assert first
+
+    run.recompute_statuses(tsv)
+    assert first <= results_db.trial_ids(db)

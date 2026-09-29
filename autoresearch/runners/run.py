@@ -509,22 +509,35 @@ def recompute_statuses(results_file: Path, *, scope: str = recompute.DEFAULT_SCO
     """
     with _results_lock(results_file):
         rows, source = results_db.store_rows(results_file)
+        db_path = results_db.default_db_path(results_file)
+        before_ids = results_db.trial_ids(db_path)
         updated = recompute.recompute_rows(rows, scope=scope)
         if updated != rows:
             if source == "db":
                 changed = [u for u, o in zip(updated, rows, strict=False) if u != o]
+                # Heal direction (wayfinder ticket 08 §1): repeat the upsert.
+                # It used to be `try_sync_from_tsv`, which ran `replace_all`
+                # (DELETE FROM trials) from the legacy log — destroying any row
+                # that existed only in the canonical store, in exactly the
+                # branch that had just established the DB as authoritative.
                 try:
-                    results_db.upsert_rows(results_db.default_db_path(results_file), changed)
+                    results_db.upsert_rows_retrying(db_path, changed)
                 except Exception as exc:
-                    print(f"[results] DB status update failed, healing from TSV: {exc}")
-                    results_db.try_sync_from_tsv(results_file)
+                    print(
+                        f"[results] DB status update failed ({exc}); store left "
+                        f"untouched and the next recompute retries"
+                    )
+                else:
+                    results_db.assert_no_row_loss(db_path, before_ids, context="recompute_statuses")
             try:
                 _replace_tsv(results_file, updated)
             except Exception as exc:
                 print(f"[results] legacy TSV rewrite failed: {exc}")
         if source == "tsv":
             # One-shot migration: seed the canonical store from legacy TSV.
+            # Legitimate direction — the DB is absent/unmigrated here.
             results_db.try_sync_from_tsv(results_file)
+        results_db.report_store_integrity(results_file, db_path)
 
 
 def relabel_watchdog_kills(results_file: Path) -> int:
@@ -537,22 +550,31 @@ def relabel_watchdog_kills(results_file: Path) -> int:
     """
     with _results_lock(results_file):
         rows, source = results_db.store_rows(results_file)
+        db_path = results_db.default_db_path(results_file)
+        before_ids = results_db.trial_ids(db_path)
         updated = recompute.relabel_watchdog_kills(rows)
         changed = [u for u, o in zip(updated, rows, strict=False) if u != o]
         if not changed:
             return 0
         if source == "db":
+            # Repeat the upsert; never rebuild the store from the legacy log
+            # (wayfinder ticket 08 §1 — that inverted heal deleted rows).
             try:
-                results_db.upsert_rows(results_db.default_db_path(results_file), changed)
+                results_db.upsert_rows_retrying(db_path, changed)
             except Exception as exc:
-                print(f"[results] DB relabel failed, healing from TSV: {exc}")
-                results_db.try_sync_from_tsv(results_file)
+                print(
+                    f"[results] DB relabel failed ({exc}); store left untouched and "
+                    f"the relabel is retried on the next call"
+                )
+            else:
+                results_db.assert_no_row_loss(db_path, before_ids, context="relabel_watchdog_kills")
         try:
             _replace_tsv(results_file, updated)
         except Exception as exc:
             print(f"[results] legacy TSV rewrite failed: {exc}")
         if source == "tsv":
             results_db.try_sync_from_tsv(results_file)
+        results_db.report_store_integrity(results_file, db_path)
         return len(changed)
 
 
@@ -846,14 +868,24 @@ def write_row(
         "description": description,
     }
     with _results_lock(results_file):
-        # Canonical store first: SQLite upsert. On failure the legacy TSV
-        # append below still captures the row (heal via try_sync_from_tsv).
+        # Canonical store first: SQLite upsert, with bounded retry on transient
+        # contention. On failure the legacy TSV append below still captures the
+        # row — and the direction of recovery is always toward the canonical
+        # store, never from it (wayfinder ticket 08 §1).
+        db_path = results_db.default_db_path(results_file)
+        before_ids = results_db.trial_ids(db_path)
         db_ok = True
         try:
-            results_db.upsert_rows(results_db.default_db_path(results_file), [row])
+            results_db.upsert_rows_retrying(db_path, [row])
         except Exception as exc:
             db_ok = False
             print(f"[results] canonical DB write failed ({exc}); logging to legacy TSV only")
+        else:
+            # Gate 3 (ticket 13): the row we just measured must be in the store
+            # of record, and nothing that was already there may have vanished.
+            results_db.assert_no_row_loss(
+                db_path, before_ids | {row["trial_id"]}, context="write_row"
+            )
         # Legacy append-log: kept in sync as the fallback store (best-effort).
         try:
             new_file = not results_file.exists() or results_file.stat().st_size == 0
