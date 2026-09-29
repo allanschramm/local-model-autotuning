@@ -1,7 +1,17 @@
 # ADR 0018: Rust Native Core — Phase 0 (PyO3 + Three Modules)
 
-**Status:** Accepted
+**Status:** ⚠️ **Superseded** by
+[ADR 0019 — Rust Native Core: process ownership and the anti-agent
+contract](0019-rust-native-core-ownership.md) (2026-09-28).
+The Phase 0 *deliverable* (three modules behind PyO3) stands as shipped and
+verified. The *strategy* recorded in "Decision" below — partial refactor via
+PyO3, Python owning the loop, the clock and the subprocess — is **replaced**.
+Do not read this document as the current architecture.
+**Correction (2026-09-28, ticket 02):** the parity claims in §Consequences
+overstate Rust coverage — see the correction block at the end of this file.
+
 **Date:** 2026-09-26
+**Superseded:** 2026-09-28
 
 ## Context & Problem Statement
 
@@ -76,3 +86,56 @@ Strategies:
 | 4      | `pareto` port                          | ✅       | 17/17 + 11 pytest |
 | 5      | CI Ubuntu + ADR + wiki                 | ✅       | `.github/workflows/rust-ci.yml` (separate from `validate.yml` until Python edition is deprecated) |
 | 6      | Allan handoff + speedup report        | ✅       | `docs/sessions/2026-09-27-rust-phase0-criterion.md`; `scripts/smoke_{inspect,fp,bindings}.py` rewrite (drop bad `complete()` / `Trial(...)` calls + non-canonical `[engine,sampler]` parity) |
+
+---
+
+## Corrections (2026-09-28 — ticket 02, factual reconciliation)
+
+Three statements in this ADR did not survive contact with the code. They are
+corrected here rather than left for the next agent to re-derive.
+
+1. **"Four modules ported" is wrong — it was always three, and three is
+   right.** This ADR and `rust/AGENTS.md` list `pareto`, `state`,
+   `fingerprint` (and, in `rust/AGENTS.md`, `test_classify` in the parity
+   suite). The crate registers exactly three submodules
+   (`src/py/mod.rs:6-8,17-30`); `src/lib.rs:13-16` declares
+   `error`/`fingerprint`/`pareto`/`state`. **`classify` was never ported** —
+   zero occurrences of the token in the whole crate, and
+   `autoresearch/core/classify.py` is 258 lines of pure Python reaching Rust
+   only transitively via the `pareto` shim.
+
+   *Consequence:* the `test_classify.py` inclusion in the parity gate
+   (below, and `rust/AGENTS.md:33-36`) is meaningless as **Rust** coverage.
+   It still exercises Python behaviour, which is worth having, but it cannot
+   detect a missing port.
+
+2. **"67/67 pytest" measures shim parity, not Rust coverage.** No test under
+   `tests/` imports `autoresearch_core` at all. The Rust↔Python surface is
+   covered entirely *indirectly*, through `autoresearch/core/*` shims. The
+   shim is the public surface, so this is a legitimate gate — but it is not
+   what "parity" implies at a glance, and the distinction matters for the
+   Phase 1 port, whose largest surface (`classify`) has **no** such gate.
+
+3. **The shims re-export AND re-implement.** "Shim pattern (zero-ruptura) …
+   re-exports 100 % of the public symbols" is true about coverage and
+   misleading about content. `pareto.py` defines `AXES` and
+   `class VectorLike`; `state.py` defines the whole `SearchState` class
+   wrapping the Rust one; `fingerprint.py` defines `dump`, `load`, `apply`,
+   `mismatch_reason`, `path_for`, `default_dir`, `DEFAULT_DIR_NAME`,
+   `SERVER_ENGINE_KEYS` and `HARNESS_ONLY_ENGINE_KEYS`. In
+   `fingerprint.py:53-58` the docstring states the Python was kept
+   **deliberately so that `unittest.mock.patch` could intercept it**, and
+   `mismatch_reason` (`:181-191`) retains a full if/elif/else for that
+   purpose.
+
+   *Consequence:* `config.write_baseline` — the regex rewriter of the
+   operator's `config.py` — is reachable **from the shim layer**, via
+   `fingerprint.apply` (`:113-114`) and `SearchState.update_baseline`
+   (`state.py:36-42`). The most fragile mechanism in the system is also the
+   most reachable one, which is precisely what the anti-agent contract in
+   ADR 0019 exists to close.
+
+The anti-agent gate from ADR 0019 measured this: **17 violations across all
+three shims** on its first run against the real tree
+(`.scratch/rust-native-refactor/prototypes/check_no_python_logic.py`).
+Those 17 are known, dated debt, not an open question.
