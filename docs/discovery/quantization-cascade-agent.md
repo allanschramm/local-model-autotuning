@@ -1,34 +1,25 @@
-# Quant Selection — Agent Quick Reference
+# Quant Selection ? Agent Quick Reference
 
-Read full version: [`quantization-cascade.md`](./quantization-cascade.md)
+Read the source guide: [quantization-cascade.md](./quantization-cascade.md), including Sources / Verification.
 
 ## Rules
 
-1. Pick highest bit-depth that fits VRAM
-2. UD beats standard at same bit-depth
-3. Never offload to CPU if avoidable
-4. Flash attention always on
+1. Compare the same base checkpoint at the same configured context and evaluation scope.
+2. Inspect actual bytes, tensor types, and bpw denominator. Quant labels and publisher prefixes do not prove fit or quality.
+3. Include weights, KV, workspace, optional heads/projectors, and host RAM. Dense requires physical VRAM fit; MoE expert offload follows the harness gates.
+4. Keep flash attention on. Never reduce configured context to resolve memory pressure.
+5. Use the explicit harness sequentially; canonical outcomes belong in results.db.
+
+## GSQ / RCO
+
+- GSQ optimizes scalar assignments and group scales; RCO allocates compression options among tensors under a budget.
+- These are quantization recipes. GGUF is the container; IQ/K types are stored tensor representations.
+- A nominal IQ2 artifact can contain IQ1?IQ4, K-quants, and BF16/F32. Compare parameter-weighted precision and actual required bytes.
+- Publisher results and stock-runtime compatibility claims remain unverified locally until validation and complete Trials.
+- MTP, QAT provenance, and KV precision are separate factors. Hold them fixed in the first comparison.
 
 ## Decision
 
-```
-VRAM >= 24GB  → UD-Q5_K_M (or Q5_K_M)
-VRAM 16-24GB → UD-Q4_K_XL or UD-IQ4_NL
-VRAM 12-16GB → UD-Q4_K_M or UD-IQ4_XS
-VRAM 8-12GB  → UD-IQ4_XS, else UD-IQ3_XS
-VRAM < 8GB   → UD-Q4_K_M (7B) or UD-IQ3_XS (13B)
-```
+Inspect ? apply hardware gates at fixed context ? validate ? complete Trial ? compare measured quality and throughput.
 
-## Priority
-
-```
-UD-Q4_K_XL > UD-Q4_K_M > Q4_K_M > Q3_K_M > Q2_K
-UD-IQ4_NL  > UD-IQ4_XS > IQ4 > IQ3
-```
-
-## Gotchas
-
-- Q4_K_XL often beats Q5_K_M on size, but Q5 safer for logic
-- UD-IQ3_XS: last resort, expect reasoning drop
-- Q3_K_M / Q2_K: avoid, only if forced
-- Model name must end `.gguf` — nothing else works with llama.cpp
+UD, standard, and GSQ-RCO have no universal ranking. Use matched budgets and repeat near-ties before claiming superiority.

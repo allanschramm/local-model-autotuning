@@ -43,7 +43,7 @@ User-facing guides for **discovering, evaluating, selecting, and optimizing** lo
 - [`../models/README.md`](../../models/README.md) — nested GGUF store shared with LM Studio.
 
 ### 2. Quantization & Low-VRAM Optimizations
-- [`quantization-cascade.md`](./quantization-cascade.md) — quantization format selection (UD vs standard, VRAM tiers) + HF 4-bit vs GGUF footprint for cross-engine sizing.
+- [`quantization-cascade.md`](./quantization-cascade.md) — quantization selection heuristics, HF vs GGUF sizing, GSQ/RCO mechanisms and tensor allocation, publisher-claim limits, and matched-budget Trial methodology.
 - [`quantization-cascade-agent.md`](./quantization-cascade-agent.md) — agent quick reference for quant selection (terse, grog-readable).
 - [`nvfp4-quantization.md`](./nvfp4-quantization.md) — NVIDIA NVFP4 4-bit FP format: structure, scaling, memory, native vs Marlin fallback, ecosystem, repo relevance.
 - [`advanced-inference-optimizations.md`](./advanced-inference-optimizations.md) — high-performance techniques: CUDA graphs, tcmalloc/jemalloc, KV cache optimizations, and offload bottlenecks.

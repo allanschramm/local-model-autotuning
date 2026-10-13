@@ -82,6 +82,9 @@ One markdown file per GGUF model we run on the operator host. Cards are the cano
 - [`pocket-26b.md`](./pocket-26b.md) — POCKET-26B; historical claw **0.2000** / coding **0.490**.
 - [`spark-x2.5-4b.md`](./spark-x2.5-4b.md) — Spark-X2.5-4B dense `spark2_5` (requires llama.cpp $\ge$ `b10828`); bench **73.1 t/s**, quick smoke **1.0000** (5/5), peak VRAM 6.8 GB @ 131k.
 - [`minicpm5-2b.md`](./minicpm5-2b.md) — MiniCPM5-2B Q4_K_M dense `llama`; claw 0.7333 / coding 0.3700 @ 131k, bench 127.3 t/s.
+- [`minicpm5-1b.md`](./minicpm5-1b.md) — MiniCPM5-1B Q4_K_M dense `llama`; measured text Trials and publisher samplers.
+- [`minicpm-v-4.7-1b.md`](./minicpm-v-4.7-1b.md) — dense `qwen35` trunk-only export; b11577 compatibility and text Trial.
+- [`minicpm-v-4.7-35b-a3b.md`](./minicpm-v-4.7-35b-a3b.md) — MoE `qwen35moe` trunk-only export; CPU expert offload and text evaluation.
 - [`fuse-2-moe.md`](./fuse-2-moe.md) — Fuse-2-MoE Q4_K_M MoE hybrid `qwen35moe`; claw 0.0000 / coding 0.0500 @32k, bench 56.4 t/s (requires `llama.cpp-fuse4`).
 - [`k2-horizon-7b.md`](./k2-horizon-7b.md) — K2-Horizon-7B Q4_K_M dense `k2_horizon` (IFM; 9.0B physical params with untied 250k vocab; 100% full dense attention; 40.5 KiB/tok KV footprint; Trial post-mortem and 32k context boundary).
 - [`vitriol-technique.md`](./vitriol-technique.md) — stock `--n-cpu-moe` path + absorbed notes from Randozart/VITRIOL (fork = study only).

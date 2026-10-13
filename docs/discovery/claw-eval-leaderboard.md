@@ -75,6 +75,19 @@ Across Laguna / Ornith / Bonsai full runs:
 
 Skip for agentic: **`LFM2.5-8B-A1B`**, **`gemma-4-26B-A4B`**, **`Qwen3.5-9B`** (full ≤0.20 / 0.13).
 
+## Scoring caveat: pass-rate hides partials (2026-09-30)
+
+`run_agentic_eval` reports `score = passed/total` with PASS at task score ≥ 0.5
+(`agentic_runner.py:733,762`) — the mean of per-task rubric scores is discarded.
+Evidence: an external-server quick smoke scored **1.0 (5/5)** while one task
+measured **0.65** (tools perfect, one keyword sub-item missed). Mean-of-tasks
+would have read **0.93**.
+
+Proposal: on tied pass-rates, break ties by mean per-task score (already persisted
+in `task_results[].score`, e.g. `runners/logs/strata-full-*.json`). No harness
+change needed to collect — only to rank. **TBD:** tie-break precedence vs Pareto
+axes before coding it into `rank_results.py`.
+
 ## See also
 
 * [thinking-models-claw-harness.md](thinking-models-claw-harness.md) — thinking-model Claw false-fail + remasure policy  
