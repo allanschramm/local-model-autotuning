@@ -3,7 +3,7 @@
 Local model cards for GGUF models we run on the operator host.
 Pattern: 1 card per model, with hardware reqs, sampling, MTP status, and local config baseline.
 
-Scores live in `results.tsv` + cards/leaderboards.
+Scores live in canonical `results.db`; cards/leaderboards summarize measured Trials.
 
 ## Architecture vs Training Technique
 
@@ -47,6 +47,9 @@ Cards:
 - [POCKET-26B](pocket-26b.md) — claw **0.2000** + coding **0.490** (historical)
 - [Spark-X2.5-4B](spark-x2.5-4b.md) — dense `spark2_5` (requires llama.cpp $\ge$ `b10828`); bench **73.1 t/s**, quick smoke **1.0000** (5/5), peak VRAM 6.8 GB @ 131k
 - [MiniCPM5-2B](minicpm5-2b.md) — claw **0.7333** / coding **0.3700** @ 131k, bench 127.3 t/s
+- [MiniCPM5-1B](minicpm5-1b.md) — claw **0.4667** / coding **0.1600** @ 65k, b11577.
+- [MiniCPM-V-4.7-1B](minicpm-v-4.7-1b.md) — text Trial: claw **0.7333** / coding **0.4050** @ 65k; trunk-only GGUF requires newer loading support.
+- [MiniCPM-V-4.7-35B-A3B](minicpm-v-4.7-35b-a3b.md) — text Trial: claw **0.6000** / coding **0.6300**, 37.5 generation t/s @ 65k with CPU experts, no speculation.
 - [Fuse-2-MoE](fuse-2-moe.md) — claw **0.0000** / coding **0.0500** @ 32k, bench 56.4 t/s (custom Fuse4 architecture on `llama.cpp-fuse4`)
 - [K2-Horizon-7B](k2-horizon-7b.md) — claw **0.6000** / coding **0.4800** @ 65k (dense `k2_horizon`, IFM; 9.0B physical params; 40.5 KiB/tok KV footprint; 32k context boundary on 8 GB cards)
 - [VITRIOL technique](vitriol-technique.md) — stock MoE `--n-cpu-moe` + study notes on Randozart DMA fork (not Trial engine)

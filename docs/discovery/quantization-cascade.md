@@ -4,70 +4,15 @@ Best Choice Cascade for selecting a GGUF quantization format. Prioritizes **qual
 
 ## The Golden Rule
 
-**Always choose the highest bit-depth that fits in your VRAM.**
-If you have room, **Unsloth Dynamic (UD)** versions are **always superior** to standard versions of the same bit-depth.
+Choose a quantization by measured quality, actual bytes, and throughput at the target context. A publisher prefix (`UD`, `GSQ-RCO`) or nominal bit-depth is not a universal quality ranking. The GSQ-RCO evidence below directly contradicts an unconditional UD-first rule. [S3–S5]
 
-## The Best Choice Cascade (Top to Bottom)
+## Selection Procedure
 
-Use this decision tree. Stop at the first option that fits in your VRAM.
-
-### Tier 1: Maximum Fidelity (massive VRAM)
-
-1. **BF16 / FP16** (Original Precision)
-   - Best for: research, training, or 80GB+ VRAM (A100/H100). Zero quality loss, but huge file size.
-2. **UD-Q8_0** (Unsloth Dynamic 8-bit)
-   - Best for: near-perfect accuracy with slightly better speed than BF16.
-   - Note: `UD` here is rare; standard `Q8_0` is usually fine.
-3. **Q8_0** (Standard 8-bit)
-   - Best for: "lossless" experience for most users. Indistinguishable from BF16 for chat/coding.
-
-### Tier 2: The Sweet Spot (High Quality, Reasonable Size)
-
-4. **UD-Q5_K_M** or **UD-Q5_K_XL** — **Highly Recommended**
-   - Why: the absolute best balance for most users. `UD` optimizes layers to match or beat standard Q6/Q7.
-   - Use when: you have 16GB–24GB VRAM.
-5. **Q5_K_M** (Standard 5-bit)
-   - Why: excellent accuracy, slightly larger than `UD-Q5` but very stable.
-6. **UD-Q4_K_XL** / **UD-Q4_K_M** — **Best 4-bit**
-   - Why: the new standard. `UD` makes these smarter than standard Q5s in some cases.
-   - Use when: you have 12GB–16GB VRAM.
-
-### Tier 3: The Efficiency Zone (Aggressive but Smart)
-
-7. **UD-IQ4_NL** / **UD-IQ4_XS**
-   - Why: best 4-bit compression. `NL` is highest quality, `XS` is smallest.
-   - Use when: you need to save space but refuse to drop to 3-bit.
-8. **Q4_K_M** (Standard 4-bit)
-   - Why: the classic "good enough" choice. Reliable, but `UD` versions beat it.
-
-### Tier 4: The Last Resort (Tiny VRAM)
-
-9. **UD-IQ3_XS** / **UD-IQ2_M**
-   - Why: only choose these if 4-bit doesn't fit. `UD` saves them from being terrible.
-   - Warning: expect some quality drop in reasoning and logic.
-10. **Q3_K_M** / **Q2_K**
-    - Why: avoid if possible. Only use if forced to run a 70B model on 8GB VRAM.
-
-## Quick Decision Matrix
-
-| Your VRAM | Model Size | Best Choice | Why? |
-|:---|:---|:---|:---|
-| 24GB+ | 70B | `UD-Q5_K_M` or `Q5_K_M` | Max intelligence without BF16 bloat. |
-| 16GB–20GB | 35B–70B | `UD-Q4_K_XL` or `UD-IQ4_NL` | Best 4-bit quality. Fits comfortably. |
-| 12GB–16GB | 30B–35B | `UD-Q4_K_M` or `UD-IQ4_XS` | Great balance of speed and smarts. |
-| 8GB–10GB | 13B–30B | `UD-IQ4_XS` (if fits) else `UD-IQ3_XS` | Squeeze 4-bit in first; drop to 3-bit only if needed. |
-| < 8GB | 7B–13B | `UD-Q4_K_M` (7B) or `UD-IQ3_XS` (13B) | Limited by bit-depth. |
-
-## Summary Rules
-
-1. **Bit-Depth Wins:** 4-bit (`Q4`/`IQ4`) > 3-bit (`Q3`/`IQ3`) > 2-bit.
-2. **UD Wins:** `UD-Q4` > `Standard Q4`. `UD-IQ4` > `Standard IQ4`.
-3. **The XL Trick:** `Q4_K_XL` is often better than `Q5_K_M` for file size, but `Q5_K_M` is safer for logic.
-4. **VRAM is King:** If `UD-Q4` makes your GPU crash, drop to `UD-IQ4_XS`. If that crashes, drop to `UD-Q3_K_M`. Never run a model that offloads to CPU unless you have no choice.
-
-## Final Recommendation
-
-If you see a file named **`UD-Q4_K_XL`** or **`UD-IQ4_NL`**, download that one first. It is the current state-of-the-art for local LLMs.
+1. Fix the base checkpoint, evaluation scope, configured context, and runtime before comparing quantization recipes.
+2. Inspect actual file bytes, tensor allocation, and the bpw denominator. Include optional heads/projectors and all required shards in sizing.
+3. Check full memory requirements: resident weights, KV cache, runtime workspace, and host RAM. Dense models must fit physical VRAM; MoE expert offload follows the repo's supported gates.
+4. Validate each eligible artifact, then compare complete Objective Vectors at matched budgets. Keep sampler, reasoning, KV, and speculative settings fixed for the quantization comparison.
+5. Select using measured quality and throughput. Higher nominal precision, UD, and GSQ-RCO are candidates rather than universal winners. Preserve the target context when addressing resource pressure. [S3?S5]
 
 ## HF 4-bit (AWQ / GPTQ / NVFP4) vs GGUF Q4
 
@@ -83,6 +28,76 @@ Rules:
 1. Compare **engine-reported weight load** (or disk size of the actual shard) to `VRAM_LIMIT_MB` — not the “Q4 / NVFP4” label alone.
 2. **Same-bytes** comparison (e.g. GGUF load on every engine that supports it) isolates the engine. **Native-stack** comparison (GGUF vs AWQ vs NVFP4) is a **compound** claim — label it as such.
 3. Reject oversized packs under the repo no-spill contract. Never “nudge util until it loads.”
+
+## GSQ + RCO: quantization recipe versus deployment format
+
+**GSQ improves a tensor's quantized values; RCO chooses which precision each tensor receives under a budget.** Neither name is a new GGUF storage type, a speculative decoder, or a KV-cache setting. The released GGUFs assemble ordinary GGML tensor types, including mixed IQ/K types and retained floating-point tensors. [S1–S5]
+
+| Component | Role | What it does not establish |
+| :-- | :-- | :-- |
+| GSQ — Gumbel-Softmax Quantization | Post-training scalar quantization: jointly optimizes discrete grid assignments and group scales through a differentiable Gumbel-Softmax relaxation; projects the result into the deployment format. | A new inference kernel, guaranteed task quality, or automatic speedup. |
+| RCO — Riemannian Constrained Optimization | Searches assignments of compression options to groups against the joint model loss, subject to the cost budget. For these releases, options are tensor quantization types. | Every tensor at the suffix's precision, or a VRAM limit covering KV/runtime allocations. |
+| GGUF / GGML tensor types | Container and stored representation that the runtime loads and computes. | Which optimizer produced the quantized values. |
+
+RCO relaxes assignments into softmax probabilities. The expected-cost equality defines a manifold in logit space; tangent projection, binary-search retraction, and momentum transport wrap an Adam step. A budget-constrained discrete solver with Gumbel straight-through estimation supplies feasible hard assignments. The exact-budget claim concerns this optimization problem, not exact runtime memory, nor a proof that every packaged byte equals a rounded target. [S2, S4]
+
+### Differences from GPTQ and AWQ
+
+GPTQ uses approximate second-order information for post-training weight quantization. AWQ protects salient weights using activation-aware scaling. GSQ instead refines scalar assignments and scales with the relaxed discrete optimization; its reference pipeline can initialize from GPTQ, so these methods are not necessarily mutually exclusive. RCO is the allocation search over candidate representations, a different level from producing a candidate quantized tensor. [S1, S4, S6, S7]
+
+Optimizing quantizer parameters on calibration data remains post-training quantization in the GSQ paper; it is not evidence of model pretraining or a separate QAT checkpoint. A QAT provenance claim needs the base checkpoint's own training documentation. GSQ/RCO names do not supply it. [S1, S4]
+
+### Read actual bpw and allocation
+
+The suffix can name a budget class while individual tensors use lower/higher IQ/K types or BF16/F32. An inspected publisher allocation dump contains IQ1 through IQ4, Q2_K/Q4_K, and floating-point tensors in the same nominal IQ2 release. A count histogram is not a parameter-weighted bpw histogram: a small norm tensor and a large matrix count equally. [S3, S8]
+
+Record the denominator before comparing bpw. A publisher may report whole-file average precision, or average over only the transformer weights searched by RCO. Fixed lookup embeddings, vision projectors, MTP heads, metadata, and extra shards can be outside that search. Total required bytes and loaded memory remain the sizing authorities. [S3, S5]
+
+```powershell
+# Install the HF CLI if absent: uv tool install huggingface_hub
+$env:PYTHONIOENCODING = 'utf-8'
+hf models card <publisher>/<release>
+hf models list <publisher>/<release> -R --json
+# Copy the exact small text path listed above; inspect allocation without weights.
+hf download <publisher>/<release> tensor-allocation/<allocation-name>.txt
+```
+
+Record the repository commit from model metadata (`hf models info <publisher>/<release> --json`) and use `--revision <commit>` on file listing/download commands. The card command reads the current card; use a pinned README download for reproducible extraction. Inspect README and allocation text before downloading weights. The paper/code GitHub organization is `IST-DASLab`; the example HF publisher is `ISTA-DASLab`. [S3–S5, S8]
+
+### Runtime, MTP, and KV cache
+
+The publisher describes these exports as standard GGUFs usable in unmodified llama.cpp. This is a **publisher compatibility claim, unverified locally for GSQ-RCO**: the engine must still support the architecture and every stored tensor type. A recipe suffix alone does not require a new build; validate the exact artifact against the pinned release before changing the runtime. [S3, S5]
+
+MTP is separate packaging and execution: optional MTP heads add weights and require runtime speculative support. Hold MTP disabled for the first quantization comparison, then test it as a separate factor; count the extra head in the memory budget. Quantized weights do not quantize KV automatically: llama.cpp exposes distinct K/V cache types, whose support and effect need their own validation. [S3, S9]
+
+### Claims and fair local comparison
+
+Publisher quality tables are **external / unverified on this rig**. A reported task average near BF16, recovery above 100%, or “task-lossless” means results on those tasks under that protocol; it does not mean identical weights, logits, general capability, or a guaranteed improvement. Published comparisons already show metric-dependent wins and losses against another recipe. Quantization kernel choice can also trade quality for throughput at similar sizes. [S3, S5]
+
+1. Use the same base checkpoint and text/vision scope; pin artifact revisions, exact bytes, tensor allocation, engine tag, and templates.
+2. Match actual weight budget as closely as possible; report residual size differences. Keep configured context, KV precision, offload, batch/ubatch, sampler, reasoning/token budgets, prompts, and benchmark revisions fixed. Compare complete Objective Vectors, not publisher averages.
+3. Run one validation/Trial at a time through the explicit harness, with Baseline in `autoresearch/core/config.py`; record canonical outcomes in `results.db`. No autonomous loop or context reduction.
+4. Record prefill/decode separately where available, peak memory, failures, and per-task outcomes. Repeat apparent near-ties before claiming dominance. Change MTP, KV, or engine only in subsequent comparisons with one factor varied.
+
+### Open questions
+
+- **TBD:** exact GSQ-RCO artifact load and every tensor-type kernel on the pinned release; answer with harness validation before a full Trial.
+- **TBD:** quality/throughput dominance at matched bytes and unchanged context on this rig; answer with sequential complete Trials. No GSQ-RCO local result was generated by this research pass.
+- **TBD:** calibration distribution and exact generation protocol behind a particular publisher score; establish them before interpreting small deltas or transferring claims to agentic/coding-10.
+
+## Sources / Verification
+
+Primary sources checked **2026-10-12**. HF cards/file listings and the small allocation text were read with `hf`; GitHub READMEs with `gh api`; papers through arXiv. No weights downloaded or engine launched for this research.
+
+- **S1:** [GSQ paper, v2 (2026-05-15)](https://arxiv.org/abs/2604.18556v2).
+- **S2:** [RCO paper, v3 (2026-09-27)](https://arxiv.org/abs/2605.00649v3).
+- **S3:** [Publisher GGUF recipe, packaging, and external comparison table](https://huggingface.co/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF/blob/d562806dbafae37109975e970aae91b43e73b440/README.md).
+- **S4:** [GSQ reference implementation](https://github.com/IST-DASLab/GSQ) and [RCO reference implementation](https://github.com/IST-DASLab/RCO).
+- **S5:** [Publisher MoE release: search denominator, fixed lookup shard, external speed/quality tradeoff](https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF).
+- **S6:** [GPTQ paper, v2 (2023-03-22)](https://arxiv.org/abs/2210.17323v2).
+- **S7:** [AWQ paper](https://arxiv.org/abs/2306.00978).
+- **S8:** [Inspected per-tensor allocation, pinned revision](https://huggingface.co/ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF/blob/d562806dbafae37109975e970aae91b43e73b440/tensor-allocation/Qwen3.8-27B-GSQ-RCO-IQ2_XS.rco-allocation.txt).
+- **S9:** [Upstream llama.cpp server options, separate K/V cache types](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md).
 
 ## Related Docs
 

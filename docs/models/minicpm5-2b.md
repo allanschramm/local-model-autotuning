@@ -38,14 +38,14 @@
 
 ## Recommended Settings
 
-From model card defaults and `UNIVERSAL_FALLBACK_SAMPLER`:
+From the publisher's [GGUF model card](https://huggingface.co/openbmb/MiniCPM5-2B-GGUF), checked 2026-10-12. The historical Trial below used the fallback sampler; its scores do not validate these recommended settings.
 
 | Setting | Value | Notes |
 |---|---|---|
-| `TEMP` | 0.8 | General fallback |
+| `TEMP` | 1.0 | Publisher recommendation |
 | `TOP_P` | 0.95 | Recommended sampling |
-| `TOP_K` | 40 | Bounded top-k |
-| `MIN_P` | 0.05 | Universal fallback floor |
+| `TOP_K` | 0 | Disable extra top-k filtering; publisher does not specify it |
+| `MIN_P` | 0.0 | Publisher warns that llama.cpp's 0.05 default can cause repetition |
 | `REPEAT_PENALTY` | 1.0 | Neutral |
 | `PRESENCE_PENALTY` | 0.0 | Neutral |
 
@@ -55,7 +55,7 @@ From model card defaults and `UNIVERSAL_FALLBACK_SAMPLER`:
 
 - **MTP Tensors in this GGUF**: None (standard dense causal LM without extra prediction heads).
 - **Embedded MTP Support**: Not present in `MiniCPM5-2B-Q4_K_M.gguf`.
-- **Harness Speculative Decoding**: `--spec-type none`.
+- **Harness Speculative Decoding**: disabled in the historical Trial. The publisher also provides an [external DSpark draft](https://huggingface.co/openbmb/MiniCPM5-2B-DSpark-GGUF), paired with `SPEC_TYPE='draft-dspark'`, `SPEC_DRAFT_N_MAX=7`, and `SPEC_DRAFT_MODEL` pointing to `MiniCPM5-2.6B-DSpark.gguf`. It is an acceleration companion, not a separate benchmark target.
 
 ---
 
@@ -92,6 +92,12 @@ Measured on discrete 8 GB-class NVIDIA GPU via `benchmark_search.py --agentic-fu
 ---
 
 ## Sources / Verification
+
+### Follow-up Trial: official sampler + DSpark
+
+2026-10-12, upstream b11577, context 131072, q4_0 KV, TEMP 1.0 / TOP_P 0.95 / TOP_K 0 / MIN_P 0, external DSpark draft with max 7: validation 5/5; full Trial outcome OK / status on_front, agentic 0.6667, coding 0.2550, generation TPS 142.6, bench_tg 126.3, peak VRAM 5.2 GB. Canonical description: `trial MiniCPM5-2B official sampler DSpark b11577 serial`.
+
+This configuration scored lower than the historical Trial above. Engine, sampler, and speculative settings all changed; this comparison does not isolate DSpark's effect or demonstrate a speed improvement attributable to it. The DSpark companion used here belongs to MiniCPM5-2B, not MiniCPM-V-4.7-35B-A3B.
 
 - **Primary HF Repo**: `https://huggingface.co/openbmb/MiniCPM5-2B-GGUF` (retrieved 2026-09-09)
 - **Base HF Repo**: `https://huggingface.co/openbmb/MiniCPM5-2B` (retrieved 2026-09-09)
