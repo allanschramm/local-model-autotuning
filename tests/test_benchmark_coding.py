@@ -434,11 +434,9 @@ class TestBenchmarkCoding(unittest.TestCase):
     @patch("autoresearch.benchmarks.benchmark_coding._load_bigcodebench_hard")
     @patch("autoresearch.benchmarks.benchmark_coding._load_livecodebench")
     @patch("autoresearch.benchmarks.benchmark_coding._load_problems")
-    def test_eval_combines_content_and_reasoning(self, mock_load, mock_lcb, mock_bcb, mock_run_lcb):
+    def test_eval_does_not_execute_reasoning(self, mock_load, mock_lcb, mock_bcb, mock_run_lcb):
         """
-        If content is empty but reasoning_content has the code (thinking model
-        ran out of tokens for content but emitted code in reasoning), we still
-        extract a passing code.
+        Reasoning-only code is not a final solution and must not receive a score.
         """
         # Empty HE/MBPP loads; LCB runs the mocked test
         mock_load.side_effect = [{}, {}]
@@ -479,8 +477,8 @@ class TestBenchmarkCoding(unittest.TestCase):
         result = benchmark_coding.run_benchmark(
             client, task_limit=1, lcb_task_limit=1, bigcode_task_limit=0
         )
-        # LCB pass should be 1.0 since reasoning_content was extracted and ran
-        self.assertEqual(result.val_pass1, 1.0)
+        self.assertEqual(result.val_pass1, 0.0)
+        mock_run_lcb.assert_not_called()
 
 
 if __name__ == "__main__":

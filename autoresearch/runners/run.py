@@ -29,6 +29,7 @@ from autoresearch.core import (
     resolve_llama_server,
     results_db,
 )
+from autoresearch.core.evaluation_protocol import CODING_PROTOCOL
 from autoresearch.runners.evaluation import ExperimentRunner, resolve_tps_floor
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -397,6 +398,7 @@ def parse_args():
 def tsv_fields_from_cfg(baseline: dict[str, Any]) -> dict[str, Any]:
     """Map a Baseline-style config dict to write_row flat-column kwargs."""
     recorded = {key.lower(): value for key, value in baseline.items()}
+    recorded["coding_protocol"] = CODING_PROTOCOL
     return {
         "model": baseline.get("MODEL", ""),
         "kv": baseline.get("KV_CACHE", ""),
@@ -845,6 +847,9 @@ def write_row(
         "reasoning_effort": reasoning_effort or "",
         "description": description,
     }
+    recorded = json.loads(row["config_json"])
+    recorded.setdefault("coding_protocol", CODING_PROTOCOL)
+    row["config_json"] = json.dumps(recorded, separators=(",", ":"), sort_keys=True)
     with _results_lock(results_file):
         # Canonical store first: SQLite upsert. On failure the legacy TSV
         # append below still captures the row (heal via try_sync_from_tsv).
@@ -1023,13 +1028,14 @@ def handle_single_run(args):
     )
     _ensure_category_column(RESULTS_FILE)
     rows = read_rows(RESULTS_FILE)
-    fp = classify.fp_from_baseline(config.load_config())
+    fp = classify.fp_from_baseline(dict(config.load_config(), CODING_PROTOCOL=CODING_PROTOCOL))
     status, _ = classify.plan_write(
         rows,
         fp=fp,
         vector=vector,
         bucket_gb=classify.bucket(res["peak_vram_gb"]),
         model=(args.model or "").strip() or None,
+        coding_protocol=CODING_PROTOCOL,
     )
 
     details = f"{args.model} kv={args.kv} ctx={args.ctx_size} TPS={res['avg_tps']:.1f} VRAM={res['peak_vram_gb']:.1f}GB coding={res['coding_val']:.4f}"

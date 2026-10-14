@@ -35,6 +35,7 @@ _ensure_repo_root_on_sys_path()
 
 from autoresearch.core import results_db
 from autoresearch.core.classify import MORRIS_SCREEN_PROFILE, fp_from_config_json
+from autoresearch.core.evaluation_protocol import coding_protocol_from_config
 
 DEFAULT_TSV = REPO_ROOT / "results.tsv"
 
@@ -213,12 +214,19 @@ def build_vectors(
 
     complete: list[Point] = []
     incomplete: list[Point] = []
-    by_model: dict[str, list[tuple[str | None, dict[str, Any]]]] = {}
+    by_model: dict[tuple[str, str], list[tuple[str | None, dict[str, Any]]]] = {}
+    protocols = {
+        (
+            r.get("model", "").strip(),
+            fp_from_config_json(r.get("config_json")),
+        ): coding_protocol_from_config(r.get("config_json"))
+        for r in rows
+    }
     for (model, fp), group in groups.items():
-        by_model.setdefault(model, []).append((fp, group))
+        by_model.setdefault((model, protocols[(model, fp)]), []).append((fp, group))
 
-    for model in sorted(by_model):
-        candidates = by_model[model]
+    for model, protocol in sorted(by_model):
+        candidates = by_model[(model, protocol)]
         complete_groups = [
             (fp, g) for fp, g in candidates if g["agentic"] is not None and g["coding"] is not None
         ]
@@ -542,14 +550,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"ERROR: missing {path}", file=sys.stderr)
         return 1
     rows = load_rows(path)
-    complete, incomplete = build_vectors(rows)
-    report = format_report(
-        complete,
-        incomplete,
-        mode=args.mode,
-        rows=rows,
-    )
-    print(report, end="")
+    protocols = sorted({coding_protocol_from_config(r.get("config_json")) for r in rows})
+    for protocol in protocols:
+        selected = [
+            r for r in rows if coding_protocol_from_config(r.get("config_json")) == protocol
+        ]
+        complete, incomplete = build_vectors(selected)
+        print(f"CODING PROTOCOL: {protocol}\n")
+        print(format_report(complete, incomplete, mode=args.mode, rows=selected), end="")
     return 0
 
 

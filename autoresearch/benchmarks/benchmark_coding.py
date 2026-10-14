@@ -31,10 +31,12 @@ import tempfile
 import textwrap
 import time
 import zlib
+from datetime import UTC, datetime
 from pathlib import Path
 
 from autoresearch.benchmarks import bench_config
 from autoresearch.benchmarks.benchmark_harness import BenchmarkResult
+from autoresearch.core.evaluation_protocol import CODING_MAX_TOKENS, CODING_PROTOCOL
 from autoresearch.core.llama_client import GenerationParams, LlamaClient
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -112,9 +114,11 @@ def _run_subprocess(script: str, stdin_input: str | None = None) -> tuple[int, s
         return -1, "", str(e)
 
 
-def _run_tests(code: str, test_code: str) -> bool:
+def _run_tests(code: str, test_code: str, errors: list[str] | None = None) -> bool:
     """Run generated code + test code in a sandboxed subprocess. Returns True if all tests pass."""
-    rc, _, _ = _run_subprocess(f"{code}\n\n{test_code}\n")
+    rc, stdout, stderr = _run_subprocess(f"{code}\n\n{test_code}\n")
+    if rc != 0 and errors is not None:
+        errors.append(stderr or stdout or f"test_exit={rc}")
     return rc == 0
 
 
@@ -302,7 +306,7 @@ def _build_lcb_prompt(entry: dict) -> str:
     return "\n".join(p for p in parts if p).strip()
 
 
-def _run_lcb_tests(code: str, entry: dict) -> bool:
+def _run_lcb_tests(code: str, entry: dict, errors: list[str] | None = None) -> bool:
     """
     Run a LiveCodeBench problem: feed each test case's `input` to stdin,
     compare stdout to expected `output` (whitespace-stripped tolerance).
@@ -315,10 +319,14 @@ def _run_lcb_tests(code: str, entry: dict) -> bool:
         expected = tc.get("output", "").rstrip("\n")
         if "input" not in tc:
             continue
-        rc, stdout, _ = _run_subprocess(code, stdin_input=inp)
+        rc, stdout, stderr = _run_subprocess(code, stdin_input=inp)
         if rc != 0:
+            if errors is not None:
+                errors.append(stderr or stdout or f"test_exit={rc}")
             return False
         if stdout.rstrip("\n") != expected:
+            if errors is not None:
+                errors.append(f"stdout mismatch: expected={expected!r}, actual={stdout!r}")
             return False
     return True
 
@@ -363,7 +371,7 @@ def _build_bigcode_prompt(entry: dict) -> str:
     )
 
 
-def _run_bigcode_tests(code: str, entry: dict) -> bool:
+def _run_bigcode_tests(code: str, entry: dict, errors: list[str] | None = None) -> bool:
     """
     Run BigCodeBench unittest suite. The dataset ships a full unittest.TestCase
     class as the `test` field. We prepend the model's code (defines `task_func`)
@@ -399,6 +407,8 @@ def _run_bigcode_tests(code: str, entry: dict) -> bool:
         f"sys.exit(0 if result.wasSuccessful() else 1)\n"
     )
     rc, stdout, stderr = _run_subprocess(script)
+    if rc != 0 and errors is not None:
+        errors.append(stderr or stdout or f"test_exit={rc}")
     if rc != 0 and stderr and os.environ.get("AUTORESEARCH_DEBUG"):
         print(f"    [BigCode fail] {stderr.strip()[:300]}")
     return rc == 0
@@ -408,11 +418,8 @@ def _run_bigcode_tests(code: str, entry: dict) -> bool:
 # EvalTask — one instance per dataset (weight lives on the instance)
 # ---------------------------------------------------------------------------
 
-# Per-dataset max_tokens override (used by EvalTask.max_tokens). Default 1024
-# is too tight for thinking models on competitive-programming / library-call
-# tasks where the prompt eats context and the think block eats output budget
-# before any code is emitted.
-_MAX_TOKENS = 2048
+# Fixed capability protocol: thinking and final code share this output pool.
+_MAX_TOKENS = CODING_MAX_TOKENS
 
 
 class EvalTask:
@@ -466,7 +473,7 @@ class EvalplusTask(EvalTask):
             prompt_sig = entry.get("prompt", "")
             code = textwrap.indent(code, "    ")
             code = prompt_sig + "\n" + code
-        return _run_tests(code, test_code)
+        return _run_tests(code, test_code, errors=self.test_errors)
 
 
 class LiveCodeBenchTask(EvalTask):
@@ -484,7 +491,7 @@ class LiveCodeBenchTask(EvalTask):
         return _build_lcb_prompt(entry)
 
     def run_tests(self, code: str, entry: dict) -> bool:
-        return _run_lcb_tests(code, entry)
+        return _run_lcb_tests(code, entry, errors=self.test_errors)
 
 
 class BigCodeBenchTask(EvalTask):
@@ -502,7 +509,7 @@ class BigCodeBenchTask(EvalTask):
         return _build_bigcode_prompt(entry)
 
     def run_tests(self, code: str, entry: dict) -> bool:
-        return _run_bigcode_tests(code, entry)
+        return _run_bigcode_tests(code, entry, errors=self.test_errors)
 
 
 # ---------------------------------------------------------------------------
@@ -515,6 +522,8 @@ def run_coding_eval(
     task: EvalTask,
     gen_params: GenerationParams | None = None,
     task_limit: int | None = None,
+    artifact: dict | None = None,
+    artifact_path: Path | None = None,
 ) -> tuple[float, int, float]:
     """Run coding evaluation on a task. Returns (pass_at_1, total_tokens, total_seconds).
 
@@ -538,42 +547,66 @@ def run_coding_eval(
     print(f"  [CODING] {task.name}: {total} tasks", flush=True)
 
     for i, (tid, entry) in enumerate(entries):
-        prompt = task.build_prompt(entry)
-        if not prompt:
-            continue
-
+        record = {
+            "dataset": task.name,
+            "task_id": str(tid),
+            "max_tokens": gen.max_tokens,
+            "content": "",
+            "reasoning_content": "",
+            "code": "",
+            "usage": {},
+            "finish_reason": None,
+            "completion_tokens": None,
+            "budget_exhausted": False,
+            "passed": False,
+            "error": "",
+        }
+        task.test_errors = []
+        started = time.time()
         try:
+            prompt = task.build_prompt(entry)
+            record["prompt"] = prompt
+            if not prompt:
+                record["error"] = "empty_prompt"
+                continue
             res = client.complete(prompt, gen=gen)
             usage = res.get("usage", {})
             total_tokens += int(usage.get("total_tokens", 0) or 0)
-            # Combine content + reasoning_content. For thinking models, llama-server
-            # emits think tokens into a separate reasoning_content field; if the
-            # model runs out of tokens mid-think, content may be empty while
-            # reasoning_content holds the think block. _strip_code handles both.
-            raw_response = res.get("content", "") or ""
-            reasoning = res.get("reasoning_content", "") or ""
-            if raw_response.strip():
-                combined = raw_response
-            else:
-                combined = reasoning
+            content = res.get("content") or ""
+            reasoning = res.get("reasoning_content") or ""
+            completion_tokens = usage.get("completion_tokens")
+            exhausted = completion_tokens is not None and completion_tokens >= gen.max_tokens
+            record.update(
+                content=content,
+                reasoning_content=reasoning,
+                usage=usage,
+                finish_reason=res.get("finish_reason"),
+                completion_tokens=completion_tokens,
+                budget_exhausted=exhausted,
+            )
+            if exhausted:
+                task.test_errors.append("budget_exhausted")
+            # Reasoning is diagnostic material, never an executable final solution.
+            code = textwrap.dedent(_strip_code(content))
+            record["code"] = code
+            if not code:
+                task.test_errors.append("reasoning_only" if reasoning else "no_code")
+                continue
+            record["passed"] = bool(task.run_tests(code, entry))
+            if record["passed"]:
+                passed += 1
+            elif not task.test_errors:
+                task.test_errors.append("tests_failed")
         except Exception as e:
-            print(f"    {tid} FAIL: {e}", flush=True)
-            continue
-
-        code = _strip_code(combined)
-        if not code:
-            print(f"    {tid} FAIL (no code extracted) ({i + 1}/{total})", flush=True)
-            continue
-
-        code = textwrap.dedent(code)
-
-        ok = task.run_tests(code, entry)
-
-        if ok:
-            passed += 1
-            print(f"    {tid} PASS ({i + 1}/{total})", flush=True)
-        else:
-            print(f"    {tid} FAIL ({i + 1}/{total})", flush=True)
+            task.test_errors.append(str(e))
+        finally:
+            record["error"] = " | ".join(filter(None, [record["error"], *task.test_errors]))
+            record["elapsed_sec"] = round(time.time() - started, 3)
+            if artifact is not None and artifact_path is not None:
+                artifact["tasks"].append(record)
+                _write_artifact(artifact_path, artifact)
+            label = "PASS" if record["passed"] else "FAIL"
+            print(f"    {tid} {label} ({i + 1}/{total}) {record['error'][:300]}", flush=True)
 
     elapsed = time.time() - t_start
     pass_at_1 = passed / total if total > 0 else 0.0
@@ -588,6 +621,13 @@ def run_coding_eval(
 # ---------------------------------------------------------------------------
 # Unified benchmark
 # ---------------------------------------------------------------------------
+
+
+def _write_artifact(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    temporary.replace(path)
 
 
 def run_benchmark(
@@ -607,6 +647,25 @@ def run_benchmark(
         "bigcode_task_limit", getattr(bench_config, "BIGCODE_TASK_LIMIT", 10)
     )
 
+    model = Path(kwargs.get("model_name") or "model").name
+    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S-%f")
+    filename = re.sub(r"[^\w.-]", "_", model)
+    artifact_path = Path(
+        kwargs.get("artifact_path")
+        or (ROOT_DIR.parent / "runners" / "logs" / f"coding-{stamp}-{filename}.json")
+    )
+    artifact = {
+        "model": model,
+        "coding_protocol": CODING_PROTOCOL,
+        "max_tokens": CODING_MAX_TOKENS,
+        "generation_params": (gen_params or GenerationParams())
+        .with_overrides(max_tokens=CODING_MAX_TOKENS)
+        .to_payload(),
+        "tasks": [],
+    }
+    _write_artifact(artifact_path, artifact)
+    print(f"  [coding-artifact] {artifact_path}", flush=True)
+
     # ── Run each task ──────────────────────────────────────────────────
     specs: list[tuple[EvalTask, int]] = [
         (EvalplusTask("humaneval", 0.25), task_limit),
@@ -625,6 +684,8 @@ def run_benchmark(
             task,
             gen_params=gen_params,
             task_limit=limit,
+            artifact=artifact,
+            artifact_path=artifact_path,
         )
         passes[task.name] = pass1
         total_tokens += tokens
