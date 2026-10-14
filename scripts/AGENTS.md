@@ -10,7 +10,7 @@ Repository operators and developers.
 - Scripts must be runnable from the repository root.
 - OpenVINO GenAI remains optional. `bench_openvino.py` imports it only while running and exits nonzero with an actionable install message when unavailable.
 - `model_up.py` (global `model-up`) must work from any cwd: resolve `--model` and the Fingerprint `SPEC_DRAFT_MODEL` to absolute paths, and spawn `llama-server` with `cwd=REPO_ROOT`.
-- `model_up.py` serves the Fingerprint file (issue #52, ADR 0014 phase 2): alias gives identity + local bind (`model`, `alias`, `host`, `port`, `llama_cpp_root`); engine flags come from `fingerprints/<stem>.json` via the same subset/order as the trial runner (incl. SPEC auto-MTP + `--n-cpu-moe` auto). Missing/invalid file fails closed (exit 1, never alias-flag soup); stale alias `flags:` are ignored with a NOTE. Single-load gate unchanged. Engine flags pass through `load_mode_flag` (`NO_MMAP`/`MLOCK` -> `--load-mode`) and `build_command` runs `assert_flags_supported`, so an engine bump that dropped a flag fails before spawn instead of at startup.
+- `model_up.py` serves the Fingerprint file (issue #52, ADR 0014 phase 2): alias gives identity + local bind (`model`, `alias`, `host`, `port`, `llama_cpp_root`); engine flags and optional sampler defaults come from `fingerprints/<stem>.json` via the same subset/order as the trial runner (incl. SPEC auto-MTP + `--n-cpu-moe` auto). Missing/invalid file fails closed (exit 1, never alias-flag soup); stale alias `flags:` are ignored with a NOTE. Single-load gate unchanged. Engine flags pass through `load_mode_flag` (`NO_MMAP`/`MLOCK` -> `--load-mode`) and `build_command` runs `assert_flags_supported`, so an engine bump that dropped a flag fails before spawn instead of at startup.
 - `setup-check.sh` is the canonical readiness verification script (supports GPU acceleration and CPU-only builds). It must import-check every package listed in root `requirements.txt` (including `gguf`).
 
 ## Work Guidance
@@ -29,6 +29,7 @@ Repository operators and developers.
 - `rank_results.py`: `.\venv\Scripts\python.exe -m pytest tests/test_rank_results.py`
 - `check_leaderboard_docs.py`: pytest `tests/test_leaderboard_doc_check.py` + run the script against a seeded store for doc/table parity.
 - Ensure `bash scripts/setup-check.sh` passes before declaring environment readiness.
+- Live launcher parity: `powershell -NoProfile -File scripts/test_model_up_live.ps1 -TrialArtifact <coding-log.json>` compares `/props` model and sampler with a recorded Trial, writing `<coding-log.json>.launcher-verification.json`. Requires an already-running server; does not start or stop it.
 - Shared validate: `python scripts/run_validate.py` (same as `.github/workflows/validate.yml`).
 - After every push: `python scripts/watch_validate.py` waits for GitHub Actions `validate.yml` on HEAD (`gh run watch`). Local Windows pytest does not cover POSIX `fcntl` branches.
 - Git pre-commit (Ruff/pytest) is repo-root owned — see root `AGENTS.md` Verification + `.pre-commit-config.yaml`.
@@ -45,6 +46,7 @@ Repository operators and developers.
 - [model_info.py](model_info.py) — read-only GGUF metadata query (arch, block count, KV sizing, `--tensors` inventory) via `autoresearch.core.model_arch`.
 - [rebuild_results_db.py](rebuild_results_db.py) — store maintenance: seed/repair canonical `results.db`, rewrite legacy TSV (`--rebuild-tsv`), parity check (`autoresearch/core/results_db.py` owns the logic).
 - [backfill_2026_08_08_missing_claw.py](backfill_2026_08_08_missing_claw.py) — one-shot restore of session-documented claw/coding rows that never landed in TSV (idempotent).
+- [test_model_up_live.ps1](test_model_up_live.ps1) — live HTTP sampler/model parity check against a coding Trial artifact.
 - [apply_fingerprint.py](apply_fingerprint.py) — copy a Fingerprint file into the mutable Baseline (issue #50, ADR 0014 phase 1): engine always, sampler only when present; benches keep reading Baseline.
 - [measure_vram_peak.py](measure_vram_peak.py) — real peak-VRAM measurement for the Baseline model, gate bypass (estimator calibration, issue #10).
 - Git pre-commit: [../.pre-commit-config.yaml](../.pre-commit-config.yaml) + [../pyproject.toml](../pyproject.toml).

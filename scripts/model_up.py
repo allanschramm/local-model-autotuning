@@ -382,6 +382,18 @@ def build_command(cfg: AliasConfig) -> tuple[list[str], Path]:
         str(cfg.port),
     ]
     cmd += fingerprint_flags(data["engine"], model_path=model_path, server_binary=binary)
+    sampler = data.get("sampler") or {}
+    for key, flag in (
+        ("TEMP", "--temp"),
+        ("TOP_P", "--top-p"),
+        ("TOP_K", "--top-k"),
+        ("MIN_P", "--min-p"),
+        ("REPEAT_PENALTY", "--repeat-penalty"),
+        ("PRESENCE_PENALTY", "--presence-penalty"),
+        ("FREQUENCY_PENALTY", "--frequency-penalty"),
+    ):
+        if sampler.get(key) is not None:
+            cmd += [flag, str(sampler[key])]
     assert_flags_supported(cmd, binary)
     return cmd, model_path
 
