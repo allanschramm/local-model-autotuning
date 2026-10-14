@@ -17,6 +17,8 @@ Before any flag or feature:
 
 `--model -c/--ctx-size -b/--batch-size -ub/--ubatch-size -t/--threads --threads-batch --parallel -ngl/--n-gpu-layers --numa --cache-type-k/v --flash-attn --no-mmap --mlock --jinja --reasoning/--reasoning-effort/--reasoning-budget/message/--reasoning-preserve --cont-batching --cache-reuse --spec-type --spec-draft-n-max --spec-draft-type-k/v --spec-draft-model --n-cpu-moe` (+ bench `-p -n -r -o -fa -ctk/ctv -t -ngl`)
 
+`scripts/model_up.py` additionally forwards optional Fingerprint sampler defaults through `--temp`, `--top-p`, `--top-k`, `--min-p`, `--repeat-penalty`, `--presence-penalty`, and `--frequency-penalty`. Request-level samplers may override these defaults. All emitted flags remain guarded by the resolved binary's `--help`.
+
 Everything else is untapped.
 
 ---
