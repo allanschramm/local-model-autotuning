@@ -30,6 +30,7 @@ from autoresearch.core.config import (
     SAMPLER_DEFAULTS,
 )
 from autoresearch.core.crash_journal import clear_journal, read_journal, write_journal
+from autoresearch.core.evaluation_protocol import CODING_PROTOCOL
 from autoresearch.core.hardware import detect_hardware_capabilities
 from autoresearch.core.llama_runner import (
     estimate_vram_mb,
@@ -540,7 +541,12 @@ def _seed_known_vectors(model_name: str, bucket_gb: int | None) -> list[classify
     same basename, same bucket, rejected rows never compete, Morris screen
     rows are diagnostic-only, and repeated measurements merge per-axis.
     """
-    return classify.known_vectors(read_rows(RESULTS_FILE), model=model_name, bucket_gb=bucket_gb)
+    return classify.known_vectors(
+        read_rows(RESULTS_FILE),
+        model=model_name,
+        bucket_gb=bucket_gb,
+        coding_protocol=CODING_PROTOCOL,
+    )
 
 
 def _classify(cfg: dict[str, Any], res) -> tuple[str, dict[str, str], classify.ObjectiveVector]:
@@ -548,11 +554,12 @@ def _classify(cfg: dict[str, Any], res) -> tuple[str, dict[str, str], classify.O
     vector = _objective_vector(cfg, res)
     status, flips = classify.plan_write(
         read_rows(RESULTS_FILE),
-        fp=classify.fp_from_baseline(cfg),
+        fp=classify.fp_from_baseline(dict(cfg, CODING_PROTOCOL=CODING_PROTOCOL)),
         vector=vector,
         bucket_gb=classify.bucket(getattr(res, "peak_vram_gb", 0.0)),
         failed=getattr(res, "outcome", TrialOutcome.OK) != TrialOutcome.OK,
         model=str(cfg.get("MODEL") or cfg.get("model") or "").strip() or None,
+        coding_protocol=CODING_PROTOCOL,
     )
     return status, flips, vector
 

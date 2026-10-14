@@ -3,6 +3,8 @@ import urllib.request
 from dataclasses import dataclass, replace
 from typing import Any
 
+from autoresearch.core.evaluation_protocol import CODING_MAX_TOKENS, CODING_TIMEOUT_S
+
 
 @dataclass
 class GenerationParams:
@@ -154,6 +156,8 @@ class LlamaClient:
         req_timeout = kwargs.get("timeout")
         effective_timeout = req_timeout if req_timeout is not None else self.timeout
         timeout = max(float(effective_timeout if effective_timeout is not None else 420.0), 420.0)
+        if payload["max_tokens"] >= CODING_MAX_TOKENS:
+            timeout = max(timeout, CODING_TIMEOUT_S)
 
         try:
             # Enforce 420s turn timeout floor to prevent premature cancellation of reasoning turns.
@@ -165,19 +169,20 @@ class LlamaClient:
                 content = message.get("content") or ""
                 tool_calls = message.get("tool_calls") or []
                 usage = raw_res.get("usage", {})
-                total_tokens = usage.get("total_tokens", 0)
 
                 return {
                     "content": content,
                     "reasoning_content": message.get("reasoning_content") or "",
-                    "usage": {"total_tokens": total_tokens},
+                    "usage": usage,
+                    "finish_reason": choice.get("finish_reason"),
                     "choices": [
                         {
+                            "finish_reason": choice.get("finish_reason"),
                             "message": {
                                 "content": content,
                                 "reasoning_content": message.get("reasoning_content") or "",
                                 "tool_calls": tool_calls,
-                            }
+                            },
                         }
                     ],
                 }

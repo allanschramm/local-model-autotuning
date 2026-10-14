@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -5,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import autoloop
+from autoresearch.core.evaluation_protocol import CODING_PROTOCOL
 from autoresearch.core.search import SearchStrategy
 
 
@@ -32,6 +34,10 @@ class TestAutoLoop(unittest.TestCase):
             {"model": "a.gguf", "ctx": "8192", "tps": "40.0", "agentic": "", "coding": "0.6"},
             {"model": "b.gguf", "ctx": "8192", "tps": "60.0", "agentic": "0.7", "coding": "0.8"},
         ]
+        for row in rows:
+            cfg = json.loads(row.get("config_json", "{}"))
+            cfg["coding_protocol"] = CODING_PROTOCOL
+            row["config_json"] = json.dumps(cfg)
         with patch("autoloop.read_rows", return_value=rows):
             vectors = autoloop._seed_known_vectors("a.gguf", bucket_gb=None)
         self.assertEqual(len(vectors), 1)
@@ -69,6 +75,10 @@ class TestAutoLoop(unittest.TestCase):
                 "config_json": '{"vram_limit_mb": 8192}',
             },
         ]
+        for row in rows:
+            cfg = json.loads(row.get("config_json", "{}"))
+            cfg["coding_protocol"] = CODING_PROTOCOL
+            row["config_json"] = json.dumps(cfg)
         with patch("autoloop.read_rows", return_value=rows):
             vectors = autoloop._seed_known_vectors("a.gguf", bucket_gb=8)
         self.assertEqual(len(vectors), 1)
@@ -86,6 +96,10 @@ class TestAutoLoop(unittest.TestCase):
                 "evaluation_profile": "morris-screen",
             },
         ]
+        for row in rows:
+            cfg = json.loads(row.get("config_json", "{}"))
+            cfg["coding_protocol"] = CODING_PROTOCOL
+            row["config_json"] = json.dumps(cfg)
         with patch("autoloop.read_rows", return_value=rows):
             vectors = autoloop._seed_known_vectors("a.gguf", bucket_gb=None)
         self.assertEqual(len(vectors), 1)

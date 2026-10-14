@@ -30,13 +30,15 @@ class TestLlamaClient(unittest.TestCase):
                 "content": "Hello world",
                 "reasoning_content": "",
                 "usage": {"total_tokens": 15},
+                "finish_reason": None,
                 "choices": [
                     {
+                        "finish_reason": None,
                         "message": {
                             "content": "Hello world",
                             "reasoning_content": "",
                             "tool_calls": [],
-                        }
+                        },
                     }
                 ],
             },

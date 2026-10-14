@@ -12,12 +12,16 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from autoresearch.core.config import DEFAULTS
+from autoresearch.core.evaluation_protocol import (
+    LEGACY_CODING_PROTOCOL,
+    coding_protocol_from_config,
+)
 from autoresearch.core.pareto import ObjectiveVector, Trial, dominates, fingerprint, merge
 
 # Fingerprint identity = ENGINE_DEFAULTS + SAMPLER_DEFAULTS only (ADR 0006).
 # Extra keys (e.g. bench INCLUDE_* flags in AutoLoop configs) must not split
 # two write paths that share the same engine+sampler Baseline.
-_IDENTITY_KEYS = frozenset(str(k).lower() for k in DEFAULTS)
+_IDENTITY_KEYS = frozenset(str(k).lower() for k in DEFAULTS) | {"coding_protocol"}
 
 # Diagnostic profiles never compete for any front (ADR 0016): Morris screen
 # rows carry reps=1 llama-cli TPS probes, not Trial measurements.
@@ -116,7 +120,11 @@ def classify_trial(
 
 
 def known_vectors(
-    rows: Sequence[Mapping[str, Any]], *, model: str, bucket_gb: int | None
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    model: str,
+    bucket_gb: int | None,
+    coding_protocol: str | None = None,
 ) -> list[ObjectiveVector]:
     """Complete merged points for ONE basename in a hardware+budget bucket.
 
@@ -125,7 +133,7 @@ def known_vectors(
     (ADR 0016), and repeated measurements of one basename merge to a
     best-of-each-axis vector. ``bucket_gb=None`` means no bucket filter.
     """
-    vectors: list[ObjectiveVector] = []
+    trials: list[Trial] = []
     for row in rows:
         if row.get("status") == "rejected":
             continue  # rejected Trials never compete for the front
@@ -135,8 +143,11 @@ def known_vectors(
             continue
         if bucket_gb is not None and row_bucket(row) != bucket_gb:
             continue
-        vectors.append(vector_from_row(row))
-    merged = merge([Trial(fp=model, vector=v) for v in vectors])
+        protocol = coding_protocol_from_config(row.get("config_json"))
+        if coding_protocol is not None and protocol != coding_protocol:
+            continue
+        trials.append(Trial(fp=protocol, vector=vector_from_row(row)))
+    merged = merge(trials)
     return [trial.vector for trial in merged if trial.vector.complete]
 
 
@@ -154,7 +165,7 @@ def _known_vectors(
     """
     if model is not None:
         return known_vectors(rows, model=model, bucket_gb=bucket_gb)
-    by_model: dict[str, list[ObjectiveVector]] = {}
+    by_model: dict[tuple[str, str], list[ObjectiveVector]] = {}
     for row in rows:
         if row.get("status") == "rejected":
             continue  # rejected Trials never compete for the front
@@ -170,7 +181,8 @@ def _known_vectors(
                 continue
         elif fp is not None and fp_from_config_json(row.get("config_json")) != fp:
             continue
-        by_model.setdefault(row_model, []).append(vector_from_row(row))
+        protocol = coding_protocol_from_config(row.get("config_json"))
+        by_model.setdefault((row_model, protocol), []).append(vector_from_row(row))
     known = []
     for row_model, vectors in by_model.items():
         merged = merge([Trial(fp=row_model, vector=v) for v in vectors])[0].vector
@@ -201,6 +213,7 @@ def plan_write(
     bucket_gb: int,
     failed: bool = False,
     model: str | None = None,
+    coding_protocol: str = LEGACY_CODING_PROTOCOL,
 ) -> tuple[str, dict[str, str]]:
     """Status for a new Trial plus prior rows to flip.
 
@@ -210,6 +223,7 @@ def plan_write(
     """
     if failed:
         return "rejected", {}
+    rows = [r for r in rows if coding_protocol_from_config(r.get("config_json")) == coding_protocol]
     model_key = (model or "").strip()
     if model_key:
         prior = [

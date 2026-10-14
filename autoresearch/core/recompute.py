@@ -23,6 +23,7 @@ from autoresearch.core.classify import (
     row_bucket,
     vector_from_row,
 )
+from autoresearch.core.evaluation_protocol import coding_protocol_from_config
 from autoresearch.core.pareto import ObjectiveVector, Trial, merge
 
 # ADR 0017: per-model competition is the canonical scope; `bucket` remains an
@@ -46,7 +47,7 @@ def recompute_rows(
     """
     if scope not in SCOPES:
         raise ValueError(f"invalid scope: {scope!r}; allowed: {sorted(SCOPES)}")
-    groups: dict[tuple[Any, Any], list[int]] = {}
+    groups: dict[tuple[Any, Any, str], list[int]] = {}
     for idx, row in enumerate(rows):
         model = (row.get("model") or "").strip()
         bucket_gb = row_bucket(row)
@@ -58,15 +59,15 @@ def recompute_rows(
         ):
             continue
         # Both scopes compete only within one basename: (model, bucket).
-        key = (model, bucket_gb)
+        key = (model, bucket_gb, coding_protocol_from_config(row.get("config_json")))
         groups.setdefault(key, []).append(idx)
-    merged_by_group: dict[tuple[Any, Any], ObjectiveVector] = {}
+    merged_by_group: dict[tuple[Any, Any, str], ObjectiveVector] = {}
     for key, idxs in groups.items():
         vectors = [vector_from_row(rows[i]) for i in idxs]
         # merge() keys on Trial.fp — use basename as the merge id.
         merge_id = key[0]
         merged_by_group[key] = merge([Trial(fp=str(merge_id), vector=v) for v in vectors])[0].vector
-    statuses: dict[tuple[Any, Any], str] = {
+    statuses: dict[tuple[Any, Any, str], str] = {
         key: "on_front" if merged.complete else "incomplete"
         for key, merged in merged_by_group.items()
     }
