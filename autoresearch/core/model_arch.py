@@ -11,8 +11,22 @@ MoE Baseline `N_CPU_MOE`:
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
+
+
+class GGUFMetadataError(RuntimeError):
+    """GGUF architecture could not be read, so MoE-vs-dense is unknown.
+
+    Never degrade this to "dense": dense means "no expert offload", so an
+    unreadable MoE GGUF silently puts every expert on the GPU and WDDM spills
+    the overflow into host RAM (measured on an 8 GB-class card: ~14 GB GGUF
+    on 8 GB VRAM -> ~9 GB Shared GPU). Raising keeps the offload decision,
+    the dense VRAM kill and the host-memory preflight from all reading a wrong
+    answer.
+    """
+
 
 # Skip junk while resolving basename under models/
 _MODEL_SEARCH_SKIP = frozenset({".cache", "aliases", "huggingface", "vision"})
@@ -88,7 +102,17 @@ def _gguf_arch_info(path: Path) -> tuple[bool, int | None]:
 
     try:
         from gguf import GGUFReader
+    except ImportError as exc:
+        # A wrong interpreter (system python without requirements.txt) used to
+        # fall through to "dense" here - the exact silent spill this repo N_CPU_MOE
+        # design exists to prevent.
+        raise GGUFMetadataError(
+            f"GGUF architecture unreadable: the 'gguf' package is not importable by "
+            f"{sys.executable!r}. Use the repo venv (requirements.txt installs gguf); "
+            "without the reader a MoE GGUF is misclassified as dense and loses --n-cpu-moe."
+        ) from exc
 
+    try:
         reader = GGUFReader(str(path))
         is_moe = False
         block_count: int | None = None
@@ -116,11 +140,13 @@ def _gguf_arch_info(path: Path) -> tuple[bool, int | None]:
                 if "moe" in arch:
                     is_moe = True
 
-        _ARCH_CACHE[cache_key] = (is_moe, block_count)
-        return is_moe, block_count
-    except Exception:
-        _ARCH_CACHE[cache_key] = (False, None)
-        return False, None
+    except GGUFMetadataError:
+        raise
+    except Exception as exc:
+        raise GGUFMetadataError(f"cannot read GGUF metadata from {path}: {exc}") from exc
+
+    _ARCH_CACHE[cache_key] = (is_moe, block_count)
+    return is_moe, block_count
 
 
 def gguf_has_mtp(path: Path) -> bool:
@@ -379,14 +405,15 @@ def _gguf_kv_meta(path: Path) -> dict[str, Any] | None:
 
 
 def is_moe_model(ref: str | Path, *, models_dir: Path | None = None) -> bool:
-    """Classify MoE from GGUF metadata. Missing/unreadable file → not MoE (dense-safe)."""
+    """Classify MoE from GGUF metadata. Missing file → not MoE (no MoE without a file).
+
+    An existing but unreadable GGUF raises GGUFMetadataError instead of
+    reporting "dense" - dense means "no expert offload", the dangerous default.
+    """
     path = resolve_model_file(ref, models_dir=models_dir)
     if path is None:
         return False
-    try:
-        return gguf_is_moe(path)
-    except Exception:
-        return False
+    return gguf_is_moe(path)
 
 
 def is_dense_model(ref: str | Path, *, models_dir: Path | None = None) -> bool:

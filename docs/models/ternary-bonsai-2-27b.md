@@ -6,7 +6,7 @@
 **Family:** Bonsai 2 (PrismML-Eng) — dense ternary packing (`PTQ1_0`, 1.75 bits/weight, ~5.95 GB)  
 **Runtime:** requires PrismML CUDA release `llama.cpp-releases/prismml/prism-b10669-6f1c690` (`AUTORESEARCH_LLAMA_CPP_ROOT`). Stock upstream `llama.cpp` does not support custom GGML ternary type 143 (`PTQ1_0`).
 
-## Measured Trial (RTX 4060 8 GB)
+## Measured Trial (8 GB-class)
 
 Measured via `benchmark_search.py --agentic-full` on 2026-09-18 (`trial_id: 90615cd1-2578-4e2d-85a8-4942e3881688`):
 

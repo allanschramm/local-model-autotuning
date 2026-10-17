@@ -14,7 +14,7 @@ Both CLIs were already on PATH:
 
 | Tool | Version | Path |
 |---|---|---|
-| `hf` | huggingface_hub 1.21.0 (1.32.0 available) | `C:\Users\allan\.local\bin\hf.exe` |
+| `hf` | huggingface_hub 1.21.0 (1.32.0 available) | `<user-profile>/.local/bin/hf.exe` |
 | `gh` | 2.96.0 (2026-07-02) | `C:\Program Files\GitHub CLI\gh.exe` |
 
 Searches issued:

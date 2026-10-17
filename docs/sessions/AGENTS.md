@@ -11,7 +11,7 @@ Single-day empirical session logs. Captures what was run, on which hardware, wit
 - **One file per session or per significant sub-iteration of a session.** Don't merge multiple sessions.
 - **Verbatim tool outputs** are preferred over paraphrased summaries. The point is reproducibility.
 - **Errors and corrections are first-class.** When an approach was wrong, log it explicitly so future operators don't repeat.
-- **No absolute user/checkout paths** (`C:\Users\…`, `/mnt/c/Users/…`). Use repo-relative paths.
+- **No absolute user/checkout paths** (`<user-profile>\…`, `/mnt/<user-profile>/…`). Use repo-relative paths.
 - **No machine inventory.** Do not record which GGUFs/aliases are present, kept, or deleted on disk. Scores + GGUF basenames only (root AGENTS). Alias names/ports stay out — use basenames in tables.
 - **No operator hardware fingerprint.** No GPU SKU (e.g. product marketing names), exact `nvidia-smi` MiB totals, hostnames, or personal paths. Hardware section: `discrete_gpu` / `unified_memory`, Baseline `VRAM_LIMIT_MB`, OS family, llama.cpp engine/tag — not which SKU sits in the machine.
 - **No operator PII.** No personal names, hostnames, or identity links. Say "operator" / "the operator host" if a person must be referenced.
