@@ -25,7 +25,7 @@ SKIP_FILES = ("tests/test_privacy_guard.py",)
 TEXT_SUFFIXES = frozenset(
     {
         ".py", ".md", ".sh", ".ps1", ".cmd", ".bat", ".yml", ".yaml", ".json",
-        ".toml", ".cfg", ".ini", ".txt", ".example", ".tsv", ".txt",
+        ".toml", ".cfg", ".ini", ".txt", ".example", ".tsv",
     }
 )
 
