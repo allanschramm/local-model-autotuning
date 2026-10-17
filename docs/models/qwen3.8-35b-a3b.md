@@ -31,11 +31,11 @@ Verified via harness read-only inspection (`scripts/model_info.py`) on `Qwen3.8-
 
 ---
 
-## Hardware Recipe (RTX 4060 8GB + 32GB RAM)
+## Hardware Recipe (8 GB-class discrete GPU + 32 GB RAM)
 
 Because 35B MoE models require the entire ~20.2 GB weights file to be resident across RAM/VRAM:
 - **Default offload (`N_CPU_MOE = None` / 41):** Leaves ~4 GB of GPU VRAM idle and loads all 19.1 GB of experts into CPU RAM, resulting in physical RAM exhaustion and triggering the RAM Circuit Breaker.
-- **Optimal offload (`N_CPU_MOE = 31`):** Keeps **10 expert layers on the RTX 4060 VRAM** and offloads 31 to CPU RAM.
+- **Optimal offload (`N_CPU_MOE = 31`):** Keeps **10 expert layers on the GPU VRAM** and offloads 31 to CPU RAM.
   - **Peak VRAM:** 7.7 GB (fits comfortably under the 7,932 MB keepout limit, zero WDDM shared memory spill).
   - **Host RAM saved:** ~4.2 GB relieved from system RAM, keeping physical RAM usage well within safety bounds.
   - **Circuit Breaker Floor:** `FREE_RAM_FLOOR_MB = 128`.

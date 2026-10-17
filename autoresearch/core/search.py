@@ -180,7 +180,7 @@ class SearchStrategy:
         `--mode tps|quality`, which measure no agentic/coding axes and so can
         never join the four-axis front; ADR 0006). The Search keep truth is
         `improves_set` / the per-model Set (issue #7, wired by issue #8).
-        Rules (Allan's matrix):
+        Rules (legacy matrix):
           Score+  Speed+  → KEEP
           Score+  Speed-  → KEEP
           Score+  Speed=  → KEEP

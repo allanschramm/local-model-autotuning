@@ -465,6 +465,67 @@ class TestLlamaRunner(unittest.TestCase):
         finally:
             path.unlink(missing_ok=True)
 
+    def test_unreadable_gguf_never_reports_dense(self):
+        """Missing `gguf`/corrupt header must fail closed, never classify as dense.
+
+        Classifying an unreadable MoE as dense silently drops `--n-cpu-moe`,
+        so every expert lands on the GPU and WDDM spills ~9GB into host RAM
+        (a `model-up` launched from a python without `gguf` did exactly that).
+        """
+        from autoresearch.core import model_arch
+
+        with tempfile.NamedTemporaryFile(suffix=".gguf", delete=False) as tmp:
+            path = Path(tmp.name)
+        try:
+            # Simulate `ImportError: No module named gguf` on the reader import.
+            with patch.dict("sys.modules", {"gguf": None}):
+                with self.assertRaises(model_arch.GGUFMetadataError) as ctx:
+                    model_arch._gguf_arch_info(path)
+            self.assertIn("gguf", str(ctx.exception).lower())
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_resolve_n_cpu_moe_unreadable_offload_keeps_explicit_n(self):
+        """An explicit N_CPU_MOE must survive an unreadable GGUF header.
+
+        Dropping the offload is the dangerous direction: the operator asked for
+        experts in RAM and got all of them on the GPU instead.
+        """
+        from autoresearch.core import model_arch
+
+        with tempfile.NamedTemporaryFile(suffix=".gguf", delete=False) as tmp:
+            path = Path(tmp.name)
+        try:
+            with patch.object(
+                model_arch,
+                "_gguf_arch_info",
+                side_effect=model_arch.GGUFMetadataError("cannot read GGUF metadata"),
+            ):
+                n, auto = model_arch.resolve_n_cpu_moe(path, 30)
+            self.assertEqual(n, 30)
+            self.assertFalse(auto)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_is_moe_model_propagates_unreadable_metadata(self):
+        """`is_moe_model` must not swallow the failure into a false 'dense'."""
+        from autoresearch.core import model_arch
+
+        with tempfile.TemporaryDirectory() as tmp:
+            models = Path(tmp) / "models"
+            models.mkdir()
+            real = models / "demo.gguf"
+            real.write_bytes(b"not a real gguf")
+            with patch.object(
+                model_arch,
+                "gguf_is_moe",
+                side_effect=model_arch.GGUFMetadataError("cannot read GGUF metadata"),
+            ):
+                with self.assertRaises(model_arch.GGUFMetadataError):
+                    model_arch.is_moe_model("demo.gguf", models_dir=models)
+            # A missing file stays a plain False: no MoE without a file.
+            self.assertFalse(model_arch.is_moe_model("absent.gguf", models_dir=models))
+
     def test_vram_sampler_kills_dense_on_cuda_free_exhausted(self):
         """Kill when CUDA-reported free memory drops below floor — not on NVML used."""
         from autoresearch.core.llama_runner import LlamaServerRunner, ServerIntent
