@@ -1,6 +1,6 @@
 """Median-of-reps llama-cli bench helper."""
 
-from autoresearch.runners import evaluation
+from autoresearch.core import runtime_measurements as evaluation
 
 
 def test_median_llama_bench_validation(monkeypatch):

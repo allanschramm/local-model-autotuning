@@ -41,7 +41,7 @@ class TestSGLangRunner(unittest.TestCase):
         return_value=(True, 7000.0, 12000.0, ""),
     )
     @patch("autoresearch.core.llama_runner.detect_free_vram_mb", return_value=20000.0)
-    @patch("autoresearch.runners.evaluation.run_sglang_bench_validation", return_value=10.0)
+    @patch("autoresearch.core.runtime_measurements.run_sglang_bench_validation", return_value=10.0)
     @patch("autoresearch.runners.evaluation.SGLangServerRunner")
     @patch("autoresearch.runners.evaluation.run_coding")
     def test_sglang_bench_below_threshold_fails_before_server(

@@ -3,6 +3,8 @@
 ## Purpose
 Core codebase containing search strategy optimization logic, llama.cpp server wrappers, API client integrations, and evaluation benchmark harnesses (Nexus, Claw, Coding, SWE-lite agentic coding).
 
+`core/trial_store.py` owns legacy persistence independently of CLI dispatch; `core/runtime_measurements.py` owns shared outcomes and runtime probes. Legacy CLI imports remain direct reexports for compatibility.
+
 ## Ownership
 Repository developers.
 
