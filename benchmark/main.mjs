@@ -3,7 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { cp, mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { DatabaseSync } from 'node:sqlite';
@@ -14,7 +14,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
-const PROTOCOL = 'pi-workspace-v1';
+const PROTOCOL = 'pi-workspace-v2';
 const PI_VERSION = '1.4.0';
 if (VERSION !== PI_VERSION) throw new Error(`Pi version drift: expected ${PI_VERSION}, installed ${VERSION}; run npm ci`);
 const MAX_OUTPUT_TOKENS = 4096;
@@ -111,10 +111,11 @@ async function runTask(task, runtime, model, python, secrets) {
       ...tool, name: `workspace_${tool.name}`, label: `workspace_${tool.name}`,
       execute: async (...args) => {
         const path = args[1]?.path;
-        if (typeof path !== 'string' || !task.allowlist.includes(path)
-          || await realpath(join(workspace, path)) !== resolve(workspace, path)) {
+        const target = typeof path === 'string' ? resolve(workspace, path) : undefined;
+        if (!target || !task.allowlist.includes(relative(workspace, target).split(sep).join('/'))
+          || await realpath(target) !== target) {
           stopReason = 'policy_violation';
-          throw new Error('Only exact allowlisted workspace paths are accessible');
+          throw new Error('Only allowlisted workspace files are accessible');
         }
         return tool.execute(...args);
       },

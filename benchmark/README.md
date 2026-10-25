@@ -33,7 +33,9 @@ Without `--task`, the five frozen tasks run sequentially. Repeat `--task` to sel
 
 ## Protocol and evidence
 
-`pi-workspace-v1` uses Pi 1.4.0 with allowlisted `workspace_read` and `workspace_write` adapters over Pi tools, a fixed system prompt, temperature 0, thinking off, 4096 output tokens per turn, and each task's frozen turn limit. No shell, personal resources, compaction, or automatic recovery. This measures that constrained Pi configuration, not vanilla Pi or Terminal-Bench.
+`pi-workspace-v2` uses Pi 1.4.0 with allowlisted `workspace_read` and `workspace_write` adapters over Pi tools, a fixed system prompt, temperature 0, thinking off, 4096 output tokens per turn, and each task's frozen turn limit. No shell, personal resources, compaction, or automatic recovery. This measures that constrained Pi configuration, not vanilla Pi or Terminal-Bench.
+
+Tool requests accept relative or absolute paths resolving to an exact allowlisted workspace file, consistent with Pi's tool schemas. Paths outside that set and symlink redirections remain blocked. Version 1 rejected absolute paths even to allowed files; its historical results retain their protocol and must not be pooled with version 2.
 
 Hidden verifiers are inaccessible to model tools. They run after the session in a separate copy using the selected Python. Verifiers execute model-written Python and are **not an OS security sandbox**; use the trusted bundled fixtures. Additional datasets need their own execution policy.
 

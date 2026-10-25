@@ -1,5 +1,6 @@
 // Failure modes: fake passes, missing evidence, leaked hidden tests/credentials,
-// path escapes, infinite turns, infra errors scored as model failures, and repo dependencies.
+// path escapes, allowed absolute SDK paths rejected, absolute hidden-test access,
+// infinite turns, infra errors scored as model failures, and repo dependencies.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -41,7 +42,21 @@ const server = createServer(async (req, res) => {
   }
   let tool;
   const usedTools = body.messages.some(m => m.role === 'tool');
-  if (['pass', 'syntax'].includes(body.model) && !usedTools) {
+  if (body.model.startsWith('absolute-')) {
+    const prompt = body.messages.map(m => typeof m.content === 'string' ? m.content : JSON.stringify(m.content)).join('\n');
+    const cwd = prompt.match(/<cwd>\s*([\s\S]*?)\s*<\/cwd>/)?.[1];
+    assert(cwd, 'Pi must advertise its workspace directory');
+    const turns = body.messages.filter(m => m.role === 'tool').length;
+    if (body.model === 'absolute-escape') {
+      tool = { name: 'workspace_write', arguments: JSON.stringify({ path: resolve(cwd, '../escaped.txt'), content: 'escape' }) };
+    } else if (body.model === 'absolute-hidden') {
+      tool = { name: 'workspace_read', arguments: JSON.stringify({ path: join(cwd, '_hidden_tests/test_clamp.py') }) };
+    } else if (turns === 0) {
+      tool = { name: 'workspace_read', arguments: JSON.stringify({ path: join(cwd, 'clamp.py') }) };
+    } else if (turns === 1) {
+      tool = { name: 'workspace_write', arguments: JSON.stringify({ path: join(cwd, 'clamp.py'), content: 'def clamp(value, lo, hi):\n    return min(max(value, lo), hi)\n' }) };
+    }
+  } else if (['pass', 'syntax'].includes(body.model) && !usedTools) {
     tool = { name: 'workspace_write', arguments: JSON.stringify({ path: 'clamp.py', content: body.model === 'syntax' ? 'def broken syntax!\n' : 'def clamp(value, lo, hi):\n    return min(max(value, lo), hi)\n' }) };
   } else if (body.model === 'escape') {
     tool = { name: 'workspace_write', arguments: JSON.stringify({ path: '../escaped.txt', content: 'escape' }) };
@@ -78,7 +93,7 @@ try {
   const list = await run(['--list']);
   assert.equal(list.code, 0, list.output);
   assert(list.output.includes('issue-clamp-inclusive'));
-  for (const model of ['pass', 'fail', 'infra-error', 'escape', 'hidden', 'loop', 'syntax']) {
+  for (const model of ['pass', 'fail', 'infra-error', 'escape', 'hidden', 'loop', 'syntax', 'absolute-pass', 'absolute-escape', 'absolute-hidden']) {
     const result = await run([
       '--provider', 'fixture', '--model', model,
       '--base-url', `http://127.0.0.1:${server.address().port}/v1`,
@@ -86,11 +101,11 @@ try {
       '--python', python, '--task', 'issue-clamp-inclusive', '--db', database,
     ]);
     await writeFile(join(artifacts, `${model}.log`), result.output);
-    assert.equal(result.code, model === 'pass' ? 0 : model === 'infra-error' ? 2 : 1, result.output);
+    assert.equal(result.code, ['pass', 'absolute-pass'].includes(model) ? 0 : model === 'infra-error' ? 2 : 1, result.output);
   }
   const db = new DatabaseSync(database);
   const rows = db.prepare('SELECT * FROM benchmark_tasks ORDER BY rowid').all();
-  assert.equal(rows.length, 7);
+  assert.equal(rows.length, 10);
   assert.equal(rows[0].outcome, 'passed');
   assert.equal(rows[1].outcome, 'failed');
   assert.equal(rows[2].outcome, 'infra_error');
@@ -99,10 +114,13 @@ try {
   assert.equal(rows[4].outcome, 'policy_violation');
   assert.equal(rows[5].outcome, 'turn_limit');
   assert.equal(rows[6].outcome, 'failed', 'invalid model-written Python is a model failure');
+  assert.equal(rows[7].outcome, 'passed', 'Pi read/write tools accept allowed absolute paths');
+  assert.equal(rows[8].outcome, 'policy_violation');
+  assert.equal(rows[9].outcome, 'policy_violation');
   for (const row of rows) {
     const evidence = JSON.parse(await readFile(row.artifact, 'utf8'));
     assert.equal(evidence.task, 'issue-clamp-inclusive');
-    assert.equal(evidence.protocol, 'pi-workspace-v1');
+    assert.equal(evidence.protocol, 'pi-workspace-v2');
     assert.equal(evidence.pi_version, '1.4.0');
     assert.equal(evidence.outcome, row.outcome);
     assert.equal(evidence.passed, row.passed);

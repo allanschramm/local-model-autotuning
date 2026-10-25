@@ -11,6 +11,7 @@ Repository developers. Parent: [root contract](../AGENTS.md).
 - Pi version, tools, prompts, reasoning settings, task bytes, and budgets identify the protocol. Pi results never populate legacy Claw/Coding score columns.
 - SQLite `results.db` is canonical. This module owns only `benchmark_runs` and `benchmark_tasks`; existing tables remain untouched.
 - Frozen tasks expose only allowlisted workspace files. Hidden verifiers remain inaccessible to model tools and run after the session.
+- `pi-workspace-v2` resolves relative/absolute Pi tool paths against the workspace, then checks exact allowlist membership and realpath equality. Preserve v1 result identity; path-policy changes require a new protocol.
 - Pi resources and session state are isolated from personal settings, skills, extensions, and repository instructions. Credentials come from environment, never result artifacts.
 - Write E2E checks before implementation; retain repeatable SQLite and trajectory evidence. Fixture verifiers are trusted code, not an OS sandbox for arbitrary datasets.
 
