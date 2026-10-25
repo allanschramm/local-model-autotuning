@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import tempfile
 import time
@@ -20,6 +21,7 @@ from autoresearch.benchmarks.agentic_coding.detector import (
     resolve_in_worktree,
 )
 from autoresearch.core.llama_client import GenerationParams, LlamaClient
+from autoresearch.core.process_guard import spawn_kwargs
 
 TASKS_ROOT = Path(__file__).resolve().parent / "tasks"
 MAX_TURNS_DEFAULT = 20
@@ -151,12 +153,16 @@ def _run_hidden_tests(worktree: Path) -> tuple[bool, str]:
     if not hidden.is_dir():
         return False, "no hidden tests"
     proc = subprocess.run(
-        [sys.executable, "-m", "pytest", "-q", str(hidden)],
-        cwd=str(worktree),
-        capture_output=True,
-        text=True,
-        timeout=RUN_TESTS_TIMEOUT_SEC,
-        check=False,
+        **spawn_kwargs(
+            args=[sys.executable, "-m", "pytest", "-q", str(hidden)],
+            cwd=str(worktree),
+            capture_output=True,
+            text=True,
+            timeout=RUN_TESTS_TIMEOUT_SEC,
+            check=False,
+            # Headless: solutions can plt.show() — Agg never opens a window.
+            env={**os.environ, "MPLBACKEND": "Agg"},
+        )
     )
     out = (proc.stdout or "") + (proc.stderr or "")
     return proc.returncode == 0, out[-4000:]

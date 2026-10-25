@@ -55,6 +55,21 @@ IS_LINUX = sys.platform == "linux"
 # "force kill" signal so teardown logic stays platform-independent.
 SIGKILL = getattr(signal, "SIGKILL", 9)
 
+
+def spawn_kwargs(**extra: Any) -> dict[str, Any]:
+    """Popen/run kwargs that keep every harness-spawned child headless.
+
+    Windows allocates a console window for each child unless told otherwise, so
+    a coding Trial that runs 40 test subprocesses (or the Claw mock services)
+    pops 40 console windows and steals focus on a desktop rig. Every spawn in
+    this repo must go through here or pass ``CREATE_NO_WINDOW`` itself.
+    """
+    kwargs = dict(extra)
+    if IS_WINDOWS:
+        kwargs.setdefault("creationflags", subprocess.CREATE_NO_WINDOW)
+    return kwargs
+
+
 # Default grace period between graceful terminate() and force kill().
 TEARDOWN_GRACE_SECONDS = 2.0
 
@@ -230,7 +245,7 @@ class ProcessGuard:
 
     def spawn(self, command: Sequence[str], **popen_kwargs: Any) -> subprocess.Popen:
         """Launch a guarded subprocess (OS bind kwargs merged in)."""
-        kwargs = dict(popen_kwargs)
+        kwargs = spawn_kwargs(**popen_kwargs)
         kwargs.update(_os_spawn_kwargs(kwargs))
         proc = subprocess.Popen(command, **kwargs)
         return self.attach(proc)
