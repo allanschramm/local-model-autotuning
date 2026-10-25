@@ -1256,7 +1256,7 @@ class _ModelProcess:
     @property
     def is_cpu_mode(self) -> bool:
         return (
-            "build-cpu" in str(self.llama_server).lower()
+            "build-cpu" in str(self.model_binary).lower()
             or (self.intent is not None and self.intent.ngl == 0)
             or not should_prefer_gpu_build()
         )
@@ -1476,6 +1476,7 @@ class LlamaServerRunner(_ModelProcess):
     ):
         super().__init__(intent, log_path, vram_limit_mb)
         self.llama_server = resolve_llama_server()
+        self.model_binary = self.llama_server
 
     def _build_cmd(self, target_port: int) -> list[str]:
         cache_type_k = (
@@ -1704,6 +1705,7 @@ class NativeModelProcess(_ModelProcess):
     ):
         super().__init__(intent, log_path, vram_limit_mb)
         self.command = command
+        self.model_binary = Path(command[0])
 
     def __enter__(self):
         try:

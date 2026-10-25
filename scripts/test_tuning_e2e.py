@@ -3,7 +3,8 @@
 Failure modes: short-context TPS accepted as target-context TPS; non-finite or
 missing timings; PPL drift accumulated across Neighbors; inferior points kept;
 below-floor context; benchmark imports; simultaneous PPL/server model loads;
-watchdog failures scored as success; broken native process cleanup.
+watchdog failures scored as success; broken native process cleanup; native CPU
+commands depending on server-only attributes while selecting memory monitoring.
 """
 
 from __future__ import annotations
@@ -215,7 +216,6 @@ def main() -> None:
         patch("autoresearch.core.llama_runner.ram_resident_bytes_mb", return_value=(0, "fixture")),
         patch("autoresearch.core.llama_runner.circuit_breaker.preflight_ram"),
         patch("autoresearch.core.llama_runner.circuit_breaker.start_ram_watchdog"),
-        patch("autoresearch.core.llama_runner._ModelProcess._start_vram_sampler"),
     ):
         with NativeModelProcess(
             intent, [sys.executable, "-c", "print('native-child-ok')"], artifact / "native.log"
