@@ -44,7 +44,7 @@ from autoresearch.core.model_arch import (
     resolve_model_file,
     resolve_n_cpu_moe,
 )
-from autoresearch.core.process_guard import ProcessGuard, cleanup_leftover_processes
+from autoresearch.core.process_guard import ProcessGuard, cleanup_leftover_processes, spawn_kwargs
 from autoresearch.core.single_load import enforce_single_load, resolve_allow_multi
 
 
@@ -1259,7 +1259,11 @@ class LlamaServerRunner:
             if _LLAMA_SERVER_HELP_CACHE is None:
                 try:
                     _LLAMA_SERVER_HELP_CACHE = subprocess.check_output(
-                        [str(self.llama_server), "--help"], stderr=subprocess.STDOUT, text=True
+                        **spawn_kwargs(
+                            args=[str(self.llama_server), "--help"],
+                            stderr=subprocess.STDOUT,
+                            text=True,
+                        )
                     )
                 except Exception:
                     _LLAMA_SERVER_HELP_CACHE = "mtp"

@@ -30,6 +30,7 @@ from autoresearch.core import (
     results_db,
 )
 from autoresearch.core.evaluation_protocol import CODING_PROTOCOL
+from autoresearch.core.process_guard import spawn_kwargs
 from autoresearch.runners.evaluation import ExperimentRunner, resolve_tps_floor
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -432,13 +433,17 @@ def get_git_commit() -> str:
     try:
         commit = (
             subprocess.check_output(
-                ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
+                **spawn_kwargs(
+                    args=["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
+                )
             )
             .decode("utf-8")
             .strip()
         )
         status = (
-            subprocess.check_output(["git", "status", "--porcelain"], stderr=subprocess.DEVNULL)
+            subprocess.check_output(
+                **spawn_kwargs(args=["git", "status", "--porcelain"], stderr=subprocess.DEVNULL)
+            )
             .decode("utf-8")
             .strip()
         )

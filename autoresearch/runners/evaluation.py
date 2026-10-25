@@ -52,6 +52,7 @@ from autoresearch.core.llama_runner import (
     watchdog_kill_reason,
 )
 from autoresearch.core.model_arch import gguf_block_count, gguf_has_mtp, gguf_is_moe
+from autoresearch.core.process_guard import spawn_kwargs
 from autoresearch.core.sglang_runner import SGLangServerRunner, run_sglang_bench_validation
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -483,7 +484,9 @@ def run_llama_perplexity_validation(
     ]
 
     print(f"  [perplexity] {' '.join(str(a) for a in cmd)}")
-    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+    result = subprocess.run(
+        **spawn_kwargs(args=cmd, capture_output=True, text=True, encoding="utf-8")
+    )
     if result.returncode != 0:
         raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
 
