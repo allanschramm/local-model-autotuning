@@ -5,6 +5,8 @@ missing timings; PPL drift accumulated across Neighbors; inferior points kept;
 below-floor context; benchmark imports; simultaneous PPL/server model loads;
 watchdog failures scored as success; broken native process cleanup; native CPU
 commands depending on server-only attributes while selecting memory monitoring.
+Runtime responses omit generation_settings.n_ctx; a mismatched actual slot must
+still fail even when /props reports the requested context.
 """
 
 from __future__ import annotations
@@ -94,6 +96,16 @@ def main() -> None:
 
             class Handler(BaseHTTPRequestHandler):
                 def do_GET(self):
+                    if self.path == "/slots":
+                        self.respond(
+                            [
+                                {
+                                    "id": 0,
+                                    "n_ctx": 4096 if intent.batch_size == 8192 else intent.ctx_size,
+                                }
+                            ]
+                        )
+                        return
                     body = {
                         "default_generation_settings": {"n_ctx": intent.ctx_size},
                         "total_slots": 1,
@@ -114,7 +126,8 @@ def main() -> None:
                         rate = math.nan
                     self.respond(
                         {
-                            "generation_settings": {"n_ctx": intent.ctx_size},
+                            "generation_settings": {},
+                            "id_slot": 0,
                             "timings": {"predicted_per_second": rate, "predicted_n": 512},
                             "tokens_evaluated": 16,
                             "truncated": False,
@@ -186,7 +199,7 @@ def main() -> None:
         front = {(p["ctx"], p["tps"]) for p in result["frontier"]}
         assert front == {(65536, 70.0), (131072, 55.0)}, front
         assert result["reference_ppl"] == 10.0
-        for batch in (2048, 4096):
+        for batch in (2048, 4096, 8192):
             measurement = runner.run_trial({**baseline, "BATCH_SIZE": batch}, minimum_context=65536)
             assert measurement["outcome"] == "INFRA_ERROR", measurement
             assert measurement["tps"] is None

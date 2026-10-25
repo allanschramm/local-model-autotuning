@@ -212,13 +212,26 @@ class TuningRunner:
                             "stream": False,
                         },
                     )
+                    slots = request("/slots")
+                    if (
+                        not isinstance(slots, list)
+                        or len(slots) != 1
+                        or not isinstance(slots[0], dict)
+                        or type(sample.get("id_slot")) is not int
+                        or slots[0].get("id") != sample.get("id_slot")
+                        or slots[0].get("n_ctx") != intent.ctx_size
+                    ):
+                        raise ValueError("Generation slot reported a different context or slot ID")
+                    sample["observed_slot"] = {
+                        "id": slots[0]["id"],
+                        "n_ctx": slots[0]["n_ctx"],
+                    }
                     rate = sample.get("timings", {}).get("predicted_per_second")
                     if (
                         not isinstance(rate, (int, float))
                         or not math.isfinite(rate)
                         or rate <= 0
                         or sample.get("timings", {}).get("predicted_n") != GENERATION_TOKENS
-                        or sample.get("generation_settings", {}).get("n_ctx") != intent.ctx_size
                         or sample.get("truncated") is not False
                     ):
                         raise ValueError(
