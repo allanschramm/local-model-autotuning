@@ -12,6 +12,7 @@ results.db
 results.db-journal
 results.db-wal
 results.db-shm
+tuning-artifacts/
 *.bak
 grid_results.csv
 coding_results/

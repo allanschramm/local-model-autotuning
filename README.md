@@ -1,5 +1,11 @@
 # local-model-autoresearch
 
+## Separação em módulos
+
+- **Auto tuning:** [`autoresearch/TUNING.md`](autoresearch/TUNING.md) documenta a Search finita de TPS × contexto sob limite fixo de PPL, independente dos benchmarks de qualidade.
+
+O tuning possui verificação E2E fora do checkout e evidência SQLite. Entrypoints legados permanecem por compatibilidade; o Benchmark com Pi segue o plano do [ADR 0018](docs/adr/0018-independent-pi-benchmark-and-context-tuning.md).
+
 Otimizador autônomo (hill-climbing) de flags de runtime de LLMs locais via `llama.cpp`. Baseado em [karpathy/autoresearch](https://github.com/karpathy/autoresearch).
 
 **O que faz:** Encontra a config de runtime mais rápida e precisa pro seu modelo GGUF local, testando milhares de combinações de flags automaticamente.
@@ -63,9 +69,9 @@ O agente vai:
 3. Cruzar com SWE-bench / Aider / LiveCodeBench
 4. Plotar Pareto frontier (tok/s vs qualidade)
 5. Semear e editar o Baseline (`cp autoresearch/core/config.py.example autoresearch/core/config.py`, depois definir `MODEL`)
-6. Caminho padrão de speed: smoke `--validation` → `autoloop.py --mode tps` → só então Claw full no campeão ([docs/discovery/good-enough-tuning.md](docs/discovery/good-enough-tuning.md))
+6. Caminho atual: revisar o plano e executar a Search finita de [TPS × contexto](autoresearch/TUNING.md); medir qualidade separadamente. O autoloop fica como compatibilidade operada pelo humano.
 
-**Resultado:** `results.tsv` com os Trials + `config.py` local com a melhor config de velocidade (visited em `.autoresearch_state.json`). Qualidade agentic fica pro check do campeão, não pra cada vizinho.
+**Resultado:** `results.db` com medições e alternativas Pareto, acompanhadas de Fingerprints e evidências. O caminho novo preserva `config.py`; a qualidade é medida separadamente com Pi.
 
 ---
 
@@ -182,8 +188,9 @@ Este repositório inclui uma jornada publicada de 6 aulas em HTML (Módulo 0 + S
 | `benchmark_search.py` | CLI runner | **Não** |
 | `autoresearch/benchmarks/*` | Lógica de avaliação | **Não** |
 | `program.md` | Protocolo do Search | **Não** |
-| `results.tsv` | Métricas dos trials | **Só append** |
-| `scripts/rank_results.py` | Ranking Pareto / Day / Night a partir do TSV | **Não** (só lê) |
+| `results.db` | Store canônico SQLite; tabelas de tuning, Pi e Trials legados separadas | Via harness |
+| `results.tsv` | Append-log legado, não usar como fonte de métricas | Escrita de compatibilidade |
+| `scripts/rank_results.py` | Ranking Day / Night dos protocolos legados a partir do SQLite | **Não** (só lê) |
 
 ### Val Score
 
@@ -335,8 +342,8 @@ Se preferir fazer na mão:
 2. Se ainda não tiver: `cp autoresearch/core/config.py.example autoresearch/core/config.py`
 3. Ajuste o Baseline em `autoresearch/core/config.py` (`MODEL` = basename do GGUF)
 4. Rode `python3 benchmark_search.py --desc "sua hipótese"` (sem flag soup)
-5. Cheque `results.tsv` pelos resultados (ou `.\venv\Scripts\python.exe scripts\rank_results.py` pro ranking Pareto/Day/Night)
-6. Keep se o Val Score melhorou, reverte o `config.py` caso contrário
+5. Consulte `results.db` (ou `.\venv\Scripts\python.exe scripts\rank_results.py` para os rankings legados)
+6. Compare configurações dentro do mesmo protocolo; o tuning atual mantém alternativas Pareto de TPS × contexto sob limite de PPL, sem escolher pela melhoria de um Val Score escalar
 
 ---
 

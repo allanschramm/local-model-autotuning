@@ -18,9 +18,9 @@ Repository developers.
 - Always execute tests using the project virtual environment (`.\venv\Scripts\pytest.exe` or `.\venv\Scripts\python.exe -m pytest tests/`). Do not run system-global python/pytest.
 - Mock external resources (CUDA/NVML libraries, llama-server instances) to ensure tests can run in CPU-only or restricted environments.
 - Always mock `ctypes.CDLL` in VRAM/memory tracking tests to avoid querying host hardware directly.
+- Persistence tests patch `autoresearch.core.trial_store`; native probe tests patch `autoresearch.core.runtime_measurements`. CLI-dispatch tests still patch legacy CLI reexports. Shared native/server process guards remain covered by the existing fail-closed/platform tests.
 
 ## Work Guidance
-- Persistence tests patch `autoresearch.core.trial_store`; native probe tests patch `autoresearch.core.runtime_measurements`. CLI-dispatch tests still patch legacy CLI reexports.
 - Run `.\venv\Scripts\python.exe -m pytest tests/` locally before completing tasks. All collected tests must pass.
 - Do not add tests for new options, features, or regression bugs (root Testing rule) unless they fall under one of the four exceptions above — and then follow rule 3: write down the failure modes first.
 - Platform-split code (`sys.platform`, `fcntl` vs `msvcrt`) under exception 3 needs a test that forces the other OS branch; Windows pytest will not execute the Linux `fcntl` path otherwise.
