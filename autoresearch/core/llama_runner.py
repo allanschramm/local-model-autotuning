@@ -1157,7 +1157,9 @@ def watchdog_kill_reason(scope: str, detail: str, where: str) -> str:
     return f"WATCHDOG_KILL scope={scope} {detail} ({where})"
 
 
-class LlamaServerRunner:
+class _ModelProcess:
+    """Shared native model lifecycle: identical RAM/VRAM/parent-lifetime guards."""
+
     def __init__(
         self,
         intent: ServerIntent,
@@ -1183,154 +1185,11 @@ class LlamaServerRunner:
         self._ram_thread: threading.Thread | None = None
         self._guard: ProcessGuard | None = None
 
-        self.llama_server = resolve_llama_server()
-
-    def _build_cmd(self, target_port: int) -> list[str]:
-        cache_type_k = (
-            self.intent.kv_cache_k if self.intent.kv_cache_k is not None else self.intent.kv_cache
-        )
-        cache_type_v = (
-            self.intent.kv_cache_v if self.intent.kv_cache_v is not None else self.intent.kv_cache
-        )
-
-        cmd = [
-            str(self.llama_server),
-            "--model",
-            str(self.intent.model_path),
-            "--host",
-            str(self.intent.host),
-            "--port",
-            str(target_port),
-            "--ctx-size",
-            str(self.intent.ctx_size),
-            "--batch-size",
-            str(self.intent.batch_size),
-            "--ubatch-size",
-            str(self.intent.ubatch_size),
-            "--threads",
-            str(self.intent.threads),
-            "--parallel",
-            str(self.intent.parallel),
-            "--n-gpu-layers",
-            str(self.intent.ngl),
-        ]
-
-        if self.intent.numa:
-            cmd += ["--numa", self.intent.numa]
-
-        cmd += [
-            "--cache-type-k",
-            cache_type_k,
-            "--cache-type-v",
-            cache_type_v,
-            "--flash-attn",
-            self.intent.flash_attn,
-        ]
-
-        if self.intent.threads_batch is not None:
-            cmd += ["--threads-batch", str(self.intent.threads_batch)]
-
-        cmd += load_mode_flag(self.intent.no_mmap, self.intent.mlock)
-        if self.intent.jinja:
-            cmd += ["--jinja"]
-        if self.intent.reasoning_budget is not None:
-            cmd += ["--reasoning-budget", str(self.intent.reasoning_budget)]
-        if self.intent.reasoning_budget_message is not None:
-            cmd += ["--reasoning-budget-message", self.intent.reasoning_budget_message]
-        if self.intent.reasoning is not None:
-            cmd += ["--reasoning", str(self.intent.reasoning)]
-        if self.intent.reasoning_effort is not None:
-            cmd += ["--reasoning-effort", str(self.intent.reasoning_effort)]
-        if self.intent.reasoning_preserve is True:
-            cmd += ["--reasoning-preserve"]
-        elif self.intent.reasoning_preserve is False:
-            cmd += ["--no-reasoning-preserve"]
-        if self.intent.cont_batching:
-            cmd += ["--cont-batching"]
-        if self.intent.cache_reuse is not None and int(self.intent.cache_reuse) > 0:
-            cmd += ["--cache-reuse", str(int(self.intent.cache_reuse))]
-        spec_type_val = self.intent.spec_type
-        if (
-            spec_type_val is None
-            and gguf_has_mtp(self.intent.model_path)
-            and self.intent.spec_draft_n_max > 0
-        ):
-            global _LLAMA_SERVER_HELP_CACHE
-            if _LLAMA_SERVER_HELP_CACHE is None:
-                try:
-                    _LLAMA_SERVER_HELP_CACHE = subprocess.check_output(
-                        **spawn_kwargs(
-                            args=[str(self.llama_server), "--help"],
-                            stderr=subprocess.STDOUT,
-                            text=True,
-                        )
-                    )
-                except Exception:
-                    _LLAMA_SERVER_HELP_CACHE = "mtp"
-            if "mtp" in _LLAMA_SERVER_HELP_CACHE:
-                spec_type_val = "mtp"
-            else:
-                spec_type_val = "draft-mtp"
-            print(
-                f"  [MTP] Multi-Token Prediction detected for {self.intent.model_path.name}. Auto-selected spec-type: {spec_type_val}"
-            )
-
-        if is_spec_enabled(spec_type_val, self.intent.spec_draft_n_max):
-            cmd += [
-                "--spec-type",
-                spec_type_val,
-            ]
-            if self.intent.spec_draft_n_max > 0:
-                cmd += [
-                    "--spec-draft-n-max",
-                    str(self.intent.spec_draft_n_max),
-                    "--spec-draft-type-k",
-                    cache_type_k,
-                    "--spec-draft-type-v",
-                    cache_type_v,
-                ]
-            if self.intent.spec_draft_model:
-                draft_path = Path(self.intent.spec_draft_model)
-                if not draft_path.is_absolute():
-                    draft_path = self.intent.model_path.parent / draft_path
-                cmd += ["--spec-draft-model", str(draft_path)]
-
-        # codacus-fork expert-cache passthrough (not present in upstream common args).
-        if self.intent.moe_cache_profile:
-            profile = Path(self.intent.moe_cache_profile)
-            if not profile.is_absolute():
-                profile = Path.cwd() / profile
-            cmd += ["--moe-cache-profile", str(profile)]
-            if self.intent.moe_cache_slots:
-                cmd += ["--moe-cache-slots", str(int(self.intent.moe_cache_slots))]
-
-        # VITRIOL: MoE expert offload only (resolved in from_config). Dense: no flag.
-        if self.intent.n_cpu_moe is not None:
-            print(
-                f"  [VITRIOL] MoE Expert Streaming: --n-cpu-moe {self.intent.n_cpu_moe} "
-                f"for {self.intent.model_path.name}."
-            )
-            cmd += ["--n-cpu-moe", str(self.intent.n_cpu_moe)]
-
-        assert_flags_supported(cmd, self.llama_server)
-        return cmd
-
-    def __enter__(self):
-        try:
-            return self._start()
-        except BaseException:
-            # `with` never entered, so __exit__ never runs: release the VRAM
-            # sampler, any spawned process and the ProcessGuard here. Every step
-            # is None-guarded and idempotent, so the explicit _cleanup_all()
-            # calls on the port-failover paths in _start() stay correct.
-            self._cleanup_all()
-            raise
-
-    def _start(self):
+    def _prepare_model_process(self, binary: Path) -> dict[str, str]:
         self._start_vram_sampler()
 
         server_env = os.environ.copy()
-        llama_lib_dir = str(self.llama_server.parent)
+        llama_lib_dir = str(binary.parent)
         lib_path_var = "PATH" if IS_WINDOWS else "LD_LIBRARY_PATH"
         existing = server_env.get(lib_path_var, "")
         server_env[lib_path_var] = (
@@ -1363,101 +1222,36 @@ class LlamaServerRunner:
             print(f"  [RAM] {exc}", flush=True)
             raise
 
-        startup_tail: list[str] = []
-        for port in candidate_ports(self.intent.port):
-            cmd = self._build_cmd(port)
-            print(f"Starting server: {' '.join(cmd)}")
+        return server_env
 
-            if self.log_path:
-                self._server_log = open(self.log_path, "w+", encoding="utf-8")
-            else:
-                self._server_log = tempfile.NamedTemporaryFile(
-                    mode="w+",
-                    encoding="utf-8",
-                    prefix="autoresearch-llama-server-",
-                    suffix=".log",
-                    delete=True,
-                )
+    def _spawn_model_process(
+        self, cmd: list[str], server_env: dict[str, str], *, cwd: str | None = None
+    ) -> None:
+        self._server_proc = self._guard.spawn(
+            cmd,
+            stdout=self._server_log,
+            stderr=subprocess.STDOUT,
+            env=server_env,
+            text=True,
+            cwd=cwd,
+        )
 
-            self._server_proc = self._guard.spawn(
-                cmd,
-                stdout=self._server_log,
-                stderr=subprocess.STDOUT,
-                env=server_env,
-                text=True,
+        if self._server_proc.pid is not None:
+            self._ram_thread = circuit_breaker.start_ram_watchdog(
+                self._server_proc.pid,
+                floor_mb=float(
+                    config.DEFAULTS.get("FREE_RAM_FLOOR_MB", circuit_breaker.DEFAULT_FLOOR_MB)
+                ),
+                poll_s=float(
+                    config.DEFAULTS.get("RAM_WATCHDOG_POLL_S", circuit_breaker.DEFAULT_POLL_S)
+                ),
+                reserve_mb=float(
+                    config.DEFAULTS.get(
+                        "RAM_WATCHDOG_RESERVE_MB", circuit_breaker.DEFAULT_RESERVE_MB
+                    )
+                ),
+                on_kill=self._maybe_kill_ram,
             )
-
-            if self._server_proc.pid is not None:
-                self._ram_thread = circuit_breaker.start_ram_watchdog(
-                    self._server_proc.pid,
-                    floor_mb=float(
-                        config.DEFAULTS.get("FREE_RAM_FLOOR_MB", circuit_breaker.DEFAULT_FLOOR_MB)
-                    ),
-                    poll_s=float(
-                        config.DEFAULTS.get("RAM_WATCHDOG_POLL_S", circuit_breaker.DEFAULT_POLL_S)
-                    ),
-                    reserve_mb=float(
-                        config.DEFAULTS.get(
-                            "RAM_WATCHDOG_RESERVE_MB", circuit_breaker.DEFAULT_RESERVE_MB
-                        )
-                    ),
-                    on_kill=self._maybe_kill_ram,
-                )
-
-            self.port = port
-            if self._wait_for_server(port):
-                return self
-
-            if self.vram_killed:
-                self._cleanup_all()
-                raise RuntimeError(self.vram_kill_reason or WATCHDOG_KILL_LEGACY_REASON)
-            if self.ram_killed:
-                self._cleanup_all()
-                raise RuntimeError("RAM_CIRCUIT_BREAKER")
-
-            # If wait failed, grab the tail before cleaning up
-            self._server_log.flush()
-            if hasattr(self._server_log, "name"):
-                log_content = Path(self._server_log.name).read_text(
-                    encoding="utf-8", errors="replace"
-                )
-                startup_tail = log_content.splitlines()[-50:]
-
-            self._cleanup_process()
-            print(f"Failed to start on port {port}, trying next...")
-
-        self._cleanup_all()
-        print("FAIL: Server crashed during startup.")
-        if startup_tail:
-            print("Tail of startup log:")
-            print("\n".join(startup_tail))
-        raise RuntimeError("Failed to start llama-server on any candidate port.")
-
-    def __exit__(self, _exc_type, _exc_val, _exc_tb):
-        self._cleanup_all()
-
-    def _wait_for_server(self, port: int) -> bool:
-        delay = 0.05
-        deadline = time.monotonic() + SERVER_HEALTH_TIMEOUT_SECONDS
-        while True:
-            if self._server_proc is None or self._server_proc.poll() is not None:
-                return False
-            if time.monotonic() >= deadline:
-                print(
-                    f"  [server] /health did not return 200 within "
-                    f"{SERVER_HEALTH_TIMEOUT_SECONDS:.0f}s on port {port}; failing over."
-                )
-                return False
-            try:
-                req = urllib.request.Request(f"http://127.0.0.1:{port}/health")
-                # A listening but wedged server must not block startup forever.
-                with urllib.request.urlopen(req, timeout=2.0) as response:
-                    if response.status == 200:
-                        return True
-            except Exception:
-                pass
-            time.sleep(delay)
-            delay = min(delay * 2, 0.4)
 
     @property
     def is_cpu_mode(self) -> bool:
@@ -1671,3 +1465,275 @@ class LlamaServerRunner:
         if self._guard:
             self._guard.teardown()
             self._guard = None
+
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
+        self._cleanup_all()
+
+
+class LlamaServerRunner(_ModelProcess):
+    def __init__(
+        self, intent: ServerIntent, log_path: Path | None = None, vram_limit_mb: float | None = None
+    ):
+        super().__init__(intent, log_path, vram_limit_mb)
+        self.llama_server = resolve_llama_server()
+
+    def _build_cmd(self, target_port: int) -> list[str]:
+        cache_type_k = (
+            self.intent.kv_cache_k if self.intent.kv_cache_k is not None else self.intent.kv_cache
+        )
+        cache_type_v = (
+            self.intent.kv_cache_v if self.intent.kv_cache_v is not None else self.intent.kv_cache
+        )
+
+        cmd = [
+            str(self.llama_server),
+            "--model",
+            str(self.intent.model_path),
+            "--host",
+            str(self.intent.host),
+            "--port",
+            str(target_port),
+            "--ctx-size",
+            str(self.intent.ctx_size),
+            "--batch-size",
+            str(self.intent.batch_size),
+            "--ubatch-size",
+            str(self.intent.ubatch_size),
+            "--threads",
+            str(self.intent.threads),
+            "--parallel",
+            str(self.intent.parallel),
+            "--n-gpu-layers",
+            str(self.intent.ngl),
+        ]
+
+        if self.intent.numa:
+            cmd += ["--numa", self.intent.numa]
+
+        cmd += [
+            "--cache-type-k",
+            cache_type_k,
+            "--cache-type-v",
+            cache_type_v,
+            "--flash-attn",
+            self.intent.flash_attn,
+        ]
+
+        if self.intent.threads_batch is not None:
+            cmd += ["--threads-batch", str(self.intent.threads_batch)]
+
+        cmd += load_mode_flag(self.intent.no_mmap, self.intent.mlock)
+        if self.intent.jinja:
+            cmd += ["--jinja"]
+        if self.intent.reasoning_budget is not None:
+            cmd += ["--reasoning-budget", str(self.intent.reasoning_budget)]
+        if self.intent.reasoning_budget_message is not None:
+            cmd += ["--reasoning-budget-message", self.intent.reasoning_budget_message]
+        if self.intent.reasoning is not None:
+            cmd += ["--reasoning", str(self.intent.reasoning)]
+        if self.intent.reasoning_effort is not None:
+            cmd += ["--reasoning-effort", str(self.intent.reasoning_effort)]
+        if self.intent.reasoning_preserve is True:
+            cmd += ["--reasoning-preserve"]
+        elif self.intent.reasoning_preserve is False:
+            cmd += ["--no-reasoning-preserve"]
+        if self.intent.cont_batching:
+            cmd += ["--cont-batching"]
+        if self.intent.cache_reuse is not None and int(self.intent.cache_reuse) > 0:
+            cmd += ["--cache-reuse", str(int(self.intent.cache_reuse))]
+        spec_type_val = self.intent.spec_type
+        if (
+            spec_type_val is None
+            and gguf_has_mtp(self.intent.model_path)
+            and self.intent.spec_draft_n_max > 0
+        ):
+            global _LLAMA_SERVER_HELP_CACHE
+            if _LLAMA_SERVER_HELP_CACHE is None:
+                try:
+                    _LLAMA_SERVER_HELP_CACHE = subprocess.check_output(
+                        **spawn_kwargs(
+                            args=[str(self.llama_server), "--help"],
+                            stderr=subprocess.STDOUT,
+                            text=True,
+                        )
+                    )
+                except Exception:
+                    _LLAMA_SERVER_HELP_CACHE = "mtp"
+            if "mtp" in _LLAMA_SERVER_HELP_CACHE:
+                spec_type_val = "mtp"
+            else:
+                spec_type_val = "draft-mtp"
+            print(
+                f"  [MTP] Multi-Token Prediction detected for {self.intent.model_path.name}. Auto-selected spec-type: {spec_type_val}"
+            )
+
+        if is_spec_enabled(spec_type_val, self.intent.spec_draft_n_max):
+            cmd += [
+                "--spec-type",
+                spec_type_val,
+            ]
+            if self.intent.spec_draft_n_max > 0:
+                cmd += [
+                    "--spec-draft-n-max",
+                    str(self.intent.spec_draft_n_max),
+                    "--spec-draft-type-k",
+                    cache_type_k,
+                    "--spec-draft-type-v",
+                    cache_type_v,
+                ]
+            if self.intent.spec_draft_model:
+                draft_path = Path(self.intent.spec_draft_model)
+                if not draft_path.is_absolute():
+                    draft_path = self.intent.model_path.parent / draft_path
+                cmd += ["--spec-draft-model", str(draft_path)]
+
+        # codacus-fork expert-cache passthrough (not present in upstream common args).
+        if self.intent.moe_cache_profile:
+            profile = Path(self.intent.moe_cache_profile)
+            if not profile.is_absolute():
+                profile = Path.cwd() / profile
+            cmd += ["--moe-cache-profile", str(profile)]
+            if self.intent.moe_cache_slots:
+                cmd += ["--moe-cache-slots", str(int(self.intent.moe_cache_slots))]
+
+        # VITRIOL: MoE expert offload only (resolved in from_config). Dense: no flag.
+        if self.intent.n_cpu_moe is not None:
+            print(
+                f"  [VITRIOL] MoE Expert Streaming: --n-cpu-moe {self.intent.n_cpu_moe} "
+                f"for {self.intent.model_path.name}."
+            )
+            cmd += ["--n-cpu-moe", str(self.intent.n_cpu_moe)]
+
+        assert_flags_supported(cmd, self.llama_server)
+        return cmd
+
+    def __enter__(self):
+        try:
+            return self._start()
+        except BaseException:
+            # `with` never entered, so __exit__ never runs: release the VRAM
+            # sampler, any spawned process and the ProcessGuard here. Every step
+            # is None-guarded and idempotent, so the explicit _cleanup_all()
+            # calls on the port-failover paths in _start() stay correct.
+            self._cleanup_all()
+            raise
+
+    def _start(self):
+        server_env = self._prepare_model_process(self.llama_server)
+
+        startup_tail: list[str] = []
+        for port in candidate_ports(self.intent.port):
+            cmd = self._build_cmd(port)
+            print(f"Starting server: {' '.join(cmd)}")
+
+            if self.log_path:
+                self._server_log = open(self.log_path, "w+", encoding="utf-8")
+            else:
+                self._server_log = tempfile.NamedTemporaryFile(
+                    mode="w+",
+                    encoding="utf-8",
+                    prefix="autoresearch-llama-server-",
+                    suffix=".log",
+                    delete=True,
+                )
+
+            self._spawn_model_process(cmd, server_env)
+
+            self.port = port
+            if self._wait_for_server(port):
+                return self
+
+            if self.vram_killed:
+                self._cleanup_all()
+                raise RuntimeError(self.vram_kill_reason or WATCHDOG_KILL_LEGACY_REASON)
+            if self.ram_killed:
+                self._cleanup_all()
+                raise RuntimeError("RAM_CIRCUIT_BREAKER")
+
+            # If wait failed, grab the tail before cleaning up
+            self._server_log.flush()
+            if hasattr(self._server_log, "name"):
+                log_content = Path(self._server_log.name).read_text(
+                    encoding="utf-8", errors="replace"
+                )
+                startup_tail = log_content.splitlines()[-50:]
+
+            self._cleanup_process()
+            print(f"Failed to start on port {port}, trying next...")
+
+        self._cleanup_all()
+        print("FAIL: Server crashed during startup.")
+        if startup_tail:
+            print("Tail of startup log:")
+            print("\n".join(startup_tail))
+        raise RuntimeError("Failed to start llama-server on any candidate port.")
+
+    def _wait_for_server(self, port: int) -> bool:
+        delay = 0.05
+        deadline = time.monotonic() + SERVER_HEALTH_TIMEOUT_SECONDS
+        while True:
+            if self._server_proc is None or self._server_proc.poll() is not None:
+                return False
+            if time.monotonic() >= deadline:
+                print(
+                    f"  [server] /health did not return 200 within "
+                    f"{SERVER_HEALTH_TIMEOUT_SECONDS:.0f}s on port {port}; failing over."
+                )
+                return False
+            try:
+                req = urllib.request.Request(f"http://127.0.0.1:{port}/health")
+                # A listening but wedged server must not block startup forever.
+                with urllib.request.urlopen(req, timeout=2.0) as response:
+                    if response.status == 200:
+                        return True
+            except Exception:
+                pass
+            time.sleep(delay)
+            delay = min(delay * 2, 0.4)
+
+
+class NativeModelProcess(_ModelProcess):
+    """A guarded model command without server ports or health-check semantics."""
+
+    def __init__(
+        self,
+        intent: ServerIntent,
+        command: list[str],
+        log_path: Path,
+        vram_limit_mb: float | None = None,
+    ):
+        super().__init__(intent, log_path, vram_limit_mb)
+        self.command = command
+
+    def __enter__(self):
+        try:
+            ok, _, reason = preflight_vram_for_intent(self.intent, self.vram_limit_mb)
+            if not ok:
+                raise ConfigError(reason or "native model VRAM preflight rejected")
+            ok, _, _, reason = preflight_host_memory_for_intent(self.intent)
+            if not ok:
+                raise ConfigError(reason or "native model host preflight rejected")
+            env = self._prepare_model_process(Path(self.command[0]))
+            self.log_path.parent.mkdir(parents=True, exist_ok=True)
+            self._server_log = open(self.log_path, "w+", encoding="utf-8")
+            self._spawn_model_process(
+                self.command, env, cwd=str(Path(self.command[0]).resolve().parent)
+            )
+            return self
+        except BaseException:
+            self._cleanup_all()
+            raise
+
+    def wait(self) -> int:
+        proc = self._server_proc
+        code = proc.wait() if proc else -1
+        if self.vram_killed:
+            raise RuntimeError(self.vram_kill_reason or WATCHDOG_KILL_LEGACY_REASON)
+        if self.ram_killed:
+            raise RuntimeError("RAM_CIRCUIT_BREAKER")
+        return code
+
+    def output(self) -> str:
+        if self._server_log:
+            self._server_log.flush()
+        return self.log_path.read_text(encoding="utf-8", errors="replace")

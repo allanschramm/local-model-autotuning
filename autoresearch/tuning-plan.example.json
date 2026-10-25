@@ -1,0 +1,11 @@
+{
+  "minimum_context": 65536,
+  "max_trials": 12,
+  "search_space": {
+    "CTX_SIZE": [65536, 131072],
+    "KV_CACHE_K": ["q4_0", "q8_0"],
+    "KV_CACHE_V": ["q4_0", "q8_0"],
+    "BATCH_SIZE": [256, 512],
+    "UBATCH_SIZE": [64, 128]
+  }
+}

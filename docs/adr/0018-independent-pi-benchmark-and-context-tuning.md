@@ -1,6 +1,6 @@
 # ADR 0018: Independent Pi Benchmark and TPS × Context Auto tuning
 
-**Status:** Accepted; implementation is staged below.
+**Status:** Accepted. The stages below are the decision snapshot; current bounded tuning protocol and verification are documented in [TUNING.md](../../autoresearch/TUNING.md).
 **Date:** 2026-10-25
 **Supersedes in part:** [0014](0014-fingerprint-bus-product-split.md) for the Benchmark's dependency on a tuned Fingerprint and Pi's role as only an informal quality check; [0004](0004-agentic-first-search.md) for local-only model connections in the new Benchmark. Historical evaluation protocols remain unchanged.
 

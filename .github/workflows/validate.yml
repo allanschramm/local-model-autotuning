@@ -28,3 +28,12 @@ jobs:
 
       - name: Ruff + pytest
         run: python scripts/run_validate.py
+      - name: Standalone Auto tuning E2E without model load
+        env:
+          TUNING_E2E_DIR: ${{ runner.temp }}/tuning-e2e
+        run: python scripts/test_tuning_e2e.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tuning-evidence
+          path: ${{ runner.temp }}/tuning-e2e/
