@@ -1,7 +1,7 @@
 # ADR 0014: Fingerprint Bus and Product Split (Direction)
 
 **Date:** 2026-08-15
-**Status:** Accepted (direction). Implementation not started. `teach/` is out of scope until an explicit peel.
+**Status:** Accepted (direction); Benchmark dependency and official Pi evaluation partially superseded by [0018](0018-independent-pi-benchmark-and-context-tuning.md). The phase table below is the original decision snapshot; current staging is in 0018. `teach/` is out of scope until an explicit peel.
 **Supersedes in part:** [0006](0006-pareto-frontier-search.md) as the **required product journey and auto picker** (Day/Night maximin is no longer the path that elects what you run in Pi). Does **not** delete the four-axis Pareto Set, TSV columns, or `rank_results.py`.
 **Does not supersede:** [0005](0005-config-py-mutable-baseline.md) Baseline location; [0004](0004-agentic-first-search.md) local-only eval (no Docker / remote judge); [0013](0013-agentic-coding-night-selector.md) SWE-lite as an optional numeric pack; [0009](0009-teach-day-night-agent-harness.md) until `teach/` is peeled.
 

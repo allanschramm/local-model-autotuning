@@ -4,6 +4,20 @@ Autonomous multi-objective Search that benchmarks local LLM runtime configuratio
 
 ## Language
 
+### Product Scopes
+
+**Auto tuning**:
+Local runtime optimization of TPS and configured context, subject to a PPL degradation limit and the minimum context required by the intended harness. Quality benchmark scores are measured separately, not optimized by this process.
+_Avoid_: quality benchmark, highest TPS regardless of context
+
+**Benchmark Harness**:
+Independent quality evaluation of a chosen model, whether locally served or accessed through a cloud provider, using identified tasks, execution protocols, and verifiers. It does not require prior Auto tuning or its mutable Baseline.
+_Avoid_: local-only benchmark, mandatory tuning stage
+
+**Official Harness**:
+Pi Agent is the reference agent for the Benchmark Harness's agentic evaluations. Results describe the model together with the identified Pi version and execution protocol, not model quality independent of the harness.
+_Avoid_: model-only agentic score, unversioned agent runner
+
 ### Search Process
 
 **Search**:
