@@ -1,7 +1,7 @@
 # ADR 0004: Agentic-First Search and Local State
 
 **Date:** 2026-07-10
-**Status:** Superseded in part by [0005](0005-config-py-mutable-baseline.md) (Baseline location) and [0006](0006-pareto-frontier-search.md) (scalar Val Score / keep-discard as Search truth → Pareto Set). Claw-Eval full + coding-10 remain the intelligence axes; quick remains smoke.
+**Status:** Superseded in part by [0005](0005-config-py-mutable-baseline.md) (Baseline location), [0006](0006-pareto-frontier-search.md) (scalar Val Score / keep-discard as Search truth → Pareto Set), and [0018](0018-independent-pi-benchmark-and-context-tuning.md) (new Benchmark permits cloud model endpoints). Claw-Eval full + coding-10 remain the legacy intelligence axes; quick remains smoke.
 
 ## Context
 Direct code-generation scores do not measure long-horizon tool use. Rewriting Python configuration also mixed durable defaults with local Search state.

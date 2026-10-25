@@ -9,7 +9,7 @@
 <!-- Scope: repo development agents. Research loop agents → read program.md -->
 
 ## Purpose
-Autonomous multi-objective Search over local LLM runtime flags; Pareto frontier = configured ctx × TPS × agentic × coding. Domain language: [CONTEXT.md](CONTEXT.md).
+Auto tuning and independent model Benchmark, separated in stages under [ADR 0018](docs/adr/0018-independent-pi-benchmark-and-context-tuning.md). Target tuning frontier = configured ctx × TPS under PPL and minimum-context constraints; legacy four-axis reports remain available. Domain language: [CONTEXT.md](CONTEXT.md).
 
 ## Ownership
 Repository developers.
@@ -27,6 +27,7 @@ Repository developers.
 - **Context is Inviolable (Never reduce context):** Configured context (`CTX_SIZE`) is a core axis of the Pareto frontier (`ctx × TPS × agentic × coding`). When encountering RAM pressure, VRAM spill, circuit breaker trips, OOM, or throughput bottlenecks, NEVER reduce or suggest reducing `CTX_SIZE` as a solution. Address resource pressure strictly through host memory hygiene (closing background desktop applications), KV cache quantization (`q4_0`), layer offloading (`N_CPU_MOE`), batch/ubatch tuning, or selecting lighter weight quantizations (`IQ4_XS`, `Q3_K_M`), keeping the target context intact.
 
 ## Work Guidance
+- Commit meaningful, verified changes as atomic Conventional Commits (`feat`, `fix`, `refactor`, `docs`, etc.). Keep unrelated work out of each commit; push only when explicitly requested.
 - **Runtime (do not rebuild)**: use the prebuilt CUDA 13.4 release `llama.cpp-releases/upstream/b11577` via `AUTORESEARCH_LLAMA_CPP_ROOT` (0.6.0-dev, build 11577). Text Trials for MiniCPM5-1B and MiniCPM-V-4.7-1B passed on 2026-10-12. b11577 includes upstream #30097, needed for qwen35/qwen35moe trunk-only GGUFs that declare `nextn_predict_layers` without MTP tensors; b11149 cannot load the MiniCPM-V-4.7-1B export. Keep older releases for comparison. The `llama.cpp/` source submodule is reference-only; do not rebuild its stale `build-cuda/` artifacts to fix runtime compatibility. Pin the release explicitly in harness sessions; verify the active environment path before each evaluation.
 - **Windows binary execution**: When invoking `llama-server.exe` or `llama-cli.exe` directly on Windows (outside Python runners), always set the working directory to `build-cuda\bin` where companion DLLs (`llama.dll`, `ggml.dll`, `cudart64_13.dll`) reside. Invoking without `cwd` causes Windows loader failure `0xc0000135` and conhost pipe error `0x800700e8` (`ERROR_NO_DATA`).
 - Method + Trial procedure: `CONTEXT.md`, `docs/adr/`, `docs/discovery/`, `autoresearch/AGENTS.md`, `program.md`.
