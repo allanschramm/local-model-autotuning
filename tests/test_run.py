@@ -69,25 +69,29 @@ class TestRun(unittest.TestCase):
         self.assertIn("configured=7900MB", result.diagnostic)
 
     @patch(
-        "autoresearch.runners.evaluation.detect_used_total_vram_mb", side_effect=FileNotFoundError
+        "autoresearch.core.runtime_measurements.detect_used_total_vram_mb",
+        side_effect=FileNotFoundError,
     )
-    @patch("autoresearch.runners.evaluation.subprocess.Popen")
-    @patch("autoresearch.runners.evaluation.resolve_llama_cli", return_value=Path("llama-cli.exe"))
-    @patch("autoresearch.runners.evaluation.resolve_vram_limit_mb", return_value=7900.0)
+    @patch("autoresearch.core.runtime_measurements.subprocess.Popen")
+    @patch(
+        "autoresearch.core.runtime_measurements.resolve_llama_cli",
+        return_value=Path("llama-cli.exe"),
+    )
+    @patch("autoresearch.core.runtime_measurements.resolve_vram_limit_mb", return_value=7900.0)
     def test_llama_bench_caps_ctx(self, _mock_limit, mock_resolve, mock_popen, _mock_smi):
         mock_proc = MagicMock()
         mock_proc.communicate.return_value = ("Generation: 7.4 t/s", "")
         mock_proc.returncode = 0
         mock_popen.return_value = mock_proc
 
-        from autoresearch.runners.evaluation import BENCH_CTX_CAP, run_llama_bench_validation
+        from autoresearch.core.runtime_measurements import BENCH_CTX_CAP, run_llama_bench_validation
 
         run_llama_bench_validation(Path("model.gguf"), ctx_size=65536)
 
         command = mock_popen.call_args.args[0]
         self.assertEqual(command[command.index("-c") + 1], str(BENCH_CTX_CAP))
 
-    @patch("autoresearch.runners.evaluation.run_llama_bench_validation", return_value=45.0)
+    @patch("autoresearch.core.runtime_measurements.run_llama_bench_validation", return_value=45.0)
     @patch("autoresearch.runners.evaluation.LlamaServerRunner")
     @patch("autoresearch.runners.evaluation.run_coding")
     @patch("autoresearch.runners.run.get_git_commit")
@@ -208,7 +212,7 @@ class TestRun(unittest.TestCase):
     @patch(
         "autoresearch.runners.evaluation.preflight_vram_for_intent", return_value=(True, 1000.0, "")
     )
-    @patch("autoresearch.runners.evaluation.run_llama_bench_validation", return_value=17.0)
+    @patch("autoresearch.core.runtime_measurements.run_llama_bench_validation", return_value=17.0)
     @patch("autoresearch.runners.evaluation.LlamaServerRunner")
     def test_default_tps_floor_rejects_moe_speed(
         self, mock_runner, mock_bench, _mock_vram, _mock_host
@@ -236,7 +240,7 @@ class TestRun(unittest.TestCase):
     @patch(
         "autoresearch.runners.evaluation.preflight_vram_for_intent", return_value=(True, 1000.0, "")
     )
-    @patch("autoresearch.runners.evaluation.run_llama_bench_validation", return_value=16.0)
+    @patch("autoresearch.core.runtime_measurements.run_llama_bench_validation", return_value=16.0)
     def test_custom_tps_floor_rejects_below_floor(self, mock_bench, _mock_vram, _mock_host):
         """Custom TPS_FLOOR=18 rejects 16 t/s at the bench gate."""
         res = run.run_evaluation(
@@ -267,7 +271,7 @@ class TestRun(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "results.tsv"
             with (
-                patch.object(run, "fcntl", fake, create=True),
+                patch("autoresearch.core.trial_store.fcntl", fake, create=True),
                 patch.object(run.sys, "platform", "linux"),
             ):
                 with run._results_lock(path):
