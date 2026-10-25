@@ -3,6 +3,7 @@
 ## Purpose
 Core codebase containing search strategy optimization logic, llama.cpp server wrappers, API client integrations, and evaluation benchmark harnesses (Nexus, Claw, Coding, SWE-lite agentic coding).
 
+Standalone Pi evaluation is owned by [`../benchmark/AGENTS.md`](../benchmark/AGENTS.md) (ADR 0018). This package retains legacy evaluation protocols during staged extraction; it must not import the new Pi runner.
 
 Independent bounded TPS × context Search is owned by [`tuning.py`](tuning.py), documented in [TUNING.md](TUNING.md). It must not import `autoresearch.benchmarks` or `autoresearch.runners`. `core/trial_store.py` owns legacy persistence independently of CLI dispatch; `core/runtime_measurements.py` owns shared outcomes and legacy runtime probes. Legacy paths reexport existing names during migration.
 

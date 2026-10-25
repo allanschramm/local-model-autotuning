@@ -15,14 +15,14 @@ Auto tuning and independent model Benchmark, separated in stages under [ADR 0018
 Repository developers.
 
 ## Local Contracts
-- Tuning and legacy Trial Baseline only via gitignored `autoresearch/core/config.py` (seed from `config.py.example`). No legacy Trial CLI flag soup. `program.md` / harnesses fixed unless user asks.
+- Tuning and legacy Trial Baseline only via gitignored `autoresearch/core/config.py` (seed from `config.py.example`). No legacy Trial CLI flag soup. Independent `benchmark/` takes provider/model connection settings without reading Baseline. `program.md` / harnesses fixed unless user asks.
 - **Upstream-first (mandatory):** Check upstream `llama.cpp/common/arg.cpp` `add_opt` (`~310` flags) + `docs/llamacpp-toolset.md` + `docs/llamacpp-flags-audit.md` before adding any `ENGINE_*/SAMPLER_*` flag or estimator — `90%` already exists upstream (`fit`/`yarn`/`dry`/`xtc`/`fit-target`/`warmup`/`cache-ram`/`kv-unified`/`repack` etc.), harness is passthrough mapper in `autoresearch/core/llama_runner.py` `_build_cmd`; keep only host/WDDM/thermal/Pareto gates (`common/fit.h:14` assumes unlimited host).
 - **Flag drift is a build-time failure, not a Trial failure:** upstream removes and renames flags across releases (`--mmap`/`--no-mmap`/`--mlock` -> `--load-mode` in #26934), so every command the harness emits is checked against the resolved binary's own `--help` by `assert_flags_supported` (`llama_runner.py`), which raises `FlagDriftError` naming the flag and the `engine@tag` build. Recorded as `INFRA_ERROR` (engine/config problem), never `CODE_ERROR` (our logic). On any engine bump, run a harness `--validation` and expect it to pass; if it raises, fix the mapping in `load_mode_flag` / the passthrough — never silence the guard, and never migrate Baseline/store keys for a flag rename.
 - Do not edit vendor trees: `llama.cpp/`, `VITRIOL/`, `llama.cpp-releases/`. Benchmarks (including `claw-eval/`) are kept updated with upstream.
 - Never commit private paths, emails, hostnames, GPU SKUs, aliases, or machine Baseline.
 - `models/` is a real store directory. NEVER recursive/forced delete (`Remove-Item -Recurse`, `rm -rf`, `rmdir /s`) on the `models/` root — it wipes the GGUF store and private notes. Per-file deletes in subdirs are fine.
 - No command timeouts: Never set execution timeouts on commands run by the agent unless explicitly told. Benchmarks and model tests run until completion. This does not prohibit bounded network timeouts inside product code when needed to prevent a stalled service or request from blocking indefinitely.
-- **No autonomous autoloop:** When the user asks for a trial, hill climb, bench, validate, or any tuning/eval action, do **NOT** launch `autoloop.py` or the `/autoresearch` autonomous loop. Use bounded `python -m autoresearch.tuning --plan <plan.json>` for TPS × context, or the explicit legacy harness (`benchmark_search.py`, `python -m autoresearch.runners.run`, Trial skill) for its historical protocol. `autoloop.py` is operator-only.
+- **No autonomous autoloop:** When the user asks for a trial, hill climb, bench, validate, or any tuning/eval action, do **NOT** launch `autoloop.py` or the `/autoresearch` autonomous loop. Use bounded `python -m autoresearch.tuning --plan <plan.json>` for TPS × context, the independent Pi Benchmark for quality, or the explicit legacy harness (`benchmark_search.py`, `python -m autoresearch.runners.run`, Trial skill) for its historical protocol. `autoloop.py` is operator-only.
 - **Results Store is Strictly SQLite (`results.db`):** `results.db` (SQLite) is the sole canonical store for all Trial, validation, and benchmark outcomes. `results.tsv` is deprecated and must not be queried, grepped, or relied upon by agents for metrics or history. Always query `results.db` directly using SQLite or `autoresearch.core.results_db`.
 - **Context is Inviolable (Never reduce context):** Configured context (`CTX_SIZE`) is a core axis of the Pareto frontier (`ctx × TPS × agentic × coding`). When encountering RAM pressure, VRAM spill, circuit breaker trips, OOM, or throughput bottlenecks, NEVER reduce or suggest reducing `CTX_SIZE` as a solution. Address resource pressure strictly through host memory hygiene (closing background desktop applications), KV cache quantization (`q4_0`), layer offloading (`N_CPU_MOE`), batch/ubatch tuning, or selecting lighter weight quantizations (`IQ4_XS`, `Q3_K_M`), keeping the target context intact.
 
@@ -41,6 +41,7 @@ Repository developers.
 
 ## Verification
 - `.\venv\Scripts\python.exe -m pytest` (or `scripts/run_validate.py` / pre-commit). Never system-global Python.
+- Independent Pi Benchmark: `npm ci --prefix benchmark`, then `BENCHMARK_PYTHON=<venv-python> node benchmark/test/e2e.mjs` (set the environment variable using the current shell). It retains its SQLite/trajectory evidence in the printed temp directory.
 - Independent Auto tuning: `.\venv\Scripts\python.exe scripts/test_tuning_e2e.py` copies only runtime/tuning sources outside the repo and retains SQLite/Fingerprint evidence; no model/GPU load.
 - Local Windows pytest does not execute POSIX branches (`fcntl`, Unix-only paths). After every push, wait for `.github/workflows/validate.yml` (`ubuntu-latest`) with `.\venv\Scripts\python.exe scripts\watch_validate.py` until it exits 0. A green local suite is not CI-complete.
 
@@ -122,6 +123,7 @@ Default section order:
 ## Child DOX Index
 
 - [autoresearch/AGENTS.md](autoresearch/AGENTS.md) — package (config, runners, benchmarks)
+- [benchmark/AGENTS.md](benchmark/AGENTS.md) — standalone Pi quality Benchmark, endpoint connections, frozen workspace tasks and SQLite evidence
 - [ui/AGENTS.md](ui/AGENTS.md) — operator dashboard
 - [docs/AGENTS.md](docs/AGENTS.md) — docs tree (`models/`, `adr/`, `discovery/`, `sessions/`)
 - [scripts/AGENTS.md](scripts/AGENTS.md) — operator scripts

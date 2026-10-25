@@ -37,3 +37,33 @@ jobs:
         with:
           name: tuning-evidence
           path: ${{ runner.temp }}/tuning-e2e/
+
+  benchmark-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: benchmark/package-lock.json
+      - name: Install standalone Benchmark
+        run: |
+          python -m pip install pytest
+          npm ci --prefix benchmark --ignore-scripts --no-audit --no-fund
+      - name: Pi Benchmark E2E without model or API spend
+        env:
+          BENCHMARK_E2E_DIR: ${{ runner.temp }}/pi-benchmark-e2e
+        run: BENCHMARK_PYTHON="$(command -v python)" node benchmark/test/e2e.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pi-benchmark-evidence
+          path: |
+            ${{ runner.temp }}/pi-benchmark-e2e/verification.json
+            ${{ runner.temp }}/pi-benchmark-e2e/results.db
+            ${{ runner.temp }}/pi-benchmark-e2e/*.log
+            ${{ runner.temp }}/pi-benchmark-e2e/benchmark-artifacts/

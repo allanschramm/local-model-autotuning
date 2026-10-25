@@ -21,9 +21,7 @@ from autoresearch.benchmarks.agentic_coding.runner import (
 )
 from autoresearch.core.llama_client import LlamaClient
 
-TASKS = (
-    Path(__file__).resolve().parents[1] / "autoresearch" / "benchmarks" / "agentic_coding" / "tasks"
-)
+TASKS = Path(__file__).resolve().parents[1] / "benchmark" / "tasks"
 
 
 def test_discover_five_frozen_tasks():

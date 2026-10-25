@@ -1,7 +1,7 @@
 # `autoresearch/benchmarks/agentic_coding/` — SWE-lite issue loop
 
 ## Purpose
-Frozen GitHub-issue fixtures plus the workspace tool loop and loop/hallucination detector that produce the `agentic_coding` Trial column (ADR 0013).
+Legacy workspace tool loop and loop/hallucination detector that produce the `agentic_coding` Trial column (ADR 0013). Frozen fixture ownership moved intact to [`../../../benchmark/tasks/`](../../../benchmark/tasks/) under [the independent Benchmark contract](../../../benchmark/AGENTS.md) (ADR 0018).
 
 ## Ownership
 Repository developers. Parent: [`autoresearch/AGENTS.md`](../../AGENTS.md).
@@ -13,7 +13,7 @@ Repository developers. Parent: [`autoresearch/AGENTS.md`](../../AGENTS.md).
 - No Docker, no remote judge, no network tools.
 
 ## Work Guidance
-- Add a task by copying an existing `tasks/<id>/` tree: `task.yaml`, `workspace/`, `hidden_tests/`.
+- Task changes belong to `benchmark/tasks/<id>/`: `task.yaml`, `workspace/`, `hidden_tests/`. The legacy runner consumes those same files; changing them changes both task packs.
 - Detector rules live in `detector.py`; keep them deterministic and unit-tested.
 - PATH tools must stay in the worktree **and** on `task.allowlist` (writes = exact file; reads/list/grep may use parent dirs of allowlisted files).
 - Stall (`STALL_TURNS`) counts consecutive **mutating** turns with no allowlisted file-hash change. Read-only inspection does not stall.

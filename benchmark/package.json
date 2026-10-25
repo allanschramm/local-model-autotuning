@@ -1,0 +1,15 @@
+{
+  "name": "@ailocal/model-benchmark",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.0.0" },
+  "scripts": {
+    "start": "node main.mjs",
+    "test": "node test/e2e.mjs"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "1.4.0",
+    "yaml": "2.9.0"
+  }
+}

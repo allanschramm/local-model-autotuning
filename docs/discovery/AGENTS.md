@@ -14,6 +14,7 @@ User-facing guides for **discovering, evaluating, selecting, and optimizing** lo
 - **No external-source citations in technique claims**: methodology names allowed (Zellinger framework), but no HF/Unsloth/blog URLs in technique descriptions.
 
 ## Work Guidance
+- Current tuning and quality workflows are documented in [`../../autoresearch/TUNING.md`](../../autoresearch/TUNING.md) and [`../../benchmark/README.md`](../../benchmark/README.md). Legacy guides must identify their protocol and route current usage to these independent modules.
 - New guides go here when they describe a reusable methodology, not a single session's data.
 - Single-run session logs → `docs/sessions/` (cavity for empirical capture).
 - Per-model GGUF specs and architecture notes → `docs/models/`.
@@ -29,7 +30,7 @@ User-facing guides for **discovering, evaluating, selecting, and optimizing** lo
 - [`whichllm-reference.md`](./whichllm-reference.md) — full whichllm CLI reference (commands, flags, profiles, examples).
 - [`llmfit-reference.md`](./llmfit-reference.md) — full llmfit CLI/TUI reference (hardware sizing, planning, model search, examples).
 - [`agent-onboarding.md`](./agent-onboarding.md) — onboarding guide for future agents.
-- [`good-enough-tuning.md`](./good-enough-tuning.md) — default speed path: validation smoke → autoloop `--mode tps` (keeps write the Fingerprint file) → `model-up` → Pi; numeric benches optional via apply-to-Baseline (ADR 0014).
+- [`good-enough-tuning.md`](./good-enough-tuning.md) — legacy operator-run speed path, retained for compatibility; routes current usage to independent bounded tuning and the Pi Benchmark (ADR 0018).
 - [`agentic-coding-benchmarks.md`](./agentic-coding-benchmarks.md) — Claw tiers + SWE-lite `--agentic-coding` (ADR 0013).
 - [`mini-swe-agent-benchmark.md`](./mini-swe-agent-benchmark.md) — pinned DM-Code-Agent 30-task real-SWE eval via guarded `mini-swe-agent` subprocesses, one-task wiring smoke, single-tool-call/no-progress guards, official changed-file/verifier semantics, and a recorded suite signature; observation-only in v1.
 - [`claw-eval-leaderboard.md`](./claw-eval-leaderboard.md) — ranked Claw-Eval full/quick scores on this 8 GB rig + operational lessons.

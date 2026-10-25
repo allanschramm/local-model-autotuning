@@ -24,8 +24,22 @@ SKIP_FILES = ("tests/test_privacy_guard.py",)
 
 TEXT_SUFFIXES = frozenset(
     {
-        ".py", ".md", ".sh", ".ps1", ".cmd", ".bat", ".yml", ".yaml", ".json",
-        ".toml", ".cfg", ".ini", ".txt", ".example", ".tsv",
+        ".py",
+        ".mjs",
+        ".md",
+        ".sh",
+        ".ps1",
+        ".cmd",
+        ".bat",
+        ".yml",
+        ".yaml",
+        ".json",
+        ".toml",
+        ".cfg",
+        ".ini",
+        ".txt",
+        ".example",
+        ".tsv",
     }
 )
 
@@ -42,14 +56,19 @@ PATTERNS = {
 
 def tracked_text_files() -> list[Path]:
     out = subprocess.run(
-        ["git", "ls-files"], cwd=REPO, check=True, capture_output=True, text=True
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+        cwd=REPO,
+        check=True,
+        capture_output=True,
+        text=True,
     ).stdout
     return [
         Path(rel)
-        for rel in out.splitlines()
+        for rel in out.split("\0")
         if rel not in SKIP_FILES
         and not rel.startswith(SKIP_DIRS)
         and Path(rel).suffix.lower() in TEXT_SUFFIXES
+        and (REPO / rel).is_file()
     ]
 
 

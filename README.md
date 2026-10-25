@@ -3,8 +3,9 @@
 ## Separação em módulos
 
 - **Auto tuning:** [`autoresearch/TUNING.md`](autoresearch/TUNING.md) documenta a Search finita de TPS × contexto sob limite fixo de PPL, independente dos benchmarks de qualidade.
+- **Benchmark independente:** [`benchmark/`](benchmark/README.md) usa Pi com versão fixa e modelos locais ou cloud via endpoint, sem ler a Baseline do tuning. Instalação: `npm ci --prefix benchmark`; tarefas: `node benchmark/main.mjs --list`.
 
-O tuning possui verificação E2E fora do checkout e evidência SQLite. Entrypoints legados permanecem por compatibilidade; o Benchmark com Pi segue o plano do [ADR 0018](docs/adr/0018-independent-pi-benchmark-and-context-tuning.md).
+Os dois caminhos possuem verificação E2E fora do checkout e evidência SQLite. Entrypoints legados permanecem por compatibilidade; separação em remotos fica para depois da validação operacional. Decisão: [ADR 0018](docs/adr/0018-independent-pi-benchmark-and-context-tuning.md).
 
 Otimizador autônomo (hill-climbing) de flags de runtime de LLMs locais via `llama.cpp`. Baseado em [karpathy/autoresearch](https://github.com/karpathy/autoresearch).
 
@@ -69,7 +70,7 @@ O agente vai:
 3. Cruzar com SWE-bench / Aider / LiveCodeBench
 4. Plotar Pareto frontier (tok/s vs qualidade)
 5. Semear e editar o Baseline (`cp autoresearch/core/config.py.example autoresearch/core/config.py`, depois definir `MODEL`)
-6. Caminho atual: revisar o plano e executar a Search finita de [TPS × contexto](autoresearch/TUNING.md); medir qualidade separadamente. O autoloop fica como compatibilidade operada pelo humano.
+6. Caminho atual: revisar o plano e executar a Search finita de [TPS × contexto](autoresearch/TUNING.md); escolher uma alternativa Pareto e medir qualidade no [Benchmark com Pi](benchmark/README.md). O autoloop fica como compatibilidade operada pelo humano.
 
 **Resultado:** `results.db` com medições e alternativas Pareto, acompanhadas de Fingerprints e evidências. O caminho novo preserva `config.py`; a qualidade é medida separadamente com Pi.
 

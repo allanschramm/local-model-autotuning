@@ -1,8 +1,8 @@
-# Good-Enough Tuning (Default Speed Path)
+# Legacy Good-Enough Tuning (Compatibility)
 
 **Goal:** find a runtime config that is *fast enough* on your rig, quickly — not the global optimum.
 
-This is the **default path** for new agents and humans when the question is “what flags should I use for this GGUF?”.
+The current default is the [independent bounded TPS × context Search](../../autoresearch/TUNING.md), followed by the [Pi quality Benchmark](../../benchmark/README.md). It measures generation at the configured allocation and keeps several Pareto alternatives under a fixed PPL ceiling. This page retains the legacy operator-run path below; its short CLI TPS probe is not proof of target-context throughput.
 
 **Operator path ([ADR 0014](../adr/0014-fingerprint-bus-product-split.md)):** pick GGUF → TPS climb (PPL guard) **writes the Fingerprint file** → `model-up` serves that file → **Pi** is the IQ that gates daily use. Numeric benches (Claw full / coding-10) are **optional** on the same file via apply-to-Baseline — never a required stop before Pi. The Day/Night maximin pick off the Pareto front is a numeric report lens, not what you ship to Pi.
 
@@ -12,7 +12,7 @@ Claw-Eval full / coding-10 complete the **Objective Vector** on one Fingerprint 
 
 | Approach | When | Cost |
 |---|---|---|
-| **Autoloop `--mode tps`** (default here) | Few speed knobs; want “good enough” fast | Low — bench + PPL, no Claw full per Trial |
+| **Legacy autoloop `--mode tps`** (operator only) | Maintaining an existing legacy workflow | Low — short CLI bench + PPL, no Claw full per Trial |
 | Manual A/B via `config.py` | Closing 2–3 rivals after a plateau | Medium — one explicit Baseline at a time |
 | Autoloop `--mode both` / quality overnight | After speed is acceptable | High — Claw full + coding-10 (complete the Objective Vector) |
 
@@ -47,7 +47,7 @@ cp autoresearch/core/config.py.example autoresearch/core/config.py
 .\venv\Scripts\python.exe benchmark_search.py --validation --desc "validate <model>"
 ```
 
-Gates: load + TPS floor + Claw quick smoke. One model at a time. Read the latest `results.tsv` row.
+Gates: load + TPS floor + Claw quick smoke. One model at a time. Read the latest legacy Trial row from canonical SQLite `results.db`.
 
 ### 3. Hill-climb for speed
 
@@ -65,7 +65,7 @@ Set `VRAM_LIMIT_MB` in `config.py`; the same Baseline value governs preflight an
 - Mutates **one** engine knob per Trial.
 - Optimizes TPS; perplexity acts as quality ceiling (do not keep big PPL regressions).
 - **Fingerprint bus (ADR 0014):** every kept TPS+PPL Neighbor rewrites `fingerprints/<GGUF stem>.json` (engine only — sampler stays user/card choice, never a TPS Neighbor). A failed or rejected Trial never overwrites a good file. This file — not a Pareto Day/Night pick — is what the launcher serves to Pi.
-- Stop on local maxima / Ctrl+C. Baseline stays in `config.py`; history in `results.tsv`.
+- Stop on local maxima / Ctrl+C. Baseline stays in `config.py`; canonical history is in `results.db`.
 
 Optional: small manual A/B of 2–3 configs via `config.py` + `--validation` if you already know the candidates.
 

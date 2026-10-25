@@ -23,7 +23,7 @@ from autoresearch.benchmarks.agentic_coding.detector import (
 from autoresearch.core.llama_client import GenerationParams, LlamaClient
 from autoresearch.core.process_guard import spawn_kwargs
 
-TASKS_ROOT = Path(__file__).resolve().parent / "tasks"
+TASKS_ROOT = Path(__file__).resolve().parents[3] / "benchmark" / "tasks"
 MAX_TURNS_DEFAULT = 20
 RUN_TESTS_TIMEOUT_SEC = 30
 
