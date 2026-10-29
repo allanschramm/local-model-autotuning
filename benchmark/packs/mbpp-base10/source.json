@@ -1,0 +1,71 @@
+{
+  "pack": "mbpp-base10",
+  "source": "https://github.com/evalplus/mbppplus_release/releases/download/v0.2.0/MbppPlus.jsonl.gz",
+  "upstream": "https://github.com/google-research/google-research/tree/master/mbpp",
+  "evalplus_version": "0.3.1",
+  "dataset_version": "v0.2.0",
+  "source_subset_sha256": "ffb1a6f17bdb5661ef65958c07808726f1eb4b3e649bd18a11d161018cd87a43",
+  "verification": "Original base assertion field only; plus_input is not evaluated",
+  "tasks": {
+    "mbpp-002": {
+      "source_id": "Mbpp/2",
+      "prompt_sha256": "98f13d4c849923f51a692b4f69036e80c4baaa852197eaff1522436e3c1d59e8",
+      "original_test_sha256": "3ed862cab2e0185a0a220cf80e2c8b67972c3c5babad9e7d762fb1170a2f2aff",
+      "verifier_sha256": "4d2286eb7a1df6fd35b36f4d78b9a1d7c1d8eb3aa20a15f8a7e36bebde5335d9"
+    },
+    "mbpp-003": {
+      "source_id": "Mbpp/3",
+      "prompt_sha256": "894906153d77eefac018b721dd06f32a85b691ddb272c38b8883d0938b8448f8",
+      "original_test_sha256": "8dff43398556e13fe4ac72132f5fbf3568f78bb854368456b7176fd7717d7008",
+      "verifier_sha256": "405984b85e5120f868c32412d1f32e72c3f63daf050dec4ece54626c81d6a618"
+    },
+    "mbpp-004": {
+      "source_id": "Mbpp/4",
+      "prompt_sha256": "cd7839bdeefa153de08f6a6e10120fb6e0b0570d5d92e8e01c2aaab1bb758e04",
+      "original_test_sha256": "c4cd902ad2517e884b06050063699e6736614bba4bad9b35bee61d43e695b508",
+      "verifier_sha256": "b04290d3342b729d7435acc953b200653e04446f012e91bf3f6e3f9efb76c2fe"
+    },
+    "mbpp-006": {
+      "source_id": "Mbpp/6",
+      "prompt_sha256": "fe0c92bc1e13d0fcc23385dbf95932c436ba3181c735c1ff0536a86413c3ccc5",
+      "original_test_sha256": "3462a93c7e48ec3ca0e04f52dd8f9fced48b65bb869382e914c91c11dbb5f281",
+      "verifier_sha256": "7d4f33344f0c780424d322d5925a4921552d762e12252a9443b41631b84a90de"
+    },
+    "mbpp-007": {
+      "source_id": "Mbpp/7",
+      "prompt_sha256": "cb325cca927e0b92f0ea52dfea45121554eb03baee9b88d8ef90c424e6ef944c",
+      "original_test_sha256": "64ed4c6fd94b614daa08b5f7d24929a582a815a57afc8f7cdcdd2ff338bc2112",
+      "verifier_sha256": "459b011bf0840b92cf94d40af73cae81870aa47838a775018b0a3002f926626b"
+    },
+    "mbpp-008": {
+      "source_id": "Mbpp/8",
+      "prompt_sha256": "0c5685f2ac35808dfb05a8d10eb6876164e1d81a62cb1f78a9a7658c3131a8b6",
+      "original_test_sha256": "968038c6da68cc4abae0b75dc1569bc01331e9bb2907686cbab7275498f4abf8",
+      "verifier_sha256": "e669865a54ece6637a6cd43a871fa3bab23a8265de5337460d704b2e74f09398"
+    },
+    "mbpp-009": {
+      "source_id": "Mbpp/9",
+      "prompt_sha256": "53f2a7351033fdb449380846ff204b0c5b252a9a9512d7ed2102bcaab1bc0a51",
+      "original_test_sha256": "72f67986265785d877ae9b0e2ffaa668f74ec03dc23d88449744316369fa383b",
+      "verifier_sha256": "1a133c4fe911836499e6a59bb60106535b56b8fe8cdcb2d629c8595448c72c74"
+    },
+    "mbpp-011": {
+      "source_id": "Mbpp/11",
+      "prompt_sha256": "ce3265aa1927ddc7c738f0363321ea4bdddefaf6a37711b1e015f7bb10414960",
+      "original_test_sha256": "3bd98eeb9dc52863f3977a257fb1ae43c2afaebc362de40fe028a58c845f7b90",
+      "verifier_sha256": "d7a07c3a718e8d0b7e2563271d0e2fc63b3e5b910b4110482955e4bcafb47180"
+    },
+    "mbpp-012": {
+      "source_id": "Mbpp/12",
+      "prompt_sha256": "0b911f36d7fb9d91570e2d8d66a622b803d9a75d2f70cdae9a5ba76f56605864",
+      "original_test_sha256": "5daccbb4e251d30add48c7706b16f8fd31278a0e5a347ecc6d1076db60472e73",
+      "verifier_sha256": "1e8dea7a9c628badc1ac35e729859bf4c2e9629a6943e4e583bb22af1b7926d6"
+    },
+    "mbpp-014": {
+      "source_id": "Mbpp/14",
+      "prompt_sha256": "3a38c5ec95b1257e1b7cdc22c58b3f1add8ff21f51dc1aad84b705701ebf034d",
+      "original_test_sha256": "56f397a2a86503f1606cead2767fe0e1e5640ed537c928bba231c4f08f75c414",
+      "verifier_sha256": "057c37783d248739e1e553815ca8b555cce0608a712c1f7f99d4fa6be49af501"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "id": "mbpp-011",
+  "source_issue": "Mbpp/11",
+  "max_turns": 12,
+  "allowlist": [
+    "solution.py"
+  ],
+  "issue": "Implement remove_Occ in solution.py. Task source: Mbpp/11. Follow the specification and example in the module docstring."
+}

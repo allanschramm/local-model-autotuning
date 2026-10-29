@@ -1,0 +1,9 @@
+{
+  "id": "mbpp-003",
+  "source_issue": "Mbpp/3",
+  "max_turns": 12,
+  "allowlist": [
+    "solution.py"
+  ],
+  "issue": "Implement is_not_prime in solution.py. Task source: Mbpp/3. Follow the specification and example in the module docstring."
+}

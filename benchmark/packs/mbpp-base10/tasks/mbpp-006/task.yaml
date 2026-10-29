@@ -1,0 +1,9 @@
+{
+  "id": "mbpp-006",
+  "source_issue": "Mbpp/6",
+  "max_turns": 12,
+  "allowlist": [
+    "solution.py"
+  ],
+  "issue": "Implement differ_At_One_Bit_Pos in solution.py. Task source: Mbpp/6. Follow the specification and example in the module docstring."
+}

@@ -3,6 +3,8 @@
 // infinite turns, infra errors scored as model failures, and repo dependencies.
 // Pack selection must preserve the default five tasks; HumanEval check(candidate)
 // must reject every empty stub and accept every upstream oracle without EvalPlus.
+// MBPP must preserve the legacy's non-contiguous IDs and execute base assertions,
+// including imported entrypoints/helpers, without changing either existing pack.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -36,6 +38,7 @@ const server = createServer(async (req, res) => {
   assert.equal(req.url, '/v1/chat/completions');
   assert.equal(req.headers.authorization, `Bearer ${key}`);
   assert(!raw.includes('def test_inclusive_max'), 'hidden test leaked');
+  assert(!raw.includes('def test_original_mbpp_assertions'), 'MBPP hidden test leaked');
   assert(!raw.includes('PERSONAL_RESOURCE_SENTINEL'), 'personal Pi resource leaked');
   if (body.model === 'infra-error') {
     res.writeHead(401, { 'Content-Type': 'application/json' });
@@ -44,10 +47,11 @@ const server = createServer(async (req, res) => {
   }
   let tool;
   const usedTools = body.messages.some(m => m.role === 'tool');
-  if (body.model === 'human-oracle' && !usedTools) {
-    const sourceId = raw.match(/HumanEval\/\d+/)?.[0];
-    const oracles = JSON.parse(await readFile(join(isolated, 'packs/humaneval-base10/oracles.json'), 'utf8'));
-    assert(sourceId && oracles[sourceId], 'Expected a frozen HumanEval source task');
+  if (['human-oracle', 'mbpp-oracle'].includes(body.model) && !usedTools) {
+    const pack = body.model === 'human-oracle' ? 'humaneval-base10' : 'mbpp-base10';
+    const sourceId = raw.match(/(?:HumanEval|Mbpp)\/\d+/)?.[0];
+    const oracles = JSON.parse(await readFile(join(isolated, `packs/${pack}/oracles.json`), 'utf8'));
+    assert(sourceId && oracles[sourceId], 'Expected a frozen source task');
     tool = { name: 'workspace_write', arguments: JSON.stringify({ path: 'solution.py', content: oracles[sourceId] }) };
   } else if (body.model.startsWith('absolute-')) {
     const prompt = body.messages.map(m => typeof m.content === 'string' ? m.content : JSON.stringify(m.content)).join('\n');
@@ -105,6 +109,10 @@ try {
   assert.equal(packList.code, 0, packList.output);
   const humanIds = packList.output.trim().split(/\r?\n/);
   assert.equal(humanIds.length, 10);
+  const mbppList = await run(['--list', '--pack', 'mbpp-base10']);
+  assert.equal(mbppList.code, 0, mbppList.output);
+  const mbppIds = mbppList.output.trim().split(/\r?\n/);
+  assert.deepEqual(mbppIds, [2, 3, 4, 6, 7, 8, 9, 11, 12, 14].map(id => `mbpp-${String(id).padStart(3, '0')}`));
   assert.equal((await run(['--list', '--pack', '../tasks'])).code, 2);
   for (const model of ['pass', 'fail', 'infra-error', 'escape', 'hidden', 'loop', 'syntax', 'absolute-pass', 'absolute-escape', 'absolute-hidden']) {
     const result = await run([
@@ -116,19 +124,20 @@ try {
     await writeFile(join(artifacts, `${model}.log`), result.output);
     assert.equal(result.code, ['pass', 'absolute-pass'].includes(model) ? 0 : model === 'infra-error' ? 2 : 1, result.output);
   }
-  for (const model of ['human-empty', 'human-oracle']) {
+  for (const model of ['human-empty', 'human-oracle', 'mbpp-empty', 'mbpp-oracle']) {
+    const pack = model.startsWith('human-') ? 'humaneval-base10' : 'mbpp-base10';
     const result = await run([
-      '--provider', 'fixture', '--model', model, '--pack', 'humaneval-base10',
+      '--provider', 'fixture', '--model', model, '--pack', pack,
       '--base-url', `http://127.0.0.1:${server.address().port}/v1`,
       '--context-window', '65536', '--api-key-env', 'BENCHMARK_TEST_KEY',
       '--python', python, '--db', database,
     ]);
     await writeFile(join(artifacts, `${model}.log`), result.output);
-    assert.equal(result.code, model === 'human-oracle' ? 0 : 1, result.output);
+    assert.equal(result.code, model.endsWith('-oracle') ? 0 : 1, result.output);
   }
   const db = new DatabaseSync(database);
   const allRows = db.prepare('SELECT * FROM benchmark_tasks ORDER BY rowid').all();
-  assert.equal(allRows.length, 30);
+  assert.equal(allRows.length, 50);
   const rows = allRows.slice(0, 10);
   assert.equal(rows[0].outcome, 'passed');
   assert.equal(rows[1].outcome, 'failed');
@@ -141,10 +150,10 @@ try {
   assert.equal(rows[7].outcome, 'passed', 'Pi read/write tools accept allowed absolute paths');
   assert.equal(rows[8].outcome, 'policy_violation');
   assert.equal(rows[9].outcome, 'policy_violation');
-  for (const [start, outcome] of [[10, 'failed'], [20, 'passed']]) {
+  for (const [start, outcome, ids] of [[10, 'failed', humanIds], [20, 'passed', humanIds], [30, 'failed', mbppIds], [40, 'passed', mbppIds]]) {
     const packRows = allRows.slice(start, start + 10);
-    assert.deepEqual(packRows.map(r => r.task_id), humanIds);
-    assert(packRows.every(r => r.outcome === outcome), 'Every HumanEval verifier must execute its assertions');
+    assert.deepEqual(packRows.map(r => r.task_id), ids);
+    assert(packRows.every(r => r.outcome === outcome), 'Every coding verifier must execute its assertions');
   }
   for (const row of allRows) {
     const evidence = JSON.parse(await readFile(row.artifact, 'utf8'));
@@ -159,7 +168,8 @@ try {
   }
   const runs = db.prepare('SELECT * FROM benchmark_runs').all();
   assert(runs.every(r => r.status === 'complete'));
-  assert(runs.slice(-2).every(r => JSON.parse(r.config_json).pack === 'humaneval-base10'));
+  assert(runs.slice(10, 12).every(r => JSON.parse(r.config_json).pack === 'humaneval-base10'));
+  assert(runs.slice(12, 14).every(r => JSON.parse(r.config_json).pack === 'mbpp-base10'));
   assert(runs.slice(0, 10).every(r => JSON.parse(r.config_json).pack === 'workspace-smoke'));
   assert(requests.every(r => r.model && (r.max_tokens ?? r.max_completion_tokens) === 4096));
   assert(!requests.some(r => 'min_p' in r || 'chat_template_kwargs' in r));

@@ -1,0 +1,9 @@
+{
+  "id": "mbpp-014",
+  "source_issue": "Mbpp/14",
+  "max_turns": 12,
+  "allowlist": [
+    "solution.py"
+  ],
+  "issue": "Implement find_Volume in solution.py. Task source: Mbpp/14. Follow the specification and example in the module docstring."
+}

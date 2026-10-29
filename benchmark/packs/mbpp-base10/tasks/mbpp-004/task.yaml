@@ -1,0 +1,9 @@
+{
+  "id": "mbpp-004",
+  "source_issue": "Mbpp/4",
+  "max_turns": 12,
+  "allowlist": [
+    "solution.py"
+  ],
+  "issue": "Implement heap_queue_largest in solution.py. Task source: Mbpp/4. Follow the specification and example in the module docstring."
+}

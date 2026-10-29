@@ -1,0 +1,9 @@
+{
+  "id": "mbpp-007",
+  "source_issue": "Mbpp/7",
+  "max_turns": 12,
+  "allowlist": [
+    "solution.py"
+  ],
+  "issue": "Implement find_char_long in solution.py. Task source: Mbpp/7. Follow the specification and example in the module docstring."
+}

@@ -1,0 +1,9 @@
+{
+  "id": "mbpp-002",
+  "source_issue": "Mbpp/2",
+  "max_turns": 12,
+  "allowlist": [
+    "solution.py"
+  ],
+  "issue": "Implement similar_elements in solution.py. Task source: Mbpp/2. Follow the specification and example in the module docstring."
+}

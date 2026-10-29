@@ -1,0 +1,9 @@
+{
+  "id": "mbpp-012",
+  "source_issue": "Mbpp/12",
+  "max_turns": 12,
+  "allowlist": [
+    "solution.py"
+  ],
+  "issue": "Implement sort_matrix in solution.py. Task source: Mbpp/12. Follow the specification and example in the module docstring."
+}

@@ -29,7 +29,7 @@ For a built-in Pi cloud provider, omit `--base-url` and use its provider/model I
 node benchmark/main.mjs --provider <provider-id> --model <model-id> --python .\venv\Scripts\python.exe
 ```
 
-Without `--pack`, `workspace-smoke` selects the original five frozen tasks. `--pack humaneval-base10` selects ten HumanEval base tasks. Without `--task`, every task in the selected pack runs sequentially; repeat `--task` to select several. Exit codes: `0` all passed, `1` at least one model/policy/turn-limit failure, `2` infrastructure or configuration error. No automatic retry or model fallback.
+Without `--pack`, `workspace-smoke` selects the original five frozen tasks. `--pack humaneval-base10` and `--pack mbpp-base10` select their respective ten-task coding subsets. Without `--task`, every task in the selected pack runs sequentially; repeat `--task` to select several. Exit codes: `0` all passed, `1` at least one model/policy/turn-limit failure, `2` infrastructure or configuration error. No automatic retry or model fallback.
 
 ## HumanEval base pack
 
@@ -42,7 +42,22 @@ The frozen pack contains HumanEval/0 through HumanEval/9, the same IDs selected 
 
 `packs/humaneval-base10/source.json` records the EvalPlus source snapshot, IDs and hashes. The MIT license is included. Oracle solutions are outside task workspaces and used only for E2E validation. Running the frozen pack requires no EvalPlus installation or network download.
 
-To reproduce the snapshot, install `evalplus==0.3.1` in an export environment and run `python benchmark/import_humaneval.py --output <new-pack-directory>`. The exporter requires dataset v0.1.10 and the recorded subset digest; it refuses upstream drift and refuses to overwrite an existing directory. The generated task bytes remain frozen.
+To reproduce the snapshot, install `evalplus==0.3.1` in an export environment and run `python benchmark/import_coding.py --pack humaneval-base10 --output <new-pack-directory>`. The exporter requires dataset v0.1.10 and the recorded subset digest; it refuses upstream drift and refuses to overwrite an existing directory. The old `import_humaneval.py` command remains a compatibility entrypoint with the same default and byte-identical output.
+
+## MBPP base pack
+
+```powershell
+node benchmark/main.mjs --pack mbpp-base10 --list
+node benchmark/main.mjs --pack mbpp-base10 --provider local --model <served-model-id> --base-url http://127.0.0.1:18080/v1 --context-window 65536 --python .\venv\Scripts\python.exe
+```
+
+This freezes the legacy coding-10 MBPP selection: Mbpp/2, /3, /4, /6, /7, /8, /9, /11, /12 and /14. The source is EvalPlus's MBPP+ v0.2.0 snapshot; verification executes only its original `assertion` field. The module docstring preserves the supplied prompt/example and a placeholder names the required function. Hidden pytest imports that entrypoint and executes the base assertions. Model-written helpers/imports stay in `solution.py`.
+
+This is a legacy-selected smoke subset, including IDs that the original MBPP paper used for prompting; it is not a standard MBPP test-split score, the full corpus, or expanded MBPP+ coverage. Preserve the literal assertions, including their expected result types. Pi protocol and task hashes remain separate from legacy single-shot coding scores.
+
+One inherited limitation is Mbpp/2: its public example compares results through `set(...)`, but the hidden base assertions require an exact tuple. A set with the correct elements still fails. The snapshot preserves this criterion; interpret that failure as a type-sensitive dataset limitation rather than a runtime error.
+
+The pack includes source IDs/hashes, oracle solutions for E2E only, EvalPlus's Apache-2.0 license and original MBPP attribution/license links in `NOTICE.md`. Running the frozen pack needs only Pi's installed dependencies and pytest, without EvalPlus or dataset downloads. Reproduce it with `python benchmark/import_coding.py --pack mbpp-base10 --output <new-pack-directory>` in the pinned `evalplus==0.3.1` export environment.
 
 ## Protocol and evidence
 

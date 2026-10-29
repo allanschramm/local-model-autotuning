@@ -1,0 +1,9 @@
+{
+  "id": "mbpp-008",
+  "source_issue": "Mbpp/8",
+  "max_turns": 12,
+  "allowlist": [
+    "solution.py"
+  ],
+  "issue": "Implement square_nums in solution.py. Task source: Mbpp/8. Follow the specification and example in the module docstring."
+}
