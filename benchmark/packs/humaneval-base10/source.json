@@ -1,0 +1,71 @@
+{
+  "pack": "humaneval-base10",
+  "source": "https://github.com/evalplus/evalplus/releases/tag/v0.1.10",
+  "upstream": "https://github.com/openai/human-eval",
+  "evalplus_version": "0.3.1",
+  "dataset_version": "v0.1.10",
+  "source_subset_sha256": "828cd06f7b778dabda38314556656766b89ce42be25b578f362194936325813f",
+  "verification": "Original base check(candidate) only; plus_input is not evaluated",
+  "tasks": {
+    "humaneval-000": {
+      "source_id": "HumanEval/0",
+      "prompt_sha256": "00b2e074e127a6a9d1376278bef732933760ab706057ec755a8c2642217b557a",
+      "original_test_sha256": "791458a53402434f50698418c76887cf4085c7d1a2453b4da493237c50ef96c5",
+      "verifier_sha256": "e4c80e7a7f8a907b3e544869fbe7fba8679856f11866de4c4db77c4ed2fcd038"
+    },
+    "humaneval-001": {
+      "source_id": "HumanEval/1",
+      "prompt_sha256": "ba4d0641a184fb3cdd632060a25d6408a7e91fe9d79b5c341407e74b80536327",
+      "original_test_sha256": "eec0f175849e317e04b8e983c48cc25e50da543975e7163939da0fd6b6c14f9c",
+      "verifier_sha256": "2007d7570dddf14fe25bab2c7eae0e037181dfec0593d172004e334cfaf62976"
+    },
+    "humaneval-002": {
+      "source_id": "HumanEval/2",
+      "prompt_sha256": "fecb9ddd4f103f1c3e9d9c7d6c3b948a4b1285b50c3498437c85a9d604d957eb",
+      "original_test_sha256": "6a39b8fb5ea92472f27a2b8b305abe517547f20a3cd824f4de73fb7e0f4b7934",
+      "verifier_sha256": "04a420a0e3a65755e9ae5f98ad25158b39bcd3d272d6e292b9610a9a20a0a3c9"
+    },
+    "humaneval-003": {
+      "source_id": "HumanEval/3",
+      "prompt_sha256": "430706f794ffabb60ec5818ca7c9fdbd281b97ef9d3ac6d6ba140a7a2498f5a5",
+      "original_test_sha256": "40b6760bdaa3d5c213303b7021e563f8561c1466d46bfbdf25eee5591a7b9aa8",
+      "verifier_sha256": "7ab8dceba68af787ddea8990148ed9f68bc5698f0753716bb2aa5cb6ab14937e"
+    },
+    "humaneval-004": {
+      "source_id": "HumanEval/4",
+      "prompt_sha256": "2717edd5d203ea22a6eebf62263effd9b792e1a2ef93e017868cedaac7b5ef10",
+      "original_test_sha256": "5b28de46dfd046bbb72c49a4cfcafbac0eeed6ab45312f5d573e2cd34aa22f1b",
+      "verifier_sha256": "43e108176ef8dc9b2f2a152f7bb487a0463eedc140d2249bd97d0f1870061db5"
+    },
+    "humaneval-005": {
+      "source_id": "HumanEval/5",
+      "prompt_sha256": "388474ac71e5b893802f5971102df2e4ea82ddf2f916a4a55361c19370f54012",
+      "original_test_sha256": "09f028312e9703cb8fe5f9a5027ab5ec540e79dd5525a318fa209bff1fcd15cb",
+      "verifier_sha256": "f1e4deea9bd3db5171667783e53ae0ae6a8485b856edd36e74e2bc58e9c6c5a5"
+    },
+    "humaneval-006": {
+      "source_id": "HumanEval/6",
+      "prompt_sha256": "39b4ae7cbb22820ff04ffe8a3cbe4bd4332d16046130335d78f36d75a5c3cf4c",
+      "original_test_sha256": "e7a9b53bdd50882991a3fa59c4f725da48e260f3125a2aa9d520a2358cc011f9",
+      "verifier_sha256": "8f98ca177e7324728634623d074f4bdbc25b0a824ad221945d0b3a0a1b9b67d9"
+    },
+    "humaneval-007": {
+      "source_id": "HumanEval/7",
+      "prompt_sha256": "5eecb2c6bb2b4fcd70989d66291a7c4c02d3afbf31591ad684e926a1e60ee969",
+      "original_test_sha256": "151e83d8e61801a06d5b4c6813497111954a8e53235d8c484027bfefd057f751",
+      "verifier_sha256": "ce3a405580ed9b191cb2688c8a8a47493415ab832103170946d104290f8adc4e"
+    },
+    "humaneval-008": {
+      "source_id": "HumanEval/8",
+      "prompt_sha256": "84dc98e731928675a91c68cbff1f89d0677596f849fa0e6b34fa9b40335fce03",
+      "original_test_sha256": "0910e972b4099735ae4c3035ac238672cc262ac579410a6e7aa8a79382c56e1b",
+      "verifier_sha256": "255d8a540ab9cea39611d683a1bc329eb8c4e7a88a93579a5ea4ae1d6d96bf81"
+    },
+    "humaneval-009": {
+      "source_id": "HumanEval/9",
+      "prompt_sha256": "583b281fbe1bf261fbade6e1a03119de96084ac87b508387f0d23c3b0cfdbbdb",
+      "original_test_sha256": "ea4c0c4da11c45408e42bac13c6983f287ab9e228ee7c4cfb82133355791b610",
+      "verifier_sha256": "f9baed2ba7263234ba38c9f2820a0c4138ca8488879a8696979ba1cd83f977b4"
+    }
+  }
+}

@@ -1,6 +1,8 @@
 // Failure modes: fake passes, missing evidence, leaked hidden tests/credentials,
 // path escapes, allowed absolute SDK paths rejected, absolute hidden-test access,
 // infinite turns, infra errors scored as model failures, and repo dependencies.
+// Pack selection must preserve the default five tasks; HumanEval check(candidate)
+// must reject every empty stub and accept every upstream oracle without EvalPlus.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -42,7 +44,12 @@ const server = createServer(async (req, res) => {
   }
   let tool;
   const usedTools = body.messages.some(m => m.role === 'tool');
-  if (body.model.startsWith('absolute-')) {
+  if (body.model === 'human-oracle' && !usedTools) {
+    const sourceId = raw.match(/HumanEval\/\d+/)?.[0];
+    const oracles = JSON.parse(await readFile(join(isolated, 'packs/humaneval-base10/oracles.json'), 'utf8'));
+    assert(sourceId && oracles[sourceId], 'Expected a frozen HumanEval source task');
+    tool = { name: 'workspace_write', arguments: JSON.stringify({ path: 'solution.py', content: oracles[sourceId] }) };
+  } else if (body.model.startsWith('absolute-')) {
     const prompt = body.messages.map(m => typeof m.content === 'string' ? m.content : JSON.stringify(m.content)).join('\n');
     const cwd = prompt.match(/<cwd>\s*([\s\S]*?)\s*<\/cwd>/)?.[1];
     assert(cwd, 'Pi must advertise its workspace directory');
@@ -93,6 +100,12 @@ try {
   const list = await run(['--list']);
   assert.equal(list.code, 0, list.output);
   assert(list.output.includes('issue-clamp-inclusive'));
+  assert.equal(list.output.trim().split('\n').length, 5, 'Default pack stays frozen');
+  const packList = await run(['--list', '--pack', 'humaneval-base10']);
+  assert.equal(packList.code, 0, packList.output);
+  const humanIds = packList.output.trim().split(/\r?\n/);
+  assert.equal(humanIds.length, 10);
+  assert.equal((await run(['--list', '--pack', '../tasks'])).code, 2);
   for (const model of ['pass', 'fail', 'infra-error', 'escape', 'hidden', 'loop', 'syntax', 'absolute-pass', 'absolute-escape', 'absolute-hidden']) {
     const result = await run([
       '--provider', 'fixture', '--model', model,
@@ -103,9 +116,20 @@ try {
     await writeFile(join(artifacts, `${model}.log`), result.output);
     assert.equal(result.code, ['pass', 'absolute-pass'].includes(model) ? 0 : model === 'infra-error' ? 2 : 1, result.output);
   }
+  for (const model of ['human-empty', 'human-oracle']) {
+    const result = await run([
+      '--provider', 'fixture', '--model', model, '--pack', 'humaneval-base10',
+      '--base-url', `http://127.0.0.1:${server.address().port}/v1`,
+      '--context-window', '65536', '--api-key-env', 'BENCHMARK_TEST_KEY',
+      '--python', python, '--db', database,
+    ]);
+    await writeFile(join(artifacts, `${model}.log`), result.output);
+    assert.equal(result.code, model === 'human-oracle' ? 0 : 1, result.output);
+  }
   const db = new DatabaseSync(database);
-  const rows = db.prepare('SELECT * FROM benchmark_tasks ORDER BY rowid').all();
-  assert.equal(rows.length, 10);
+  const allRows = db.prepare('SELECT * FROM benchmark_tasks ORDER BY rowid').all();
+  assert.equal(allRows.length, 30);
+  const rows = allRows.slice(0, 10);
   assert.equal(rows[0].outcome, 'passed');
   assert.equal(rows[1].outcome, 'failed');
   assert.equal(rows[2].outcome, 'infra_error');
@@ -117,9 +141,14 @@ try {
   assert.equal(rows[7].outcome, 'passed', 'Pi read/write tools accept allowed absolute paths');
   assert.equal(rows[8].outcome, 'policy_violation');
   assert.equal(rows[9].outcome, 'policy_violation');
-  for (const row of rows) {
+  for (const [start, outcome] of [[10, 'failed'], [20, 'passed']]) {
+    const packRows = allRows.slice(start, start + 10);
+    assert.deepEqual(packRows.map(r => r.task_id), humanIds);
+    assert(packRows.every(r => r.outcome === outcome), 'Every HumanEval verifier must execute its assertions');
+  }
+  for (const row of allRows) {
     const evidence = JSON.parse(await readFile(row.artifact, 'utf8'));
-    assert.equal(evidence.task, 'issue-clamp-inclusive');
+    assert.equal(evidence.task, row.task_id);
     assert.equal(evidence.protocol, 'pi-workspace-v2');
     assert.equal(evidence.pi_version, '1.4.0');
     assert.equal(evidence.outcome, row.outcome);
@@ -130,10 +159,12 @@ try {
   }
   const runs = db.prepare('SELECT * FROM benchmark_runs').all();
   assert(runs.every(r => r.status === 'complete'));
+  assert(runs.slice(-2).every(r => JSON.parse(r.config_json).pack === 'humaneval-base10'));
+  assert(runs.slice(0, 10).every(r => JSON.parse(r.config_json).pack === 'workspace-smoke'));
   assert(requests.every(r => r.model && (r.max_tokens ?? r.max_completion_tokens) === 4096));
   assert(!requests.some(r => 'min_p' in r || 'chat_template_kwargs' in r));
   db.close();
-  const summary = { status: 'passed', cases: rows.map(r => ({ task: r.task_id, outcome: r.outcome })), requests: calls, database, standalone: isolated };
+  const summary = { status: 'passed', cases: allRows.map(r => ({ task: r.task_id, outcome: r.outcome })), requests: calls, database, standalone: isolated };
   await writeFile(join(artifacts, 'verification.json'), JSON.stringify(summary, null, 2));
   console.log(JSON.stringify(summary, null, 2));
 } finally {

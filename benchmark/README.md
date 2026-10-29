@@ -29,7 +29,20 @@ For a built-in Pi cloud provider, omit `--base-url` and use its provider/model I
 node benchmark/main.mjs --provider <provider-id> --model <model-id> --python .\venv\Scripts\python.exe
 ```
 
-Without `--task`, the five frozen tasks run sequentially. Repeat `--task` to select several. Exit codes: `0` all passed, `1` at least one model/policy/turn-limit failure, `2` infrastructure or configuration error. No automatic retry or model fallback.
+Without `--pack`, `workspace-smoke` selects the original five frozen tasks. `--pack humaneval-base10` selects ten HumanEval base tasks. Without `--task`, every task in the selected pack runs sequentially; repeat `--task` to select several. Exit codes: `0` all passed, `1` at least one model/policy/turn-limit failure, `2` infrastructure or configuration error. No automatic retry or model fallback.
+
+## HumanEval base pack
+
+```powershell
+node benchmark/main.mjs --pack humaneval-base10 --list
+node benchmark/main.mjs --pack humaneval-base10 --provider local --model <served-model-id> --base-url http://127.0.0.1:18080/v1 --context-window 65536 --python .\venv\Scripts\python.exe
+```
+
+The frozen pack contains HumanEval/0 through HumanEval/9, the same IDs selected by the legacy coding-10 HumanEval loader. Pi edits only `solution.py`; original assertions run as hidden pytest and explicitly invoke `check(candidate)`. This is original HumanEval base coverage, not expanded HumanEval+ or the full dataset. [Migration inventory](MIGRATION.md) describes the legacy verifier limitation and why its historical scores cannot be compared directly.
+
+`packs/humaneval-base10/source.json` records the EvalPlus source snapshot, IDs and hashes. The MIT license is included. Oracle solutions are outside task workspaces and used only for E2E validation. Running the frozen pack requires no EvalPlus installation or network download.
+
+To reproduce the snapshot, install `evalplus==0.3.1` in an export environment and run `python benchmark/import_humaneval.py --output <new-pack-directory>`. The exporter requires dataset v0.1.10 and the recorded subset digest; it refuses upstream drift and refuses to overwrite an existing directory. The generated task bytes remain frozen.
 
 ## Protocol and evidence
 

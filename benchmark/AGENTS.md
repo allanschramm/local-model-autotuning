@@ -12,15 +12,17 @@ Repository developers. Parent: [root contract](../AGENTS.md).
 - SQLite `results.db` is canonical. This module owns only `benchmark_runs` and `benchmark_tasks`; existing tables remain untouched.
 - Frozen tasks expose only allowlisted workspace files. Hidden verifiers remain inaccessible to model tools and run after the session.
 - `pi-workspace-v2` resolves relative/absolute Pi tool paths against the workspace, then checks exact allowlist membership and realpath equality. Preserve v1 result identity; path-policy changes require a new protocol.
+- `--pack` selects a registered frozen corpus and is recorded in run configuration. Default `workspace-smoke` retains its five tasks; `humaneval-base10` runs original base assertions with an explicit `check(candidate)` call, not expanded plus coverage. Never pool its scores with legacy coding columns.
 - Pi resources and session state are isolated from personal settings, skills, extensions, and repository instructions. Credentials come from environment, never result artifacts.
 - Write E2E checks before implementation; retain repeatable SQLite and trajectory evidence. Fixture verifiers are trusted code, not an OS sandbox for arbitrary datasets.
 
 ## Work Guidance
 - See [README.md](README.md) for installation, endpoint configuration, and the staged extraction.
+- See [MIGRATION.md](MIGRATION.md) for the legacy inventory, verifier limitations, compatibility consumers and retirement criteria. Local endpoints are the validation priority; cloud validation is deferred.
 - Keep tasks and verifiers unchanged when moving the frozen pack. The legacy runner still consumes that pack for historical protocol compatibility.
 
 ## Verification
 - `node --check main.mjs` checks syntax. `BENCHMARK_PYTHON=<venv-python> npm test` executes the standalone E2E and retains SQLite/trajectory evidence in the printed temp directory.
 
 ## Child DOX Index
-None; tasks and E2E verification remain owned here.
+- [packs/AGENTS.md](packs/AGENTS.md) — frozen dataset provenance, oracle isolation and reproduction. Default tasks and E2E execution remain owned by this parent.

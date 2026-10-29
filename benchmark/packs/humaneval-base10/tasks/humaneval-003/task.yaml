@@ -1,0 +1,9 @@
+{
+  "id": "humaneval-003",
+  "source_issue": "HumanEval/3",
+  "max_turns": 12,
+  "allowlist": [
+    "solution.py"
+  ],
+  "issue": "Complete the Python function in solution.py. Task source: HumanEval/3. Preserve its signature and satisfy the specification in its docstring."
+}

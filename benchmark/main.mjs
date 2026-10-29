@@ -14,6 +14,10 @@ import {
 } from '@earendil-works/pi-coding-agent';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
+const PACKS = new Map([
+  ['workspace-smoke', join(ROOT, 'tasks')],
+  ['humaneval-base10', join(ROOT, 'packs/humaneval-base10/tasks')],
+]);
 const PROTOCOL = 'pi-workspace-v2';
 const PI_VERSION = '1.4.0';
 if (VERSION !== PI_VERSION) throw new Error(`Pi version drift: expected ${PI_VERSION}, installed ${VERSION}; run npm ci`);
@@ -32,11 +36,13 @@ async function files(root, prefix = '') {
   return found.sort();
 }
 
-async function loadTasks(selected) {
+async function loadTasks(selected, pack) {
+  const taskRoot = PACKS.get(pack);
+  if (!taskRoot) throw new Error(`Unknown pack: ${pack}`);
   const tasks = [];
-  for (const name of (await readdir(join(ROOT, 'tasks'))).sort()) {
+  for (const name of (await readdir(taskRoot)).sort()) {
     if (selected?.length && !selected.includes(name)) continue;
-    const directory = join(ROOT, 'tasks', name);
+    const directory = join(taskRoot, name);
     const task = parse(await readFile(join(directory, 'task.yaml'), 'utf8'));
     if (task.id !== name || typeof task.issue !== 'string' || !task.issue.trim()
       || !Number.isSafeInteger(task.max_turns) || task.max_turns < 1
@@ -186,6 +192,7 @@ async function runTask(task, runtime, model, python, secrets) {
 async function main() {
   const { values } = parseArgs({ options: {
     help: { type: 'boolean' }, list: { type: 'boolean' },
+    pack: { type: 'string', default: 'workspace-smoke' },
     provider: { type: 'string' }, model: { type: 'string' },
     'base-url': { type: 'string' }, api: { type: 'string', default: 'openai-completions' },
     'context-window': { type: 'string' }, 'api-key-env': { type: 'string' },
@@ -193,10 +200,10 @@ async function main() {
     db: { type: 'string', default: 'results.db' },
   } });
   if (values.help) {
-    console.log('node main.mjs --provider <provider> --model <id> --python <venv-python> [--task <id>] [--db results.db]\nCustom endpoint: --base-url <url> --context-window <tokens> [--api <Pi protocol>] [--api-key-env <VARIABLE>]\n--list lists frozen tasks. No tuning configuration or local server launch is required.');
+    console.log('node main.mjs --provider <provider> --model <id> --python <venv-python> [--pack workspace-smoke|humaneval-base10] [--task <id>] [--db results.db]\nCustom endpoint: --base-url <url> --context-window <tokens> [--api <Pi protocol>] [--api-key-env <VARIABLE>]\n--list lists frozen tasks in the selected pack. No tuning configuration or local server launch is required.');
     return 0;
   }
-  const tasks = await loadTasks(values.task);
+  const tasks = await loadTasks(values.task, values.pack);
   if (values.list) { console.log(tasks.map(t => t.id).join('\n')); return 0; }
   if (!values.provider || !values.model || !values.python) throw new Error('--provider, --model and --python are required');
   const python = resolve(values.python);
@@ -233,6 +240,7 @@ async function main() {
     const artifactDir = join(dirname(database), 'benchmark-artifacts', runId);
     await mkdir(artifactDir, { recursive: true });
     const config = {
+      pack: values.pack,
       tools: ['workspace_read', 'workspace_write'], thinking_requested: 'off', temperature: 0,
       max_output_tokens: MAX_OUTPUT_TOKENS, auto_retry: false, compaction: false,
       context_window: model.contextWindow, context_source: values['base-url'] ? 'operator-declared' : 'pi-catalog',
