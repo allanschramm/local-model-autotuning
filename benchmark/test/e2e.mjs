@@ -5,10 +5,12 @@
 // must reject every empty stub and accept every upstream oracle without EvalPlus.
 // MBPP must preserve the legacy's non-contiguous IDs and execute base assertions,
 // including imported entrypoints/helpers, without changing either existing pack.
+// LiveCodeBench must execute private stdin cases, reject sample-only solutions,
+// preserve strict whitespace comparison, and isolate each program's cwd.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { cp, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rename, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -39,6 +41,7 @@ const server = createServer(async (req, res) => {
   assert.equal(req.headers.authorization, `Bearer ${key}`);
   assert(!raw.includes('def test_inclusive_max'), 'hidden test leaked');
   assert(!raw.includes('def test_original_mbpp_assertions'), 'MBPP hidden test leaked');
+  assert(!raw.includes('private_cases.json.gz'), 'LCB hidden verifier leaked');
   assert(!raw.includes('PERSONAL_RESOURCE_SENTINEL'), 'personal Pi resource leaked');
   if (body.model === 'infra-error') {
     res.writeHead(401, { 'Content-Type': 'application/json' });
@@ -47,7 +50,13 @@ const server = createServer(async (req, res) => {
   }
   let tool;
   const usedTools = body.messages.some(m => m.role === 'tool');
-  if (['human-oracle', 'mbpp-oracle'].includes(body.model) && !usedTools) {
+  if (body.model.startsWith('lcb-') && body.model !== 'lcb-empty' && !usedTools) {
+    let code = "from pathlib import Path\nassert Path.cwd() != Path(__file__).resolve().parent\nmarker = Path('case-marker.txt')\nassert not marker.exists()\nmarker.write_text('seen')\nx = int(input())\nanswer = sum(i*j for i in range(1,10) for j in range(1,10) if i*j != x)\nprint(answer)\n";
+    if (body.model === 'lcb-samples-only') code = "x = int(input())\nprint({1: 2024, 11: 2025, 24: 1929}.get(x, 0))\n";
+    if (body.model === 'lcb-whitespace') code = code.replace('print(answer)', "print(answer, end=' \\n')");
+    if (body.model === 'lcb-syntax') code = 'def broken syntax!\n';
+    tool = { name: 'workspace_write', arguments: JSON.stringify({ path: 'solution.py', content: code }) };
+  } else if (['human-oracle', 'mbpp-oracle'].includes(body.model) && !usedTools) {
     const pack = body.model === 'human-oracle' ? 'humaneval-base10' : 'mbpp-base10';
     const sourceId = raw.match(/(?:HumanEval|Mbpp)\/\d+/)?.[0];
     const oracles = JSON.parse(await readFile(join(isolated, `packs/${pack}/oracles.json`), 'utf8'));
@@ -113,6 +122,10 @@ try {
   assert.equal(mbppList.code, 0, mbppList.output);
   const mbppIds = mbppList.output.trim().split(/\r?\n/);
   assert.deepEqual(mbppIds, [2, 3, 4, 6, 7, 8, 9, 11, 12, 14].map(id => `mbpp-${String(id).padStart(3, '0')}`));
+  const lcbList = await run(['--list', '--pack', 'lcb-v6-stdin10']);
+  assert.equal(lcbList.code, 0, lcbList.output);
+  const lcbIds = lcbList.output.trim().split(/\r?\n/);
+  assert.deepEqual(lcbIds, ['abc387_b', 'abc387_f', 'abc387_a', 'abc387_c', 'abc388_d', 'abc388_b', 'abc388_g', 'abc388_c', 'abc388_a', 'abc388_f'].map((id, i) => `lcb-${String(i).padStart(3, '0')}-${id}`));
   assert.equal((await run(['--list', '--pack', '../tasks'])).code, 2);
   for (const model of ['pass', 'fail', 'infra-error', 'escape', 'hidden', 'loop', 'syntax', 'absolute-pass', 'absolute-escape', 'absolute-hidden']) {
     const result = await run([
@@ -135,9 +148,25 @@ try {
     await writeFile(join(artifacts, `${model}.log`), result.output);
     assert.equal(result.code, model.endsWith('-oracle') ? 0 : 1, result.output);
   }
+  for (const model of ['lcb-empty', 'lcb-reference', 'lcb-samples-only', 'lcb-whitespace', 'lcb-syntax', 'lcb-missing-cases']) {
+    const archive = join(isolated, 'packs/lcb-v6-stdin10/tasks', lcbIds[0], 'hidden_tests/private_cases.json.gz');
+    if (model === 'lcb-missing-cases') await rename(archive, `${archive}.saved`);
+    let result;
+    try { result = await run([
+      '--provider', 'fixture', '--model', model, '--pack', 'lcb-v6-stdin10',
+      '--base-url', `http://127.0.0.1:${server.address().port}/v1`,
+      '--context-window', '65536', '--api-key-env', 'BENCHMARK_TEST_KEY',
+      '--python', python, '--db', database,
+      ...(model === 'lcb-empty' ? [] : ['--task', lcbIds[0]]),
+    ]); } finally {
+      if (model === 'lcb-missing-cases') await rename(`${archive}.saved`, archive);
+    }
+    await writeFile(join(artifacts, `${model}.log`), result.output);
+    assert.equal(result.code, model === 'lcb-reference' ? 0 : model === 'lcb-missing-cases' ? 2 : 1, result.output);
+  }
   const db = new DatabaseSync(database);
   const allRows = db.prepare('SELECT * FROM benchmark_tasks ORDER BY rowid').all();
-  assert.equal(allRows.length, 50);
+  assert.equal(allRows.length, 65);
   const rows = allRows.slice(0, 10);
   assert.equal(rows[0].outcome, 'passed');
   assert.equal(rows[1].outcome, 'failed');
@@ -155,6 +184,12 @@ try {
     assert.deepEqual(packRows.map(r => r.task_id), ids);
     assert(packRows.every(r => r.outcome === outcome), 'Every coding verifier must execute its assertions');
   }
+  assert.deepEqual(allRows.slice(50, 60).map(r => r.task_id), lcbIds);
+  assert(allRows.slice(50, 60).every(r => r.outcome === 'failed'));
+  assert.equal(allRows[60].outcome, 'passed');
+  assert(allRows.slice(61, 64).every(r => r.outcome === 'failed'));
+  assert.equal(allRows[64].outcome, 'infra_error', 'Missing private fixtures are not model failures');
+  assert.equal(allRows[64].passed, null);
   for (const row of allRows) {
     const evidence = JSON.parse(await readFile(row.artifact, 'utf8'));
     assert.equal(evidence.task, row.task_id);
@@ -170,6 +205,7 @@ try {
   assert(runs.every(r => r.status === 'complete'));
   assert(runs.slice(10, 12).every(r => JSON.parse(r.config_json).pack === 'humaneval-base10'));
   assert(runs.slice(12, 14).every(r => JSON.parse(r.config_json).pack === 'mbpp-base10'));
+  assert(runs.slice(14).every(r => JSON.parse(r.config_json).pack === 'lcb-v6-stdin10'));
   assert(runs.slice(0, 10).every(r => JSON.parse(r.config_json).pack === 'workspace-smoke'));
   assert(requests.every(r => r.model && (r.max_tokens ?? r.max_completion_tokens) === 4096));
   assert(!requests.some(r => 'min_p' in r || 'chat_template_kwargs' in r));

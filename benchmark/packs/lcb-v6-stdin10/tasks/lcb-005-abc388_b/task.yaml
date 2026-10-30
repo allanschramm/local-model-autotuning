@@ -1,0 +1,9 @@
+{
+  "id": "lcb-005-abc388_b",
+  "source_issue": "abc388_b",
+  "max_turns": 12,
+  "allowlist": [
+    "solution.py"
+  ],
+  "issue": "# Heavy Snake\n\nThere are N snakes.\nInitially, the thickness of the i-th snake is T_i, and its length is L_i.\nThe weight of a snake is defined as the product of its thickness and length.\nFor each integer k satisfying 1 \\leq k \\leq D, find the weight of the heaviest snake when every snake's length has increased by k.\n\nInput\n\nThe input is given from Standard Input in the following format:\nN D\r\nT_1 L_1\r\nT_2 L_2\r\n\\vdots\r\nT_N L_N\n\nOutput\n\nPrint D lines. The k-th line should contain the weight of the heaviest snake when every snake's length has increased by k.\n\nConstraints\n\n\n- 1 \\leq N, D \\leq 100\n- 1 \\leq T_i, L_i \\leq 100\n- All input values are integers.\n\nSample Input 1\n\n4 3\r\n3 3\r\n5 1\r\n2 4\r\n1 10\n\nSample Output 1\n\n12\r\n15\r\n20\r\n\nWhen every snake’s length has increased by 1, the snakes' weights become 12, 10, 10, 11, so print 12 on the first line.\nWhen every snake’s length has increased by 2, the snakes' weights become 15, 15, 12, 12, so print 15 on the second line.\nWhen every snake’s length has increased by 3, the snakes' weights become 18, 20, 14, 13, so print 20 on the third line.\n\nSample Input 2\n\n1 4\r\n100 100\n\nSample Output 2\n\n10100\r\n10200\r\n10300\r\n10400\n\nWrite a complete Python program in solution.py that reads standard input and writes the required answer to standard output."
+}

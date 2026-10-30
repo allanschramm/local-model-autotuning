@@ -1,0 +1,9 @@
+{
+  "id": "lcb-008-abc388_a",
+  "source_issue": "abc388_a",
+  "max_turns": 12,
+  "allowlist": [
+    "solution.py"
+  ],
+  "issue": "# ?UPC\n\nYou are given a string S. Here, the first character of S is an uppercase English letter, and the second and subsequent characters are lowercase English letters.\nPrint the string formed by concatenating the first character of S and UPC in this order.\n\nInput\n\nThe input is given from Standard Input in the following format:\nS\n\nOutput\n\nPrint the string formed by concatenating the first character of S and UPC in this order.\n\nConstraints\n\n\n- S is a string of length between 1 and 100, inclusive.\n- The first character of S is an uppercase English letter.\n- The second and subsequent characters of S are lowercase English letters.\n\nSample Input 1\n\nKyoto\n\nSample Output 1\n\nKUPC\r\n\nThe first character of Kyoto is K, so concatenate K and UPC, and print KUPC.\n\nSample Input 2\n\nTohoku\n\nSample Output 2\n\nTUPC\n\nWrite a complete Python program in solution.py that reads standard input and writes the required answer to standard output."
+}

@@ -1,0 +1,9 @@
+{
+  "id": "lcb-000-abc387_b",
+  "source_issue": "abc387_b",
+  "max_turns": 12,
+  "allowlist": [
+    "solution.py"
+  ],
+  "issue": "# 9x9 Sum\n\nAmong the 81 integers that appear in the 9-by-9 multiplication table, find the sum of those that are not X.\n\nThere is a grid of size 9 by 9.\r\nEach cell of the grid contains an integer: the cell at the i-th row from the top and the j-th column from the left contains i \\times j.\r\nYou are given an integer X. Among the 81 integers written in this grid, find the sum of those that are not X. If the same value appears in multiple cells, add it for each cell.\n\nInput\n\nThe input is given from Standard Input in the following format:\nX\n\nOutput\n\nPrint the sum of the integers that are not X among the 81 integers written in the grid.\n\nConstraints\n\n\n- X is an integer between 1 and 81, inclusive.\n\nSample Input 1\n\n1\n\nSample Output 1\n\n2024\r\n\nThe only cell with 1 in the grid is the cell at the 1st row from the top and 1st column from the left. Summing all integers that are not 1 yields 2024.\n\nSample Input 2\n\n11\n\nSample Output 2\n\n2025\r\n\nThere is no cell containing 11 in the grid. Thus, the answer is 2025, the sum of all 81 integers.\n\nSample Input 3\n\n24\n\nSample Output 3\n\n1929\n\nWrite a complete Python program in solution.py that reads standard input and writes the required answer to standard output."
+}

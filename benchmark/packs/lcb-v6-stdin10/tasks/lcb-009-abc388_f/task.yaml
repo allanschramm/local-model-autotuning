@@ -1,0 +1,9 @@
+{
+  "id": "lcb-009-abc388_f",
+  "source_issue": "abc388_f",
+  "max_turns": 12,
+  "allowlist": [
+    "solution.py"
+  ],
+  "issue": "# Dangerous Sugoroku\n\nThere are N squares arranged in a row, labeled 1, 2, \\ldots, N from left to right.\nYou are given M pairs of integers (L_1, R_1), \\ldots, (L_M, R_M).\nA square j is defined to be bad if and only if there exists some i such that L_i \\leq j \\leq R_i.\nDetermine whether you can move from square 1 to square N by repeatedly performing the following action:\n\n- Let your current square be x. Choose an integer i that satisfies all of the following conditions, and move to square x + i.\n- A \\leq i \\leq B\n- x + i \\leq N\n- Square x + i is not bad.\n\nInput\n\nThe input is given from Standard Input in the following format:\nN M A B\r\nL_1 R_1\r\nL_2 R_2\r\n\\vdots\r\nL_M R_M\n\nOutput\n\nIf it is possible to reach square N by repeating the action described in the problem statement, print Yes. Otherwise, print No.\n\nConstraints\n\n\n- 2 \\leq N \\leq 10^{12}\n- 0 \\leq M \\leq 2 \\times 10^4\n- 1 \\leq A \\leq B \\leq 20\n- 1 < L_i \\leq R_i < N \\ (1 \\leq i \\leq M)\n- R_i < L_{i+1} \\ (1 \\leq i \\leq M - 1)\n- All input values are integers.\n\nSample Input 1\n\n24 2 3 5\r\n7 8\r\n17 20\n\nSample Output 1\n\nYes\r\n\nYou can move to square N in this way: 1 \\to 6 \\to 9 \\to 12 \\to 16 \\to 21 \\to 24.\n\nSample Input 2\n\n30 1 5 8\r\n4 24\n\nSample Output 2\n\nNo\n\nSample Input 3\n\n100 4 10 11\r\n16 18\r\n39 42\r\n50 55\r\n93 99\n\nSample Output 3\n\nYes\n\nWrite a complete Python program in solution.py that reads standard input and writes the required answer to standard output."
+}

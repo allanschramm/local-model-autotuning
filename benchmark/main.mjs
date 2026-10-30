@@ -18,6 +18,7 @@ const PACKS = new Map([
   ['workspace-smoke', join(ROOT, 'tasks')],
   ['humaneval-base10', join(ROOT, 'packs/humaneval-base10/tasks')],
   ['mbpp-base10', join(ROOT, 'packs/mbpp-base10/tasks')],
+  ['lcb-v6-stdin10', join(ROOT, 'packs/lcb-v6-stdin10/tasks')],
 ]);
 const PROTOCOL = 'pi-workspace-v2';
 const PI_VERSION = '1.4.0';
@@ -201,7 +202,7 @@ async function main() {
     db: { type: 'string', default: 'results.db' },
   } });
   if (values.help) {
-    console.log('node main.mjs --provider <provider> --model <id> --python <venv-python> [--pack workspace-smoke|humaneval-base10|mbpp-base10] [--task <id>] [--db results.db]\nCustom endpoint: --base-url <url> --context-window <tokens> [--api <Pi protocol>] [--api-key-env <VARIABLE>]\n--list lists frozen tasks in the selected pack. No tuning configuration or local server launch is required.');
+    console.log('node main.mjs --provider <provider> --model <id> --python <venv-python> [--pack workspace-smoke|humaneval-base10|mbpp-base10|lcb-v6-stdin10] [--task <id>] [--db results.db]\nCustom endpoint: --base-url <url> --context-window <tokens> [--api <Pi protocol>] [--api-key-env <VARIABLE>]\n--list lists frozen tasks in the selected pack. No tuning configuration or local server launch is required.');
     return 0;
   }
   const tasks = await loadTasks(values.task, values.pack);

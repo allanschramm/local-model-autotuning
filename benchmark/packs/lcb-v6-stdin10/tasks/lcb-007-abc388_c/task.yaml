@@ -1,0 +1,9 @@
+{
+  "id": "lcb-007-abc388_c",
+  "source_issue": "abc388_c",
+  "max_turns": 12,
+  "allowlist": [
+    "solution.py"
+  ],
+  "issue": "# Various Kagamimochi\n\nThere are N mochi (rice cakes) arranged in ascending order of size.\r\nThe size of the i-th mochi (1 \\leq i \\leq N) is A_i.\nGiven two mochi A and B, with sizes a and b respectively, you can make one kagamimochi (a stacked rice cake) by placing mochi A on top of mochi B if and only if a is at most half of b.\nYou choose two mochi out of the N mochi, and place one on top of the other to form one kagamimochi.\nFind how many different kinds of kagamimochi can be made.\nTwo kagamimochi are distinguished if at least one of the mochi is different, even if the sizes of the mochi are the same.\n\nInput\n\nThe input is given from Standard Input in the following format:\nN\r\nA_1 A_2 \\cdots A_N\n\nOutput\n\nPrint the number of different kinds of kagamimochi that can be made.\n\nConstraints\n\n\n- 2 \\leq N \\leq 5 \\times 10^5\n- 1 \\leq A_i \\leq 10^9 \\ (1 \\leq i \\leq N)\n- A_i \\leq A_{i+1} \\ (1 \\leq i < N)\n- All input values are integers.\n\nSample Input 1\n\n6\r\n2 3 4 4 7 10\n\nSample Output 1\n\n8\r\n\nThe sizes of the given mochi are as follows:\n\nIn this case, you can make the following eight kinds of kagamimochi:\n\nNote that there are two kinds of kagamimochi where a mochi of size 4 is topped by a mochi of size 2, and two kinds where a mochi of size 10 is topped by a mochi of size 4.\n\nSample Input 2\n\n3\r\n387 388 389\n\nSample Output 2\n\n0\r\n\nIt is possible that you cannot make any kagamimochi.\n\nSample Input 3\n\n32\r\n1 2 4 5 8 10 12 16 19 25 33 40 50 64 87 101 149 175 202 211 278 314 355 405 412 420 442 481 512 582 600 641\n\nSample Output 3\n\n388\n\nWrite a complete Python program in solution.py that reads standard input and writes the required answer to standard output."
+}

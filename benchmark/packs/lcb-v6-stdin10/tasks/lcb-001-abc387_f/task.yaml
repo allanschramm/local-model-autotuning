@@ -1,0 +1,9 @@
+{
+  "id": "lcb-001-abc387_f",
+  "source_issue": "abc387_f",
+  "max_turns": 12,
+  "allowlist": [
+    "solution.py"
+  ],
+  "issue": "# Count Arrays\n\nYou are given positive integers N, M, and a sequence A = (A_1, A_2, \\dots, A_N) of length N, each element being an integer between 1 and N, inclusive.\nFind the number, modulo 998244353, of sequences x = (x_1, x_2, \\dots, x_N) of length N, each element being an integer between 1 and M, inclusive, that satisfy the following condition:\n\n- x_i \\leq x_{A_i} for every i (1 \\leq i \\leq N).\n\nInput\n\nThe input is given from Standard Input in the following format:\nN M\r\nA_1 A_2 \\dots A_N\n\nOutput\n\nPrint the answer.\n\nConstraints\n\n\n- 1 \\leq N, M \\leq 2025\n- 1 \\leq A_i \\leq N\n- All input values are integers.\n\nSample Input 1\n\n3 3\r\n2 1 1\n\nSample Output 1\n\n6\r\n\nThe sequences x=(1,1,1),(2,2,1),(2,2,2),(3,3,1),(3,3,2),(3,3,3) satisfy the condition.\n\nSample Input 2\n\n4 9\r\n1 1 1 1\n\nSample Output 2\n\n2025\n\nSample Input 3\n\n10 5\r\n9 4 5 5 4 2 1 5 7 2\n\nSample Output 3\n\n10010\n\nWrite a complete Python program in solution.py that reads standard input and writes the required answer to standard output."
+}

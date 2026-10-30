@@ -59,6 +59,31 @@ One inherited limitation is Mbpp/2: its public example compares results through 
 
 The pack includes source IDs/hashes, oracle solutions for E2E only, EvalPlus's Apache-2.0 license and original MBPP attribution/license links in `NOTICE.md`. Running the frozen pack needs only Pi's installed dependencies and pytest, without EvalPlus or dataset downloads. Reproduce it with `python benchmark/import_coding.py --pack mbpp-base10 --output <new-pack-directory>` in the pinned `evalplus==0.3.1` export environment.
 
+## LiveCodeBench v6 stdin pack
+
+```powershell
+node benchmark/main.mjs --pack lcb-v6-stdin10 --list
+node benchmark/main.mjs --pack lcb-v6-stdin10 --provider local --model <served-model-id> --base-url http://127.0.0.1:18080/v1 --context-window 65536 --python .\venv\Scripts\python.exe --task lcb-000-abc387_b
+```
+
+This is the exact ten-record stdin selection from the legacy `test6.jsonl` loader, in source order: abc387_b/f/a/c, abc388_d/b/g/c/a/f. It contains 400 private cases and mixed difficulties. The `test6.jsonl` increment is not the complete aggregate `release_v6` benchmark. Select individual tasks for a bounded smoke; the four easy tasks are `lcb-000-abc387_b`, `lcb-002-abc387_a`, `lcb-005-abc388_b`, and `lcb-008-abc388_a`.
+
+Each task exposes only `solution.py` and its original problem statement/examples. Hidden pytest runs the submitted stdin/stdout program against all 40 private cases, with a fresh subprocess and temporary working directory per case. Comparison preserves the legacy rule: exact stdout after stripping trailing newline characters, without trimming spaces or applying numeric tolerance. Public examples remain visible in the statement but are not separately scored. The official LiveCodeBench/Harbor graders differ; do not label this slice an official leaderboard score.
+
+There is no automatic command timeout. Some medium/hard cases have large inputs, and incorrect algorithms can run for a long time. Use explicit task selection for the initial local smoke. The bundled fixtures are trusted; their model-written programs are not enclosed in an OS security sandbox. Missing/corrupt private-case archives produce infrastructure failures with no model score.
+
+Private cases are stored as deterministic gzip JSON, marked binary in Git. The imported source uses a pickle wrapper, but the importer never unpickles it: after checking the pinned whole-file SHA256 it extracts one literal JSON string through a restricted opcode set with a decompression size cap. No pickle bytes are consumed during Benchmark execution. Source IDs, case counts, difficulty, contest metadata, source revision and hashes are in `packs/lcb-v6-stdin10/source.json`. Attribution and the source card's license declaration are preserved in `NOTICE.md`; the dataset does not provide gold solutions.
+
+To reproduce into a fresh directory:
+
+```powershell
+hf download livecodebench/code_generation_lite test6.jsonl --repo-type dataset --revision 0fe84c3912ea0c4d4a78037083943e8f0c4dd505
+.\venv\Scripts\python.exe benchmark/import_lcb.py --source <downloaded-test6.jsonl> --output <new-pack-directory>
+.\venv\Scripts\python.exe benchmark/test/lcb_import_security.py
+```
+
+Running the frozen pack needs neither the source JSONL nor Hugging Face dependencies. The standalone E2E rejects every unimplemented stdin task, checks a known solution to 9x9 Sum, rejects sample-only/whitespace/syntax failures, and classifies missing archives as infrastructure. It does not claim oracle validation of all ten algorithms.
+
 ## Protocol and evidence
 
 `pi-workspace-v2` uses Pi 1.4.0 with allowlisted `workspace_read` and `workspace_write` adapters over Pi tools, a fixed system prompt, temperature 0, thinking off, 4096 output tokens per turn, and each task's frozen turn limit. No shell, personal resources, compaction, or automatic recovery. This measures that constrained Pi configuration, not vanilla Pi or Terminal-Bench.

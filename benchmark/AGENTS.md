@@ -13,6 +13,7 @@ Repository developers. Parent: [root contract](../AGENTS.md).
 - Frozen tasks expose only allowlisted workspace files. Hidden verifiers remain inaccessible to model tools and run after the session.
 - `pi-workspace-v2` resolves relative/absolute Pi tool paths against the workspace, then checks exact allowlist membership and realpath equality. Preserve v1 result identity; path-policy changes require a new protocol.
 - `--pack` selects a registered frozen corpus and is recorded in run configuration. Default `workspace-smoke` retains its five tasks; `humaneval-base10` calls `check(candidate)` and `mbpp-base10` executes its literal base assertions. Neither is expanded plus coverage. Never pool their scores with legacy coding columns.
+- `lcb-v6-stdin10` preserves the ten legacy `test6.jsonl` selections and 40 private stdin cases per task. Hidden programs use fresh cwd/processes and exact stdout after trailing-newline removal. Missing archives are infrastructure errors. No automatic command timeout; select the four easy tasks for initial local smoke.
 - Pi resources and session state are isolated from personal settings, skills, extensions, and repository instructions. Credentials come from environment, never result artifacts.
 - Write E2E checks before implementation; retain repeatable SQLite and trajectory evidence. Fixture verifiers are trusted code, not an OS sandbox for arbitrary datasets.
 
@@ -23,6 +24,7 @@ Repository developers. Parent: [root contract](../AGENTS.md).
 
 ## Verification
 - `node --check main.mjs` checks syntax. `BENCHMARK_PYTHON=<venv-python> npm test` executes the standalone E2E and retains SQLite/trajectory evidence in the printed temp directory.
+- After changes to the LiveCodeBench importer, run the selected Python's `test/lcb_import_security.py` to check literal-only decoding and malformed-input rejection.
 
 ## Child DOX Index
 - [packs/AGENTS.md](packs/AGENTS.md) — frozen dataset provenance, oracle isolation and reproduction. Default tasks and E2E execution remain owned by this parent.
