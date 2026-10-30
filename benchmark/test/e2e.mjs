@@ -33,6 +33,7 @@ const database = join(artifacts, 'results.db');
 const key = 'e2e-key-must-not-appear-in-artifacts';
 let calls = 0;
 const requests = [];
+const credentialRequests = [];
 const server = createServer(async (req, res) => {
   let raw = '';
   for await (const chunk of req) raw += chunk;
@@ -40,20 +41,24 @@ const server = createServer(async (req, res) => {
   requests.push(body);
   calls++;
   assert.equal(req.url, '/v1/chat/completions');
-  assert.equal(req.headers.authorization, `Bearer ${key}`);
+  const credential = req.headers.authorization?.slice(7);
+  if (body.model.startsWith('credential-')) credentialRequests.push(credential);
+  else assert.equal(req.headers.authorization, `Bearer ${key}`);
   assert(!raw.includes('def test_inclusive_max'), 'hidden test leaked');
   assert(!raw.includes('def test_original_mbpp_assertions'), 'MBPP hidden test leaked');
   assert(!raw.includes('private_cases.json.gz'), 'LCB hidden verifier leaked');
   assert(!raw.includes('test_original_bigcode_suite'), 'BigCode hidden verifier leaked');
   assert(!raw.includes('PERSONAL_RESOURCE_SENTINEL'), 'personal Pi resource leaked');
-  if (body.model === 'infra-error') {
+  if (body.model === 'infra-error' || body.model === 'credential-error') {
     res.writeHead(401, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: { message: 'fixture provider unavailable' } }));
+    res.end(JSON.stringify({ error: { message: body.model === 'credential-error' ? `Rejected credential: ${credential}` : 'fixture provider unavailable' } }));
     return;
   }
   let tool;
   const usedTools = body.messages.some(m => m.role === 'tool');
-  if (body.model.startsWith('lcb-') && body.model !== 'lcb-empty' && !usedTools) {
+  if (body.model === 'credential-echo' && !usedTools) {
+    tool = { name: 'workspace_read', arguments: JSON.stringify({ path: 'clamp.py', [credential]: 'fixture-value' }) };
+  } else if (body.model.startsWith('lcb-') && body.model !== 'lcb-empty' && !usedTools) {
     let code = "from pathlib import Path\nassert Path.cwd() != Path(__file__).resolve().parent\nmarker = Path('case-marker.txt')\nassert not marker.exists()\nmarker.write_text('seen')\nx = int(input())\nanswer = sum(i*j for i in range(1,10) for j in range(1,10) if i*j != x)\nprint(answer)\n";
     if (body.model === 'lcb-samples-only') code = "x = int(input())\nprint({1: 2024, 11: 2025, 24: 1929}.get(x, 0))\n";
     if (body.model === 'lcb-whitespace') code = code.replace('print(answer)', "print(answer, end=' \\n')");
@@ -79,6 +84,8 @@ const server = createServer(async (req, res) => {
     } else if (turns === 1) {
       tool = { name: 'workspace_write', arguments: JSON.stringify({ path: join(cwd, 'clamp.py'), content: 'def clamp(value, lo, hi):\n    return min(max(value, lo), hi)\n' }) };
     }
+  } else if (body.model === 'exit-zero' && !usedTools) {
+    tool = { name: 'workspace_write', arguments: JSON.stringify({ path: 'clamp.py', content: 'import os\nos._exit(0)\n' }) };
   } else if (['pass', 'syntax'].includes(body.model) && !usedTools) {
     tool = { name: 'workspace_write', arguments: JSON.stringify({ path: 'clamp.py', content: body.model === 'syntax' ? 'def broken syntax!\n' : 'def clamp(value, lo, hi):\n    return min(max(value, lo), hi)\n' }) };
   } else if (body.model === 'escape') {
@@ -91,7 +98,7 @@ const server = createServer(async (req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/event-stream' });
   const send = data => res.write(`data: ${JSON.stringify(data)}\n\n`);
   send({ id: 'fixture', object: 'chat.completion.chunk', model: body.model,
-    choices: [{ index: 0, delta: { role: 'assistant', ...(tool ? { tool_calls: [{ index: 0, id: `call_${calls}`, type: 'function', function: tool }] } : { content: 'Done.' }) }, finish_reason: null }] });
+    choices: [{ index: 0, delta: { role: 'assistant', ...(tool ? { tool_calls: [{ index: 0, id: `call_${calls}`, type: 'function', function: tool }] } : { content: body.model === 'credential-echo' ? `Echo: ${credential}; JSON: ${JSON.stringify(credential)}` : 'Done.' }) }, finish_reason: null }] });
   send({ id: 'fixture', object: 'chat.completion.chunk', model: body.model,
     choices: [{ index: 0, delta: {}, finish_reason: tool ? 'tool_calls' : 'stop' }],
     usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 } });
@@ -101,9 +108,9 @@ await new Promise(r => server.listen(0, '127.0.0.1', r));
 const profile = join(artifacts, 'personal-profile');
 await mkdir(profile, { recursive: true });
 await writeFile(join(profile, 'AGENTS.md'), 'PERSONAL_RESOURCE_SENTINEL');
-const run = args => new Promise((accept, reject) => {
+const run = (args, environment = {}) => new Promise((accept, reject) => {
   const child = spawn(process.execPath, [join(isolated, 'main.mjs'), ...args], {
-    cwd: artifacts, env: { ...process.env, BENCHMARK_TEST_KEY: key, PI_CODING_AGENT_DIR: profile },
+    cwd: artifacts, env: { ...process.env, BENCHMARK_TEST_KEY: key, PI_CODING_AGENT_DIR: profile, ...environment },
     windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
   });
   let output = '';
@@ -113,6 +120,37 @@ const run = args => new Promise((accept, reject) => {
   child.on('close', code => accept({ code, output }));
 });
 try {
+  const integrity = join(artifacts, 'integrity');
+  await mkdir(integrity);
+  const integrityDatabase = join(integrity, 'results.db');
+  const failures = [];
+  for (const [index, secret] of ['fixture-"quoted-key', 'fixture-\\slash-key', 's!7', 'fixture-arbitrary-name-key', 'null', 'passed'].entries()) {
+    const response = await run(['--provider', 'fixture', '--model', 'credential-echo',
+      '--base-url', `http://127.0.0.1:${server.address().port}/v1`, '--context-window', '65536',
+      '--api-key-env', 'MODEL_AUTH', '--python', python, '--task', 'issue-clamp-inclusive', '--db', integrityDatabase], { MODEL_AUTH: secret });
+    assert.equal(credentialRequests.at(-1), secret, 'Selected credential must reach endpoint');
+    assert.equal(response.code, 1, 'Credential redaction must preserve model-failure outcomes');
+    await writeFile(join(integrity, `credential-${index}.log`), response.output);
+    const check = new DatabaseSync(integrityDatabase);
+    const row = check.prepare('SELECT artifact FROM benchmark_tasks ORDER BY rowid DESC LIMIT 1').get(); check.close();
+    const evidence = JSON.parse(await readFile(row.artifact, 'utf8'));
+    const text = evidence.messages.filter(m => m.role === 'assistant').flatMap(m => m.content.filter(c => c.type === 'text').map(c => c.text)).join('\n');
+    if (text.includes(secret) || text.includes(JSON.stringify(secret).slice(1, -1))) failures.push(`Credential ${index} leaked`);
+    const args = evidence.messages.flatMap(m => m.content ?? []).filter(c => c.type === 'toolCall').map(c => c.arguments);
+    if (args.some(a => Object.keys(a).includes(secret))) failures.push(`Credential ${index} leaked through JSON property name`);
+  }
+  const errorSecret = 'fixture-"error\\key';
+  await run(['--provider', 'fixture', '--model', 'credential-error', '--base-url', `http://127.0.0.1:${server.address().port}/v1`,
+    '--context-window', '65536', '--api-key-env', 'MODEL_AUTH', '--python', python, '--task', 'issue-clamp-inclusive', '--db', integrityDatabase], { MODEL_AUTH: errorSecret });
+  const premature = await run(['--provider', 'fixture', '--model', 'exit-zero', '--base-url', `http://127.0.0.1:${server.address().port}/v1`,
+    '--context-window', '65536', '--api-key-env', 'BENCHMARK_TEST_KEY', '--python', python, '--task', 'issue-clamp-inclusive', '--db', integrityDatabase]);
+  const check = new DatabaseSync(integrityDatabase);
+  const integrityRows = check.prepare('SELECT * FROM benchmark_tasks ORDER BY rowid').all(); check.close();
+  const errorEvidence = JSON.parse(await readFile(integrityRows.at(-2).artifact, 'utf8'));
+  if (errorEvidence.diagnostic?.includes(errorSecret) || errorEvidence.diagnostic?.includes(JSON.stringify(errorSecret).slice(1, -1))) failures.push('HTTP error credential leaked');
+  if (premature.code !== 1 || integrityRows.at(-1).passed !== 0) failures.push('Early process exit incorrectly passed hidden verification');
+  await writeFile(join(integrity, 'verification.json'), JSON.stringify({ status: failures.length ? 'failed' : 'passed', cases: integrityRows.length, failures }, null, 2));
+  assert.deepEqual(failures, [], `Integrity regressions: ${integrity}`);
   const list = await run(['--list']);
   assert.equal(list.code, 0, list.output);
   assert(list.output.includes('issue-clamp-inclusive'));
@@ -221,7 +259,7 @@ try {
   for (const row of allRows) {
     const evidence = JSON.parse(await readFile(row.artifact, 'utf8'));
     assert.equal(evidence.task, row.task_id);
-    assert.equal(evidence.protocol, 'pi-workspace-v2');
+    assert.equal(evidence.protocol, 'pi-workspace-v3');
     assert.equal(evidence.pi_version, '1.4.0');
     assert.equal(evidence.outcome, row.outcome);
     assert.equal(evidence.passed, row.passed);
@@ -239,7 +277,7 @@ try {
   assert(requests.every(r => r.model && (r.max_tokens ?? r.max_completion_tokens) === 4096));
   assert(!requests.some(r => 'min_p' in r || 'chat_template_kwargs' in r));
   db.close();
-  const summary = { status: 'passed', cases: allRows.map(r => ({ task: r.task_id, outcome: r.outcome })), requests: calls, database, standalone: isolated };
+  const summary = { status: 'passed', cases: allRows.map(r => ({ task: r.task_id, outcome: r.outcome })), requests: calls, database, standalone: isolated, integrity: 'integrity/verification.json' };
   await writeFile(join(artifacts, 'verification.json'), JSON.stringify(summary, null, 2));
   console.log(JSON.stringify(summary, null, 2));
 } finally {

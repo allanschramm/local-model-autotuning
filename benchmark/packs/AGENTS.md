@@ -32,7 +32,7 @@ Benchmark maintainers.
 - The same E2E covers stdin stubs, a known first-task solution, sample-only and formatting errors, and missing private archives. `python test/lcb_import_security.py` checks malformed/executable serialization rejection. Actual full-pack model quality is separate from these checks.
 - BigCodeBench E2E requires the pack's Python dependencies; every stub must fail, every upstream oracle must pass, and a missing dependency must produce `passed=NULL`.
 - Parent `test/claw_e2e.mjs` verifies actual offline mock API execution with scripted Pi responses. These are harness controls, not gold solutions or model-quality scores. No live-web execution occurs in that check.
-- Parent `test/dm_e2e.mjs` verifies all initial states fail, the four upstream reference controls pass and correct implementations still fail forbidden/missing required edits. Public tests run before hidden staging; syntax/policy failures and missing fixtures retain distinct outcomes.
+- Parent `test/dm_e2e.mjs` verifies all initial states fail, the four upstream references pass and correct implementations still fail forbidden/missing required edits. No public-test execution tool is exposed; early exits and hidden-feedback probes fail. Syntax/policy failures and missing fixtures retain distinct outcomes.
 
 ## Child DOX Index
 None; individual datasets remain owned here.

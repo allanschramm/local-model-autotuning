@@ -9,7 +9,8 @@ import { parseArgs } from 'node:util';
 import { DatabaseSync } from 'node:sqlite';
 import { parse } from 'yaml';
 import { CLAW_SYSTEM, loadClawTasks, startClaw } from './claw.mjs';
-import { DM_SYSTEM, createDmTestTool, snapshotDm, verifyDm } from './dm.mjs';
+import { DM_SYSTEM, snapshotDm, verifyDm } from './dm.mjs';
+import { runPytest } from './verifier.mjs';
 import {
   createAgentSession, createExtensionRuntime, createReadTool, createWriteTool,
   ModelRuntime, SessionManager, SettingsManager, VERSION,
@@ -24,7 +25,7 @@ const PACKS = new Map([
   ['bigcode-hard10', join(ROOT, 'packs/bigcode-hard10/tasks')],
   ['dm-code30', join(ROOT, 'packs/dm-code30/tasks')],
 ]);
-const PROTOCOL = 'pi-workspace-v2';
+const PROTOCOL = 'pi-workspace-v3';
 const PI_VERSION = '1.4.0';
 if (VERSION !== PI_VERSION) throw new Error(`Pi version drift: expected ${PI_VERSION}, installed ${VERSION}; run npm ci`);
 const MAX_OUTPUT_TOKENS = 4096;
@@ -70,7 +71,8 @@ async function loadTasks(selected, pack) {
       hash.update(path + '\0').update(await readFile(join(directory, path))).update('\0');
     }
     if (pack === 'dm-code30') hash.update(await readFile(join(ROOT, 'dm.mjs')));
-    tasks.push({ ...task, directory, hash: hash.digest('hex'), ...(pack === 'dm-code30' ? { protocol: 'pi-dm-v1' } : {}) });
+    hash.update(await readFile(join(ROOT, 'verifier.mjs'))).update(await readFile(join(ROOT, 'pytest_runner.py')));
+    tasks.push({ ...task, directory, hash: hash.digest('hex'), ...(pack === 'dm-code30' ? { protocol: 'pi-dm-v2' } : {}) });
   }
   if (!tasks.length || selected?.some(id => !tasks.some(t => t.id === id))) throw new Error('No tasks found or unknown task ID');
   return tasks;
@@ -101,21 +103,13 @@ function openStore(path) {
 }
 
 function verify(directory, python) {
-  const result = spawnSync(python, ['-m', 'pytest', '-q', '-p', 'no:cacheprovider', '_hidden_tests'], {
-    cwd: directory, windowsHide: true, encoding: 'utf8', maxBuffer: 1024 * 1024,
-    // The verifier runs model-written Python; credentials are not inherited.
-    env: Object.fromEntries(Object.entries({
-      PATH: process.env.PATH, SystemRoot: process.env.SystemRoot,
-      TEMP: process.env.TEMP, TMP: process.env.TMP,
-      PYTHONPATH: directory, PYTHONDONTWRITEBYTECODE: '1', PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1',
-    }).filter(([, v]) => v !== undefined)),
-  });
-  const log = (result.stdout ?? '') + (result.stderr ?? '');
+  const result = runPytest(directory, python, ['-q', '_hidden_tests']);
+  const log = result.log;
   // Pytest exit 2 includes collection failures caused by model-written syntax/import errors.
   if (result.error || result.signal || ![0, 1, 2].includes(result.status)) {
     return { outcome: 'infra_error', passed: null, verifier: log, diagnostic: result.error?.code ?? `pytest_exit_${result.status}` };
   }
-  return { outcome: result.status === 0 ? 'passed' : 'failed', passed: result.status === 0 ? 1 : 0, verifier: log };
+  return { outcome: result.status === 0 ? 'passed' : 'failed', passed: result.status === 0 ? 1 : 0, verifier: log, pytest_completion: result.report };
 }
 
 async function runTask(task, runtime, model, python, secrets, allowLiveWeb) {
@@ -152,7 +146,6 @@ async function runTask(task, runtime, model, python, secrets, allowLiveWeb) {
         return tool.execute(...args);
       },
     }));
-    if (task.dm) tools.push(createDmTestTool(task, workspace, python));
     const resourceLoader = {
       getExtensions: () => ({ extensions: [], errors: [], runtime: createExtensionRuntime() }),
       getSkills: () => ({ skills: [], diagnostics: [] }),
@@ -227,9 +220,19 @@ async function runTask(task, runtime, model, python, secrets, allowLiveWeb) {
     await rm(temp, { recursive: true, force: true });
   }
   Object.assign(evidence, result, { turns, elapsed_sec: (performance.now() - started) / 1000 });
-  let serialized = JSON.stringify(evidence, null, 2);
-  for (const secret of secrets) serialized = serialized.replaceAll(secret, '[REDACTED]');
-  return JSON.parse(serialized);
+  const scrub = value => {
+    if (typeof value === 'string') {
+      for (const secret of secrets) value = value.replaceAll(secret, '[REDACTED]');
+      return value;
+    }
+    if (Array.isArray(value)) return value.map(scrub);
+    if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [scrub(key), scrub(item)]));
+    return value;
+  };
+  // Program-owned identifiers and typed scores are not credential-bearing data.
+  const metadata = new Set(['protocol', 'pi_version', 'task', 'task_hash', 'provider', 'model', 'thinking_level',
+    'outcome', 'passed', 'turns', 'elapsed_sec', 'services_closed', 'scoring', 'dm_verification', 'pytest_completion']);
+  return Object.fromEntries(Object.entries(JSON.parse(JSON.stringify(evidence))).map(([name, value]) => [name, metadata.has(name) ? value : scrub(value)]));
 }
 
 async function main() {
@@ -286,7 +289,7 @@ async function main() {
     await mkdir(artifactDir, { recursive: true });
     const config = {
       pack: values.pack,
-      tools: tasks[0].claw ? Object.fromEntries(tasks.map(t => [t.id, t.claw.tools])) : ['workspace_read', 'workspace_write', ...(tasks[0].dm ? ['workspace_test'] : [])], thinking_requested: 'off', temperature: 0,
+      tools: tasks[0].claw ? Object.fromEntries(tasks.map(t => [t.id, t.claw.tools])) : ['workspace_read', 'workspace_write'], thinking_requested: 'off', temperature: 0,
       max_output_tokens: MAX_OUTPUT_TOKENS, auto_retry: false, compaction: false,
       context_window: model.contextWindow, context_source: values['base-url'] ? 'operator-declared' : 'pi-catalog',
       system_prompt: tasks[0].claw ? CLAW_SYSTEM : tasks[0].dm ? DM_SYSTEM : SYSTEM_PROMPT, task_hashes: Object.fromEntries(tasks.map(t => [t.id, t.hash])),
@@ -295,7 +298,8 @@ async function main() {
     };
     db.prepare('INSERT INTO benchmark_runs (run_id,protocol,pi_version,provider,model,config_json,started_at,finished_at,status) VALUES (?,?,?,?,?,?,?,?,?)').run(
       runId, protocol, PI_VERSION, values.provider, values.model, JSON.stringify(config), new Date().toISOString(), null, 'running');
-    const secrets = Object.entries(process.env).filter(([name, value]) => /KEY|TOKEN|SECRET|PASSWORD/i.test(name) && value?.length >= 8).map(([, value]) => value);
+    const credentials = [key, ...Object.entries(process.env).filter(([name, value]) => /KEY|TOKEN|SECRET|PASSWORD/i.test(name) && value?.length >= 8).map(([, value]) => value)].filter(Boolean);
+    const secrets = [...new Set(credentials.flatMap(value => [value, JSON.stringify(value).slice(1, -1)]))].sort((a, b) => b.length - a.length);
     let exitCode = 0;
     for (const task of tasks) {
       const result = await runTask(task, runtime, model, python, secrets, values['allow-live-web']);

@@ -79,6 +79,7 @@ jobs:
         run: |
           python -m pip install pytest
           npm ci --prefix benchmark --ignore-scripts --no-audit --no-fund
+          npm audit --prefix benchmark --omit=dev --audit-level=high
       - name: Install Claw mock service dependencies
         if: matrix.suite == 'claw'
         run: python -m pip install -r benchmark/claw-requirements.txt
@@ -100,3 +101,4 @@ jobs:
             ${{ runner.temp }}/pi-${{ matrix.suite }}-e2e*/*.log
             ${{ runner.temp }}/pi-${{ matrix.suite }}-e2e*/benchmark-artifacts/
             ${{ runner.temp }}/pi-${{ matrix.suite }}-e2e*/web-security/
+            ${{ runner.temp }}/pi-${{ matrix.suite }}-e2e*/integrity/
