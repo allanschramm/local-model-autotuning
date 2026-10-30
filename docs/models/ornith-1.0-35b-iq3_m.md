@@ -20,7 +20,7 @@
 
 ## Hardware requirements
 | Quant | File Size | Est. VRAM |
-|---|---|---|
+| --- | --- | --- |
 | Q4_K_M (reference) | 19.7 GB | ~24 GB total |
 | **IQ3_M (this variant)** | **15.74 GB** | **~19 GB total** |
 
@@ -63,7 +63,7 @@ Same as Q4_K_M variant with adjusted file:
 - Testing results from `ornith-1.0-35b.md` tuning history (2026-06-29 / 2026-07-27 pipeline).
 - Verification updated 2026-08-29 (HF fetch; measured data preserved — NOT overwritten).
 - **Reasoning control:** qwen35 family — enable_thinking only (family-verified; same family template as Q4_K_M variant; NOT independently file-verified on this GGUF — assume same behavior verified 2026-08-29). No reasoning_effort ladder on 35B (27B family trait only).
-- **Measured data (untouched):** agentic 0.4667 / coding 0.555; TPS 29.5 @65536; peak VRAM ~4.6 GB; file 15.74 GB. Slower than Q4_K_M at every n-cpu-moe; not recommended — prefer Q4_K_XL for quality.
+- **Measured data (untouched):** ; TPS 29.5 @65536; peak VRAM ~4.6 GB; file 15.74 GB. Slower than Q4_K_M at every n-cpu-moe; not recommended — prefer Q4_K_XL for quality.
 
 ## Open questions
 - None — tested and rejected. Q4_K_M is the preferred quant for this model.

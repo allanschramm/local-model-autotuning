@@ -16,7 +16,7 @@
 ## Architecture (from GGUF metadata)
 - Causal LM (hybrid Attention + SSM — Qwen 3.5 arch)
 - **`block_count` = 32 layers**
-- Hidden **4096**, context **1,048,576** (1M tokens)
+- Hidden **4096**, context 1,048,576** (1M tokens)
 - **Hybrid Attention + SSM (Mamba-2 style)**:
   - `full_attention_interval = 4` — every 4th layer is full attention
   - SSM: `conv_kernel=4`, `state_size=128`, `group_count=16`, `time_step_rank=32`, `inner_size=4096`
@@ -25,7 +25,7 @@
 
 ## Hardware Requirements (discrete 8 GB-class NVIDIA)
 | Quant | Size | VRAM (idle) | VRAM (131k ctx) |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Q4_K_M | 5.3 GB | ~5.5 GB | ~7.5 GB |
 
 Fits entirely in 8 GB with 131k context and flash-attn.
@@ -37,21 +37,21 @@ Fits entirely in 8 GB with 131k context and flash-attn.
 **8 GB-class discrete NVIDIA — Qwythos 9B Q4_K_M — pp512 / tg128:**
 
 | ubatch | pp512 (t/s) | tg128 (t/s) |
-|-------:|-----------:|----------:|
-| 64     | 1480.68    | **50.16** |
-| 128    | 1814.17    | 42.15     |
+| -------: | -----------: | ----------: |
+| 64 | 1480.68 | **50.16** |
+| 128 | 1814.17 | 42.15 |
 | **256** | **1922.61** | **49.75** |
-| 512    | 1939.81    | 41.03     |
-| 1024   | 1529.87    | 41.50     |
-| 2048   | 1917.10    | 48.98     |
-| 4096   | 1849.93    | 42.12     |
+| 512 | 1939.81 | 41.03 |
+| 1024 | 1529.87 | 41.50 |
+| 2048 | 1917.10 | 48.98 |
+| 4096 | 1849.93 | 42.12 |
 
 **Winner: ubatch=256** — best balance of prompt processing (1922 t/s) and text generation (49.8 t/s). ubatch=512 gives +1% pp speed but loses 18% tg speed.
 
 ## Recommended Settings
 
 | Param | Value | Rationale |
-|---|---|---|
+| --- | --- | --- |
 | TEMP | 0.6 | Per HF card for Qwythos reasoning model |
 | TOP_P | 0.95 | Default nucleus sampling |
 | TOP_K | 20 | Focused token pool |
@@ -71,7 +71,7 @@ Fits entirely in 8 GB with 131k context and flash-attn.
 
 ### Measured short-gen TPS (fair matrix)
 - Base **40.8 t/s** vs MTP **41.2 t/s** (**+1%**); MTP wall clock worse (29.3s vs 18.4s).
-- **Verdict for speed:** keep **non-MTP**. Evidence: [session](../sessions/2026-07-20-small-model-tps-matrix.md).
+- **Verdict for speed:** keep **non-MTP**. Evidence: [session](../performance/2026-07-20-small-model-tps-matrix.md).
 
 ### Long-ctx / agentic (still true)
 - At 131k on 8 GB, MTP overhead historically hurt (timeouts / collapsed TPS in mid-2026 Beellama runs below). Short cli-bench does not contradict that.
@@ -83,24 +83,24 @@ N/A — dense model; `--n-cpu-moe` not applicable.
 ## Qwythos-9B-v2 (same card family)
 - Local: `Qwythos-9B-v2-Q4_K_M.gguf` — fair matrix base **40.1 t/s**
 - **No CUDA GGUF MTP** on Hub as of 2026-07-20 (MLX-only MTP exists — useless here)
-- **Agentic champion (historical):** `Qwythos-9B-v2-MTP-Q4_K_M.gguf` scored **agentic_full=0.5333** KEEP in `results.tsv` (TPS 34.5, VRAM 7.9 GB). Useful CUDA MTP GGUF for v2 was hard to re-acquire from Hub (MLX-only common). Notes: [session](../sessions/2026-07-23-nanbeige42-tps-matrix.md).
+- **Historical runtime:** `Qwythos-9B-v2-MTP-Q4_K_M.gguf` runtime record (TPS 34.5, VRAM 7.9 GB). Useful CUDA MTP GGUF for v2 was hard to re-acquire from Hub (MLX-only common). Notes: [session](../performance/2026-07-23-nanbeige42-tps-matrix.md).
 
 ## Validation Bench (2 tasks each, 2026-06-30)
 
 All runs with `config.py` defaults unless noted.
 
-| Run | Server | Model | Batch/Ubatch | Score | TPS | VRAM |
-|-----|--------|-------|-------------|------|----|------|
-| 1 | turboquant | non-MTP | 512/128 | 0.1250 | 52.6 | 7.3 GB |
-| **2** | **turboquant** | **non-MTP** | **1024/256** | **0.4250** | **51.2** | **7.5 GB** |
-| 3 | beellama | MTP | 1024/256 | timed out | — | — |
-| 4 | beellama | MTP + draft-ctx 512 | 1024/256 | timed out | — | — |
-| 5 | beellama | MTP @ 8k ctx | 1024/256 | 0.1250 | 42.0 | 7.3 GB |
-| 6 | upstream build-cuda | non-MTP | 1024/256 | 0.3000 | 50.4 | 7.1 GB |
+| Run | Server | Model | Batch/Ubatch | TPS | VRAM |
+| ----- | -------- | ------- | ------------- | ---- | ------ |
+| 1 | turboquant | non-MTP | 512/128 | 52.6 | 7.3 GB |
+| **2** | **turboquant** | **non-MTP** | **1024/256** | **51.2** | **7.5 GB** |
+| 3 | beellama | MTP | 1024/256 | — | — |
+| 4 | beellama | MTP + draft-ctx 512 | 1024/256 | — | — |
+| 5 | beellama | MTP @ 8k ctx | 1024/256 | 42.0 | 7.3 GB |
+| 6 | upstream build-cuda | non-MTP | 1024/256 | 50.4 | 7.1 GB |
 
-**Winner: Run 2** — non-MTP, 1024/256, turboquant. Score 0.4250 at 51.2 TPS.
+**Winner: Run 2** — non-MTP, 1024/256, turboquant.
 
-Run 6 (2026-07-01): upstream build-cuda + cont-batching. Score lower due to MBPP+ 0/2 — 2-task sampling fluke.
+Run 6 (2026-07-01): upstream build-cuda + cont-batching.
 
 ## Config Baseline (2026-06-30)
 

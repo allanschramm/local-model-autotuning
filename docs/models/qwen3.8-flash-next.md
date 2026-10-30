@@ -1,5 +1,7 @@
 # Qwen3.8-Flash-Next — Model Card (Candidate)
 
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/qwen3.8-flash-next.md). Historical performance retains its original protocol.
+
 **Source repo:** https://huggingface.co/Qwen/Qwen3.8-Flash-Next (2026-08-27, **787 525 downloads**, 5 591 likes)
 **FP8 variant:** https://huggingface.co/Qwen/Qwen3.8-Flash-Next-FP8 (2026-08-31, 529 525 downloads)
 **License:** Apache-2.0 (per Qwen org convention; verify in card on download)
@@ -31,10 +33,10 @@ Verified via `hf models info Qwen/Qwen3.8-Flash-Next`:
 
 The full BF16 weight is ≈420 GB and the FP8 upstream is ≈210 GB — both exceed the 8 GB rig's VRAM and the typical 32 GB class RAM. **The family is intended for multi-GPU server deployment.** A 27 B-class distill (`IsValorum/Qwen3.8-35B-A3B-Distill-MTP-APEX-I-Mini`) is the realistic local fit candidate.
 
-Distill fit estimate (matching the operator's existing `Qwen3.8-35B-A3B-Distill` recipe, `models/aliases/qwen3.8-35b-a3b/config.yaml`):
+Distill fit estimate (matching the operator's existing `Qwen3.8-35B-A3B-Distill` recipe, `machine-local launcher config`):
 
 | Quant | Size est | Fit on 8 GB / 32 GB RAM |
-|---|---:|---|
+| --- | ---: | --- |
 | UD-IQ1_S | ~10 GB | tight, may need CPU offload |
 | UD-Q3_K_M | ~16 GB | MoE with `--n-cpu-moe 31`, 10 GPU layers (operator's working recipe) |
 | UD-Q4_K_M | ~22 GB | same MoE offload recipe |
@@ -57,11 +59,10 @@ Distill fit estimate (matching the operator's existing `Qwen3.8-35B-A3B-Distill`
 
 ## MoE split (VITRIOL)
 
-**TBD.** Verify `expert_count` / `num_experts_per_tok` on first download. If dense (single-expert) — no offload; if MoE — mirror `Qwen3.8-35B-A3B-Distill` recipe (`models/aliases/qwen3.8-35b-a3b/config.yaml`): `--n-gpu-layers 99 --n-cpu-moe 31` (10 GPU layers active).
+**TBD.** Verify `expert_count` / `num_experts_per_tok` on first download. If dense (single-expert) — no offload; if MoE — mirror `Qwen3.8-35B-A3B-Distill` recipe (`machine-local launcher config`): `--n-gpu-layers 99 --n-cpu-moe 31` (10 GPU layers active).
 
 ## Our config baseline (TBD)
 
-Marked `TBD` until first download + `benchmark_search.py --validation`. Working assumption for the IsValorum distill:
 
 ```python
 ENGINE_DEFAULTS = {
@@ -102,7 +103,7 @@ SAMPLER_DEFAULTS = {
 - HF `hf models ls --search "qwen3" --sort last_modified` returned `IsValorum/Qwen3.8-35B-A3B-Distill-MTP-APEX-I-Mini` (6 046 downloads, 12 likes, 2026-09-22) as the strongest small distill candidate.
 - HF `hf models card Qwen/Qwen3.8-Flash-Next` — **failed** (UTF-8 codec error on the harness shell; the README renders fine in a browser). Re-attempt on download.
 - Cross-referenced with operator's existing `Qwen3.8-27B-UD-IQ1_S` card (`docs/models/qwen3.8-27b.md`) for the only known working `reasoning_effort` ladder in this lineage.
-- Cross-referenced with operator's existing `Qwen3.8-35B-A3B-Distill` recipe (`models/aliases/qwen3.8-35b-a3b/config.yaml`) for the working MoE offload pattern.
+- Cross-referenced with operator's existing `Qwen3.8-35B-A3B-Distill` recipe (`machine-local launcher config`) for the working MoE offload pattern.
 
 ## Open questions
 

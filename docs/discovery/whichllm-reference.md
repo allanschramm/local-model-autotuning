@@ -2,7 +2,7 @@
 
 Hardware-aware LLM finder. Auto-detects GPU/CPU/RAM, ranks models by fit and quality.
 
-**Version:** 0.5.12  
+**Version:** 0.5.12
 **Install:** `uvx whichllm@latest` (requires `uv`/`uvx`)
 
 ## Unified memory warning (Mac / UMA / no discrete NVIDIA)
@@ -137,7 +137,7 @@ uvx whichllm@latest --gpu-only --profile coding -n 5
 uvx whichllm@latest plan "qwen 3.6 35b" -q UD-Q4_K_M -c 128k
 
 # 3. Cross-check with SWE-bench / Aider before committing
-# 4. Download GGUF, set MODEL in config.py, run autoloop
+# 4. Configure Baseline and run a finite plan (see autoresearch/TUNING.md)
 ```
 
 ## Related Docs

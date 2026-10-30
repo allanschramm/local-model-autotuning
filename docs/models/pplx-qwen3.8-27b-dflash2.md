@@ -1,5 +1,7 @@
 # perplexity-ai/pplx-computer-qwen-3-8-27b-dflash2-gguf — Model Card (Drafter)
 
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/pplx-qwen3.8-27b-dflash2.md). Historical performance retains its original protocol.
+
 **Source repo (drafter):** https://huggingface.co/perplexity-ai/pplx-computer-qwen-3-8-27b-dflash2-gguf (2026-08-26, **6 368 downloads**)
 **Sibling vLLM stack:** https://huggingface.co/perplexity-ai/pplx-computer-vllm-dflash2 (0 downloads — vLLM-specific equivalent)
 **Base model (target):** Qwen/Qwen3.8-27B (operator already has a card for the IQ1_S quant — see [`qwen3.8-27b.md`](./qwen3.8-27b.md), `TBD` on agentic + coding)
@@ -28,7 +30,7 @@ This is a **DFlash2 drafter GGUF**, not a standalone language model. Pairs with 
 The operator's existing Qwen3.8-27B-IQ1_S (5.8 GB) is too aggressive for DFlash2 pairing. The realistic DFlash2 target is one of:
 
 | Target quant | Size | VRAM fit on 8 GB | Active path |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | `Qwen3.8-27B-Q4_K_M` | ~16 GB | partial offload needed (~10 GB active) | `--n-gpu-layers` less than full |
 | `Qwen3.8-27B-UD-IQ4_XL` | ~14 GB | same | same |
 | `Qwen3.8-27B-FP8` (Qwen official) | ~28 GB | CPU-active path + drafter on GPU | `--n-gpu-layers 0` for target, drafter on GPU |
@@ -72,7 +74,6 @@ N/A — Qwen3.8-27B is **dense** (`block_count = 64, expert_count = 1` per the o
 
 ## Our config baseline (TBD)
 
-Marked `TBD` until first download + `benchmark_search.py --validation`. Working draft:
 
 ```python
 ENGINE_DEFAULTS = {

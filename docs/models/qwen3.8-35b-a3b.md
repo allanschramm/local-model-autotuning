@@ -1,5 +1,7 @@
 # Qwen3.8-35B-A3B — Model Card and GGUF Inventory
 
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/qwen3.8-35b-a3b.md). Historical performance retains its original protocol.
+
 ## Status
 
 Validated and trialed on local rig (2026-09-17). Measured full Objective Vector (`agentic-full` = Claw 15 + Coding 10) at context 65,536 (`q4_0`). **Status:** `on_front` (Pareto frontier pick #17 DAY, #14 NIGHT).
@@ -18,7 +20,7 @@ Validated and trialed on local rig (2026-09-17). Measured full Objective Vector 
 Verified via harness read-only inspection (`scripts/model_info.py`) on `Qwen3.8-35B-A3B-Q4_K_M.gguf`:
 
 | Header Key | Value | Description |
-|---|---|---|
+| --- | --- | --- |
 | `general.architecture` | `qwen35moe` | Hybrid MoE (Gated DeltaNet + Gated Attention) |
 | `block_count` | 41 | 40 transformer layers + shared head / nextn block |
 | `expert_count` | 256 | 256 routed experts per MoE block |
@@ -43,33 +45,20 @@ Because 35B MoE models require the entire ~20.2 GB weights file to be resident a
 
 ---
 
-## Measured Benchmark Results
+## Historical runtime evidence (Measured Benchmark Results)
 
-Full Objective Vector Trial logged to [`results.tsv`](file:///D:/Dev/ailocal-nexus-system/ailocal-model-autotuning/results.tsv) (`trial_id: 01acfbac-90da-4e06-855b-79531fc06051`):
+Full Objective Vector Trial logged to `results.tsv` (historical local artifact) (`trial_id: 01acfbac-90da-4e06-855b-79531fc06051`):
 
 | Metric | Measured Value | Threshold / Target | Status |
-|---|---|---|---|
-| **Context Length (`CTX_SIZE`)** | **65,536** | Inviolable frontier axis | **PASS** |
+| --- | --- | --- | --- |
+| **Context Length (`CTX_SIZE`)** | 65,536** | Inviolable frontier axis | **PASS** |
 | **Throughput (`bench_tg` 512)** | **33.5 t/s** (33.0, 33.5, 34.0) | $\ge 20.0\text{ t/s}$ | **PASS** |
 | **Combined Generation TPS** | **42.8 t/s** | Pareto frontier metric | **PASS** |
 | **Peak VRAM** | **7.7 GB** | $\le 7.93\text{ GB}$ (Dedicated VRAM) | **PASS** |
-| **Coding Score** | **0.4900** | Coding-10 benchmark suite | **PASS** |
-| ↳ `LiveCodeBench (LCB)` | 0.5000 (5/10) | Hard competitive coding | Completed |
-| ↳ `MBPP+` | 0.8000 (8/10) | Python synthesis | Completed |
-| ↳ `HumanEval+` | 0.4000 (4/10) | Standard function synthesis | Completed |
-| ↳ `BigCode Hard` | 0.1000 (1/10) | Edge case coding | Completed |
-| **Claw Full Agentic (15 tasks)** | **0.7333** (11/15 passed) | Multi-turn agentic evaluation | **PASS** |
-| **Trial Status** | **`on_front`** | Frontier ranking (#17 DAY / #14 NIGHT) | **PASS** |
-
-### Agentic Task Breakdown (Claw-15):
-- **PASS:** T002 (email triage: 0.50), T004 (calendar scheduling: 1.00), T006 (email reply draft: 1.00), T008 (todo management: 1.00), T010 (contact lookup: 1.00), T012 (expense report: 0.75), T014 (meeting notes: 0.70), T016 (kb search: 0.50), T018 (ticket triage: 0.85), T044 (outage research: 1.00), T046 (cve research: 1.00).
-- **FAIL:** T048 (oss comparison: 0.12), T050 (regulatory research: 0.12), T053 (finance merger: 0.20), T054 (nflx arppu: 0.00).
-
----
 
 ## Recommended Serving Baseline
 
-From [`models/aliases/qwen3.8-35b-a3b/config.yaml`](file:///D:/Dev/ailocal-nexus-system/ailocal-model-autotuning/models/aliases/qwen3.8-35b-a3b/config.yaml):
+From `machine-local launcher config` (historical local artifact):
 
 ```yaml
 alias: qwen3.8-35b-a3b

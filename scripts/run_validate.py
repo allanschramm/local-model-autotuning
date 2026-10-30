@@ -18,8 +18,6 @@ _RUFF_TARGETS = (
     "tests",
     "scripts",
     "ui",
-    "autoloop.py",
-    "benchmark_search.py",
 )
 
 

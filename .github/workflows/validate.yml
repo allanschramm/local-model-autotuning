@@ -22,12 +22,11 @@ jobs:
           cache-dependency-path: |
             requirements.txt
             requirements-dev.txt
-            requirements-legacy.txt
 
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt -r requirements-legacy.txt
+          pip install -r requirements-dev.txt
 
       - name: Ruff + pytest
         run: python scripts/run_validate.py
@@ -40,21 +39,18 @@ jobs:
         with:
           name: tuning-evidence
           path: ${{ runner.temp }}/tuning-e2e/
-      - name: Legacy consumer compatibility E2E without model load
+      - name: Tuning distribution and dashboard E2E without model load
         env:
           TMPDIR: ${{ runner.temp }}
-        run: python scripts/test_legacy_consumers_e2e.py
+        run: python scripts/test_tuning_consumers_e2e.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: legacy-consumer-evidence
+          name: tuning-consumer-evidence
           path: |
-            ${{ runner.temp }}/legacy-consumers-e2e-*/results.db
-            ${{ runner.temp }}/legacy-consumers-e2e-*/verification.json
-            ${{ runner.temp }}/legacy-consumers-e2e-*/imports.json
-            ${{ runner.temp }}/legacy-consumers-e2e-*/*.log
-            ${{ runner.temp }}/legacy-consumers-e2e-*/ranking.txt
-            ${{ runner.temp }}/legacy-consumers-e2e-*/dashboard.json
+            ${{ runner.temp }}/tuning-consumers-e2e-*/results.db
+            ${{ runner.temp }}/tuning-consumers-e2e-*/verification.json
+            ${{ runner.temp }}/tuning-consumers-e2e-*/*.log
       - name: Clean tuning installation E2E without quality dependencies
         env:
           TMPDIR: ${{ runner.temp }}
@@ -67,5 +63,5 @@ jobs:
             ${{ runner.temp }}/tuning-install-e2e-*/verification.json
             ${{ runner.temp }}/tuning-install-e2e-*/*.log
             ${{ runner.temp }}/tuning-install-e2e-*/tuning/
-            ${{ runner.temp }}/tuning-install-e2e-*/legacy/*/results.db
-            ${{ runner.temp }}/tuning-install-e2e-*/legacy/*/verification.json
+            ${{ runner.temp }}/tuning-install-e2e-*/consumers/*/results.db
+            ${{ runner.temp }}/tuning-install-e2e-*/consumers/*/verification.json

@@ -1,7 +1,7 @@
 """Fresh tuning install -> readiness check -> existing HTTP/SQLite E2Es.
 
 Failure modes: default installation pulls evaluation/dev dependencies; readiness
-requires optional packages or uses global Python; tuning/legacy metadata readers
+requires optional packages or uses global Python; tuning/dashboard metadata readers
 fail without evaluation dependencies. Uses simulated model processes, no GPU.
 """
 
@@ -131,12 +131,12 @@ for name in ('evalplus', 'datasets', 'fastapi', 'uvicorn', 'pypdf', 'pytest', 'r
         [python, ROOT / "scripts/test_tuning_e2e.py"],
         extra={"TUNING_E2E_DIR": str(output / "tuning")},
     )
-    legacy_temp = output / "legacy"
-    legacy_temp.mkdir()
+    consumer_temp = output / "consumers"
+    consumer_temp.mkdir()
     run(
-        "legacy",
-        [python, ROOT / "scripts/test_legacy_consumers_e2e.py"],
-        extra={"TMPDIR": str(legacy_temp), "TEMP": str(legacy_temp), "TMP": str(legacy_temp)},
+        "consumers",
+        [python, ROOT / "scripts/test_tuning_consumers_e2e.py"],
+        extra={"TMPDIR": str(consumer_temp), "TEMP": str(consumer_temp), "TMP": str(consumer_temp)},
     )
     databases = list(output.rglob("results.db"))
     assert len(databases) >= 2, databases

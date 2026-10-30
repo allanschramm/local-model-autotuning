@@ -1,5 +1,7 @@
 # Qwen3.8-27B — Model Card
 
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/qwen3.8-27b.md). Historical performance retains its original protocol.
+
 **Source repo:** https://huggingface.co/unsloth/Qwen3.8-27B-GGUF
 **Base model:** Qwen/Qwen3.8-27B
 **License:** Apache-2.0

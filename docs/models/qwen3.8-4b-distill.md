@@ -1,5 +1,7 @@
 # Qwen3.8-4B-Distill — Model Card
 
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/qwen3.8-4b-distill.md). Historical performance retains its original protocol.
+
 **Source repo:** https://huggingface.co/empero-ai/Qwen3.8-4B-Distill-GGUF
 **Base model:** full-parameter distillation of Qwen3.8-2.4T-A95B into the Qwen3.5-4B architecture (~45k curated teacher traces)
 **License:** Apache-2.0
@@ -17,21 +19,12 @@
 
 - Publisher tier: Q4_K_M / Q5_K_M → 4–6 GB GPUs; fits entirely (`N_GPU_LAYERS 99`).
 - Measured @131072 + `q4_0` KV + flash-attn: peak **5.5 GB**, preflight est 5320 MB vs 7676 limit. Comfortable headroom; no OOM across validation + claw-full + coding-10.
-- **KV quant (2026-08-25 A/B + 2026-08-28 fit probe, b10549):** whole-cache rows @65k — q4_0/q4_0 0.7333/0.58, q8_0/q8_0 **0.8000**/0.59, f16/f16 0.7333/**0.6250** (agentic/coding; all on_front). Speed @131k (2026-08-28): q8_0/q8_0 = pp 2767.5 / tg **71.6** / 6527 MB — **zero tg cost** vs q4_0/q4_0 (2764.7 / 71.2 / 5498). **MIXED K/V (K q8_0 + V q4_0) is BROKEN on this arch:** pp ~152-157 / tg ~30 at BOTH 131k and 65k (18× pp / 2.4× tg kernel cliff) with ZERO VRAM saving (5462/4641 MB — GDN-hybrid KV is small). Do not seed mixed K/V fingerprints on GDN-hybrid models; if KV precision is wanted, whole-cache q8_0 is the fast path. Session: [2026-08-28](../sessions/2026-08-28-ornith-35b-ubatch-ot-ab.md).
+- **KV quant (2026-08-25 A/B + 2026-08-28 fit probe, b10549):** whole-cache rows @65k — q4_0/q4_0 0.7333/0.58, q8_0/q8_0 **0.8000**/0.59, f16/f16 0.7333/**0.6250** (agentic/coding; all on_front). Speed @131k (2026-08-28): q8_0/q8_0 = pp 2767.5 / tg **71.6** / 6527 MB — **zero tg cost** vs q4_0/q4_0 (2764.7 / 71.2 / 5498). **MIXED K/V (K q8_0 + V q4_0) is BROKEN on this arch:** pp ~152-157 / tg ~30 at BOTH 131k and 65k (18× pp / 2.4× tg kernel cliff) with ZERO VRAM saving (5462/4641 MB — GDN-hybrid KV is small). Do not seed mixed K/V fingerprints on GDN-hybrid models; if KV precision is wanted, whole-cache q8_0 is the fast path. Session: [2026-08-28](../performance/2026-08-28-ornith-35b-ubatch-ot-ab.md).
 
 ## Recommended settings (publisher card)
 
 - TEMP 0.6 · TOP_P 0.95 · TOP_K 20 · MIN_P 0.0 · REPEAT_PENALTY 1.0
 - Chat template embedded; requires `JINJA=True`.
-
-### Publisher benchmark table (from HF README, `lm-evaluation-harness`, CoT protocols, identical settings base vs. student)
-
-| Task | Metric | Qwen3.5-4B (base) | **Qwen3.8-4B** | Δ |
-| :--- | ---: | ---: | ---: | ---: |
-| mmlu (CoT, 57 subjects) | acc (flexible-extract) | 0.354 | **0.553** | **+0.199** |
-| mmlu (CoT, 57 subjects) | acc (strict-match) | 0.071 | **0.233** | **+0.162** |
-| gsm8k_cot | exact_match (flexible) | 0.850 | 0.785 | −0.065 |
-| gsm8k_cot | exact_match (strict) | 0.850 | 0.785 | −0.065 |
 
 ### Reasoning control (verified 2026-08-29 from embedded `tokenizer.chat_template`)
 
@@ -64,9 +57,6 @@ Measured Objective Vector (complete, same Fingerprint):
 | :--- | ---: | :--- |
 | bench tg | 74.9 t/s | validation + claw-full rows agree |
 | Combined TPS (coding gen) | 94.2 | coding row |
-| agentic (claw-full 15) | **0.8667** (13/15) | T053/T054 finance web_real fail only |
-| coding-10 | **0.6400** (HE 0.9 / MBPP 0.9 / LCB 0.5 / BC 0.1) | combined column |
-| min(agentic, coding) | **0.6400** | Day+Night eligible |
 
 Status `on_front`; current Baseline pick. TSV `6b7e2a3f…` (validation) / `6069530a…` (full).
 

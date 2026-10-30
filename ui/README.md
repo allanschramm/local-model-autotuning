@@ -1,32 +1,7 @@
-# Dashboard (operador)
+# Auto-tuning dashboard
 
-Painel **somente leitura** em `http://127.0.0.1:18765` (pt-BR), com a linguagem visual AILOCAL (tema escuro, azul de acento, Inter + JetBrains Mono; ADR 0011).
+Run python -m ui with the project venv and open http://127.0.0.1:18765.
 
-## Instalar / iniciar
+The read-only localhost view shows Baseline, recent tuning attempts, context, TPS, PPL, fixed reference PPL, frontier membership and the latest server log. It neither changes Baseline nor controls processes.
 
-Sem deps de runtime (`ui/requirements.txt` é vazio; assets estáticos ficam em `ui/static/`). Com o venv do repo:
-
-```powershell
-.\venv\Scripts\python.exe -m ui
-```
-
-```bash
-./venv/bin/python -m ui
-```
-
-Abra `http://127.0.0.1:18765` no navegador. Poll a cada ~2.5s.
-
-## O que mostra
-
-| Painel | Fonte |
-|--------|--------|
-| Baseline | `autoresearch/core/config.py` (ENGINE/SAMPLER), não state JSON |
-| Últimos 50 Trials | `results.tsv` via harness (`read_rows` / `is_on_front`) |
-| Idle / Em execução | crescimento recente (~10s) de `autoresearch/runners/llama_server.log` |
-| Tail do log | o mesmo `llama_server.log` |
-
-## Não-objetivos
-
-- Sem start/stop de `llama-server`, autoloop ou Search
-- Sem stdout de agentes / Process Guard como sinal de “Em execução”
-- Sem mutação de Baseline ou escrita em `results.tsv`
+An empty or historical-quality-only database produces an empty tuning view; tables are never migrated or rewritten. [AGENTS.md](AGENTS.md) owns the contract.

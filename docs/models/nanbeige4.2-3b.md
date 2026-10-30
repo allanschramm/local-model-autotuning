@@ -1,13 +1,13 @@
 # Nanbeige4.2-3B — Model Card (Local)
 
-**Source (weights):** https://huggingface.co/Nanbeige/Nanbeige4.2-3B  
-**Base (metadata):** https://huggingface.co/Nanbeige/Nanbeige4.2-3B-Base  
-**Community GGUF:** `owao/nanbeige4.2-3b-gguf` → `nanbeige4.2-3b-Q4_K_M.gguf`  
-**Arch runtime:** https://github.com/Nanbeige/llama.cpp/tree/nanbeige42 — acquire a compatible prebuilt release under `llama.cpp-releases/`; do not clone/build locally.  
-**License:** Apache-2.0  
-**Local file:** `models/owao/nanbeige4.2-3b-gguf/nanbeige4.2-3b-Q4_K_M.gguf` (2.4 GiB)  
-**Family:** Nanbeige 4.2  
-**Architecture type:** Dense **Looped Transformer** (`num_loops=2`)  
+**Source (weights):** https://huggingface.co/Nanbeige/Nanbeige4.2-3B
+**Base (metadata):** https://huggingface.co/Nanbeige/Nanbeige4.2-3B-Base
+**Community GGUF:** `owao/nanbeige4.2-3b-gguf` → `nanbeige4.2-3b-Q4_K_M.gguf`
+**Arch runtime:** https://github.com/Nanbeige/llama.cpp/tree/nanbeige42 — acquire a compatible prebuilt release under `llama.cpp-releases/`; do not clone/build locally.
+**License:** Apache-2.0
+**Local file:** `models/owao/nanbeige4.2-3b-gguf/nanbeige4.2-3b-Q4_K_M.gguf` (2.4 GiB)
+**Family:** Nanbeige 4.2
+**Architecture type:** Dense **Looped Transformer** (`num_loops=2`)
 **Quantization:** `Q4_K_M` (`general.file_type=15`)
 
 ## Architecture (from GGUF metadata)
@@ -15,7 +15,7 @@
 Verified with `gguf.GGUFReader` on the local file (2026-07-23):
 
 | Key | Value |
-|---|---|
+| --- | --- |
 | `general.architecture` | `nanbeige` |
 | `nanbeige.block_count` | 22 |
 | `nanbeige.num_loops` | **2** (each block applied twice → ~2× FLOPs vs non-looped) |
@@ -35,7 +35,7 @@ Upstream `ggml-org/llama.cpp` cannot load this arch. Use fork binaries only.
 ## Hardware requirements (discrete 8 GB-class NVIDIA)
 
 | Quant | Size | Fit notes |
-|---|---|---|
+| --- | --- | --- |
 | Q4_K_M | 2.4 GiB | Dense full GPU (`-ngl 99`). No expert/layer offload. |
 
 - Measured idle+ctx path ~6.7–6.9 GB VRAM at `CTX_SIZE=32768`, KV q4_0 (claw run).
@@ -44,7 +44,7 @@ Upstream `ggml-org/llama.cpp` cannot load this arch. Use fork binaries only.
 ## Recommended settings
 
 | Param | Value | Rationale |
-|---|---|---|
+| --- | --- | --- |
 | TEMP | 1.0 | Agentic / tool-use (Baseline 2026-07-23) |
 | TOP_P | 0.95 | GGUF embedded sampling default |
 | TOP_K | 20 | GGUF embedded sampling default |
@@ -104,23 +104,22 @@ SAMPLER_DEFAULTS = {
 Runtime for Trials: set `AUTORESEARCH_LLAMA_CPP_ROOT` to the versioned extracted release root containing `build-cuda/bin/`.
 
 ### Status
-- **llama-bench matrix:** tg128 peak **56.00** (f16, b1024/ub512); Baseline **~55 tg** at f16 b512/ub256 with best PP (~2727). Evidence: [session](../sessions/2026-07-23-nanbeige42-tps-matrix.md).
-- **Claw-Eval full keep:** **0.2667** (n=15) under prior q4_0 Baseline; see `results.tsv` / same session.
+- **llama-bench matrix:** tg128 peak **56.00** (f16, b1024/ub512); Baseline **~55 tg** at f16 b512/ub256 with best PP (~2727). Evidence: [session](../performance/2026-07-23-nanbeige42-tps-matrix.md).
 
 ## Sources / Verification
 
 | Claim | Source | Date |
-|---|---|
+| --- | --- | --- |
 | Arch + loops from GGUF | Local `GGUFReader` on `nanbeige4.2-3b-Q4_K_M.gguf` | 2026-07-23 |
 | Upstream HF card (benchmarks, ctx, license, reasoning) | https://huggingface.co/Nanbeige/Nanbeige4.2-3B | 2026-08-29 |
 | Upstream HF card (initial read) | https://huggingface.co/Nanbeige/Nanbeige4.2-3B | 2026-07-22 |
 | Fork branch | https://github.com/Nanbeige/llama.cpp/tree/nanbeige42 @ `26cfdc4` | 2026-07-22 |
-| TPS matrix | [session 2026-07-23](../sessions/2026-07-23-nanbeige42-tps-matrix.md) | 2026-07-23 |
+| TPS matrix | [session 2026-07-23](../performance/2026-07-23-nanbeige42-tps-matrix.md) | 2026-07-23 |
 
-**Publisher reasoning control (HF card, 2026-08-29):** The chat template exposes two knobs: `enable_thinking` (default `true` — set `false` for non-thinking) and `preserve_thinking` (default `false` for single-turn, `true` recommended for multi-turn tool-use / office / code-agent workflows). All publisher-reported benchmarks were measured in thinking mode with `preserve_thinking=true`. Publisher TEMP recommendation: 1.0 for agentic/tool-use, 0.6 for reasoning/chat; top_p=0.95, top_k=20, max_new_tokens=65536 (agentic) / 131072 (reasoning). Our Baseline `REASONING: on` (maps to `--reasoning on` on the Nanbeige fork, which surfaces `enable_thinking=true`) is consistent with the publisher's default. There is **no `reasoning_effort` ladder** in this template — only the binary on/off and a separate preserve flag; `--reasoning-budget` on the fork controls the max think tokens emitted before the answer.
+**Publisher reasoning control (HF card, 2026-08-29):** The chat template exposes two knobs: `enable_thinking` (default `true` — set `false` for non-thinking) and `preserve_thinking` (default `false` for single-turn, `true` recommended for multi-turn tool-use / office / code-agent workflows). All publisher-reported benchmarks were measured in thinking mode with `preserve_thinking=true`. Our Baseline `REASONING: on` (maps to `--reasoning on` on the Nanbeige fork, which surfaces `enable_thinking=true`) is consistent with the publisher's default. There is **no `reasoning_effort` ladder** in this template — only the binary on/off and a separate preserve flag; `--reasoning-budget` on the fork controls the max think tokens emitted before the answer.
 
 **Publisher architecture story (HF card, 2026-08-29):** "Looped Transformer" — transformer layers are reused to increase effective capacity without adding parameters. The accompanying `modeling_nanbeige.py` ships three additional improvements — **LoopSplit**, **mHC with depth attention**, and **concatenated n-gram embeddings** — which are incorporated into the in-training Nanbeige4.5. Our local GGUF is a Nanbeige4.2-3B checkpoint, so only the looped-Llama portion applies at runtime; LoopSplit / mHC / n-gram are upstream-HF-only at present. GGUF-verified `num_loops=2` means each of the 22 physical blocks is applied twice → effective depth 44, ~2× FLOPs per token vs a non-looped equivalent.
 
 ## Open questions
 
-- None blocking local use. Optional later: re-run claw-full under f16 Baseline to refresh Val Score vs 0.2667 (q4_0-era). Superseded as Val Score leader by Laguna-XS **0.6667** (2026-07-24) — see [claw-eval-leaderboard.md](../discovery/claw-eval-leaderboard.md).
+- None blocking local use.

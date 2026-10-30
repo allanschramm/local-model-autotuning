@@ -1,10 +1,12 @@
 # Bonsai-27B — Model Card (Local)
 
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/bonsai-27b.md). Historical performance retains its original protocol.
+
 **Source repo:** https://huggingface.co/PrismML-Eng/Bonsai-27B (models were downloaded from here; see note)
 **Canonical card repo:** https://huggingface.co/prism-ml/Bonsai-27B-gguf (**PRIVATE** — 27B repos are gated until launch)
 **Run guide:** https://github.com/PrismML-Eng/Bonsai-demo (README.md + SPECULATIVE.md)
 **License:** Apache 2.0 (HF `prism-ml/Bonsai-27B-gguf` 2026-08-29); original `PrismML-Eng/Bonsai-27B` source repo was private/gated at time of original download (card retains that historical note)
-**Local file:** `models/Bonsai-27B-Q1_0.gguf` (3627.3 MB / 3.53 GiB) — **PURGED from local store**; file no longer present (historical card; retain specs from 2026-08-02 GGUF-verified header + 2026-08-29 HF refresh)
+**Local file:** `models/Bonsai-27B-Q1_0.gguf` (3627.3 MB / 3.53 GiB) — **PURGED from local store; file no longer present (historical card; retain specs from 2026-08-02 GGUF-verified header + 2026-08-29 HF refresh)
 **Drafter file:** `models/draft/Bonsai-27B-dspark-Q4_1.gguf` (1704.7 MB) — DSpark speculative drafter (target-specific)
 **Family:** Bonsai (PrismML-Eng) — 1-bit ternary-pack
 **Quantization:** `Q1_0` (1-bit; ~1.125 bpw)
@@ -13,14 +15,14 @@
 - **Base: Qwen3.5** — `general.architecture='qwen35'`; PrismML's "Qwen3.6-derived" marketing is contradicted by the actual file.
 - **Dense, not MoE** — no `expert_count`/`expert_used_count` keys present. Treat as dense, no `--n-cpu-moe`.
 - **Hybrid attention:** `full_attention_interval=4` over `block_count=64` → 16 full-attention + 48 linear-attention layers (matches the run-guide "16/64 layers cached"); `ssm.conv_kernel=4, state_size=128, group_count=16, time_step_rank=48, inner_size=6144`.
-- **Header values:** `block_count=64`, hidden `5120`, `feed_forward_length=17408`, `attention.head_count=24`, `head_count_kv=4`, key/value length 256, `rope.freq_base=1e7`, ctx **262,144**, 851 tensors, `general.file_type=40`.
+- **Header values:** `block_count=64`, hidden `5120`, `feed_forward_length=17408`, `attention.head_count=24`, `head_count_kv=4`, key/value length 256, `rope.freq_base=1e7`, ctx 262,144**, 851 tensors, `general.file_type=40`.
 - **Embedded recommended sampling:** `TEMP=1.0, TOP_P=0.95, TOP_K=20` (GGUF `general.sampling.*`).
-- Context length: **262,144 tokens** — GGUF-verified (`qwen35.context_length = 262144`).
+- Context length: 262,144 tokens** — GGUF-verified (`qwen35.context_length = 262144`).
 - 27B family is vision-language: accepts images (vision projector +~0.9 GiB when used)
 
 ## Hardware Requirements (discrete 8 GB-class NVIDIA)
 | Item | Size | Note |
-|---|---|---|
+| --- | --- | --- |
 | Bonsai-27B Q1_0 weights | 3.53 GiB | 1-bit |
 | FP16 KV @ 65K ctx | ~1.1 GiB | hybrid attn (16/64 layers cached) |
 | FP16 KV @ 100K ctx | ~6.3 GiB | from run-guide table |
@@ -42,7 +44,7 @@ llama-server -m models/Bonsai-27B-Q1_0.gguf \
   --host 127.0.0.1 --port 8080
 ```
 Flag notes (from run guide):
-- `--spec-type draft-dspark` + `--spec-draft-n-max 4` — **required**; `n-max` must equal drafter block size (4). A smaller value crashes at the first draft round.
+- `--spec-type draft-dspark` + `--spec-draft-n-max 4` — **required; `n-max` must equal drafter block size (4). A smaller value crashes at the first draft round.
 - `-ngl 999 -ngld 999` — target and drafter fully on GPU (model has ≤64 layers, so `99` also covers all).
 - `-fa on` — flash attention.
 - `-c 16384+` — guide recommends ≥16384 (model thinks 1.5–2k tokens before the visible answer); user tested 65536.
@@ -84,10 +86,9 @@ E llama_model_load: error loading model: invalid vector subscript
 
 ## Max TPS (discrete 8 GB-class NVIDIA, ctx band 65k–131k) — 2026-07-21
 
-Harness: `benchmark_search.py --no-agentic-quick --no-agentic-full --no-coding` → `llama-cli` `-n 512`.
 
 | Config | Binary | ctx | KV | bench_tg | Peak VRAM |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | Q1_0 target-only | upstream CUDA | 65536 | q4_0 | **40.5** | 6.1 GB |
 | Q1_0 target-only | upstream CUDA | 131072 | q4_0 | **41.0–41.2** | 7.2–7.3 GB |
 | Q1_0 target-only | prism CUDA | 131072 | q4_0 | 40.5 | 7.3 GB |
@@ -100,16 +101,15 @@ Harness: `benchmark_search.py --no-agentic-quick --no-agentic-full --no-coding` 
 
 **Keep (max TPS short-gen):** `Bonsai-27B-Q1_0.gguf`, `CTX_SIZE=131072`, `KV=q4_0`, no speculative (~41 t/s). **Agentic claw-full needs ctx 65k** — 131k VRAM-killed mid-eval (7906>7900).
 
-### Claw-Eval full (2026-07-24)
-- **Val Score 0.4667** (7/15) @ ctx **65536**, bench_tg **40.2**, peak **6.5 GB**. Alias `bonsai` locked to 65k for agentic.
+### Historical runtime evidence (Claw-Eval full (2026-07-24))
+- Context 65536, bench_tg 40.2, peak **6.5 GB**. Alias `bonsai` locked to 65k for agentic.
 
-### Coding-10 (2026-07-26, vs POCKET)
-- **coding 0.4550** @ ctx **65536**, TEMP 0.6 (fair A/B knobs), bench_tg **41.7**, peak **7.5 GB**
-- HE 0.40 / MBPP 0.80 / LCB 0.40 / BC 0.10
-- Session: [2026-07-26-bonsai-coding-vs-pocket.md](../sessions/2026-07-26-bonsai-coding-vs-pocket.md)
-- POCKET-35B Q3_K_M on same recipe: coding **0.6150**, claw-full **0.6667**, VRAM **3.7 GB**
+### Historical runtime evidence (Coding-10 (2026-07-26, vs POCKET))
+- Context 65536, TEMP 0.6 (fair A/B knobs), bench_tg 41.7, peak **7.5 GB
+- Session: [2026-07-26-bonsai-coding-vs-pocket.md](../performance/2026-07-26-bonsai-coding-vs-pocket.md)
+- POCKET-35B Q3_K_M on same recipe: ; VRAM **3.7 GB**
 
-## Config Baseline (agentic / claw-full)
+## Historical runtime evidence (Config Baseline (agentic / claw-full))
 ```python
 MODEL = 'Bonsai-27B-Q1_0.gguf'
 CTX_SIZE = 65536            # 131k OK for short-gen; agentic overflows VRAM_LIMIT 7900

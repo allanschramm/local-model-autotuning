@@ -449,4 +449,3 @@ alias lbench="$LLAMA_CPP/build-cuda/bin/llama-bench"
 | `--override-kv --override-tensor --lora --control-vector --grammar/--json-schema` | `override-kv tokenizer.add_bos=false` fix; `lora` without retrain. |
 
 **Prioritize:** Safety `no-warmup/fit-print` > Perf `turbo/repack/kv-unified/ngram/poll/swa` > Quality `dry/xtc/yarn`. (`load-mode` already wired.) Full `~310` list + per-flag file:line in `docs/llamacpp-flags-audit.md` + `docs/discovery/` guides (`cpu-inference-guide`, `mtp-baseline-guide`, `speculative-decoding-formats`).
-

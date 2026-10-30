@@ -7,7 +7,6 @@ import re
 import statistics
 import subprocess
 import threading
-from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
@@ -51,46 +50,6 @@ class TrialOutcome(str, Enum):
     # defect — `CODE_ERROR` is reserved for our own logic.
     INFRA_ERROR = "INFRA_ERROR"
     CODE_ERROR = "CODE_ERROR"
-
-
-@dataclass
-class TrialResult:
-    """Typed result of one trial. Replaces dict-as-return-type pattern.
-
-    Every field has a safe default (0.0 or ""). Callers never need .get().
-    """
-
-    status: str = "OK"
-    val_score: float = 0.0
-    coding_val: float = 0.0
-    coding_tps: float = 0.0
-    lcb_val: float = 0.0
-    he_val: float = 0.0
-    mbpp_val: float = 0.0
-    bigcode_val: float = 0.0
-    swe_val: float = 0.0
-    agentic_val: float = 0.0  # Claw-Eval quick/full tier score
-    agentic_tier: str = ""  # "quick" or "full"
-    agentic_task_count: int = 0  # number of tasks evaluated
-    agentic_coding_val: float | None = None  # SWE-lite passed/N (ADR 0013); None = not measured
-    agentic_coding_detail: str = ""
-    mini_swe_agent_val: float | None = (
-        None  # DM-Code-Agent passed/N via mini-swe-agent; None = not measured
-    )
-    mini_swe_agent_detail: str = ""
-    avg_tps: float = 0.0
-    peak_vram_gb: float = 0.0
-    bench_tg_tps: float = 0.0
-    bench_pp_tps: float = 0.0
-    bench_ppl: float = 0.0
-    elapsed_sec: float = 0.0
-    outcome: TrialOutcome = TrialOutcome.OK
-    diagnostic: str = ""
-    task_ids: tuple[str, ...] = ()
-    tps_source: str = ""
-    gpu_temp_c: float | None = None
-    tps_reps: list[float] = field(default_factory=list)
-    tps_spread: float | None = None
 
 
 def _tps_spread(values: list[float], median: float) -> float:

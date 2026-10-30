@@ -2,7 +2,7 @@
 # Does NOT install into llama.cpp / claw-eval / parent Nexus-System.
 #
 # Setup (once, from repo root):
-#   uv pip install --python ./venv/Scripts/python.exe -r requirements-dev.txt -r requirements-legacy.txt
+#   uv pip install --python ./venv/Scripts/python.exe -r requirements-dev.txt
 #   .\venv\Scripts\pre-commit.exe install
 # Manual:
 #   .\venv\Scripts\pre-commit.exe run --all-files
@@ -22,9 +22,7 @@ repos:
             autoresearch/|
             tests/|
             scripts/[^/]+\.py$|
-            ui/|
-            autoloop\.py$|
-            benchmark_search\.py$
+            ui/
           )
       - id: ruff-format
         types_or: [python, pyi]
@@ -33,9 +31,7 @@ repos:
             autoresearch/|
             tests/|
             scripts/[^/]+\.py$|
-            ui/|
-            autoloop\.py$|
-            benchmark_search\.py$
+            ui/
           )
 
   - repo: local
@@ -50,8 +46,6 @@ repos:
             autoresearch/|
             tests/|
             scripts/[^/]+\.py$|
-            ui/|
-            autoloop\.py$|
-            benchmark_search\.py$
+            ui/
           )
         stages: [pre-commit]

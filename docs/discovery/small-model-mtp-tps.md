@@ -2,7 +2,7 @@
 
 Operator contract for dense ~9B / E4B models on an 8 GB CUDA box: which files have MTP, how to enable them, and measured generation TPS.
 
-Evidence: [docs/sessions/2026-07-20-small-model-tps-matrix.md](../sessions/2026-07-20-small-model-tps-matrix.md). Architecture deep-dive: [speculative-decoding-formats.md](./speculative-decoding-formats.md). How to smoke-test: [mtp-baseline-guide.md](./mtp-baseline-guide.md).
+Evidence: [docs/sessions/2026-07-20-small-model-tps-matrix.md](../performance/2026-07-20-small-model-tps-matrix.md). Architecture deep-dive: [speculative-decoding-formats.md](./speculative-decoding-formats.md). How to smoke-test: [mtp-baseline-guide.md](./mtp-baseline-guide.md).
 
 ---
 
@@ -66,26 +66,7 @@ Method: harness `run_llama_bench_validation` → `llama-cli` `-n 512`, shared kn
 ## 4. How to re-run (TPS-only)
 
 1. Set Baseline in `config.py` (`MODEL`, `SPEC_*`, engine knobs) — no CLI soup.
-2. Measure with harness cli-bench (not `llama-bench`, not `--validation` if you want to skip Claw):
-
-```powershell
-$env:PYTHONPATH = (Get-Location).Path
-.\venv\Scripts\python.exe -c @"
-from pathlib import Path
-from autoresearch.core.config import load_config
-from autoresearch.runners.evaluation import run_llama_bench_validation
-c = load_config()
-print(run_llama_bench_validation(
-    model_path=Path('models')/c['MODEL'],
-    threads=c['THREADS'], threads_batch=c['THREADS_BATCH'],
-    batch_size=c['BATCH_SIZE'], ubatch_size=c['UBATCH_SIZE'],
-    flash_attn=c['FLASH_ATTN'], cache_type_k=c['KV_CACHE_K'], cache_type_v=c['KV_CACHE_V'],
-    no_mmap=c['NO_MMAP'], spec_type=c.get('SPEC_TYPE'),
-    spec_draft_n_max=int(c.get('SPEC_DRAFT_N_MAX') or 0),
-    spec_draft_model=c.get('SPEC_DRAFT_MODEL') if c.get('SPEC_DRAFT_N_MAX') else None,
-))
-"@
-```
+2. Run a finite plan using [the current tuning protocol](../../autoresearch/TUNING.md). Compare TPS and PPL at the same configured context and Fingerprint. Historical CLI throughput above is a different measurement.
 
 For Gemma MTP, keep `SPEC_DRAFT_MODEL='draft/mtp-gemma-4-E4B-it.gguf'` (path relative to `models/`). For embedded MTP, set `SPEC_DRAFT_MODEL` unused / omit draft arg.
 

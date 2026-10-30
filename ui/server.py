@@ -124,10 +124,8 @@ _HTML = """<!DOCTYPE html>
           <th>Outcome</th>
           <th class="num">ctx</th>
           <th class="num">TPS</th>
-          <th class="num">agentic</th>
-          <th class="num">coding</th>
-          <th class="num">memory</th>
-          <th class="num">elapsed</th>
+          <th class="num">PPL</th>
+          <th class="num">PPL referência</th>
           <th>Descrição</th>
         </tr>
       </thead>
@@ -319,10 +317,8 @@ _HTML = """<!DOCTYPE html>
       // Numeric columns
       tr.appendChild(numCell(t.ctx));
       tr.appendChild(numCell(t.tps));
-      tr.appendChild(numCell(t.agentic));
-      tr.appendChild(numCell(t.coding));
-      tr.appendChild(numCell(t.memory));
-      tr.appendChild(numCell(t.elapsed));
+      tr.appendChild(numCell(t.ppl));
+      tr.appendChild(numCell(t.reference_ppl));
 
       // Description (truncated + tooltip)
       const dc = document.createElement("td");

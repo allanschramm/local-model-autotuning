@@ -55,4 +55,3 @@ E4M3 vs E8M0 scaling: E8M0 snaps the scale to nearest 2ⁿ (cheap, can blow up e
 - Unsloth Dynamic NVFP4 (Blackwell speed, fallback note): https://unsloth.ai/docs/basics/nvfp4 · https://unsloth.ai/docs/models/qwen3.6 ("older GPUs → use standard GGUF").
 - BF16 + Marlin garbled output caveat: https://github.com/vllm-project/vllm/issues/34694
 - Verified against: `docs/discovery/vllm-quant-deep-dive.md` §4 (kernel table) and `docs/sessions/2026-08-02-research-gap-closure.md`.
-

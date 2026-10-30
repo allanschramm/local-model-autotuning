@@ -1,19 +1,45 @@
-"""Harness-backed Trials reader for the dashboard (#25)."""
+"""Read bounded tuning evidence without modifying historical SQLite tables."""
 
 from __future__ import annotations
 
+import json
+import sqlite3
+from pathlib import Path
 from typing import Any
 
-from autoresearch.core import trial_store as run_mod
+DATABASE = Path(__file__).resolve().parents[1] / "results.db"
 
 
-def read_last_50_trials() -> list[dict[str, str]]:
-    """Last 50 results.tsv rows, newest first ([] when missing/empty)."""
-    rows = run_mod.read_rows(run_mod.RESULTS_FILE)
-    if not rows:
+def read_last_50_trials() -> list[dict[str, Any]]:
+    """Newest tuning attempts; historical quality stores produce an empty view."""
+    if not DATABASE.is_file():
         return []
-    # File order is append-chronological; newest last → reverse for UI.
-    return list(reversed(rows))[:50]
+    with sqlite3.connect(DATABASE.as_uri() + "?mode=ro", uri=True) as db:
+        db.row_factory = sqlite3.Row
+        tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if not {"tuning_trials", "tuning_runs"} <= tables:
+            return []
+        records = db.execute("""
+            SELECT t.*, r.frontier_json, r.reference_ppl
+            FROM tuning_trials AS t JOIN tuning_runs AS r USING (run_id)
+            WHERE r.protocol = 'tuning-runtime-v1'
+            ORDER BY t.rowid DESC LIMIT 50
+        """).fetchall()
+    rows = []
+    for record in records:
+        row = dict(record)
+        frontier = {point["trial_id"] for point in json.loads(row.pop("frontier_json") or "[]")}
+        configuration = json.loads(row.pop("config_json"))
+        row["model"] = configuration.get("MODEL", "")
+        row["status"] = (
+            "on_front"
+            if row["trial_id"] in frontier
+            else "dominated"
+            if row["accepted"]
+            else "rejected"
+        )
+        rows.append(row)
+    return rows
 
 
 # Canonical → pt-BR display mapping for Trial Status pills.
@@ -31,8 +57,8 @@ def status_pt(canonical: str) -> str:
     return _STATUS_PT.get(canonical, canonical)
 
 
-def format_trial_for_ui(row: dict[str, str]) -> dict[str, Any]:
-    """Operator columns; pass through ADR 0006 status as stored.
+def format_trial_for_ui(row: dict[str, Any]) -> dict[str, Any]:
+    """Format tuning columns and computed two-axis frontier membership.
 
     Adds ``status_pt`` presentation field (pt-BR pill label).
     The canonical ``status`` field stays untouched.
@@ -43,10 +69,8 @@ def format_trial_for_ui(row: dict[str, str]) -> dict[str, Any]:
         "outcome": row.get("outcome") or "",
         "ctx": row.get("ctx") or "",
         "tps": row.get("tps") or "",
-        "agentic": row.get("agentic") or "",
-        "coding": row.get("coding") or "",
-        "memory": row.get("memory_gb") or "",
-        "elapsed": row.get("elapsed_sec") or "",
-        "diagnostic": row.get("diagnostic") or "",
-        "description": row.get("description") or "",
+        "ppl": row.get("ppl"),
+        "reference_ppl": row.get("reference_ppl"),
+        "model": row.get("model", ""),
+        "description": row.get("model", ""),
     }

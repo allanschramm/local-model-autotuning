@@ -16,7 +16,7 @@
 ## Hardware Requirements
 
 | Parameter | Value |
-|-----------|-------|
+| ----------- | ------- |
 | Model size | 4.0B parameters |
 | Minimum VRAM | ~2.5 GB (peak) |
 | Recommended VRAM | 8 GB (for comfortable inference) |
@@ -26,7 +26,7 @@
 ## Recommended Settings
 
 | Setting | Value | Notes |
-|---------|-------|--------|
+| --------- | ------- | -------- |
 | `temp` | 0.7 | Good balance for quality vs speed |
 | `top_p` | 0.95 | Standard sampling |
 | `top_k` | 0.9 | Controls nucleus sampling |
@@ -47,7 +47,7 @@ The model relies on full attention across all 36 blocks with KV cache size of 36
 ## MoE Split
 
 | Component | Value |
-|-----------|-------|
+| ----------- | ------- |
 | `n-gpu-layers` | 0 (dense model) |
 | `n-cpu-moe` | 0 (no MoE routing) |
 | Total active layers | 36 (full dense) |
@@ -73,4 +73,4 @@ Because this is a dense 4.0B model, all layers are executed on the GPU (or CPU i
 1. **Exact VRAM peak usage**: While the model is 4.0B parameters, the peak VRAM during generation varies with sequence length and KV cache size. The stored metrics show ~2.5 GB peak for smooth inference at 131k context.
 2. **Reasoning capability**: With `enable_thinking` enabled by default (verified 2026-08-29), the model should support chain-of-thought prompting. No specific reasoning benchmarks are publicly available for this exact checkpoint.
 3. **MoE compatibility**: Since this is a dense model, attempting to force MoE routing would be ineffective. The model should be treated as a standard dense transformer.
-4. **Quantization accuracy**: Q4_K_M is the recommended quantization for this GGUF; higher-bit quantizers (Q5_K_M, Q8_0) would increase memory but may reduce quality.
+4.

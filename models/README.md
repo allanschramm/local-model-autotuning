@@ -35,7 +35,7 @@ Special dirs stay as-is: `--local-dir models/draft` for MTP/DFlash drafts; `--lo
 
 ## Aliases (`model-up`)
 
-**Local only — never commit.** Per-user `aliases/<name>/config.yaml`, optional `aliases/INDEX.md` / `REMOVED.md` for launcher notes, plus root `models/REMOVED.md` for SSD keep/delete inventory. Tracked docs carry **model** scores and Pareto picks (GGUF basename), not which alias name you use or what is on disk.
+**Local only — never commit.** Per-user `aliases/<name>/config.yaml`, optional `aliases/INDEX.md` / `REMOVED.md` for launcher notes, plus root `models/REMOVED.md` for SSD keep/delete inventory. Tracked docs carry model runtime measurements and tuning alternatives (GGUF basename), not which alias name you use or what is on disk.
 
 The local launcher (`models/aliases/model-up.cmd`, **never committed**) runs `scripts/model_up.py` with the **repo venv** (`venv/Scripts/python.exe`), falling back to bare `python` only when the venv is absent. The system interpreter has no `gguf`, and without it every MoE GGUF is misread as dense — `--n-cpu-moe` disappears and the experts spill into Shared GPU memory/host RAM. See `autoresearch/core/model_arch.py` `GGUFMetadataError`.
 

@@ -13,7 +13,7 @@ Copy-Item autoresearch/core/config.py.example autoresearch/core/config.py
 
 On POSIX use `cp` and `./venv/bin/python`. Keep an existing `config.py`; the seed command is for a fresh clone only. Configure its model and engine before executing a Search.
 
-The default requirements contain tuning/runtime and local model tools only. Legacy quality evaluation is an optional `requirements-legacy.txt` installation; developer tools are in `requirements-dev.txt`. Neither optional group is required for this bounded Search or its simulated E2E.
+The default requirements contain tuning/runtime and local model tools only. Developer tools are in `requirements-dev.txt` and are not required for this bounded Search or its simulated E2E.
 
 Review the portable [example plan](tuning-plan.example.json) and select the intended harness's minimum context, reachable engine values, and finite Trial budget. Context candidates must be at least the greater of the plan's minimum and the existing Baseline context. Plans cannot change the model, tune sampler settings, or optimize hardware-safety budgets/measurement policy.
 
@@ -40,7 +40,7 @@ RAM, CUDA-free, dedicated/Shared VRAM, single-load, native parent lifetime, DLL 
 
 Each Trial writes JSON under ignored `tuning-artifacts/<run-id>/`, and each final frontier point gets a portable Fingerprint file beside that evidence. The command prints every alternative and its file path. Baseline, aliases, and the existing per-model launcher Fingerprint are not automatically replaced: select the alternative appropriate for your harness before applying it with the existing Fingerprint tooling.
 
-Infrastructure/configuration failures stop the Search after checkpointing; unfinished runs remain `running`. No row is fabricated as zero quality or merged into legacy Claw/Coding rankings. The operator dashboard still displays legacy Trial rows; new tuning evidence is read from its SQLite tables/printed JSON. Legacy `autoloop.py` modes remain compatibility paths and retain their historical measurement semantics.
+Infrastructure/configuration failures stop the Search after checkpointing; unfinished runs remain `running`. No row is fabricated as zero quality or merged into legacy Claw/Coding rankings. The dashboard reads tuning attempts, PPL reference and current frontier membership. Historical quality tables remain untouched and are not displayed. Quality evaluators and old autonomous/Trial entrypoints are archived outside this distribution.
 
 ## Repeatable verification
 

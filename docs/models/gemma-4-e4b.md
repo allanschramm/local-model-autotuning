@@ -1,5 +1,7 @@
 # Gemma-4-E4B — Model Card (Local)
 
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/gemma-4-e4b.md). Historical performance retains its original protocol.
+
 **Source repo:** https://huggingface.co/unsloth/gemma-4-E4B-it-qat-GGUF
 **Unsloth docs:** https://unsloth.ai/docs/models/gemma-4
 **HF model:** https://huggingface.co/unsloth/gemma-4-E4B-it-qat-GGUF
@@ -58,22 +60,22 @@ N/A — dense MatFormer E4B (no expert tensors); `--n-cpu-moe` not applicable.
 - `NO_MMAP = True`
 
 ### Status
-- **Default speed Baseline (2026-07-20):** winner of fair small-model TPS matrix — see [session](../sessions/2026-07-20-small-model-tps-matrix.md).
+- **Default speed Baseline (2026-07-20):** winner of fair small-model TPS matrix — see [session](../performance/2026-07-20-small-model-tps-matrix.md).
 - **Fair matrix (`llama-cli` `-n 512`, shared knobs):** base **67.6 t/s** → MTP **122.0 t/s** (**+80%**).
 - **Earlier spot checks:** `-n 128` MTP **136.6 t/s** (+95.4% vs 69.9 base); sustained `-n 512` MTP **113.4 t/s** (pre-matrix knobs).
 - **Autoloop note:** server-path TPS with PPL ceiling previously peaked **76.67 t/s** at same draft/`q4_0`/n_max=4 — lower than raw cli-bench (different workload). Prefer cli matrix for apples-to-apples MTP compares.
 - **KV:** use `q4_0` only on upstream builds. `turbo*` KV types are **not** in upstream `llama.cpp`.
 
-## 7. Measured (claw-full)
+## Historical runtime evidence (7. Measured (claw-full))
 
 Alias path: ctx **65k**, draft-mtp n=4, KV q4_0, cont-batching on.
 
-| Stage | Val / agentic | note |
-|---|---|---|
-| 2026-07-24 | **0.3333** (5/15) | Pre harness fix; bench_tg 113.3; peak 5.8 GB |
-| 2026-08-08 remasure | **0.8000** (12/15) | Post `reasoning_content` / max_tokens fix; TPS 126.7; peak **5.1 GB** |
+| Stage | note |
+| --- | --- |
+| 2026-07-24 | Pre harness fix; bench_tg 113.3; peak 5.8 GB |
+| 2026-08-08 remasure | Post `reasoning_content` / max_tokens fix; TPS 126.7; peak **5.1 GB** |
 
-Evidence: `results.tsv` remasure row; [thinking-models-claw-harness.md](../discovery/thinking-models-claw-harness.md).
+Evidence: `results.tsv` remasure row; [thinking-models-claw-harness.md](../performance/thinking-models-claw-harness.md).
 
 ## 8. Sources/Verification (dated 2026-08-29)
 - HF model card: https://huggingface.co/unsloth/gemma-4-E4B-it-qat-GGUF (JSON API `api/models/unsloth/gemma-4-E4B-it-qat-GGUF`, raw README)

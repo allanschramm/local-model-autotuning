@@ -1,5 +1,7 @@
 # DeepSeek-V4.1-Flash-DSpark — Model Card (Candidate)
 
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/deepseek-v4.1-flash-dspark.md). Historical performance retains its original protocol.
+
 **Source repo (target):** https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash
 **GGUF + DSpark packagings:**
 - https://huggingface.co/JigSawPT/DeepSeek-V4.1-Flash-DSpark-GGUF (2026-09-14, 2 983 ↓) — single-file GGUF, llama.cpp native, **MIT**, base_model `deepseek-ai/DeepSeek-V4.1-Flash`, tags `speculative-decoding`, `dspark`
@@ -86,7 +88,6 @@ If the active path is too large for 8 GB VRAM, drop to:
 
 ## Our config baseline (TBD)
 
-Marked `TBD` until first download + `benchmark_search.py --validation`. Once validated, populate:
 
 ```python
 ENGINE_DEFAULTS = {
@@ -123,7 +124,7 @@ SAMPLER_DEFAULTS = {'TEMP': 0.6, 'TOP_P': 0.95, 'TOP_K': 20, 'MIN_P': 0.0}
 - HF info `JigSawPT/DeepSeek-V4.1-Flash-DSpark-GGUF` — extracted 2026-09-22 (`arch: dflash`, 1 M ctx, MIT, 8 GB single-file).
 - HF info `kernelpool/DeepSeek-V4.1-Flash-MXFP4-GGUF` — extracted 2026-09-22 (MXFP4 split, 14 GB, `arch: deepseek41-dspark`).
 - HF `hf models card deepseek-ai/DeepSeek-V4.1-Flash` — **failed** (UTF-8 codec error on the harness shell; the README renders fine in a browser). Re-attempt on download.
-- Cross-checked against the operator's existing `qwen3.6-35b-a3b` MoE recipe (`models/aliases/qwen3.6-35b-a3b-mtp/config.yaml`) for `--n-cpu-moe 99` fit pattern.
+- Cross-checked against the operator's existing `qwen3.6-35b-a3b` MoE recipe (`machine-local launcher config`) for `--n-cpu-moe 99` fit pattern.
 
 ## Open questions
 
@@ -131,5 +132,4 @@ SAMPLER_DEFAULTS = {'TEMP': 0.6, 'TOP_P': 0.95, 'TOP_K': 20, 'MIN_P': 0.0}
 - **DSpark flag name in llama.cpp b10867** — verify `--spec-type dflash` or whatever the upstream spelling is before writing the alias.
 - **MXFP4 in b10867** — `kernelpool` variant uses block-fp4. The operator's pinned engine may not support it. JigSawPT single-file GGUF (standard GGUF quant) is the safer first download.
 - **Chat template** — the JigSawPT GGUF embeds a DSML tool-call format. The operator's existing `pi-coding-agent` / claude-code clients likely expect qwen3-style tool calls; may need a custom `--tool-call-parser` shim.
-- **Coding + agentic vectors** — no `benchmark_search.py` Trial yet. Need `benchmark_search.py --validation` (5/5 claw-quick) → `--agentic-full` + coding-10 → ranked in `results.db` for the leaderboard.
 - **TBD: Sweep ctx >65k with DSpark** — the V4 sibling MTP at 131k rejects at 7.92 GB on 8 GB (`ornith-1.5-9b` precedent). V4.1-Flash DSpark at 131k may behave similarly; verify VRAM preflight before raising `CTX_SIZE`.

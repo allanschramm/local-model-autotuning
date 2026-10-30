@@ -1,5 +1,7 @@
 # Fuse-2-MoE
 
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/fuse-2-moe.md). Historical performance retains its original protocol.
+
 ## Header Block
 
 - **Source repo**: [`Akahsizrr/Fuse-2-MoE-GGUF`](https://huggingface.co/Akahsizrr/Fuse-2-MoE-GGUF)
@@ -31,7 +33,7 @@
 ## Hardware Requirements
 
 | Parameter | Value |
-|---|---|
+| --- | --- |
 | Model size | ~8.87B parameters total, ~4B active per token |
 | Quantization size | 5.32 GiB tensor data (`Q4_K_M`) |
 | Physical VRAM required | $\ge 7.0\text{ GB}$ (measured peak **7.1 GB** @ 32,768 context + `q4_0` KV cache + flash-attn) |
@@ -44,7 +46,7 @@
 From model README and empirical trial:
 
 | Setting | Value | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `TEMP` | 0.7 | Standard sampling temperature |
 | `TOP_P` | 0.95 | Nucleus sampling |
 | `TOP_K` | 20 | Bounded top-k |
@@ -73,7 +75,6 @@ From model README and empirical trial:
 
 ## Our Config Baseline (Trial Validated — on_front)
 
-Measured on discrete 8 GB-class NVIDIA GPU via `benchmark_search.py --agentic-full` on 2026-09-12:
 
 - **Status**: **`on_front`** (Trial fingerprint: `732e0d95-e589-455f-8ca2-9d42c9e3c0f5`)
 - **Engine**: `llama.cpp-fuse4` (commit `50f068fff` + Fuse4 patches, CUDA 13.3 sm_89)
@@ -85,10 +86,6 @@ Measured on discrete 8 GB-class NVIDIA GPU via `benchmark_search.py --agentic-fu
 - **Measured Throughput (`bench_tg`)**: **`56.4 t/s`** (median across reps: 56.3, 56.4, 56.5; coding generation TPS: **`67.5 t/s`**)
 - **`llama-bench` Throughput**: `pp512` **`2495.4 t/s`**, `tg128` **`58.3 t/s`**
 - **Peak VRAM**: **`7.1 GB`** (fits within 8 GB physical VRAM with 0 Shared GPU spill)
-- **Agentic Score (Claw-15 full)**: **`0.0000`** (0/15 passed; raw unaligned base model without tool-calling fine-tuning)
-- **Coding Score (Coding-10)**: **`0.0500`**
-  - **HumanEval+**: `0.2000` (2/10)
-  - **MBPP+**: `0.0000` (0/10)
   - **LiveCodeBench**: `0.0000` (0/10)
   - **BigCode Hard**: `0.0000` (0/10)
 
@@ -104,5 +101,4 @@ Measured on discrete 8 GB-class NVIDIA GPU via `benchmark_search.py --agentic-fu
 
 ## Open Questions
 
-- **Instruction fine-tuning**: Model author released raw base checkpoint; an instruct or tool-tuned fine-tune would be required to unlock agentic capabilities (current Claw-15 score is 0.0000).
 - **Extended context (>32k)**: Model claims 262k context, but physical 8 GB VRAM budget limits context to 32k with `q4_0` KV cache; testing 64k requires TurboQuant/KV quantization experiments.

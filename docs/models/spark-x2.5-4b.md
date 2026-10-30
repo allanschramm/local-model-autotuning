@@ -1,5 +1,7 @@
 # Spark-X2.5-4B
 
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/spark-x2.5-4b.md). Historical performance retains its original protocol.
+
 ## Header Block
 
 - **Source repo**: [`XHToken/Spark-X2.5-4B-GGUF`](https://huggingface.co/XHToken/Spark-X2.5-4B-GGUF)
@@ -32,7 +34,7 @@
 ## Hardware Requirements
 
 | Parameter | Value |
-|---|---|
+| --- | --- |
 | Model size | ~4.1B parameters |
 | Quantization size | 2.42 GiB (`Q4_K_M`) |
 | Physical VRAM required | $\ge 4.0\text{ GB}$ (tight) / $\ge 6.0\text{ GB}$ (comfortable at 131k context) |
@@ -45,7 +47,7 @@
 From model card and GGUF metadata:
 
 | Setting | Value | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `TEMP` | 0.8 / 1.0 | 0.8 general fallback; 1.0 publisher default |
 | `TOP_P` | 0.95 | Publisher recommended |
 | `TOP_K` | 40 | Publisher default is -1 (unbounded); 40 for bounded sampling |
@@ -73,7 +75,6 @@ From model card and GGUF metadata:
 
 ## Our Config Baseline (Trial Validated — on_front)
 
-Measured on discrete 8 GB-class NVIDIA GPU via `benchmark_search.py --agentic-full` on 2026-09-08:
 
 - **Status**: **`on_front`** (Day #17 / Night #14 Pareto frontier)
 - **Engine**: `upstream@b10867` (CUDA 13.3)
@@ -84,10 +85,6 @@ Measured on discrete 8 GB-class NVIDIA GPU via `benchmark_search.py --agentic-fu
 - **Flash Attention**: `on`
 - **Measured Throughput (`bench_tg` 512)**: **`71.3 t/s`** (combined TPS: **`83.5 t/s`**)
 - **Peak VRAM**: **`6.1 GB`** (fits comfortably in 8 GB VRAM at 131k context)
-- **Agentic Score (Claw-15 full)**: **`0.8667`** (13/15 passed in 1333s)
-- **Coding Score (Coding-10)**: **`0.4400`**
-  - **HumanEval+**: `0.7000` (7/10)
-  - **MBPP+**: `0.5000` (5/10)
   - **LiveCodeBench**: `0.4000` (4/10)
   - **BigCode Hard**: `0.0000` (0/10)
 
@@ -98,8 +95,6 @@ Measured on discrete 8 GB-class NVIDIA GPU via `benchmark_search.py --agentic-fu
 - **Primary HF Repo**: `https://huggingface.co/XHToken/Spark-X2.5-4B-GGUF` (retrieved 2026-09-08)
 - **Upstream PR**: `https://github.com/ggml-org/llama.cpp/pull/27868` (merged in `b10828`, 2026-09-07)
 - **GGUF Inspection**: Verified via `gguf.GGUFReader` on local weights `models/XHToken/Spark-X2.5-4B/Spark-X2.5-4B-Q4_K_M.gguf` (2026-09-08)
-- **Validation Run**: Executed via `benchmark_search.py --validation` logged to canonical SQLite `results.db` (2026-09-08)
-- **Full Trial Run**: Executed via `benchmark_search.py --agentic-full` logged to canonical SQLite `results.db` (2026-09-08)
 
 ---
 

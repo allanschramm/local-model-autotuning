@@ -1,20 +1,22 @@
 # LFM2.5-8B-A1B — Model Card (Local)
 
-**Source:** https://huggingface.co/LiquidAI/LFM2.5-8B-A1B  
-**GGUF:** https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF  
-**Base:** https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-Base  
-**License:** LFM 1.0 (`general.license.name=lfm1.0`)  
-**Local file:** `models/LiquidAI/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-Q4_K_M.gguf` (~5.16 GB)  
-**Family:** Liquid LFM2.5  
-**Architecture type:** Hybrid MoE (`lfm2moe`) — 8.3B total / ~1.5B active  
-**Quantization:** `Q4_K_M` (`general.file_type=15`)  
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/lfm2.5-8b-a1b.md). Historical performance retains its original protocol.
+
+**Source:** https://huggingface.co/LiquidAI/LFM2.5-8B-A1B
+**GGUF:** https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF
+**Base:** https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-Base
+**License:** LFM 1.0 (`general.license.name=lfm1.0`)
+**Local file:** `models/LiquidAI/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-Q4_K_M.gguf` (~5.16 GB)
+**Family:** Liquid LFM2.5
+**Architecture type:** Hybrid MoE (`lfm2moe`) — 8.3B total / ~1.5B active
+**Quantization:** `Q4_K_M` (`general.file_type=15`)
 
 ## Architecture (from GGUF metadata)
 
 Verified with `gguf.GGUFReader` on the local file (2026-07-23):
 
 | Key | Value |
-|---|---|
+| --- | --- |
 | `general.architecture` | `lfm2moe` |
 | `general.size_label` | `32x959M` |
 | `lfm2moe.block_count` | 24 |
@@ -37,7 +39,7 @@ HF card: 18 double-gated LIV conv + 6 GQA layers (matches 24 blocks). Hybrid —
 ## Hardware requirements (discrete 8 GB-class NVIDIA)
 
 | Quant | Size | Fit notes |
-|---|---|---|
+| --- | --- | --- |
 | Q4_K_M | ~5.16 GB | Full GPU with `--n-cpu-moe 0`. Peak VRAM **6.5 GB** @ ctx 65k / KV q4_0. |
 
 - Context claim 128k; on 8 GB prefer **65k** + KV `q4_0` (validated).
@@ -48,7 +50,7 @@ HF card: 18 double-gated LIV conv + 6 GQA layers (matches 24 blocks). Hybrid —
 From Liquid HF card (2026-08-29):
 
 | Param | Value |
-|---|---|
+| --- | --- |
 | temperature | 0.2 |
 | top_k | 80 |
 | repetition_penalty | 1.05 |
@@ -56,12 +58,12 @@ From Liquid HF card (2026-08-29):
 Local Baseline (validated):
 
 | Param | Value | Notes |
-|---|---|---|
+| --- | --- | --- |
 | CTX_SIZE | 65536 | Fits 8 GB with q4_0 KV |
-| KV_CACHE_K/V | q4_0 | |
-| BATCH / UBATCH | 512 / 256 | |
+| KV_CACHE_K/V | q4_0 |  |
+| BATCH / UBATCH | 512 / 256 |  |
 | FLASH_ATTN | on | Required |
-| CONT_BATCHING | True | |
+| CONT_BATCHING | True |  |
 | N_CPU_MOE | **0** | Full VRAM (see below) |
 | TPS_FLOOR | 15.0 | MoE floor on the operator host |
 | JINJA | true | ChatML-like template |
@@ -82,7 +84,7 @@ Harness gotcha (2026-07-23): for MoE filenames matching `A1B` / etc., if Baselin
 
 Set `N_CPU_MOE: 0` to pass `--n-cpu-moe 0` and keep experts on GPU.
 
-Large MoE that does **not** fit → use positive `--n-cpu-moe N` (Codacus VITRIOL). See [vitriol-technique.md](vitriol-technique.md).
+Large MoE that does **not** fit → use positive `--n-cpu-moe N` (Codacus VITRIOL). See [vitriol-technique.md](../discovery/vitriol-technique.md).
 
 ## Our config baseline (2026-07-23)
 
@@ -121,31 +123,30 @@ SAMPLER_DEFAULTS = {
 
 ## Measured (2026-07-23)
 
-Harness: `benchmark_search.py --validation` (claw-quick only; coding off). Runtime: PrismML CUDA binaries (first match in resolver).
 
-| Mode | Bench tg | Peak VRAM | Claw-quick | Agentic wall | Verdict |
-|---|---|---|---|---|---|
-| Server `exps→CPU` (`N_CPU_MOE=None`) | 174.0 t/s | 2.3 GB | 0.20 (1/5) | ~106 s | KEEP |
-| Full VRAM (`N_CPU_MOE=0`) | 174.1 t/s | **6.5 GB** | 0.20 (1/5) | **~38 s** | KEEP |
+| Mode | Peak VRAM |
+| --- | --- |
+| Server `exps→CPU` (`N_CPU_MOE=None`) | 2.3 GB |
+| Full VRAM (`N_CPU_MOE=0`) | **6.5 GB** |
 
-Only T010_contact_lookup passed in both runs. TPS identical because Combined TPS comes from `llama-cli` bench (already GPU); VRAM/wall-time change is server-side expert placement.
+TPS identical because Combined TPS comes from `llama-cli` bench (already GPU); VRAM/wall-time change is server-side expert placement.
 
-## Measured (validation + coding-10, 2026-08-03)
+## Historical runtime evidence (Measured (validation + coding-10, 2026-08-03))
 
 `N_CPU_MOE=0`, ctx 65k, KV q4_0 (upstream CUDA), coding-10 on:
 
-| Run | bench_tg | peak VRAM | Claw-quick | Coding | lcb | he | mbpp | bigcode | Status |
-|---|---|---|---|---|---|---|---|---|---|
-| A | 171.2 | 6.8 GB | 0.20 (1/5) | **0.3800** | 0.4000 | 0.1000 | 0.8000 | 0.1000 | incomplete |
+| Run | peak VRAM |
+| --- | --- |
+| A | 6.8 GB |
 
-Combined TPS 186.9 (≥15.0). Only T010 passed again — consistent with prior claw-quick 0.20. Coding axis now measured; agentic axis still needs Claw full for a complete Objective Vector.
+Combined TPS 186.9 (≥15.0). Coding axis now measured; agentic axis still needs Claw full for a complete Objective Vector.
 
 ## Real peak VRAM (2026-08, gate bypass)
 
 Measured with `scripts/measure_vram_peak.py` (harness `LlamaServerRunner`, NVML 20 ms sampler, preflight bypassed):
 
 | Stage | used | free |
-|---|---|---|
+| --- | --- | --- |
 | pre | 1622 MB (desktop) | 6335 MB |
 | post-load | 7021 MB (+5399) | 936 MB |
 | post-gen (534 tok, 171.3 t/s) | 7015 MB | 942 MB |
@@ -153,18 +154,17 @@ Measured with `scripts/measure_vram_peak.py` (harness `LlamaServerRunner`, NVML 
 
 Model fits physical VRAM with ~700 MB spare in a dirty-GPU state — no shared-memory spill. This exposed the KV estimator over-charge (flat 80 KB/token): this arch has `head_count_kv = 0` (per-layer sparse GQA array, KV only on 6 attention layers) so real KV @ 65k q4_0 ≈ 480–720 MB, not 1434. Estimator now derives KV bytes/token from GGUF metadata (`n_layer × n_head_kv × (k_len+v_len)`, per-layer array supported) — est 5324 MB vs real 5399/5638 MB (2026-08-08).
 
-## Measured (claw-full, 2026-07-24)
+## Historical runtime evidence (Measured (claw-full, 2026-07-24))
 
 `N_CPU_MOE=0`, ctx 65k, KV q4_0 (upstream CUDA):
 
-| Run | Val Score | pass | bench_tg | peak VRAM |
-|---|---|---|---|---|
-| A | 0.1333 | 2/15 | 184.3 | 7.3 GB |
-| B (re-run) | **0.2000** | 3/15 | 178.5 | 7.8 GB |
+| Run | peak VRAM |
+| --- | --- |
+| A | 7.3 GB |
+| B (re-run) | 7.8 GB |
 
-Not preferred for agentic despite top TPS. Sibling dense `lfm2.5-1.2b` claw-full **0.6000**. Evidence: [session top-TPS full](../sessions/2026-07-24-claw-full-top-tps.md).
 
-Related tiny dense sibling: alias `lfm2.5-1.2b` — claw-quick **0.80**, claw-full **0.6000**, **166–180 t/s** @ ctx **65k** f16. Card: [lfm2.5-1.2b.md](lfm2.5-1.2b.md).
+Related tiny dense sibling: alias `lfm2.5-1.2b` — **166–180 t/s** @ ctx **65k** f16. Card: [lfm2.5-1.2b.md](lfm2.5-1.2b.md).
 
 ## Sources / Verification
 
@@ -172,8 +172,8 @@ Related tiny dense sibling: alias `lfm2.5-1.2b` — claw-quick **0.80**, claw-fu
 - HF model card LiquidAI/LFM2.5-8B-A1B-GGUF — GGUF quant variants — extracted **2026-08-29**.
 - HF model card LiquidAI/LFM2.5-8B-A1B-DSpark — speculative-decoding drafter (328M) — extracted 2026-08-29.
 - Local GGUF metadata via `gguf.GGUFReader` — 2026-07-23.
-- Session: [2026-07-23-lfm2.5-8b-a1b-validation.md](../sessions/2026-07-23-lfm2.5-8b-a1b-validation.md).
-- Claw-full: [2026-07-24-claw-full-top-tps.md](../sessions/2026-07-24-claw-full-top-tps.md).
+- Session: [2026-07-23-lfm2.5-8b-a1b-validation.md](../performance/2026-07-23-lfm2.5-8b-a1b-validation.md).
+- Claw-full: [2026-07-24-claw-full-top-tps.md](../performance/2026-07-24-claw-full-top-tps.md).
 
 ## Reasoning control
 
@@ -185,3 +185,19 @@ Publisher note (HF README 2026-08-29): "Because LFM2.5-8B-A1B is a reasoning mod
 
 - 131k ctx on 8 GB with heavier KV compression — not tried (65k validated).
 - DSpark (328M speculative-draft companion) — SGLang-only per HF card 2026-08-29; not applicable to our llama.cpp stack.
+
+## Preserved historical runtime tables
+
+| Mode | Bench tg | Peak VRAM |
+| --- | --- | --- |
+| Server `exps→CPU` (`N_CPU_MOE=None`) | 174.0 t/s | 2.3 GB |
+| Full VRAM (`N_CPU_MOE=0`) | 174.1 t/s | **6.5 GB** |
+
+| Run | bench_tg | peak VRAM |
+| --- | --- | --- |
+| A | 171.2 | 6.8 GB |
+
+| Run | bench_tg | peak VRAM |
+| --- | --- | --- |
+| A | 184.3 | 7.3 GB |
+| B (re-run) | 178.5 | 7.8 GB |

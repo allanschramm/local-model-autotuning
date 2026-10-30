@@ -6,7 +6,7 @@ This guide documents the speculative decoding formats supported by `llama.cpp` (
 
 ## 1. Overview of Speculative Decoding Formats
 
-Speculative decoding speeds up inference by using a fast **drafting method** to propose a block of tokens, which the larger **target model** then validates in a single forward pass. 
+Speculative decoding speeds up inference by using a fast **drafting method** to propose a block of tokens, which the larger **target model** then validates in a single forward pass.
 
 In `llama.cpp`, the format is specified using the `--spec-type` flag. These formats are **not** software configurations that can be applied to any model; they must match the **mathematical and architectural format** of the draft model file (`-md` / `--spec-draft-model`).
 
@@ -14,7 +14,7 @@ In `llama.cpp`, the format is specified using the `--spec-type` flag. These form
 | :--- | :--- | :--- | :---: | :--- |
 | **`draft-mtp`** | Multi-Token Prediction (MTP) | Neural (Assistant) | Medium | **High** (Native for Qwen3.5/3.6 and Gemma-4. Pre-trained drafts available). |
 | **`draft-eagle3`** | Eagle 3 tree-based drafting | Neural (Eagle Head) | Medium | **Available (since 2026-08, now stale "None")** — upstream `docs/speculative.md` (master, 2026-08-22) lists `RedHatAI/gemma-4-31B-it-speculator.eagle3`, `RedHatAI/gemma-4-26B-A4B-it-speculator.eagle3`, `Tengyunw/qwen3_8b_eagle3` / `qwen3_30b_moe_eagle3`, `AngelSlim/Qwen3-{1.7B,4B,8B,14B,32B,a3B}_eagle3`, plus `yuhuili/EAGLE3-LLaMA3.*`, `RedHatAI/gpt-oss-20b-speculator.eagle3`, `nvidia/gpt-oss-120b-Eagle3-long-context`. Convert with `python convert_hf_to_gguf.py <eagle3> --target-model-dir <target> --outfile draft.gguf` then `--spec-type draft-eagle3 -md draft.gguf`. Repo has a matching target: Gemma-4-26B-A4B (26B-A4B card). **On this 8 GB rig, still predicted loss on MoE+`n-cpu-moe` fingerprints** (same expert-union verify-cost rule as DFlash/DSpark dead ends, §4b) — falsifiable only with target fully on GPU, which 26B does not fit at 65k. No Eagle3 draft exists for this repo's E2B/E4B or Qwen3.5-9B dense targets as of 2026-08-22. |
-| **`draft-dflash`** / **`dspark`** | DeepSeek parallel block drafters | Neural (DeepSpec) | Medium | **Dead end on 8 GB-class MoE+`n-cpu-moe`.** Qwen3.6-35B DFlash loads but is slower than no-spec; needs the 35B target fully on GPU. Embedded `draft-mtp` can still win. Evidence: [2026-08-12](../sessions/2026-08-12-qwen36-dflash-tps.md), [2026-08-07](../sessions/2026-08-07-qwen36-35b-dflash-tps.md). Native `draft-dspark` is in upstream since 2026-07-28 ([#25173](https://github.com/ggml-org/llama.cpp/pull/25173), i.e. inside pinned b10375) for **Qwen3-backbone dense-format** drafts; **speculators-format** DSpark (SpecForge/RedHat) merged 2026-08-17 ([#26275](https://github.com/ggml-org/llama.cpp/pull/26275)) — **post-b10375** — and adds Gemma-4-backbone drafts (`makora-ai/gemma4-26b-a4b-dspark`, `RedHatAI/gemma-4-31B-it-speculator.dspark`). |
+| **`draft-dflash`** / **`dspark`** | DeepSeek parallel block drafters | Neural (DeepSpec) | Medium | **Dead end on 8 GB-class MoE+`n-cpu-moe`.** Qwen3.6-35B DFlash loads but is slower than no-spec; needs the 35B target fully on GPU. Embedded `draft-mtp` can still win. Evidence: [2026-08-12](../sessions/2026-08-12-qwen36-dflash-tps.md), [2026-08-07](../performance/2026-08-07-qwen36-35b-dflash-tps.md). Native `draft-dspark` is in upstream since 2026-07-28 ([#25173](https://github.com/ggml-org/llama.cpp/pull/25173), i.e. inside pinned b10375) for **Qwen3-backbone dense-format** drafts; **speculators-format** DSpark (SpecForge/RedHat) merged 2026-08-17 ([#26275](https://github.com/ggml-org/llama.cpp/pull/26275)) — **post-b10375** — and adds Gemma-4-backbone drafts (`makora-ai/gemma4-26b-a4b-dspark`, `RedHatAI/gemma-4-31B-it-speculator.dspark`). |
 | **`ngram-cache`** | N-gram → next-token statistics (3-level cache: context, dynamic, static) | Statistical | None (0 MB VRAM; host RAM grows with context) | **Universal** (any model, no extra files). |
 | **`ngram-simple`** | History match: last n-gram → following m-gram | Statistical | None (0 MB) | **Universal** (any model, no extra files). |
 | **`ngram-map-k` / `ngram-map-k4v`** | Hash-map of n-grams in the context window; k4v tracks up to 4 value m-grams | Statistical | None (0 MB) | **Universal** (any model, no extra files). |
@@ -91,11 +91,11 @@ Five draftless (statistical) variants ship in upstream llama.cpp. All search the
 
 **Community-measured prior (external benchmarks):** mixed results; not always a net speedup, especially on quantized models; reported positive when stacked with other methods or on high-active MoE/dense. See §4b for the measured A3B case and §2 for the `draft-mtp,ngram-mod` composite.
 
-- The 2026-07-20 small-model TPS matrix has **no ngram row** — candidate Search neighbor on coding-10 (0 MB, universal); prior is negative on A3B-class per [external measurement](./capability-extraction-harness.md) §3/§8.
+- The 2026-07-20 small-model TPS matrix has **no ngram row** — candidate Search neighbor on coding-10 (0 MB, universal); prior is negative on A3B-class per [external measurement](../performance/capability-extraction-harness.md) §3/§8.
 
 ### Empirical finding: `ngram-cache` throughput regression on fast dense models (Trial 0593e117, 2026-09-07)
 
-Measured on coding-10 + Claw-Eval full (15 tasks) vs Baseline `--spec-type none` (Trial 6069530a). Full run log and task breakdown: [session log](../sessions/2026-09-07-issue-57-ngram-cache-trial.md).
+Measured on coding-10 + Claw-Eval full (15 tasks) vs Baseline `--spec-type none` (Trial 6069530a). Full run log and task breakdown: [session log](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/sessions/2026-09-07-issue-57-ngram-cache-trial.md).
 
 - **TPS:** -23.5% slower (72.1 vs 94.2 t/s; bench_tg 60.3 vs 74.9 t/s).
 - **Coding score:** -7.8% (0.5900 vs 0.6400).
@@ -103,7 +103,7 @@ Measured on coding-10 + Claw-Eval full (15 tasks) vs Baseline `--spec-type none`
 - **Draft acceptance:** Low in practice (~1.7% to 9.5% across coding and agentic tasks, max 33.9% on repetitive boilerplate).
 - **Host memory footprint:** `ngram-cache` maintains an unbounded dynamic n-gram table (`std::map<common_ngram, common_ngram_cache_part>`) in host RAM that grows continuously across requests without LRU eviction, risking host memory exhaustion and RAM watchdog termination on extended runs.
 
-**Mechanism & Pareto Verdict:** When baseline GPU generation is already fast (>70–90 t/s), llama.cpp verification passes must evaluate drafted tokens and rewind on rejection. Because statistical n-gram acceptance is low on reasoning and coding tasks, verification overhead exceeds latency savings from accepted drafts. Relative to the baseline at the same Fingerprint, candidate Trial `0593e117` is strictly **dominated** under multi-objective Pareto rules (lower TPS, lower coding, tied ctx and agentic). The autoloop hill-climbing search discards `ngram-cache` in favor of `--spec-type none` on fast dense targets.
+**Mechanism & Pareto Verdict:** When baseline GPU generation is already fast (>70–90 t/s), llama.cpp verification passes must evaluate drafted tokens and rewind on rejection. Because statistical n-gram acceptance is low on reasoning and coding tasks, verification overhead exceeds latency savings from accepted drafts. Historical candidate `0593e117` had lower TPS than its baseline at the same Fingerprint. This is evidence against that n-gram configuration, not a current tuning result.
 
 ### Empirical finding: `ngram-simple` stacked with MTP produces warmup instability (2026-08-20)
 
@@ -123,7 +123,7 @@ MTP `draft_n_max=2` delivering ~20 t/s).** Stacking
 
 ### 4a. Fair small-model matrix (2026-07-20) — canonical
 
-Upstream CUDA `llama-cli`, `-n 512`, shared knobs (`q4_0` KV, batch 256/128, threads 6/8, `draft-mtp` n_max=4). Full write-up: [session](../sessions/2026-07-20-small-model-tps-matrix.md) · [operator guide](./small-model-mtp-tps.md).
+Upstream CUDA `llama-cli`, `-n 512`, shared knobs (`q4_0` KV, batch 256/128, threads 6/8, `draft-mtp` n_max=4). Full write-up: [session](../performance/2026-07-20-small-model-tps-matrix.md) · [operator guide](./small-model-mtp-tps.md).
 
 | Model | Base t/s | MTP t/s | Gain | MTP form |
 |---|---:|---:|---:|---|

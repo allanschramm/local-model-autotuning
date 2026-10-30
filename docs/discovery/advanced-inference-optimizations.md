@@ -21,7 +21,7 @@ Standard Linux/Windows memory allocators (`glibc malloc` / `msvcrt`) are designe
 *   **Technique:** Replace the default system allocator with **`tcmalloc`** (Google) or **`jemalloc`** (used by FreeBSD/Rust) which use thread-local cache structures to allocate memory lock-free.
 *   **Performance Impact:** Accelerates prefill speed and reduces latency spikes by **10% to 25%** under high concurrency or deep contexts.
 *   **How to apply:**
-    - On Linux, preload the allocator: `LD_PRELOAD=/usr/lib/libtcmalloc.so.4 python3 autoloop.py ...`
+    - On Linux, preload the allocator: `LD_PRELOAD=/usr/lib/libtcmalloc.so.4 ./venv/bin/python -m autoresearch.tuning --plan <plan.json>`
     - On Windows, link the binary against `tcmalloc.lib` or `jemalloc.lib` during compilation.
 
 ---
@@ -113,4 +113,3 @@ When serving reasoning-capable models (e.g. Qwen3.5/3.8, DeepSeek R1-derived arc
 *   **Technique:** Allocate a single unified KV buffer shared across all sequences and slots rather than pre-partitioning fixed slot memory slices.
 *   **Impact:** Minimizes VRAM memory fragmentation on multi-turn agentic workloads with variable query lengths.
 *   **Flag (`llama.cpp`):** `-kvu` / `--kv-unified` (default enabled with `-np auto`).
-

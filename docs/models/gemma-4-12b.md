@@ -1,5 +1,7 @@
 # Gemma-4-12B — Model Card (Local)
 
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/gemma-4-12b.md). Historical performance retains its original protocol.
+
 **Source repo:** https://huggingface.co/google/gemma-4-12B-it; https://huggingface.co/unsloth/gemma-4-12B-it-qat-GGUF
 **Unsloth docs:** https://unsloth.ai/docs/models/gemma-4
 **MTP guide:** https://unsloth.ai/docs/models/mtp
@@ -18,7 +20,7 @@
 
 ## Hardware Requirements (discrete 8 GB-class NVIDIA)
 | Quant | Size | VRAM (131k ctx) |
-|---|---|---|
+| --- | --- | --- |
 | UD-Q4_K_XL (last local quant, purged) | 6.3 GB | 8.0 GB (maxed) |
 
 **VRAM ceiling reached** at 131k ctx. Fits but pegs 8 GB completely.
@@ -26,7 +28,7 @@
 
 ## Recommended Settings
 | Param | Value | Rationale |
-|---|---|---|
+| --- | --- | --- |
 | TEMP | 0.4 | Optimal for coding benchmark suite (per Unsloth docs) |
 | TOP_P | 0.95 | Default nucleus sampling |
 | TOP_K | 20 | Focused token pool |
@@ -87,25 +89,22 @@ An agentic coding fine-tune on Gemma 4 base. ~3.5× improvement on tau2-bench te
 
 Config: `b=1024`, `ub=256`, `t=8`, `fa=on`, `cont-batching`, `ngl=99`
 
-| Bench | Score | TPS |
-|---|---|---|
-| HumanEval+ | **1.0000** | 45.6 |
-| MBPP+ | **0.5000** | 50.2 |
-| LCB | **0.5000** | 53.9 |
-| BigCode Hard | 0.0000 | 52.5 |
-| **Overall** | **0.5500** | **43.0** |
+| Measurement | Recorded runtime |
+| --- | --- |
+| HumanEval+ throughput | 45.6 t/s |
+| LCB throughput | 53.9 t/s |
+| BigCode Hard throughput | 52.5 t/s |
+| **Overall** throughput | **43.0** t/s |
 | **VRAM** | **7.4 GB** (131k ctx) |
-| **Bench tg** | **31.2 t/s** |
 
 ## vs Gemma 4 base (UD-Q4_K_XL)
 
 | Metric | v2 Q3_K_M | Base UD-Q4_K_XL | Delta |
-|---|---|---|---|
-| Score | **0.5500** | 0.4250 | **+29%** |
+| --- | --- | --- | --- |
 | TPS | **43.0** | 36.0 | **+19%** |
 | VRAM | **7.4 GB** | 8.0 GB | -0.6 GB |
 
-v2 at Q3 beats base at Q4_K_XL on both score and speed despite being lower quantization. Agentic fine-tune compensates for Q3 loss. Also uses 0.6 GB less VRAM.
+Agentic fine-tune compensates for Q3 loss. Also uses 0.6 GB less VRAM.
 
 ## Limitations
 - **BigCode zero** = library-call tasks hit quality cliff at 3-bit
@@ -114,3 +113,7 @@ v2 at Q3 beats base at Q4_K_XL on both score and speed despite being lower quant
 ## Tuning History
 - 2026-07-01: Renamed to `gemma-4-12B-fable5-Q3_K_M.gguf`, validated at 131k with b1024/ub256 (0.5500, 43.0 TPS, 7.4 GB)
 - 2026-07-01: Initial validation as `gemma4-v2-Q3_K_M.gguf` (0.5500, 38.4 TPS, 7.9 GB)
+
+## Historical runtime provenance
+
+Historical CLI bench tg: **31.2 t/s**. The archived source identifies the validation conditions; this is not a new full-context tuning measurement.

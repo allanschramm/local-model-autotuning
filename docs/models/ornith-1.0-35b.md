@@ -1,5 +1,7 @@
 # Ornith-1.0-35B — Model Card (Local)
 
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/ornith-1.0-35b.md). Historical performance retains its original protocol.
+
 **Source repo:** https://huggingface.co/unsloth/Ornith-1.0-35B-GGUF
 **License:** MIT
 **Local file:** `models/Ornith-1.0-35B-UD-Q4_K_XL.gguf` (22.32 GB) (previously `models/deepreinforce-ai_Ornith-1.0-35B-IQ3_M.gguf`)
@@ -51,20 +53,11 @@ With MoE, we place **attention + shared expert + routing** on the GPU, and keep 
 - `THREADS_BATCH = 8`
 - `FLASH_ATTN = 'on'`
 
-### Benchmark Scores (10 tasks baseline)
-- **Coding Score:** `0.5550`
-  - **LiveCodeBench:** `0.4000`
-  - **HumanEval+:** `0.8000`
-  - **MBPP+:** `0.8000`
-  - **BigCodeBench Hard:** `0.1000`
-- **Peak VRAM:** `7.7 GB`
-- **TPS:** `31.5`
-
 ## Sources / Verification
 - HuggingFace: https://huggingface.co/unsloth/Ornith-1.0-35B-GGUF (MIT, qwen35moe, ctx 262144, lastModified 2026-07-18)
 - Verification: 2026-08-29 (HF fetch + family-verified reasoning control)
 - **Reasoning control:** qwen35 family — enable_thinking only (family-verified; NOT file-verified on 1.0-35B GGUF — assume same template as 1.5/9B siblings verified 2026-08-29). No reasoning_effort ladder (that is 27B-only).
-- **Measured data preserved (NOT overwritten):** UD-Q4_K_XL agentic 0.7333 / Q3_K_XL agentic 0.7333 (results.tsv ground truth); Q4 claw 0.6000 / coding 0.580; Q3 claw 0.4667 / coding 0.555; tps 32.0 (Q4) / 29.5 (Q3) @65536. Card text 0.6000/0.4667 predates harness fix — marked stale above.
+- **Measured data preserved (NOT overwritten):** UD-Q4_K_XL / Q3_K_XL (results.tsv ground truth); Q4 ; Q3 ; tps 32.0 (Q4) / 29.5 (Q3) @65536. Card text 0.6000/0.4667 predates harness fix — marked stale above.
 
 ## Variant: IQ3_M (2026-07-02 GGUF verified)
 
@@ -96,37 +89,35 @@ See [IQ3_M variant card](ornith-1.0-35b-iq3_m.md) for detailed testing results.
 
 ### n-cpu-moe sweep results
 | n-cpu-moe | GPU layers | TPS | VRAM | Notes |
-|-----------|-----------|-----|------|-------|
+| ----------- | ----------- | ----- | ------ | ------- |
 | 36 | 4/40 | 27.9 | 6.3 GB | Too much on CPU |
-| 34 | 6/40 | 29.2 | 7.1 GB | |
+| 34 | 6/40 | 29.2 | 7.1 GB |  |
 | **32** | **8/40** | **31.5** | **7.7 GB** | **✅ Best** |
 | 30 + turbo3 | 10/40 | 19.6 | — | Turbo3 kills TPS |
 
 ### Verdict
 - **n-cpu-moe 32 is the sweet spot** for discrete 8 GB-class NVIDIA
-- No fork, quant, or speculative decoding improves TPS or score
+
 - 35B is hardware-limited by 8 GB VRAM
 
 ### 2026-07-19 Update (Unsloth Dynamic 4-bit XL Quant)
 - Upgraded local model to the newly released `Ornith-1.0-35B-UD-Q4_K_XL.gguf` (22.32 GB) from Unsloth.
-- Alias: `ornith-35b` (INDEX name; old `o35` retired 2026-07-23). Prefer UD-Q4_K_XL for quality. UD-Q3_K_XL is a **separate Trial** (measured 2026-07-27) — not a duplicate; keep scores for A/B.
+- Alias: `ornith-35b` (INDEX name; old `o35` retired 2026-07-23). Prefer UD-Q4_K_XL for quality.
 
-### Claw-Eval full + VITRIOL (2026-07-24)
+### Historical runtime evidence (Claw-Eval full + VITRIOL (2026-07-24))
 - A/B: `n-cpu-moe=block_count(40)` beats prior 32 on smoke (28.9 vs 27.0 t/s).
-- **Val Score 0.6000** (9/15) @ ctx **65536**, `n-cpu-moe 40`, bench_tg **25.7**, peak **4.9 GB**. Prior claw-quick 0.80.
+- Context 65536, `n-cpu-moe 40`, bench_tg 25.7, peak **4.9 GB**.
 
-### Coding-10 (2026-07-26) — Objective Vector complete (Q4_K_XL)
 - Same Fingerprint as claw-full: ctx **65536**, `n-cpu-moe 40`, TEMP 0.4.
-- **coding 0.5800** (LCB 0.40 / HE 0.90 / MBPP 0.80 / BC 0.10); Combined TPS **32.0**; bench_tg **24.1**; peak **5.1 GB**.
-- vs Ornith-9B UD: same agentic (0.60), coding ≈ tied (0.58 vs 0.57), slower. 9B still preferred unless need 35B capacity.
+- Combined TPS **32.0; bench_tg **24.1; peak **5.1 GB**.
 
 ### Q3_K_XL quant pipeline (2026-07-27) — separate fingerprint, full vector
 - File: `Ornith-1.0-35B-UD-Q3_K_XL.gguf` (~15.7 GB). ctx **65536**, `n-cpu-moe 40`, TEMP 0.4, no MTP.
-- Validation smoke: agentic_quick **0.6000**, TPS **25.9**, peak **4.4 GB**.
-- Claw-full: **0.4667** (7/15); bench_tg **25.2**; peak **4.5 GB**.
-- Coding-10: **0.5550** (LCB 0.40 / HE 0.90 / MBPP 0.70 / BC 0.10); Combined TPS **29.5**; bench_tg **26.0**; peak **4.6 GB**.
-- vs **Q4_K_XL** on same rig: agentic **0.47 vs 0.60**, coding **0.555 vs 0.580**, lower VRAM (~4.5 vs ~5.1 GB), smaller file. **Prefer Q4 for quality**; Q3 if SSD/VRAM budget matters.
+- Validation smoke: , TPS **25.9**, peak **4.4 GB**.
+- bench_tg **25.2; peak **4.5 GB**.
+- Combined TPS **29.5; bench_tg **26.0; peak **4.6 GB**.
+- vs **Q4_K_XL** on same rig: , , lower VRAM (~4.5 vs ~5.1 GB), smaller file. **Prefer Q4 for quality; Q3 if SSD/VRAM budget matters.
 
 ## Open questions
 - None (baseline verified).
-- **Card body vs results.tsv (2026-08-19):** tsv rows for both UD quants now show **agentic 0.7333** (rows `82c693d7` Q4_K_XL, `e242a1a5` Q3_K_XL) — post-2026-08-08 harness-fix remeasures; the Q4 0.6000 / Q3 0.4667 text above predates the fix and is **stale**. tsv is ground truth; coding (0.5800 / 0.5550) unchanged. Family comparison: [ornith-1.5-9b.md](ornith-1.5-9b.md).
+- **Card body vs results.tsv (2026-08-19):** tsv rows for both UD quants now show ** (rows `82c693d7` Q4_K_XL, `e242a1a5` Q3_K_XL) — post-2026-08-08 harness-fix remeasures; the Q4 0.6000 / Q3 0.4667 text above predates the fix and is **stale**. tsv is ground truth; / 0.5550) unchanged. Family comparison: [ornith-1.5-9b.md](ornith-1.5-9b.md).

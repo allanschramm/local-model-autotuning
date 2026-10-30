@@ -18,5 +18,4 @@ pyyaml
 # Operator scripts
 psutil              # scripts/check_hardware.py RAM probe (falls back to wmic/os if missing)
 
-# Optional legacy quality evaluation: requirements-legacy.txt
 # Development and test tools: requirements-dev.txt

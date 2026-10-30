@@ -107,7 +107,7 @@ MoE models exceed the 8 GB physical VRAM limit. However, because they only activ
 
 #### 1. Qwen3.6-35B-A3B-UD-Q3_K_XL.gguf
 *   **Path:** [Qwen3.6-35B-A3B-UD-Q3_K_XL.gguf](file:///D:/Dev/Nexus-System/local-model-autotuning/models/lmstudio-community/qwen3.6-35b-a3b-gguf/Qwen3.6-35B-A3B-UD-Q3_K_XL.gguf)
-*   **VRAM Strategy:** Offloads 100% of routed experts to CPU, placing only the attention mechanism, shared experts, and routing layers on GPU (stock `--n-cpu-moe`; see [vitriol-technique.md](../models/vitriol-technique.md) Path A).
+*   **VRAM Strategy:** Offloads 100% of routed experts to CPU, placing only the attention mechanism, shared experts, and routing layers on GPU (stock `--n-cpu-moe`; see [vitriol-technique.md](vitriol-technique.md) Path A).
 *   **Optimal Flags:**
     ```bash
     -ngl 99 --n-cpu-moe 40 -c 65536 -fa on -ctk q4_0 -ctv q4_0 --spec-type none
@@ -137,7 +137,7 @@ MoE models exceed the 8 GB physical VRAM limit. However, because they only activ
     -ngl 99 --n-cpu-moe 40 -c 65536 -fa on -ctk q4_0 -ctv q4_0 --jinja --cont-batching --no-mmap
     ```
 *   **Why this works:** Attention/routing on GPU; experts on CPU. Lowest VRAM among top Val Score models.
-*   **Measured (2026-07-24):** claw-quick **1.00**; claw-full **0.6667** (best Val Score on the operator host); bench_tg **37.2**; peak **3.6 GB**. Alias `laguna-xs`. Card: [laguna-xs-2.1.md](../models/laguna-xs-2.1.md). Leaderboard: [claw-eval-leaderboard.md](claw-eval-leaderboard.md).
+*   **Measured (2026-07-24):** claw-quick **1.00**; claw-full **0.6667** (best Val Score on the operator host); bench_tg **37.2**; peak **3.6 GB**. Alias `laguna-xs`. Card: [laguna-xs-2.1.md](../models/laguna-xs-2.1.md). Leaderboard: [claw-eval-leaderboard.md](../performance/claw-eval-leaderboard.md).
 
 ---
 
