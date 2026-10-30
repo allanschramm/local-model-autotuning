@@ -1,5 +1,7 @@
 # local-model-autoresearch
 
+Código próprio da AILOCAL disponível sob [PolyForm Noncommercial 1.0.0](LICENSE), para os fins não comerciais permitidos pela licença. Uso comercial exige autorização específica. Componentes e materiais de terceiros mantêm suas licenças; veja [NOTICE.md](NOTICE.md).
+
 ## Separação em módulos
 
 - **Auto tuning:** [`autoresearch/TUNING.md`](autoresearch/TUNING.md) documenta a Search finita de TPS × contexto sob limite fixo de PPL, independente dos benchmarks de qualidade.
@@ -144,15 +146,14 @@ Output verde = pronto pro autoloop.
 
 ## 🎓 Curso Prático & Utilitários para Alunos
 
-Este repositório inclui uma jornada publicada de 6 aulas em HTML (Módulo 0 + Semana 1). A Semana 2 permanece visível como currículo em construção:
+Os materiais do curso em `teach/` são locais e não acompanham o clone público. Os utilitários abaixo estão disponíveis no repositório:
 
-* **Portal Interativo:** Abra [teach/index.html](teach/index.html) no navegador para acompanhar as 6 aulas, práticas e quizzes publicados.
 * **Diagnóstico de Hardware:** `.\venv\Scripts\python.exe scripts\check_hardware.py` (orienta modelo GGUF, GPU e contexto sem estimar TPS).
 * **Validação de Servidor e TPS:** `.\venv\Scripts\python.exe scripts\verify_setup.py --port 18080` (testa o servidor local e mede a velocidade real em tokens/s).
 
 > **📺 AILOCAL Essentials for Devs (gravação + Q&A ao vivo)**
 >
-> Este laboratório no GitHub é e continuará 100% gratuito — todas as lições, práticas e ferramentas ficam aqui.
+> O laboratório de código está disponível para uso não comercial conforme a licença. Os materiais do curso são distribuídos separadamente.
 >
 > Se você prefere uma experiência guiada, o **AILOCAL Essentials for Devs** oferece:
 > - Gravação completa (disponível imediatamente)

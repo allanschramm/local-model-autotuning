@@ -15,6 +15,7 @@ Auto tuning and independent model Benchmark, separated in stages under [ADR 0018
 Repository developers.
 
 ## Local Contracts
+- Original AILOCAL contributions use PolyForm Noncommercial 1.0.0; see LICENSE and NOTICE.md. Imported code, datasets and dependencies retain their own rights and attribution. Keep licensing scope explicit when extracting modules; do not describe this noncommercial license as OSI-approved open source.
 - Tuning and legacy Trial Baseline only via gitignored `autoresearch/core/config.py` (seed from `config.py.example`). No legacy Trial CLI flag soup. Independent `benchmark/` takes provider/model connection settings without reading Baseline. `program.md` / harnesses fixed unless user asks.
 - **Upstream-first (mandatory):** Check upstream `llama.cpp/common/arg.cpp` `add_opt` (`~310` flags) + `docs/llamacpp-toolset.md` + `docs/llamacpp-flags-audit.md` before adding any `ENGINE_*/SAMPLER_*` flag or estimator — `90%` already exists upstream (`fit`/`yarn`/`dry`/`xtc`/`fit-target`/`warmup`/`cache-ram`/`kv-unified`/`repack` etc.), harness is passthrough mapper in `autoresearch/core/llama_runner.py` `_build_cmd`; keep only host/WDDM/thermal/Pareto gates (`common/fit.h:14` assumes unlimited host).
 - **Flag drift is a build-time failure, not a Trial failure:** upstream removes and renames flags across releases (`--mmap`/`--no-mmap`/`--mlock` -> `--load-mode` in #26934), so every command the harness emits is checked against the resolved binary's own `--help` by `assert_flags_supported` (`llama_runner.py`), which raises `FlagDriftError` naming the flag and the `engine@tag` build. Recorded as `INFRA_ERROR` (engine/config problem), never `CODE_ERROR` (our logic). On any engine bump, run a harness `--validation` and expect it to pass; if it raises, fix the mapping in `load_mode_flag` / the passthrough — never silence the guard, and never migrate Baseline/store keys for a flag rename.
@@ -126,6 +127,7 @@ Default section order:
 6. Report any docs intentionally left unchanged and why
 
 ## Child DOX Index
+- [LICENSE](LICENSE) · [NOTICE.md](NOTICE.md) — original-contribution license and third-party scope.
 
 - [autoresearch/AGENTS.md](autoresearch/AGENTS.md) — package (config, runners, benchmarks)
 - [benchmark/AGENTS.md](benchmark/AGENTS.md) — standalone Pi quality Benchmark, endpoint connections, frozen workspace/API tasks and SQLite evidence
