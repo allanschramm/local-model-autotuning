@@ -107,6 +107,30 @@ Reproduction needs `datasets`; running frozen tasks does not. The standalone E2E
 
 ## Protocol and evidence
 
+### Claw quick/full
+
+```powershell
+.\venv\Scripts\python.exe -m pip install -r benchmark/claw-requirements.txt
+node benchmark/main.mjs --pack claw-quick5 --list
+node benchmark/main.mjs --pack claw-full15 --provider local --model <served-model-id> --base-url http://127.0.0.1:18080/v1 --context-window 65536 --python .\venv\Scripts\python.exe
+$env:BENCHMARK_PYTHON = (Resolve-Path .\venv\Scripts\python.exe).Path
+node benchmark/test/claw_e2e.mjs
+```
+
+`pi-claw-v1` preserves the five quick and fifteen full legacy-selected IDs in `packs/claw-tiers/source.json`. The full tier contains ten offline tasks and five real-web tasks. The latter require an explicit `--allow-live-web` plus `SERP_DEV_KEY`; otherwise each records `infra_error`, `passed=NULL`, `score=NULL`, without calling the model or internet. Live search can incur provider charges. Local model endpoints remain the priority; no live-web validation is claimed.
+
+Pi receives the original task prompt and declared tool names/descriptions/JSON schemas. It has no filesystem or shell tools, rubric, reference solution, personal resources, retries or compaction. The output budget stays 4096 tokens per turn, with original task turn limits. Tool results use the legacy 10,000-character head/tail cap. Final grading prefers the last assistant's visible text and falls back to its thinking text when empty, matching the legacy grader input rule. There is no automatic command timeout or continuation after a generation cap.
+
+Each task starts a fresh Python child with a minimal environment. Frozen upstream FastAPI apps run through TestClient/ASGI, with fixture environment references, reset endpoints, lifecycle cleanup, error injection disabled and the declared mock date. No service listens on fixed TCP ports; no process or state is shared between tasks. Live-web services, when explicitly enabled, retain their actual outbound network behavior. API calls, arguments, results/statuses and the Pi trajectory remain in the task artifact. Missing dependencies, corrupted fixtures, child failures and service HTTP 5xx are infrastructure failures, not model zeroes. HTTP 4xx and application-level error replies remain tool results.
+
+The copied legacy deterministic scorer preserves component weights, keyword/category rules and completion threshold 0.5. Its weighted score and details are stored in SQLite `benchmark_tasks.score`/`score_json`; additive migration leaves historical/workspace weighted scores null. Rule limitations remain: keyword rules accept any listed keyword, category rules accept half, and tool rules count invocations even when a tool result contains an error. This measures that narrow rubric, not comprehensive correctness.
+
+Safety is separate: declared `tool_not_called` and `wrong_action` calls veto a pass (`safety_violation`), while retaining the raw completion score. Semantic `wrong_data` and `wrong_recipients` checks are explicitly reported as unevaluated. The legacy adapter ignored these safety declarations. This single-trial Pi protocol is neither legacy Claw score parity nor upstream Pass^3/full-grader coverage.
+
+Source task/service bytes remain unchanged under `packs/claw-tiers/upstream/` with MIT attribution and per-file hashes. The extracted completion scorer has its own pinned hash. Reproduce into a fresh directory using `python benchmark/import_claw.py --source <claw-checkout-containing-pinned-commit> --legacy-scorer benchmark/packs/claw-tiers/legacy_score.py --output <new-directory>`. The original checkout commit includes local upstream integration; the committed snapshot supplies every runtime file, so execution needs neither that checkout nor `autoresearch`.
+
+The dedicated E2E copies only `benchmark/` outside the repo, runs real mock apps through Pi with scripted model responses, checks positive/negative grading, safety veto, fixture integrity, task state isolation, migration of existing SQLite rows and disabled live web, and retains `results.db`/`verification.json`. Scripted controls are not canonical task solutions or model-quality measurements.
+
 `pi-workspace-v2` uses Pi 1.4.0 with allowlisted `workspace_read` and `workspace_write` adapters over Pi tools, a fixed system prompt, temperature 0, thinking off, 4096 output tokens per turn, and each task's frozen turn limit. No shell, personal resources, compaction, or automatic recovery. This measures that constrained Pi configuration, not vanilla Pi or Terminal-Bench.
 
 Tool requests accept relative or absolute paths resolving to an exact allowlisted workspace file, consistent with Pi's tool schemas. Paths outside that set and symlink redirections remain blocked. Version 1 rejected absolute paths even to allowed files; its historical results retain their protocol and must not be pooled with version 2.

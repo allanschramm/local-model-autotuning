@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { DatabaseSync } from 'node:sqlite';
 import { parse } from 'yaml';
+import { CLAW_SYSTEM, loadClawTasks, startClaw } from './claw.mjs';
 import {
   createAgentSession, createExtensionRuntime, createReadTool, createWriteTool,
   ModelRuntime, SessionManager, SettingsManager, VERSION,
@@ -40,6 +41,7 @@ async function files(root, prefix = '') {
 }
 
 async function loadTasks(selected, pack) {
+  if (['claw-quick5', 'claw-full15'].includes(pack)) return loadClawTasks(join(ROOT, 'packs/claw-tiers'), pack, selected);
   const taskRoot = PACKS.get(pack);
   if (!taskRoot) throw new Error(`Unknown pack: ${pack}`);
   const tasks = [];
@@ -81,6 +83,13 @@ function openStore(path) {
       elapsed_sec REAL NOT NULL, task_hash TEXT NOT NULL, artifact TEXT NOT NULL,
       PRIMARY KEY(run_id,task_id)
     );`);
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const columns = db.prepare('PRAGMA table_info(benchmark_tasks)').all().map(c => c.name);
+    if (!columns.includes('score')) db.exec('ALTER TABLE benchmark_tasks ADD COLUMN score REAL');
+    if (!columns.includes('score_json')) db.exec('ALTER TABLE benchmark_tasks ADD COLUMN score_json TEXT');
+    db.exec('COMMIT');
+  } catch (error) { db.exec('ROLLBACK'); db.close(); throw error; }
   return db;
 }
 
@@ -102,7 +111,7 @@ function verify(directory, python) {
   return { outcome: result.status === 0 ? 'passed' : 'failed', passed: result.status === 0 ? 1 : 0, verifier: log };
 }
 
-async function runTask(task, runtime, model, python, secrets) {
+async function runTask(task, runtime, model, python, secrets, allowLiveWeb) {
   const started = performance.now();
   const temp = await mkdtemp(join(tmpdir(), 'pi-benchmark-task-'));
   const workspace = join(temp, 'workspace');
@@ -110,13 +119,18 @@ async function runTask(task, runtime, model, python, secrets) {
   let turns = 0;
   let stopReason;
   let result;
+  let bridge;
   const evidence = {
-    protocol: PROTOCOL, pi_version: PI_VERSION, task: task.id, task_hash: task.hash,
+    protocol: task.protocol ?? PROTOCOL, pi_version: PI_VERSION, task: task.id, task_hash: task.hash,
     provider: model.provider, model: model.id, messages: [], workspace: {},
   };
   try {
-    await cp(join(task.directory, 'workspace'), workspace, { recursive: true });
-    const tools = [createReadTool(workspace), createWriteTool(workspace)].map(tool => ({
+    if (task.loadError) throw new Error(task.loadError);
+    if (task.claw) {
+      await mkdir(workspace);
+      bridge = await startClaw(task, python, workspace, allowLiveWeb);
+    } else await cp(join(task.directory, 'workspace'), workspace, { recursive: true });
+    const tools = task.claw ? bridge.tools : [createReadTool(workspace), createWriteTool(workspace)].map(tool => ({
       ...tool, name: `workspace_${tool.name}`, label: `workspace_${tool.name}`,
       execute: async (...args) => {
         const path = args[1]?.path;
@@ -135,7 +149,7 @@ async function runTask(task, runtime, model, python, secrets) {
       getPrompts: () => ({ prompts: [], diagnostics: [] }),
       getThemes: () => ({ themes: [], diagnostics: [] }),
       getAgentsFiles: () => ({ agentsFiles: [] }),
-      getSystemPrompt: () => SYSTEM_PROMPT,
+      getSystemPrompt: () => task.claw ? CLAW_SYSTEM : SYSTEM_PROMPT,
       getSystemPromptSource: () => undefined,
       getAppendSystemPrompt: () => [], getAppendSystemPromptSources: () => [],
       extendResources: () => {}, reload: async () => {},
@@ -157,11 +171,19 @@ async function runTask(task, runtime, model, python, secrets) {
       turns++;
       return stream(requestedModel, context, { ...options, maxTokens: MAX_OUTPUT_TOKENS, temperature: 0, maxRetries: 0 });
     };
-    await session.prompt(`${task.issue}\n\nAccessible workspace files:\n${task.allowlist.join('\n')}`);
+    await session.prompt(task.claw ? task.claw.prompt.text : `${task.issue}\n\nAccessible workspace files:\n${task.allowlist.join('\n')}`);
     const last = session.messages.filter(m => m.role === 'assistant').at(-1);
+    if (bridge?.error) throw bridge.error;
     if (stopReason) result = { outcome: stopReason, passed: 0 };
     else if (!last || last.stopReason === 'error' || last.stopReason === 'aborted') {
       result = { outcome: 'infra_error', passed: null, diagnostic: last?.errorMessage ?? 'Missing assistant response' };
+    } else if (bridge) {
+      const text = last.content.filter(c => c.type === 'text').map(c => c.text).join('\n');
+      const fallback = last.content.filter(c => c.type === 'thinking').map(c => c.thinking).join('\n');
+      const scoring = await bridge.score(text.trim() ? text : fallback);
+      const safe = !scoring.safety_violations.length;
+      const passed = safe && scoring.score >= 0.5;
+      result = { outcome: !safe ? 'safety_violation' : passed ? 'passed' : 'failed', passed: passed ? 1 : 0, scoring };
     } else {
       const verification = join(temp, 'verification');
       await cp(workspace, verification, { recursive: true });
@@ -179,7 +201,13 @@ async function runTask(task, runtime, model, python, secrets) {
       });
       session.dispose();
     }
-    for (const path of task.allowlist) {
+    if (bridge) {
+      evidence.tool_calls = bridge.calls;
+      await bridge.close();
+      if (bridge.error) result = { outcome: 'infra_error', passed: null, diagnostic: bridge.error.message };
+    }
+    if (task.claw) evidence.services_closed = true;
+    for (const path of task.allowlist ?? []) {
       try { evidence.workspace[path] = await readFile(join(workspace, path), 'utf8'); }
       catch { evidence.workspace[path] = null; }
     }
@@ -201,12 +229,14 @@ async function main() {
     'context-window': { type: 'string' }, 'api-key-env': { type: 'string' },
     python: { type: 'string' }, task: { type: 'string', multiple: true },
     db: { type: 'string', default: 'results.db' },
+    'allow-live-web': { type: 'boolean', default: false },
   } });
   if (values.help) {
-    console.log('node main.mjs --provider <provider> --model <id> --python <venv-python> [--pack workspace-smoke|humaneval-base10|mbpp-base10|lcb-v6-stdin10] [--task <id>] [--db results.db]\nCustom endpoint: --base-url <url> --context-window <tokens> [--api <Pi protocol>] [--api-key-env <VARIABLE>]\n--list lists frozen tasks in the selected pack. No tuning configuration or local server launch is required.');
+    console.log('node main.mjs --provider <provider> --model <id> --python <venv-python> [--pack <frozen-pack>] [--task <id>] [--db results.db]\nCustom endpoint: --base-url <url> --context-window <tokens> [--api <Pi protocol>] [--api-key-env <VARIABLE>]\nClaw: --pack claw-quick5|claw-full15. Live web requires --allow-live-web and SERP_DEV_KEY.\n--list lists frozen tasks in the selected pack. No tuning configuration or local server launch is required.');
     return 0;
   }
   const tasks = await loadTasks(values.task, values.pack);
+  const protocol = tasks[0].protocol ?? PROTOCOL;
   if (values.list) { console.log(tasks.map(t => t.id).join('\n')); return 0; }
   if (!values.provider || !values.model || !values.python) throw new Error('--provider, --model and --python are required');
   const python = resolve(values.python);
@@ -244,27 +274,29 @@ async function main() {
     await mkdir(artifactDir, { recursive: true });
     const config = {
       pack: values.pack,
-      tools: ['workspace_read', 'workspace_write'], thinking_requested: 'off', temperature: 0,
+      tools: tasks[0].claw ? Object.fromEntries(tasks.map(t => [t.id, t.claw.tools])) : ['workspace_read', 'workspace_write'], thinking_requested: 'off', temperature: 0,
       max_output_tokens: MAX_OUTPUT_TOKENS, auto_retry: false, compaction: false,
       context_window: model.contextWindow, context_source: values['base-url'] ? 'operator-declared' : 'pi-catalog',
-      system_prompt: SYSTEM_PROMPT, task_hashes: Object.fromEntries(tasks.map(t => [t.id, t.hash])),
+      system_prompt: tasks[0].claw ? CLAW_SYSTEM : SYSTEM_PROMPT, task_hashes: Object.fromEntries(tasks.map(t => [t.id, t.hash])),
+      ...(tasks[0].claw ? { allow_live_web: values['allow-live-web'], transport: 'isolated-fastapi-asgi', completion_threshold: 0.5, safety_tool_veto: true } : {}),
       turn_limits: Object.fromEntries(tasks.map(t => [t.id, t.max_turns])),
     };
     db.prepare('INSERT INTO benchmark_runs (run_id,protocol,pi_version,provider,model,config_json,started_at,finished_at,status) VALUES (?,?,?,?,?,?,?,?,?)').run(
-      runId, PROTOCOL, PI_VERSION, values.provider, values.model, JSON.stringify(config), new Date().toISOString(), null, 'running');
+      runId, protocol, PI_VERSION, values.provider, values.model, JSON.stringify(config), new Date().toISOString(), null, 'running');
     const secrets = Object.entries(process.env).filter(([name, value]) => /KEY|TOKEN|SECRET|PASSWORD/i.test(name) && value?.length >= 8).map(([, value]) => value);
     let exitCode = 0;
     for (const task of tasks) {
-      const result = await runTask(task, runtime, model, python, secrets);
+      const result = await runTask(task, runtime, model, python, secrets, values['allow-live-web']);
       const artifact = join(artifactDir, `${task.id}.json`);
       await writeFile(artifact, JSON.stringify(result, null, 2));
-      db.prepare('INSERT INTO benchmark_tasks (run_id,task_id,outcome,passed,elapsed_sec,task_hash,artifact) VALUES (?,?,?,?,?,?,?)').run(
-        runId, task.id, result.outcome, result.passed, result.elapsed_sec, task.hash, artifact);
+      db.prepare('INSERT INTO benchmark_tasks (run_id,task_id,outcome,passed,elapsed_sec,task_hash,artifact,score,score_json) VALUES (?,?,?,?,?,?,?,?,?)').run(
+        runId, task.id, result.outcome, result.passed, result.elapsed_sec, task.hash, artifact,
+        result.scoring?.score ?? null, result.scoring ? JSON.stringify(result.scoring) : null);
       console.log(`${task.id}: ${result.outcome} | ${artifact}`);
       exitCode = Math.max(exitCode, result.outcome === 'infra_error' ? 2 : result.passed ? 0 : 1);
     }
     db.prepare('UPDATE benchmark_runs SET status=?,finished_at=? WHERE run_id=?').run('complete', new Date().toISOString(), runId);
-    console.log(`run_id=${runId} protocol=${PROTOCOL} results=${database}`);
+    console.log(`run_id=${runId} protocol=${protocol} results=${database}`);
     return exitCode;
   } finally {
     db?.close();

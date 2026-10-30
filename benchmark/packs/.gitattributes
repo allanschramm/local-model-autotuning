@@ -2,3 +2,5 @@
 *.gz -text
 # Preserve original upstream unittest text, including trailing spaces.
 bigcode-hard10/tasks/*/hidden_tests/original_tests.txt whitespace=-blank-at-eol
+claw-tiers/upstream/** whitespace=-blank-at-eol,-blank-at-eof
+claw-tiers/legacy_score.py whitespace=-blank-at-eol

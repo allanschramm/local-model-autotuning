@@ -42,6 +42,7 @@ Repository developers.
 ## Verification
 - `.\venv\Scripts\python.exe -m pytest` (or `scripts/run_validate.py` / pre-commit). Never system-global Python.
 - Independent Pi Benchmark: `npm ci --prefix benchmark`, then `BENCHMARK_PYTHON=<venv-python> node benchmark/test/e2e.mjs` (set the environment variable using the current shell). It retains its SQLite/trajectory evidence in the printed temp directory.
+- Claw's Pi protocol additionally uses `node benchmark/test/claw_e2e.mjs` with the same Python environment and `benchmark/claw-requirements.txt` installed; see the Benchmark contract for service isolation and live-web restrictions.
 - Independent Auto tuning: `.\venv\Scripts\python.exe scripts/test_tuning_e2e.py` copies only runtime/tuning sources outside the repo and retains SQLite/Fingerprint evidence; no model/GPU load.
 - Local Windows pytest does not execute POSIX branches (`fcntl`, Unix-only paths). After every push, wait for `.github/workflows/validate.yml` (`ubuntu-latest`) with `.\venv\Scripts\python.exe scripts\watch_validate.py` until it exits 0. A green local suite is not CI-complete.
 
@@ -123,7 +124,7 @@ Default section order:
 ## Child DOX Index
 
 - [autoresearch/AGENTS.md](autoresearch/AGENTS.md) — package (config, runners, benchmarks)
-- [benchmark/AGENTS.md](benchmark/AGENTS.md) — standalone Pi quality Benchmark, endpoint connections, frozen workspace tasks and SQLite evidence
+- [benchmark/AGENTS.md](benchmark/AGENTS.md) — standalone Pi quality Benchmark, endpoint connections, frozen workspace/API tasks and SQLite evidence
 - [ui/AGENTS.md](ui/AGENTS.md) — operator dashboard
 - [docs/AGENTS.md](docs/AGENTS.md) — docs tree (`models/`, `adr/`, `discovery/`, `sessions/`)
 - [scripts/AGENTS.md](scripts/AGENTS.md) — operator scripts
