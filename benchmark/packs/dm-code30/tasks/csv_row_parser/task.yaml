@@ -1,0 +1,35 @@
+{
+  "id": "csv_row_parser",
+  "name": "CSV row parsing with quotes",
+  "issue": "Task source: csv_row_parser.\n\nFix csv_row.parse_row. It splits one CSV line into fields: comma separated, a field may be wrapped in double quotes, a quoted field may contain commas, and a doubled quote inside a quoted field is one literal quote character. Unquoted fields keep their content as-is. An empty line yields ['']. Raise ValueError when a quoted field is never closed.\n\nYou are in a temporary benchmark workspace. Inspect the files, modify the implementation, and run the visible tests. Hidden tests will be added after you finish, so handle edge cases from the task description rather than hard-coding the visible tests. Finish only when the implementation is ready.",
+  "max_turns": 16,
+  "allowlist": [
+    "csv_row.py",
+    "tests/test_public_csv_row.py"
+  ],
+  "dm": {
+    "max_steps": 16,
+    "tags": [
+      "parsing",
+      "string",
+      "edge-cases"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [],
+    "required_changed_files": [],
+    "hidden_paths": [
+      "tests/test_hidden_csv_row.py"
+    ]
+  }
+}

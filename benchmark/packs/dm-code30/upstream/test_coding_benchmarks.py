@@ -1,0 +1,1034 @@
+import json
+from dataclasses import replace
+from pathlib import Path
+
+import pytest
+
+from dm_agent.benchmarks import runner as runner_module
+from dm_agent.benchmarks.cli import main as bench_main
+from dm_agent.benchmarks.economics import build_economics_report, render_markdown
+from dm_agent.benchmarks.manifest_diff import (
+    diff_report_manifests,
+)
+from dm_agent.benchmarks.manifest_diff import (
+    main as manifest_diff_main,
+)
+from dm_agent.benchmarks.manifest_diff import (
+    render_markdown as render_manifest_diff_markdown,
+)
+from dm_agent.benchmarks.models import (
+    BenchmarkRunConfig,
+    BenchmarkTask,
+    CodingBenchResult,
+    CommandResult,
+)
+from dm_agent.benchmarks.runner import (
+    DEFAULT_BENCH_VARIANTS,
+    benchmark_task_fingerprint,
+    build_benchmark_manifest,
+    load_trace_analysis_for_report,
+    prepare_workspace,
+    run_hidden_tests,
+    run_hidden_tests_per_node,
+    summarize_benchmark_results,
+    write_markdown_report,
+)
+from dm_agent.benchmarks.tasks import get_benchmark_tasks, get_coding_tasks, get_maintenance_tasks
+from dm_agent.tracing import TraceWriter
+
+
+def test_coding_benchmark_manifest_is_hidden_test_based():
+    tasks = get_coding_tasks()
+
+    assert len(tasks) >= 6
+    assert all(task.setup_files for task in tasks)
+    assert all(task.hidden_files for task in tasks)
+    assert all("Hidden tests will be added" in task.prompt for task in tasks)
+
+
+def test_coding_benchmark_cli_lists_without_api_key():
+    assert bench_main(["--list"]) == 0
+
+
+def test_benchmark_feature_flags_parse_without_api_key():
+    assert (
+        bench_main(
+            [
+                "--list",
+            ]
+        )
+        == 0
+    )
+
+
+def test_maintenance_benchmark_manifest_is_realistic_and_keyless():
+    tasks = get_maintenance_tasks()
+
+    assert len(tasks) >= 4
+    assert all(task.setup_files for task in tasks)
+    assert all(task.hidden_files for task in tasks)
+    assert all("Hidden tests will be added" in task.prompt for task in tasks)
+    assert any(task.required_changed_files for task in tasks)
+    assert bench_main(["--suite", "maintenance", "--list"]) == 0
+
+
+def test_benchmark_suite_selector_filters_tasks():
+    tasks = get_benchmark_tasks("maintenance", ["config_precedence"])
+
+    assert [task.task_id for task in tasks] == ["config_precedence"]
+
+
+def _bench_result(task_id: str, *, success: bool, final_answer: str, tokens: int):
+    return CodingBenchResult(
+        task_id=task_id,
+        task_name="Task",
+        variant="full",
+        success=success,
+        failure_reason="" if success else "failed",
+        final_answer=final_answer,
+        actions=["finish"],
+        steps_count=1,
+        tool_calls=0,
+        duration_seconds=0.1,
+        prompt_chars=10,
+        completion_chars=5,
+        estimated_tokens=tokens,
+        estimated_cost_usd=tokens / 1000,
+        request_count=1,
+        metadata={"status": "success" if success else "failure"},
+        hidden_test=CommandResult(["pytest"], 0 if success else 1, "", "", 0.1),
+    )
+
+
+def _bench_result_with_metadata(
+    task_id: str,
+    *,
+    success: bool,
+    final_answer: str,
+    tokens: int,
+    metadata: dict,
+):
+    result = _bench_result(task_id, success=success, final_answer=final_answer, tokens=tokens)
+    result.metadata.update(metadata)
+    return result
+
+
+def test_benchmark_report_includes_default_off_feature_flags(monkeypatch: pytest.MonkeyPatch):
+    def fake_run_benchmark_task(task, variant, config, *, repeat_index=0, suite="coding"):
+        return _bench_result(task.task_id, success=True, final_answer="ok", tokens=100)
+
+    monkeypatch.setattr(runner_module, "run_benchmark_task", fake_run_benchmark_task)
+    task = get_coding_tasks(["slugify_cleanup"])[0]
+
+    report = runner_module.run_benchmark_suite(
+        tasks=[task],
+        config=BenchmarkRunConfig(
+            enable_adaptive_replanning=True,
+        ),
+    )
+
+    assert report["manifest"]["task_fingerprints"][task.task_id]
+    assert report["manifest"]["suite_signature"]
+
+
+def test_benchmark_task_fingerprint_detects_hidden_contract_drift():
+    task = get_coding_tasks(["slugify_cleanup"])[0]
+    changed = replace(
+        task,
+        hidden_files={
+            **task.hidden_files,
+            "tests/test_hidden_extra.py": "def test_extra():\n    assert True\n",
+        },
+    )
+
+    assert benchmark_task_fingerprint(task) != benchmark_task_fingerprint(changed)
+
+
+def test_benchmark_manifest_is_stable_and_includes_variants():
+    task = get_maintenance_tasks(["config_precedence"])[0]
+
+    first = build_benchmark_manifest(
+        suite="maintenance",
+        tasks=[task],
+        variants=DEFAULT_BENCH_VARIANTS,
+    )
+    second = build_benchmark_manifest(
+        suite="maintenance",
+        tasks=[task],
+        variants=DEFAULT_BENCH_VARIANTS,
+    )
+
+    assert first == second
+    assert first["task_ids"] == ["config_precedence"]
+    assert first["variant_names"] == ["full"]
+
+
+def test_benchmark_manifest_diff_marks_matching_reports_compatible(tmp_path, capsys):
+    task = get_maintenance_tasks(["config_precedence"])[0]
+    manifest = build_benchmark_manifest(
+        suite="maintenance",
+        tasks=[task],
+        variants=DEFAULT_BENCH_VARIANTS,
+    )
+    left = {"suite": "maintenance", "manifest": manifest}
+    right = {"suite": "maintenance", "manifest": manifest}
+
+    diff = diff_report_manifests(left, right)
+
+    assert diff.compatible is True
+    assert diff.suite_signature_match is True
+    markdown = render_manifest_diff_markdown(diff, left_label="a.json", right_label="b.json")
+    assert "compatible" in markdown
+
+    left_path = tmp_path / "left.json"
+    right_path = tmp_path / "right.json"
+    left_path.write_text(json.dumps(left), encoding="utf-8")
+    right_path.write_text(json.dumps(right), encoding="utf-8")
+
+    assert manifest_diff_main([str(left_path), str(right_path), "--json"]) == 0
+    assert '"compatible": true' in capsys.readouterr().out
+
+
+def test_benchmark_manifest_diff_reports_suite_task_variant_and_fingerprint_drift(tmp_path, capsys):
+    task = get_maintenance_tasks(["config_precedence"])[0]
+    other_task = get_maintenance_tasks(["packaging_ci_contract"])[0]
+    left_manifest = build_benchmark_manifest(
+        suite="maintenance",
+        tasks=[task],
+        variants=DEFAULT_BENCH_VARIANTS,
+    )
+    right_manifest = build_benchmark_manifest(
+        suite="coding",
+        tasks=[other_task],
+        variants=[],
+    )
+    right_manifest["task_fingerprints"]["config_precedence"] = "changed"
+    right_manifest["suite_signature"] = "different"
+    right_manifest["variant_names"] = ["no_planning"]
+
+    diff = diff_report_manifests(
+        {"suite": "maintenance", "manifest": left_manifest},
+        {"suite": "coding", "manifest": right_manifest},
+    )
+
+    assert diff.compatible is False
+    assert diff.suite_match is False
+    assert diff.variant_names_match is False
+    assert diff.missing_in_left == ["packaging_ci_contract"]
+    assert diff.changed_fingerprints == ["config_precedence"]
+
+    left_path = tmp_path / "left.json"
+    right_path = tmp_path / "right.json"
+    left_path.write_text(
+        json.dumps({"suite": "maintenance", "manifest": left_manifest}),
+        encoding="utf-8",
+    )
+    right_path.write_text(
+        json.dumps({"suite": "coding", "manifest": right_manifest}),
+        encoding="utf-8",
+    )
+
+    assert manifest_diff_main([str(left_path), str(right_path)]) == 1
+    output = capsys.readouterr().out
+    assert "different" in output
+    assert "packaging_ci_contract" in output
+    assert "config_precedence" in output
+
+
+def test_patch_fingerprint_is_stable_content_sensitive_and_ignores_hidden_files(tmp_path):
+    before = {"app.py": b"old\n", "README.md": b"same\n"}
+    after = {"app.py": b"new\n", "README.md": b"same\n"}
+    changed_files = ["app.py"]
+
+    first = runner_module._patch_fingerprint(before, after, changed_files)
+    second = runner_module._patch_fingerprint(before, after, changed_files)
+    changed_content = runner_module._patch_fingerprint(
+        before,
+        {"app.py": b"newer\n", "README.md": b"same\n"},
+        changed_files,
+    )
+
+    assert first
+    assert first == second
+    assert first != changed_content
+
+    task = get_coding_tasks(["slugify_cleanup"])[0]
+    prepare_workspace(task, tmp_path, include_hidden=False)
+    before_snapshot = runner_module._snapshot_workspace(tmp_path)
+    Path(tmp_path / "text_utils.py").write_text(
+        "def slugify(value: str) -> str:\n    return value.strip().lower()\n",
+        encoding="utf-8",
+    )
+    after_snapshot = runner_module._snapshot_workspace(tmp_path)
+    changed = runner_module._diff_workspace(before_snapshot, after_snapshot)
+    before_hidden = runner_module._patch_fingerprint(before_snapshot, after_snapshot, changed)
+
+    runner_module._write_files(tmp_path, task.hidden_files)
+    after_hidden_snapshot = runner_module._snapshot_workspace(tmp_path)
+    after_hidden = runner_module._patch_fingerprint(before_snapshot, after_hidden_snapshot, changed)
+
+    assert before_hidden == after_hidden
+
+
+def test_benchmark_summary_includes_wilson_confidence_intervals():
+    results = [
+        _bench_result("a", success=True, final_answer="ok", tokens=100),
+        _bench_result("b", success=True, final_answer="ok", tokens=100),
+        _bench_result("c", success=True, final_answer="ok", tokens=100),
+        _bench_result("d", success=False, final_answer="bad", tokens=100),
+    ]
+
+    summary = summarize_benchmark_results(results)
+
+    interval = summary["overall_pass_rate_ci_95"]
+    assert summary["overall_pass_rate"] == 0.75
+    assert 0.0 <= interval["low"] < summary["overall_pass_rate"] < interval["high"] <= 1.0
+    variant_interval = summary["variants"]["full"]["pass_rate_ci_95"]
+    assert variant_interval == interval
+
+
+def test_hidden_tests_fail_on_initial_slugify_workspace(tmp_path):
+    task = get_coding_tasks(["slugify_cleanup"])[0]
+    prepare_workspace(task, tmp_path, include_hidden=True)
+
+    result = run_hidden_tests(task, tmp_path)
+
+    assert result.returncode != 0
+    assert "test_hidden_slugify" in result.stdout
+
+
+def test_hidden_tests_pass_for_known_slugify_solution(tmp_path):
+    task = get_coding_tasks(["slugify_cleanup"])[0]
+    prepare_workspace(task, tmp_path, include_hidden=True)
+    Path(tmp_path / "text_utils.py").write_text(
+        (
+            "import re\n\n\n"
+            "def slugify(value: str) -> str:\n"
+            "    value = value.strip().lower()\n"
+            '    value = re.sub(r"[^a-z0-9]+", "-", value)\n'
+            '    return re.sub(r"-+", "-", value).strip("-")\n'
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_hidden_tests(task, tmp_path)
+
+    assert result.returncode == 0
+
+
+def test_maintenance_hidden_tests_fail_on_initial_config_workspace(tmp_path):
+    task = get_maintenance_tasks(["config_precedence"])[0]
+    prepare_workspace(task, tmp_path, include_hidden=True)
+
+    result = run_hidden_tests(task, tmp_path)
+
+    assert result.returncode != 0
+    assert "test_cli_overrides_env_and_file" in result.stdout
+
+
+def test_maintenance_hidden_tests_pass_for_known_config_solution(tmp_path):
+    task = get_maintenance_tasks(["config_precedence"])[0]
+    prepare_workspace(task, tmp_path, include_hidden=True)
+    Path(tmp_path / "config_loader.py").write_text(
+        (
+            "import os\n\n"
+            'DEFAULTS = {"timeout": 30, "debug": False, "retries": 2}\n\n\n'
+            "def _bool(value):\n"
+            "    if isinstance(value, bool):\n"
+            "        return value\n"
+            "    return str(value).strip().lower() in {'1', 'true', 'yes', 'on'}\n\n\n"
+            "def load_config(file_config=None, env=None, cli_args=None):\n"
+            "    env = env or os.environ\n"
+            "    config = DEFAULTS.copy()\n"
+            "    config.update(file_config or {})\n"
+            "    if 'DM_TIMEOUT' in env:\n"
+            "        config['timeout'] = env['DM_TIMEOUT']\n"
+            "    if 'DM_DEBUG' in env:\n"
+            "        config['debug'] = env['DM_DEBUG']\n"
+            "    config.update(cli_args or {})\n"
+            "    config['timeout'] = int(config['timeout'])\n"
+            "    config['debug'] = _bool(config['debug'])\n"
+            "    return config\n"
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_hidden_tests(task, tmp_path)
+
+    assert result.returncode == 0
+
+
+def test_maintenance_hidden_tests_fail_on_initial_cli_docs_workspace(tmp_path):
+    task = get_maintenance_tasks(["cli_config_docs_contract"])[0]
+    prepare_workspace(task, tmp_path, include_hidden=True)
+
+    result = run_hidden_tests(task, tmp_path)
+
+    assert result.returncode != 0
+    assert "test_all_config_options_are_documented_and_sorted" in result.stdout
+
+
+def test_maintenance_hidden_tests_pass_for_known_cli_docs_solution(tmp_path):
+    task = get_maintenance_tasks(["cli_config_docs_contract"])[0]
+    prepare_workspace(task, tmp_path, include_hidden=True)
+    Path(tmp_path / "cli_docs.py").write_text(
+        (
+            "CONFIG_OPTIONS = [\n"
+            "    {\n"
+            '        "flag": "--provider",\n'
+            '        "env": "DM_PROVIDER",\n'
+            '        "default": "deepseek",\n'
+            '        "description": "LLM provider name.",\n'
+            "    },\n"
+            "    {\n"
+            '        "flag": "--timeout",\n'
+            '        "env": "DM_TIMEOUT",\n'
+            '        "default": 120,\n'
+            '        "description": "Provider request timeout in seconds.",\n'
+            "    },\n"
+            "    {\n"
+            '        "flag": "--model",\n'
+            '        "env": "DM_MODEL",\n'
+            '        "default": "deepseek-chat",\n'
+            '        "description": "Model identifier passed to the provider.",\n'
+            "    },\n"
+            "    {\n"
+            '        "flag": "--retries",\n'
+            '        "env": "DM_RETRIES",\n'
+            '        "default": 2,\n'
+            '        "description": "Retry count for transient provider failures.",\n'
+            "    },\n"
+            "]\n\n\n"
+            "def render_config_table(options=None):\n"
+            "    options = options or CONFIG_OPTIONS\n"
+            "    lines = [\n"
+            '        "| Option | Env | Default | Description |",\n'
+            '        "| --- | --- | --- | --- |",\n'
+            "    ]\n"
+            "    for item in sorted(options, key=lambda option: option['flag']):\n"
+            "        lines.append(\n"
+            "            f\"| `{item['flag']}` | `{item['env']}` | "
+            "`{item['default']}` | {item['description']} |\"\n"
+            "        )\n"
+            '    return "\\n".join(lines)\n'
+        ),
+        encoding="utf-8",
+    )
+    table = (
+        "| Option | Env | Default | Description |\n"
+        "| --- | --- | --- | --- |\n"
+        "| `--model` | `DM_MODEL` | `deepseek-chat` | Model identifier passed to the provider. |\n"
+        "| `--provider` | `DM_PROVIDER` | `deepseek` | LLM provider name. |\n"
+        "| `--retries` | `DM_RETRIES` | `2` | Retry count for transient provider failures. |\n"
+        "| `--timeout` | `DM_TIMEOUT` | `120` | Provider request timeout in seconds. |"
+    )
+    Path(tmp_path / "docs" / "configuration.md").write_text(
+        (
+            "# Configuration\n\n"
+            "DM-Code-Agent can be configured with CLI flags or environment variables.\n\n"
+            "<!-- CONFIG_TABLE -->\n"
+            f"{table}\n"
+            "<!-- /CONFIG_TABLE -->\n"
+        ),
+        encoding="utf-8",
+    )
+    Path(tmp_path / "tests" / "test_public_cli_docs.py").write_text(
+        (
+            "from pathlib import Path\n\n"
+            "from cli_docs import CONFIG_OPTIONS, render_config_table\n\n\n"
+            "def test_config_table_mentions_every_option():\n"
+            "    table = render_config_table()\n"
+            "    for item in CONFIG_OPTIONS:\n"
+            "        assert f\"`{item['flag']}`\" in table\n\n\n"
+            "def test_docs_embed_generated_table():\n"
+            "    docs = Path('docs/configuration.md').read_text(encoding='utf-8')\n"
+            "    assert render_config_table() in docs\n"
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_hidden_tests(task, tmp_path)
+
+    assert result.returncode == 0
+
+
+def test_maintenance_hidden_tests_fail_on_initial_packaging_ci_workspace(tmp_path):
+    task = get_maintenance_tasks(["packaging_ci_contract"])[0]
+    prepare_workspace(task, tmp_path, include_hidden=True)
+
+    result = run_hidden_tests(task, tmp_path)
+
+    assert result.returncode != 0
+    assert "test_packaging_contract_declares_python_310_floor" in result.stdout
+
+
+def test_maintenance_hidden_tests_pass_for_known_packaging_ci_solution(tmp_path):
+    task = get_maintenance_tasks(["packaging_ci_contract"])[0]
+    prepare_workspace(task, tmp_path, include_hidden=True)
+    Path(tmp_path / "packaging_contract.py").write_text(
+        (
+            'SUPPORTED_PYTHON_VERSIONS = ["3.10", "3.11", "3.12"]\n'
+            'DEV_DEPENDENCIES = ["pytest>=8.0", "ruff>=0.4", "black>=24.0"]\n'
+            "CI_CHECK_COMMANDS = [\n"
+            '    "python -m pytest",\n'
+            '    "python -m ruff check dm_agent tests",\n'
+            '    "python -m black --check .",\n'
+            "]\n\n\n"
+            "def requires_python_specifier():\n"
+            '    return ">=3.10"\n\n\n'
+            "def ci_python_versions():\n"
+            "    return list(SUPPORTED_PYTHON_VERSIONS)\n\n\n"
+            "def dev_extra_dependencies():\n"
+            "    return list(DEV_DEPENDENCIES)\n\n\n"
+            "def ci_install_command():\n"
+            "    return 'python -m pip install -e \".[dev]\"'\n\n\n"
+            "def ci_check_commands():\n"
+            "    return list(CI_CHECK_COMMANDS)\n"
+        ),
+        encoding="utf-8",
+    )
+    Path(tmp_path / "pyproject.toml").write_text(
+        (
+            "[project]\n"
+            'name = "demo-agent-plugin"\n'
+            'version = "0.1.0"\n'
+            'description = "Small package used by the maintenance benchmark."\n'
+            'requires-python = ">=3.10"\n'
+            'dependencies = ["click>=8.1"]\n'
+            "classifiers = [\n"
+            '    "Programming Language :: Python :: 3.10",\n'
+            '    "Programming Language :: Python :: 3.11",\n'
+            '    "Programming Language :: Python :: 3.12",\n'
+            "]\n\n"
+            "[project.optional-dependencies]\n"
+            'dev = ["pytest>=8.0", "ruff>=0.4", "black>=24.0"]\n'
+        ),
+        encoding="utf-8",
+    )
+    Path(tmp_path / ".github" / "workflows" / "ci.yml").write_text(
+        (
+            "name: CI\n\n"
+            "on:\n"
+            "  push:\n"
+            "  pull_request:\n\n"
+            "jobs:\n"
+            "  test:\n"
+            "    runs-on: ubuntu-latest\n"
+            "    strategy:\n"
+            "      matrix:\n"
+            '        python-version: ["3.10", "3.11", "3.12"]\n'
+            "    steps:\n"
+            "      - uses: actions/checkout@v4\n"
+            "      - uses: actions/setup-python@v5\n"
+            "        with:\n"
+            "          python-version: ${{ matrix.python-version }}\n"
+            '      - run: python -m pip install -e ".[dev]"\n'
+            "      - run: python -m pytest\n"
+            "      - run: python -m ruff check dm_agent tests\n"
+            "      - run: python -m black --check .\n"
+        ),
+        encoding="utf-8",
+    )
+    Path(tmp_path / "tests" / "test_public_packaging.py").write_text(
+        (
+            "from packaging_contract import (\n"
+            "    ci_check_commands,\n"
+            "    ci_install_command,\n"
+            "    ci_python_versions,\n"
+            "    dev_extra_dependencies,\n"
+            "    requires_python_specifier,\n"
+            ")\n\n\n"
+            "def test_packaging_contract_matches_ci_surface():\n"
+            '    assert requires_python_specifier() == ">=3.10"\n'
+            '    assert ci_python_versions() == ["3.10", "3.11", "3.12"]\n'
+            "    assert ci_install_command() == 'python -m pip install -e \".[dev]\"'\n\n\n"
+            "def test_dev_tools_and_ci_checks_are_declared():\n"
+            "    deps = dev_extra_dependencies()\n"
+            "    for tool in ('pytest', 'ruff', 'black'):\n"
+            "        assert any(dep.startswith(tool) for dep in deps)\n"
+            "    assert ci_check_commands() == [\n"
+            "        'python -m pytest',\n"
+            "        'python -m ruff check dm_agent tests',\n"
+            "        'python -m black --check .',\n"
+            "    ]\n"
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_hidden_tests(task, tmp_path)
+
+    assert result.returncode == 0
+
+
+def test_benchmark_markdown_report_includes_run_details(tmp_path):
+    report_path = tmp_path / "bench.md"
+    report = {
+        "suite": "maintenance",
+        "summary": {
+            "total_runs": 1,
+            "overall_pass_rate": 1.0,
+            "overall_hidden_test_pass_rate": 1.0,
+            "overall_agent_completion_rate": 1.0,
+            "variants": {
+                "full": {
+                    "tasks": 1,
+                    "successes": 1,
+                    "pass_rate": 1.0,
+                    "hidden_test_pass_rate": 1.0,
+                    "agent_completion_rate": 1.0,
+                    "avg_steps": 2,
+                    "avg_tool_calls": 1,
+                    "avg_changed_files": 1,
+                    "avg_estimated_tokens": 100,
+                    "total_requests": 2,
+                }
+            },
+        },
+        "results": [
+            {
+                "variant": "full",
+                "task_id": "config_precedence",
+                "success": True,
+                "failure_reason": "",
+                "changed_files": ["config_loader.py"],
+                "metadata": {"trace_path": "traces/config.jsonl"},
+                "hidden_test": {"returncode": 0},
+            }
+        ],
+    }
+
+    write_markdown_report(report, report_path)
+
+    text = report_path.read_text(encoding="utf-8")
+    assert "Run Details" in text
+    assert "95% CI" in text
+    assert "Cost/success" in text
+    assert "`config_loader.py`" in text
+    assert "`traces/config.jsonl`" in text
+
+
+def test_benchmark_trace_analysis_loader_is_keyless(tmp_path):
+    trace_path = tmp_path / "run.jsonl"
+    writer = TraceWriter(trace_path)
+    writer.start_run("finish directly")
+    writer.record_step(
+        step_number=1,
+        step=type(
+            "Step",
+            (),
+            {
+                "thought": "done",
+                "action": "finish",
+                "action_input": {"answer": "ok"},
+                "observation": "<finished>",
+            },
+        )(),
+    )
+    writer.finish_run(
+        {
+            "final_answer": "ok",
+            "metadata": {"status": "success", "duration_seconds": 0.1},
+        }
+    )
+    writer.close()
+
+    analysis, error = load_trace_analysis_for_report(trace_path)
+
+    assert error == ""
+    assert analysis["primary_failure_stage"] == "none"
+    assert analysis["verification"]["gap"] is True
+    assert analysis["trace_health"]["grade"] == "warning"
+
+
+def test_benchmark_economics_report_is_deterministic_and_keyless():
+    report = {
+        "suite": "maintenance",
+        "provider": "scripted",
+        "model": "fake",
+        "token_economics": {"cost_per_1k_tokens": 0.002},
+        "summary": {
+            "total_runs": 2,
+            "overall_pass_rate": 0.5,
+            "overall_pass_rate_ci_95": {"low": 0.1, "high": 0.9},
+            "total_estimated_tokens": 3000,
+        },
+        "manifest": {"suite_signature": "same-suite"},
+        "results": [
+            {"success": True, "estimated_tokens": 1000},
+            {"success": False, "estimated_tokens": 2000},
+        ],
+    }
+
+    economics = build_economics_report([report], labels=["scripted-smoke"])
+
+    entry = economics["entries"][0]
+    assert entry["label"] == "scripted-smoke"
+    assert entry["successes"] == 1
+    assert entry["pass_rate_ci_95"] == {"low": 0.1, "high": 0.9}
+    assert entry["total_estimated_tokens"] == 3000
+    assert entry["estimated_cost_usd"] == 0.006
+    assert entry["cost_per_success_usd"] == 0.006
+    assert economics["summary"]["manifest_guard"]["warning"] is False
+    markdown = render_markdown(economics)
+    assert "Benchmark Token Economics" in markdown
+    assert "50.0% [10.0%-90.0%]" in markdown
+    assert "scripted-smoke" in markdown
+    assert "Warning:" not in markdown
+
+
+def test_benchmark_economics_warns_on_manifest_signature_mismatch():
+    first = {
+        "suite": "maintenance",
+        "provider": "scripted",
+        "model": "a",
+        "summary": {"total_runs": 1, "overall_pass_rate": 1.0},
+        "manifest": {"suite_signature": "suite-a"},
+        "results": [{"success": True, "estimated_tokens": 100}],
+    }
+    second = {
+        "suite": "maintenance",
+        "provider": "scripted",
+        "model": "b",
+        "summary": {"total_runs": 1, "overall_pass_rate": 0.0},
+        "manifest": {"suite_signature": "suite-b"},
+        "results": [{"success": False, "estimated_tokens": 100}],
+    }
+    missing = {
+        "suite": "legacy",
+        "provider": "scripted",
+        "model": "old",
+        "summary": {"total_runs": 1, "overall_pass_rate": 0.0},
+        "results": [{"success": False, "estimated_tokens": 100}],
+    }
+
+    economics = build_economics_report([first, second, missing])
+    guard = economics["summary"]["manifest_guard"]
+
+    assert guard["warning"] is True
+    assert guard["suite_signature_count"] == 2
+    assert set(guard["suite_signatures"]) == {"suite-a", "suite-b"}
+    assert guard["missing_suite_signature"] == ["legacy:scripted:old"]
+    assert "different benchmark suite signatures" in render_markdown(economics)
+
+
+def test_benchmark_summary_recovery_rate_and_tags():
+    tasks = get_coding_tasks(["slugify_cleanup"])
+    ok_with_failures = _bench_result_with_metadata(
+        "slugify_cleanup",
+        success=True,
+        final_answer="ok",
+        tokens=100,
+        metadata={"tool_error_count": 2},
+    )
+    failed_with_failures = _bench_result_with_metadata(
+        "slugify_cleanup",
+        success=False,
+        final_answer="",
+        tokens=100,
+        metadata={"tool_error_count": 1},
+    )
+    clean_success = _bench_result("slugify_cleanup", success=True, final_answer="ok", tokens=100)
+
+    summary = summarize_benchmark_results(
+        [ok_with_failures, failed_with_failures, clean_success], tasks=tasks
+    )
+
+    variant = summary["variants"]["full"]
+    assert variant["runs_with_failures"] == 2
+    assert variant["recovered_runs"] == 1
+    assert variant["recovery_success_rate"] == pytest.approx(0.5)
+    tags = tasks[0].tags
+    if tags:
+        tag_entry = summary["by_tag"][tags[0]]
+        assert tag_entry["runs"] == 3
+        assert tag_entry["successes"] == 2
+
+
+def test_benchmark_summary_recovery_rate_none_without_failures():
+    clean = _bench_result("slugify_cleanup", success=True, final_answer="ok", tokens=10)
+    summary = summarize_benchmark_results([clean])
+    assert summary["variants"]["full"]["recovery_success_rate"] is None
+    assert "by_tag" not in summary
+
+
+def test_benchmark_summary_repeat_stability_math():
+    def repeat_result(task_id, repeat_index, success):
+        return _bench_result_with_metadata(
+            task_id,
+            success=success,
+            final_answer="ok" if success else "",
+            tokens=10,
+            metadata={"repeat_index": repeat_index},
+        )
+
+    results = [
+        repeat_result("task_a", 0, True),
+        repeat_result("task_a", 1, False),
+        repeat_result("task_b", 0, True),
+        repeat_result("task_b", 1, True),
+    ]
+
+    summary = summarize_benchmark_results(results)
+    stability = summary["variants"]["full"]["repeat_stability"]
+
+    assert stability["repeats"] == 2
+    assert stability["per_task"]["task_a"]["pass_at_k"] is True
+    assert stability["per_task"]["task_a"]["pass_pow_k"] is False
+    assert stability["per_task"]["task_b"]["pass_pow_k"] is True
+    assert stability["pass_at_k_rate"] == pytest.approx(1.0)
+    assert stability["pass_pow_k_rate"] == pytest.approx(0.5)
+    assert stability["task_pass_rate_stddev"] == pytest.approx(0.25)
+
+
+def test_benchmark_summary_no_stability_for_single_run():
+    single = _bench_result_with_metadata(
+        "task_a", success=True, final_answer="ok", tokens=10, metadata={"repeat_index": 0}
+    )
+    summary = summarize_benchmark_results([single])
+    assert "repeat_stability" not in summary["variants"]["full"]
+
+
+def test_run_hidden_tests_per_node_counts_individual_tests(tmp_path):
+    task = BenchmarkTask(
+        task_id="pernode_demo",
+        name="Per-node demo",
+        prompt="demo",
+        setup_files={},
+        hidden_files={
+            "hidden_test_demo.py": (
+                "def test_pass_one():\n    assert 1 == 1\n\n"
+                "def test_pass_two():\n    assert 2 == 2\n\n"
+                "def test_fail():\n    assert 1 == 2\n"
+            )
+        },
+    )
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    prepare_workspace(task, workspace, include_hidden=True)
+
+    result = run_hidden_tests_per_node(task, workspace, timeout=60)
+
+    assert result is not None
+    assert result["total"] == 3
+    assert result["passed"] == 2
+    assert result["pass_fraction"] == pytest.approx(2 / 3)
+    failed_nodes = [node for node in result["nodes"] if not node["passed"]]
+    assert len(failed_nodes) == 1
+    assert "test_fail" in failed_nodes[0]["node_id"]
+
+
+def test_run_hidden_tests_per_node_returns_none_on_collection_error(tmp_path):
+    task = BenchmarkTask(
+        task_id="pernode_broken",
+        name="Broken collection",
+        prompt="demo",
+        setup_files={},
+        hidden_files={"hidden_test_broken.py": "import missing_module_xyz\n"},
+    )
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    prepare_workspace(task, workspace, include_hidden=True)
+
+    assert run_hidden_tests_per_node(task, workspace, timeout=60) is None
+
+
+def test_manifest_only_cli_writes_bare_manifest(tmp_path, capsys):
+    manifest_path = tmp_path / "manifest.json"
+    exit_code = bench_main(["--suite", "coding", "--manifest-only", str(manifest_path)])
+
+    assert exit_code == 0
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["suite"] == "coding"
+    assert manifest["suite_signature"]
+    assert manifest["task_fingerprints"]
+
+
+def test_manifest_diff_accepts_bare_manifest_files(tmp_path, capsys):
+    left = tmp_path / "left.json"
+    right = tmp_path / "right.json"
+    assert bench_main(["--suite", "coding", "--manifest-only", str(left)]) == 0
+    assert bench_main(["--suite", "coding", "--manifest-only", str(right)]) == 0
+    capsys.readouterr()
+
+    assert manifest_diff_main([str(left), str(right)]) == 0
+
+    drifted = json.loads(right.read_text(encoding="utf-8"))
+    drifted["suite_signature"] = "drifted"
+    right.write_text(json.dumps(drifted), encoding="utf-8")
+    assert manifest_diff_main([str(left), str(right)]) == 1
+
+
+# --- 30 题扩充后的数据集不变量 ---------------------------------------------
+#
+# 这两条是任务集的硬约束，与单题内容无关，所以对全部题目统一断言而不是逐题写：
+#   1. 初始工作区下隐藏测试必须失败——否则这道题不考任何东西。
+#   2. 每题都要有 allowed_changed_files 或明确不限，且不能把隐藏测试文件
+#      列进可改范围（那等于允许 agent 改判分标准）。
+#
+# 「正解下隐藏测试必须通过」无法在无 API key 的单测里对全部题目断言（需要写 30 份
+# 参考解），改为在新增题目时用 dm_agent.benchmarks.runner 手工验证，见 devlog 34。
+
+
+def test_every_task_hidden_tests_fail_on_the_initial_workspace(tmp_path):
+    """一道隐藏测试初始就通过的题目不考任何东西，等于白送分。"""
+    offenders = []
+    for index, task in enumerate(get_benchmark_tasks("all")):
+        workspace = tmp_path / f"ws{index}"
+        workspace.mkdir()
+        prepare_workspace(task, workspace, include_hidden=True)
+        if run_hidden_tests(task, workspace).returncode == 0:
+            offenders.append(task.task_id)
+    assert offenders == []
+
+
+def test_no_task_allows_editing_its_own_hidden_tests():
+    """把隐藏测试列进可改范围 = 允许 agent 改判分标准。"""
+    offenders = []
+    for task in get_benchmark_tasks("all"):
+        allowed = set(task.allowed_changed_files)
+        if allowed & set(task.hidden_files):
+            offenders.append(task.task_id)
+    assert offenders == []
+
+
+def test_suite_sizes_and_unique_ids():
+    coding = get_benchmark_tasks("coding")
+    maintenance = get_benchmark_tasks("maintenance")
+    combined = get_benchmark_tasks("all")
+
+    assert len(coding) == 15
+    assert len(maintenance) == 15
+    assert len(combined) == 30
+
+    ids = [task.task_id for task in combined]
+    assert len(ids) == len(set(ids))
+
+
+def test_every_task_declares_tags_and_a_step_budget():
+    for task in get_benchmark_tasks("all"):
+        assert task.tags, task.task_id
+        assert task.max_steps >= 10, task.task_id
+
+
+# --- 改动范围约束声明（--declare-allowed-files）-----------------------------
+#
+# 这个开关把每题的 allowed_changed_files 写进交给 agent 的 prompt。它存在的全部前提
+# 是「只影响 prompt，不影响任务集身份」——否则既有 baseline 就不能再做对照。
+# 见 docs/research-log/36-scope-constraint-ablation.md。
+
+
+def test_scoped_prompt_is_verbatim_when_no_allowed_files_declared():
+    """无约束的题必须逐字返回原 prompt：coding 15 题全部零约束，开关对它们是 no-op。
+
+    这条是消融实验的对照面——coding 那半边的翻转量就是噪声底，一旦这里注入了什么，
+    噪声底就被污染了。
+    """
+    coding = get_benchmark_tasks("coding")
+    assert all(not task.allowed_changed_files for task in coding)
+    for task in coding:
+        assert task.scoped_prompt() == task.prompt, task.task_id
+
+
+def test_scoped_prompt_lists_every_allowed_file():
+    """必须逐题列全，不能简化成「不要改测试」——4 道题的可改范围本来就含 tests/。"""
+    constrained = [task for task in get_benchmark_tasks("all") if task.allowed_changed_files]
+    assert len(constrained) == 15
+
+    for task in constrained:
+        scoped = task.scoped_prompt()
+        assert scoped.startswith(task.prompt), task.task_id
+        for path in task.allowed_changed_files:
+            assert path in scoped, f"{task.task_id} missing {path}"
+
+    with_tests = [
+        task
+        for task in constrained
+        if any(path.startswith("tests/") for path in task.allowed_changed_files)
+    ]
+    assert {task.task_id for task in with_tests} == {
+        "retry_regression_tests",
+        "sort_stability_regression",
+        "cli_config_docs_contract",
+        "packaging_ci_contract",
+    }
+
+
+def test_declaring_allowed_files_does_not_change_the_suite_signature():
+    """整个方案的基石：开关只改 prompt，不改任务集身份。
+
+    ``benchmark_task_fingerprint`` 读的是 ``task.prompt`` 字段而非 ``scoped_prompt()``，
+    所以开/关两侧的 ``suite_signature`` 相同，``dm-agent-score-diff`` 才肯直接比
+    pass_rate、CI 的 manifest guard 才不用重新生成 baseline。谁要是把约束搬进
+    ``task.prompt``，这条会立刻红。
+    """
+    for suite in ("coding", "maintenance", "all"):
+        tasks = get_benchmark_tasks(suite)
+        manifest = build_benchmark_manifest(
+            suite=suite, tasks=tasks, variants=DEFAULT_BENCH_VARIANTS
+        )
+        for task in tasks:
+            payload = task.to_public_dict()
+            assert payload["prompt"] == task.prompt, task.task_id
+            assert "SCOPE CONSTRAINT" not in benchmark_task_fingerprint(task)
+        assert (
+            manifest["suite_signature"]
+            == build_benchmark_manifest(suite=suite, tasks=tasks, variants=DEFAULT_BENCH_VARIANTS)[
+                "suite_signature"
+            ]
+        )
+
+    # 指纹只认字段，不认派生视图：把 scoped_prompt 的产物塞回 prompt 才会改指纹。
+    task = next(t for t in get_benchmark_tasks("maintenance") if t.allowed_changed_files)
+    assert benchmark_task_fingerprint(task) != benchmark_task_fingerprint(
+        replace(task, prompt=task.scoped_prompt())
+    )
+
+
+def test_runner_passes_the_scoped_prompt_only_when_the_flag_is_on(monkeypatch, tmp_path):
+    """开关关闭时 agent 收到的必须是原 prompt——默认行为逐字不变。"""
+    task = next(t for t in get_benchmark_tasks("maintenance") if t.allowed_changed_files)
+    seen: list[str] = []
+
+    class _FakeAgent:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def run(self, prompt):
+            seen.append(prompt)
+            return {"final_answer": "", "steps": [], "metadata": {"status": "stubbed"}}
+
+    monkeypatch.setattr(runner_module, "ReactAgent", _FakeAgent)
+    monkeypatch.setattr(runner_module, "_build_tracking_client", lambda config: _FakeUsageClient())
+
+    for index, declare in enumerate((False, True)):
+        workspace = tmp_path / f"ws{index}"
+        workspace.mkdir()
+        runner_module._run_benchmark_task_in_workspace(
+            task,
+            DEFAULT_BENCH_VARIANTS[0],
+            BenchmarkRunConfig(declare_allowed_files=declare),
+            workspace,
+            repeat_index=0,
+            cleanup=True,
+            suite="maintenance",
+        )
+
+    assert seen[0] == task.prompt
+    assert seen[1] == task.scoped_prompt()
+    assert seen[1] != seen[0]
+
+
+class _FakeUsage:
+    request_count = 0
+    prompt_tokens = 0
+    completion_tokens = 0
+    total_tokens = 0
+    prompt_chars = 0
+    completion_chars = 0
+    estimated_tokens = 0
+
+
+class _FakeUsageClient:
+    model = "stub"
+    base_url = ""
+    usage = _FakeUsage()

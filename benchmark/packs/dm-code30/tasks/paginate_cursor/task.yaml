@@ -1,0 +1,35 @@
+{
+  "id": "paginate_cursor",
+  "name": "Cursor pagination boundaries",
+  "issue": "Task source: paginate_cursor.\n\nFix pagination.page. Given an ordered list of items, a cursor (an item id or None for the first page) and a page size, return (items_on_page, next_cursor). The cursor is exclusive: the page starts after that id. next_cursor is the id of the last returned item, or None when there is no further page. Raise ValueError for page_size < 1 or a cursor that is not in the list.\n\nYou are in a temporary benchmark workspace. Inspect the files, modify the implementation, and run the visible tests. Hidden tests will be added after you finish, so handle edge cases from the task description rather than hard-coding the visible tests. Finish only when the implementation is ready.",
+  "max_turns": 16,
+  "allowlist": [
+    "pagination.py",
+    "tests/test_public_pagination.py"
+  ],
+  "dm": {
+    "max_steps": 16,
+    "tags": [
+      "stateful",
+      "pagination",
+      "edge-cases"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [],
+    "required_changed_files": [],
+    "hidden_paths": [
+      "tests/test_hidden_pagination.py"
+    ]
+  }
+}

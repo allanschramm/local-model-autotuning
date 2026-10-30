@@ -9,6 +9,7 @@ import { parseArgs } from 'node:util';
 import { DatabaseSync } from 'node:sqlite';
 import { parse } from 'yaml';
 import { CLAW_SYSTEM, loadClawTasks, startClaw } from './claw.mjs';
+import { DM_SYSTEM, createDmTestTool, snapshotDm, verifyDm } from './dm.mjs';
 import {
   createAgentSession, createExtensionRuntime, createReadTool, createWriteTool,
   ModelRuntime, SessionManager, SettingsManager, VERSION,
@@ -21,6 +22,7 @@ const PACKS = new Map([
   ['mbpp-base10', join(ROOT, 'packs/mbpp-base10/tasks')],
   ['lcb-v6-stdin10', join(ROOT, 'packs/lcb-v6-stdin10/tasks')],
   ['bigcode-hard10', join(ROOT, 'packs/bigcode-hard10/tasks')],
+  ['dm-code30', join(ROOT, 'packs/dm-code30/tasks')],
 ]);
 const PROTOCOL = 'pi-workspace-v2';
 const PI_VERSION = '1.4.0';
@@ -45,7 +47,8 @@ async function loadTasks(selected, pack) {
   const taskRoot = PACKS.get(pack);
   if (!taskRoot) throw new Error(`Unknown pack: ${pack}`);
   const tasks = [];
-  for (const name of (await readdir(taskRoot)).sort()) {
+  const names = pack === 'dm-code30' ? JSON.parse(await readFile(join(taskRoot, '../source.json'), 'utf8')).task_ids : (await readdir(taskRoot)).sort();
+  for (const name of names) {
     if (selected?.length && !selected.includes(name)) continue;
     const directory = join(taskRoot, name);
     const task = parse(await readFile(join(directory, 'task.yaml'), 'utf8'));
@@ -63,7 +66,8 @@ async function loadTasks(selected, pack) {
     for (const path of await files(directory)) {
       hash.update(path + '\0').update(await readFile(join(directory, path))).update('\0');
     }
-    tasks.push({ ...task, directory, hash: hash.digest('hex') });
+    if (pack === 'dm-code30') hash.update(await readFile(join(ROOT, 'dm.mjs')));
+    tasks.push({ ...task, directory, hash: hash.digest('hex'), ...(pack === 'dm-code30' ? { protocol: 'pi-dm-v1' } : {}) });
   }
   if (!tasks.length || selected?.some(id => !tasks.some(t => t.id === id))) throw new Error('No tasks found or unknown task ID');
   return tasks;
@@ -120,6 +124,7 @@ async function runTask(task, runtime, model, python, secrets, allowLiveWeb) {
   let stopReason;
   let result;
   let bridge;
+  let dmBefore;
   const evidence = {
     protocol: task.protocol ?? PROTOCOL, pi_version: PI_VERSION, task: task.id, task_hash: task.hash,
     provider: model.provider, model: model.id, messages: [], workspace: {},
@@ -130,6 +135,7 @@ async function runTask(task, runtime, model, python, secrets, allowLiveWeb) {
       await mkdir(workspace);
       bridge = await startClaw(task, python, workspace, allowLiveWeb);
     } else await cp(join(task.directory, 'workspace'), workspace, { recursive: true });
+    if (task.dm) dmBefore = await snapshotDm(workspace);
     const tools = task.claw ? bridge.tools : [createReadTool(workspace), createWriteTool(workspace)].map(tool => ({
       ...tool, name: `workspace_${tool.name}`, label: `workspace_${tool.name}`,
       execute: async (...args) => {
@@ -143,13 +149,14 @@ async function runTask(task, runtime, model, python, secrets, allowLiveWeb) {
         return tool.execute(...args);
       },
     }));
+    if (task.dm) tools.push(createDmTestTool(task, workspace, python));
     const resourceLoader = {
       getExtensions: () => ({ extensions: [], errors: [], runtime: createExtensionRuntime() }),
       getSkills: () => ({ skills: [], diagnostics: [] }),
       getPrompts: () => ({ prompts: [], diagnostics: [] }),
       getThemes: () => ({ themes: [], diagnostics: [] }),
       getAgentsFiles: () => ({ agentsFiles: [] }),
-      getSystemPrompt: () => task.claw ? CLAW_SYSTEM : SYSTEM_PROMPT,
+      getSystemPrompt: () => task.claw ? CLAW_SYSTEM : task.dm ? DM_SYSTEM : SYSTEM_PROMPT,
       getSystemPromptSource: () => undefined,
       getAppendSystemPrompt: () => [], getAppendSystemPromptSources: () => [],
       extendResources: () => {}, reload: async () => {},
@@ -184,6 +191,8 @@ async function runTask(task, runtime, model, python, secrets, allowLiveWeb) {
       const safe = !scoring.safety_violations.length;
       const passed = safe && scoring.score >= 0.5;
       result = { outcome: !safe ? 'safety_violation' : passed ? 'passed' : 'failed', passed: passed ? 1 : 0, scoring };
+    } else if (task.dm) {
+      result = await verifyDm(task, workspace, join(temp, 'verification'), python, dmBefore);
     } else {
       const verification = join(temp, 'verification');
       await cp(workspace, verification, { recursive: true });
@@ -274,10 +283,10 @@ async function main() {
     await mkdir(artifactDir, { recursive: true });
     const config = {
       pack: values.pack,
-      tools: tasks[0].claw ? Object.fromEntries(tasks.map(t => [t.id, t.claw.tools])) : ['workspace_read', 'workspace_write'], thinking_requested: 'off', temperature: 0,
+      tools: tasks[0].claw ? Object.fromEntries(tasks.map(t => [t.id, t.claw.tools])) : ['workspace_read', 'workspace_write', ...(tasks[0].dm ? ['workspace_test'] : [])], thinking_requested: 'off', temperature: 0,
       max_output_tokens: MAX_OUTPUT_TOKENS, auto_retry: false, compaction: false,
       context_window: model.contextWindow, context_source: values['base-url'] ? 'operator-declared' : 'pi-catalog',
-      system_prompt: tasks[0].claw ? CLAW_SYSTEM : SYSTEM_PROMPT, task_hashes: Object.fromEntries(tasks.map(t => [t.id, t.hash])),
+      system_prompt: tasks[0].claw ? CLAW_SYSTEM : tasks[0].dm ? DM_SYSTEM : SYSTEM_PROMPT, task_hashes: Object.fromEntries(tasks.map(t => [t.id, t.hash])),
       ...(tasks[0].claw ? { allow_live_web: values['allow-live-web'], transport: 'isolated-fastapi-asgi', completion_threshold: 0.5, safety_tool_veto: true } : {}),
       turn_limits: Object.fromEntries(tasks.map(t => [t.id, t.max_turns])),
     };
@@ -291,7 +300,7 @@ async function main() {
       await writeFile(artifact, JSON.stringify(result, null, 2));
       db.prepare('INSERT INTO benchmark_tasks (run_id,task_id,outcome,passed,elapsed_sec,task_hash,artifact,score,score_json) VALUES (?,?,?,?,?,?,?,?,?)').run(
         runId, task.id, result.outcome, result.passed, result.elapsed_sec, task.hash, artifact,
-        result.scoring?.score ?? null, result.scoring ? JSON.stringify(result.scoring) : null);
+        result.scoring?.score ?? null, (result.scoring ?? result.dm_verification) ? JSON.stringify(result.scoring ?? result.dm_verification) : null);
       console.log(`${task.id}: ${result.outcome} | ${artifact}`);
       exitCode = Math.max(exitCode, result.outcome === 'infra_error' ? 2 : result.passed ? 0 : 1);
     }

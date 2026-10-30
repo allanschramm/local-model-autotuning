@@ -1,0 +1,35 @@
+{
+  "id": "parse_duration",
+  "name": "Human duration string parsing",
+  "issue": "Task source: parse_duration.\n\nFix durations.parse_duration. It parses strings like '1h30m', '45s', '2d', '1h 30m 15s' into whole seconds. Units are d/h/m/s and may appear in any order but never repeat. Whitespace between parts is optional. A bare integer means seconds. Raise ValueError on an empty string, an unknown unit, a repeated unit, or a negative number.\n\nYou are in a temporary benchmark workspace. Inspect the files, modify the implementation, and run the visible tests. Hidden tests will be added after you finish, so handle edge cases from the task description rather than hard-coding the visible tests. Finish only when the implementation is ready.",
+  "max_turns": 14,
+  "allowlist": [
+    "durations.py",
+    "tests/test_public_durations.py"
+  ],
+  "dm": {
+    "max_steps": 14,
+    "tags": [
+      "parsing",
+      "string",
+      "edge-cases"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [],
+    "required_changed_files": [],
+    "hidden_paths": [
+      "tests/test_hidden_durations.py"
+    ]
+  }
+}

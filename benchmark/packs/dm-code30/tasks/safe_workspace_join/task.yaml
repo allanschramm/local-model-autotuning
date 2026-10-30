@@ -1,0 +1,37 @@
+{
+  "id": "safe_workspace_join",
+  "name": "Workspace path traversal guard",
+  "issue": "Task source: safe_workspace_join.\n\nFix workspace.safe_join. It should resolve a user-supplied relative path inside the workspace root and raise ValueError for absolute paths or traversal outside the root. The implementation must work for sibling paths with similar prefixes.\n\nYou are in a temporary repository that mimics a real maintenance task. Inspect the files, make the smallest production-quality change, update tests when the task asks for a regression test, and run the visible tests. Hidden tests will be added after you finish, so preserve public behavior and handle edge cases.\n\nOnly these files may be changed: workspace.py.",
+  "max_turns": 16,
+  "allowlist": [
+    "workspace.py",
+    "tests/test_public_workspace.py"
+  ],
+  "dm": {
+    "max_steps": 16,
+    "tags": [
+      "maintenance",
+      "security",
+      "filesystem"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [
+      "workspace.py"
+    ],
+    "required_changed_files": [],
+    "hidden_paths": [
+      "tests/test_hidden_workspace.py"
+    ]
+  }
+}

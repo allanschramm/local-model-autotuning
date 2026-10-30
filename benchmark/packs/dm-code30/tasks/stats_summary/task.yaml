@@ -1,0 +1,35 @@
+{
+  "id": "stats_summary",
+  "name": "Statistics summary edge cases",
+  "issue": "Task source: stats_summary.\n\nFix stats.summarize. Return a dictionary with count, min, max, mean, and median. For an empty input, return count 0 and None for the numeric fields. Support odd and even sized inputs without mutating the caller's list.\n\nYou are in a temporary benchmark workspace. Inspect the files, modify the implementation, and run the visible tests. Hidden tests will be added after you finish, so handle edge cases from the task description rather than hard-coding the visible tests. Finish only when the implementation is ready.",
+  "max_turns": 14,
+  "allowlist": [
+    "stats.py",
+    "tests/test_public_stats.py"
+  ],
+  "dm": {
+    "max_steps": 14,
+    "tags": [
+      "algorithm",
+      "edge-cases",
+      "regression"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [],
+    "required_changed_files": [],
+    "hidden_paths": [
+      "tests/test_hidden_stats.py"
+    ]
+  }
+}

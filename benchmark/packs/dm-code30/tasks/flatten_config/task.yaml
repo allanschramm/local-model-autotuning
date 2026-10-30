@@ -1,0 +1,35 @@
+{
+  "id": "flatten_config",
+  "name": "Nested config flattening",
+  "issue": "Task source: flatten_config.\n\nFix flatten.flatten_config. It turns a nested dict into a flat dict whose keys are dot-joined paths: {'a': {'b': 1}} becomes {'a.b': 1}. Nesting can be any depth. An EMPTY nested dict is kept as a leaf with its own path and value {}. Lists are leaves and are not traversed. An empty input returns an empty dict. Raise ValueError if any key is not a string or contains a dot.\n\nYou are in a temporary benchmark workspace. Inspect the files, modify the implementation, and run the visible tests. Hidden tests will be added after you finish, so handle edge cases from the task description rather than hard-coding the visible tests. Finish only when the implementation is ready.",
+  "max_turns": 16,
+  "allowlist": [
+    "flatten.py",
+    "tests/test_public_flatten.py"
+  ],
+  "dm": {
+    "max_steps": 16,
+    "tags": [
+      "recursion",
+      "data-structure",
+      "edge-cases"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [],
+    "required_changed_files": [],
+    "hidden_paths": [
+      "tests/test_hidden_flatten.py"
+    ]
+  }
+}

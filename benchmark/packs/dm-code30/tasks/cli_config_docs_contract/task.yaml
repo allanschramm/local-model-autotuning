@@ -1,0 +1,46 @@
+{
+  "id": "cli_config_docs_contract",
+  "name": "CLI configuration docs contract",
+  "issue": "Task source: cli_config_docs_contract.\n\nFix the CLI configuration documentation flow across cli_docs.py, docs/configuration.md, and tests/test_public_cli_docs.py. render_config_table should include every CONFIG_OPTIONS entry, sorted by flag, with option/env/default values rendered as code. The docs page must embed the same generated table under the CONFIG_TABLE marker. Add regression coverage in tests/test_public_cli_docs.py so future config options cannot silently disappear.\n\nYou are in a temporary repository that mimics a real maintenance task. Inspect the files, make the smallest production-quality change, update tests when the task asks for a regression test, and run the visible tests. Hidden tests will be added after you finish, so preserve public behavior and handle edge cases.\n\nOnly these files may be changed: cli_docs.py, docs/configuration.md, tests/test_public_cli_docs.py.\nThese files must be changed: cli_docs.py, docs/configuration.md, tests/test_public_cli_docs.py.",
+  "max_turns": 18,
+  "allowlist": [
+    "cli_docs.py",
+    "docs/configuration.md",
+    "tests/test_public_cli_docs.py"
+  ],
+  "dm": {
+    "max_steps": 18,
+    "tags": [
+      "maintenance",
+      "docs",
+      "cli",
+      "regression",
+      "multi-file"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [
+      "cli_docs.py",
+      "docs/configuration.md",
+      "tests/test_public_cli_docs.py"
+    ],
+    "required_changed_files": [
+      "cli_docs.py",
+      "docs/configuration.md",
+      "tests/test_public_cli_docs.py"
+    ],
+    "hidden_paths": [
+      "tests/test_hidden_cli_docs.py"
+    ]
+  }
+}

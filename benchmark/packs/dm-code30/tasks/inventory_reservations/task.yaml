@@ -1,0 +1,35 @@
+{
+  "id": "inventory_reservations",
+  "name": "Inventory reservation semantics",
+  "issue": "Task source: inventory_reservations.\n\nFix inventory.Inventory. add should accumulate stock. reserve should return True and decrement stock when enough units exist, including exact matches. It should return False for unknown or insufficient stock. Negative quantities are invalid.\n\nYou are in a temporary benchmark workspace. Inspect the files, modify the implementation, and run the visible tests. Hidden tests will be added after you finish, so handle edge cases from the task description rather than hard-coding the visible tests. Finish only when the implementation is ready.",
+  "max_turns": 14,
+  "allowlist": [
+    "inventory.py",
+    "tests/test_public_inventory.py"
+  ],
+  "dm": {
+    "max_steps": 14,
+    "tags": [
+      "stateful",
+      "business-logic",
+      "edge-cases"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [],
+    "required_changed_files": [],
+    "hidden_paths": [
+      "tests/test_hidden_inventory.py"
+    ]
+  }
+}

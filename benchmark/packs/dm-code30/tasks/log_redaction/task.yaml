@@ -1,0 +1,38 @@
+{
+  "id": "log_redaction",
+  "name": "Structured log secret redaction",
+  "issue": "Task source: log_redaction.\n\nFix redact.redact_event. It scrubs a log event dict before it is written. Any key whose lowercased name contains password, secret, token, api_key or authorization has its value replaced with '***'. Redaction is recursive through nested dicts and through lists of dicts. The input event must NOT be mutated \u2014 return a new structure. Non-string values under a sensitive key are still replaced with '***'. A None value stays None (there is nothing to leak). Keys are matched case-insensitively.\n\nYou are in a temporary repository that mimics a real maintenance task. Inspect the files, make the smallest production-quality change, update tests when the task asks for a regression test, and run the visible tests. Hidden tests will be added after you finish, so preserve public behavior and handle edge cases.\n\nOnly these files may be changed: redact.py.",
+  "max_turns": 16,
+  "allowlist": [
+    "redact.py",
+    "tests/test_public_redact.py"
+  ],
+  "dm": {
+    "max_steps": 16,
+    "tags": [
+      "maintenance",
+      "security",
+      "logging",
+      "edge-cases"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [
+      "redact.py"
+    ],
+    "required_changed_files": [],
+    "hidden_paths": [
+      "tests/test_hidden_redact.py"
+    ]
+  }
+}

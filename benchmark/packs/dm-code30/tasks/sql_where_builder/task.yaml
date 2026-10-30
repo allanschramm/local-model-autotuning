@@ -1,0 +1,37 @@
+{
+  "id": "sql_where_builder",
+  "name": "Parameterised WHERE clause builder",
+  "issue": "Task source: sql_where_builder.\n\nFix query.build_where. It turns a dict of filters into a parameterised SQL fragment and returns (clause, params). Values must NEVER be inlined into the SQL \u2014 always emit a '?' placeholder and put the value in params, in the same order as the placeholders. Keys are sorted for deterministic output. A None value becomes 'col IS NULL' with no parameter. A list/tuple value becomes 'col IN (?, ?)' with one parameter per element; an empty list means the filter can never match, so emit '1 = 0' with no parameter for that key. An empty filter dict returns ('', []). Reject a column name that is not a valid identifier with ValueError.\n\nYou are in a temporary repository that mimics a real maintenance task. Inspect the files, make the smallest production-quality change, update tests when the task asks for a regression test, and run the visible tests. Hidden tests will be added after you finish, so preserve public behavior and handle edge cases.\n\nOnly these files may be changed: query.py.",
+  "max_turns": 18,
+  "allowlist": [
+    "query.py",
+    "tests/test_public_query.py"
+  ],
+  "dm": {
+    "max_steps": 18,
+    "tags": [
+      "maintenance",
+      "security",
+      "database"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [
+      "query.py"
+    ],
+    "required_changed_files": [],
+    "hidden_paths": [
+      "tests/test_hidden_query.py"
+    ]
+  }
+}

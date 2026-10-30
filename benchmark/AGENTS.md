@@ -18,6 +18,8 @@ Repository developers. Parent: [root contract](../AGENTS.md).
 - `claw-quick5`/`claw-full15` use `pi-claw-v1`: Pi runs original prompts/tool schemas against frozen FastAPI apps in a fresh Python ASGI process per task. No listening ports, built-in filesystem tools, retries or compaction. Preserve 4096 output tokens, original turn limits, capped tool output and legacy completion scoring/threshold 0.5. Store completion score separately from pass/fail; forbidden-tool safety checks veto passing. `wrong_data`/`wrong_recipients` remain explicitly unevaluated.
 - Claw's last five full-tier tasks need live web. Start those only with explicit `--allow-live-web` and `SERP_DEV_KEY`; otherwise record infrastructure errors with null score/pass. Service children receive a minimal environment and close before checkpointing. Never substitute mock web data for real-web tasks.
 - `benchmark_tasks.score`/`score_json` store Claw grading in SQLite through additive migration. Historical and workspace rows retain null weighted scores; never rewrite legacy result tables.
+- `dm-code30` uses `pi-dm-v1`: original 15 coding + 15 maintenance fixtures, prompts, commands, tags and step limits. Pi reads/writes only existing setup files and runs public tests through the fixed `workspace_test` command, with no shell or credential inheritance. Keep plans in responses. Hidden files are staged only in the post-agent verification copy; snapshot the diff first and enforce allowed/required changed-file rules even if tests pass. Store scope/hidden-test details in SQLite `score_json`, leaving the weighted score null.
+- DM hidden execution adds a harness-created empty pytest configuration to the original command prefix. Generated `pyproject.toml` must not control hidden-test selection; keep the bypass regression in the E2E.
 - Pi resources and session state are isolated from personal settings, skills, extensions, and repository instructions. Credentials come from environment, never result artifacts.
 - Write E2E checks before implementation; retain repeatable SQLite and trajectory evidence. Fixture verifiers are trusted code, not an OS sandbox for arbitrary datasets.
 
@@ -30,6 +32,7 @@ Repository developers. Parent: [root contract](../AGENTS.md).
 - `node --check main.mjs` checks syntax. `BENCHMARK_PYTHON=<venv-python> npm test` executes the standalone E2E and retains SQLite/trajectory evidence in the printed temp directory.
 - After changes to the LiveCodeBench importer, run the selected Python's `test/lcb_import_security.py` to check literal-only decoding and malformed-input rejection.
 - `BENCHMARK_PYTHON=<venv-python> node test/claw_e2e.mjs` verifies standalone Claw apps, grading, safety veto, fixture integrity, state isolation, disabled live web and SQLite evidence. Install `claw-requirements.txt` in that Python first.
+- `BENCHMARK_PYTHON=<venv-python> node test/dm_e2e.mjs` checks all 30 initial states, four upstream reference controls, public/hidden separation, scope enforcement, missing fixtures and path restrictions through Pi/pytest/SQLite.
 
 ## Child DOX Index
 - [packs/AGENTS.md](packs/AGENTS.md) — frozen dataset provenance, oracle isolation and reproduction. Default tasks and E2E execution remain owned by this parent.

@@ -1,0 +1,35 @@
+{
+  "id": "order_total_edges",
+  "name": "Order total business rules",
+  "issue": "Task source: order_total_edges.\n\nFix orders.order_total and apply_discount. Discount is a percentage from 0 to 100, applied before tax. Quantity defaults to 1. Return totals rounded to two decimals. Raise ValueError for invalid discount percentages.\n\nYou are in a temporary benchmark workspace. Inspect the files, modify the implementation, and run the visible tests. Hidden tests will be added after you finish, so handle edge cases from the task description rather than hard-coding the visible tests. Finish only when the implementation is ready.",
+  "max_turns": 14,
+  "allowlist": [
+    "orders.py",
+    "tests/test_public_orders.py"
+  ],
+  "dm": {
+    "max_steps": 14,
+    "tags": [
+      "bugfix",
+      "business-logic",
+      "edge-cases"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [],
+    "required_changed_files": [],
+    "hidden_paths": [
+      "tests/test_hidden_orders.py"
+    ]
+  }
+}

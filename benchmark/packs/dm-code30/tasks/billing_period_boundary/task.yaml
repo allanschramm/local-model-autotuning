@@ -1,0 +1,37 @@
+{
+  "id": "billing_period_boundary",
+  "name": "Billing period boundary arithmetic",
+  "issue": "Task source: billing_period_boundary.\n\nFix billing.period_end. Given a start date and a month count it returns the last day of the billing period: the day BEFORE the same day-of-month N months later. When the target month is too short, clamp to that month's last day before subtracting one day \u2014 so 2024-01-31 plus 1 month ends on 2024-02-28. Leap years must be handled. Raise ValueError for months < 1.\n\nYou are in a temporary repository that mimics a real maintenance task. Inspect the files, make the smallest production-quality change, update tests when the task asks for a regression test, and run the visible tests. Hidden tests will be added after you finish, so preserve public behavior and handle edge cases.\n\nOnly these files may be changed: billing.py.",
+  "max_turns": 16,
+  "allowlist": [
+    "billing.py",
+    "tests/test_public_billing.py"
+  ],
+  "dm": {
+    "max_steps": 16,
+    "tags": [
+      "maintenance",
+      "datetime",
+      "edge-cases"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [
+      "billing.py"
+    ],
+    "required_changed_files": [],
+    "hidden_paths": [
+      "tests/test_hidden_billing.py"
+    ]
+  }
+}

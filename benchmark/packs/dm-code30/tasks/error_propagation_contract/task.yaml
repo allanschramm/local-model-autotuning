@@ -1,0 +1,42 @@
+{
+  "id": "error_propagation_contract",
+  "name": "Cross-file error translation contract",
+  "issue": "Task source: error_propagation_contract.\n\nstorage.py raises low-level StorageError. service.py must translate it into the public NotFound / Unavailable exceptions declared in errors.py, per the contract in errors.py: a missing key becomes NotFound, any other storage failure becomes Unavailable, and the original exception must be attached as __cause__ (raise ... from ...). Programming errors such as TypeError must NOT be swallowed. Fix service.py only.\n\nYou are in a temporary repository that mimics a real maintenance task. Inspect the files, make the smallest production-quality change, update tests when the task asks for a regression test, and run the visible tests. Hidden tests will be added after you finish, so preserve public behavior and handle edge cases.\n\nOnly these files may be changed: service.py.\nThese files must be changed: service.py.",
+  "max_turns": 18,
+  "allowlist": [
+    "errors.py",
+    "storage.py",
+    "service.py",
+    "tests/test_public_service.py"
+  ],
+  "dm": {
+    "max_steps": 18,
+    "tags": [
+      "maintenance",
+      "error-handling",
+      "cross-file",
+      "code-understanding"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [
+      "service.py"
+    ],
+    "required_changed_files": [
+      "service.py"
+    ],
+    "hidden_paths": [
+      "tests/test_hidden_service.py"
+    ]
+  }
+}

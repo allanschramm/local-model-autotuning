@@ -1,0 +1,41 @@
+{
+  "id": "retry_regression_tests",
+  "name": "Retry policy fix with regression tests",
+  "issue": "Task source: retry_regression_tests.\n\nFix retry.should_retry and add regression coverage in tests/test_retry.py. Retry should be allowed for exceptions, HTTP 408, HTTP 429, and 5xx responses, but only while attempt < max_attempts. Do not retry ordinary 4xx responses.\n\nYou are in a temporary repository that mimics a real maintenance task. Inspect the files, make the smallest production-quality change, update tests when the task asks for a regression test, and run the visible tests. Hidden tests will be added after you finish, so preserve public behavior and handle edge cases.\n\nOnly these files may be changed: retry.py, tests/test_retry.py.\nThese files must be changed: retry.py, tests/test_retry.py.",
+  "max_turns": 18,
+  "allowlist": [
+    "retry.py",
+    "tests/test_retry.py"
+  ],
+  "dm": {
+    "max_steps": 18,
+    "tags": [
+      "maintenance",
+      "tests",
+      "networking"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [
+      "retry.py",
+      "tests/test_retry.py"
+    ],
+    "required_changed_files": [
+      "retry.py",
+      "tests/test_retry.py"
+    ],
+    "hidden_paths": [
+      "tests/test_hidden_retry.py"
+    ]
+  }
+}

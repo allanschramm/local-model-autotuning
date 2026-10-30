@@ -107,6 +107,27 @@ Reproduction needs `datasets`; running frozen tasks does not. The standalone E2E
 
 ## Protocol and evidence
 
+### DM-Code-Agent coding/maintenance
+
+```powershell
+node benchmark/main.mjs --pack dm-code30 --list
+node benchmark/main.mjs --pack dm-code30 --provider local --model <served-model-id> --base-url http://127.0.0.1:18080/v1 --context-window 65536 --python .\venv\Scripts\python.exe
+$env:BENCHMARK_PYTHON = (Resolve-Path .\venv\Scripts\python.exe).Path
+node benchmark/test/dm_e2e.mjs
+```
+
+`dm-code30` freezes all 15 coding and 15 maintenance tasks from DM-Code-Agent commit `e4530be37e6f972d9735381e524cab4b5f732ddd`, in upstream order. Original setup/hidden file contents, prompts, names, tags, both test commands, step limits and allowed/required changed-file lists are retained. Run one or several IDs with `--task`; without selection it runs all 30. Execution needs the selected Python with pytest, without installing `dm_agent`, mini-swe-agent, Docker or Hugging Face packages.
+
+`pi-dm-v1` uses the existing isolated Pi session with 4096 output tokens, temperature 0, thinking requested off, and the source task's step count as its turn limit. It adds `workspace_test`, a parameter-free tool that runs the source public pytest command with a minimal environment and bounded returned text. There is no shell or automatic command timeout, retry or continuation. File tools can read/write only the existing setup files; this pinned corpus needs no new files. Plans stay in responses, so the legacy mini-swe-agent's TODO.md convention does not add out-of-scope edits. New-file requests are policy failures. This tool/agent protocol is separate from both legacy mini-swe-agent and upstream DM agent scores.
+
+Hidden files never enter the model workspace. After the session, the harness snapshots changed bytes, excludes only cache/version-control directories, rejects symlinks, copies the workspace to a separate verification directory, then stages every declared hidden file at its original relative path. The source pytest command prefix is preserved; hidden execution additionally uses `-c` with a harness-created empty configuration. This prevents an edited `pyproject.toml` from selecting only public tests. Public tests remain runnable with the task workspace's configuration. Credentials and personal pytest plugins are not inherited. These file/tool restrictions are not an OS security sandbox for generated Python.
+
+Verification records the pre-verifier changed-file list, forbidden edits, missing required edits and hidden-test verdict in SQLite `benchmark_tasks.score_json` and the trajectory artifact. A correct implementation still fails `scope_violation` for a forbidden/missing required edit. Missing hidden fixtures or verifier infrastructure produces `passed=NULL`, never a fake zero. Hidden assertions run even when scope fails, so both diagnoses remain visible. Existing result rows are not rewritten and no weighted Claw score is assigned to this protocol.
+
+The pack's `source.json` records four whole-source hashes and a complete 30-task contract digest. `upstream/` contains read-only MIT source provenance; `oracles.json` holds four reference controls extracted from the pinned upstream test module, outside model tool access. They are not a 30-task gold solution set. The E2E rejects all 30 initial states, accepts those four references, verifies public/hidden separation, scope and path restrictions, syntax failures, missing fixtures and pytest-selection bypass prevention, and retains its SQLite/trajectory evidence.
+
+To reproduce, download these four files from `https://raw.githubusercontent.com/hwfengcs/DM-Code-Agent/e4530be37e6f972d9735381e524cab4b5f732ddd/` into a source directory, using their basenames: `dm_agent/benchmarks/tasks.py`, `dm_agent/benchmarks/models.py`, `tests/test_coding_benchmarks.py`, and `LICENSE`. Then run `python benchmark/import_dm.py --source <source-directory> --output <fresh-directory>`. The exporter checks every file hash before executing the stdlib-only data modules and refuses overwrite. The committed `packs/dm-code30/upstream/` directory can also serve as that source directory.
+
 ### Claw quick/full
 
 ```powershell
@@ -130,6 +151,8 @@ Safety is separate: declared `tool_not_called` and `wrong_action` calls veto a p
 Source task/service bytes remain unchanged under `packs/claw-tiers/upstream/` with MIT attribution and per-file hashes. The extracted completion scorer has its own pinned hash. Reproduce into a fresh directory using `python benchmark/import_claw.py --source <claw-checkout-containing-pinned-commit> --legacy-scorer benchmark/packs/claw-tiers/legacy_score.py --output <new-directory>`. The original checkout commit includes local upstream integration; the committed snapshot supplies every runtime file, so execution needs neither that checkout nor `autoresearch`.
 
 The dedicated E2E copies only `benchmark/` outside the repo, runs real mock apps through Pi with scripted model responses, checks positive/negative grading, safety veto, fixture integrity, task state isolation, migration of existing SQLite rows and disabled live web, and retains `results.db`/`verification.json`. Scripted controls are not canonical task solutions or model-quality measurements.
+
+### Workspace packs
 
 `pi-workspace-v2` uses Pi 1.4.0 with allowlisted `workspace_read` and `workspace_write` adapters over Pi tools, a fixed system prompt, temperature 0, thinking off, 4096 output tokens per turn, and each task's frozen turn limit. No shell, personal resources, compaction, or automatic recovery. This measures that constrained Pi configuration, not vanilla Pi or Terminal-Bench.
 

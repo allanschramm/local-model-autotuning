@@ -1,0 +1,37 @@
+{
+  "id": "patch_summary_name_status",
+  "name": "Git name-status patch summary",
+  "issue": "Task source: patch_summary_name_status.\n\nFix patch_summary.summarize_name_status so it can be used in a run report. It should parse git diff --name-status style lines, group added/modified/deleted/renamed files, ignore blank lines, and keep deterministic ordering.\n\nYou are in a temporary repository that mimics a real maintenance task. Inspect the files, make the smallest production-quality change, update tests when the task asks for a regression test, and run the visible tests. Hidden tests will be added after you finish, so preserve public behavior and handle edge cases.\n\nOnly these files may be changed: patch_summary.py.",
+  "max_turns": 16,
+  "allowlist": [
+    "patch_summary.py",
+    "tests/test_public_patch_summary.py"
+  ],
+  "dm": {
+    "max_steps": 16,
+    "tags": [
+      "maintenance",
+      "git",
+      "reporting"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [
+      "patch_summary.py"
+    ],
+    "required_changed_files": [],
+    "hidden_paths": [
+      "tests/test_hidden_patch_summary.py"
+    ]
+  }
+}

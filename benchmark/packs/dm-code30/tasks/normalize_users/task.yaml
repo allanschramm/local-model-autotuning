@@ -1,0 +1,35 @@
+{
+  "id": "normalize_users",
+  "name": "Normalize imported user records",
+  "issue": "Task source: normalize_users.\n\nFix users.normalize_users. It should return active users only, skip rows with invalid emails, trim names, lowercase and trim emails, deduplicate by email keeping the first active record, and sort the result by email.\n\nYou are in a temporary benchmark workspace. Inspect the files, modify the implementation, and run the visible tests. Hidden tests will be added after you finish, so handle edge cases from the task description rather than hard-coding the visible tests. Finish only when the implementation is ready.",
+  "max_turns": 14,
+  "allowlist": [
+    "users.py",
+    "tests/test_public_users.py"
+  ],
+  "dm": {
+    "max_steps": 14,
+    "tags": [
+      "data-cleaning",
+      "dedupe",
+      "edge-cases"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [],
+    "required_changed_files": [],
+    "hidden_paths": [
+      "tests/test_hidden_users.py"
+    ]
+  }
+}

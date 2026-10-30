@@ -1,0 +1,35 @@
+{
+  "id": "semver_compare",
+  "name": "Semantic version ordering",
+  "issue": "Task source: semver_compare.\n\nFix semver.compare. It returns -1, 0 or 1 comparing two semantic versions like '1.2.3' or '1.2.3-alpha.1'. Numeric parts compare numerically, so 1.10.0 is greater than 1.9.0. A version with a pre-release is LOWER than the same version without one. Pre-release identifiers compare part by part: numeric parts numerically, others lexically. Raise ValueError for a version that is not three dot-separated numbers.\n\nYou are in a temporary benchmark workspace. Inspect the files, modify the implementation, and run the visible tests. Hidden tests will be added after you finish, so handle edge cases from the task description rather than hard-coding the visible tests. Finish only when the implementation is ready.",
+  "max_turns": 16,
+  "allowlist": [
+    "semver.py",
+    "tests/test_public_semver.py"
+  ],
+  "dm": {
+    "max_steps": 16,
+    "tags": [
+      "algorithm",
+      "ordering",
+      "parsing"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [],
+    "required_changed_files": [],
+    "hidden_paths": [
+      "tests/test_hidden_semver.py"
+    ]
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "id": "rate_limiter_window",
+  "name": "Sliding window rate limiter",
+  "issue": "Task source: rate_limiter_window.\n\nFix ratelimit.SlidingWindowLimiter. allow(key, now) returns True and records the call when the key has made fewer than limit calls within the last window_seconds, otherwise returns False and records nothing. The window is sliding and half-open: a call exactly window_seconds old has expired and no longer counts. Keys are independent. Expired timestamps must be discarded so memory does not grow without bound. Raise ValueError for limit < 1 or window_seconds <= 0.\n\nYou are in a temporary benchmark workspace. Inspect the files, modify the implementation, and run the visible tests. Hidden tests will be added after you finish, so handle edge cases from the task description rather than hard-coding the visible tests. Finish only when the implementation is ready.",
+  "max_turns": 18,
+  "allowlist": [
+    "ratelimit.py",
+    "tests/test_public_ratelimit.py"
+  ],
+  "dm": {
+    "max_steps": 18,
+    "tags": [
+      "stateful",
+      "algorithm",
+      "edge-cases"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [],
+    "required_changed_files": [],
+    "hidden_paths": [
+      "tests/test_hidden_ratelimit.py"
+    ]
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "id": "packaging_ci_contract",
+  "name": "Packaging metadata and CI contract repair",
+  "issue": "Task source: packaging_ci_contract.\n\nFix the packaging and CI contract across packaging_contract.py, pyproject.toml, .github/workflows/ci.yml, and tests/test_public_packaging.py. The project must consistently support Python 3.10, 3.11, and 3.12; expose a >=3.10 requires-python floor; define a dev extra with pytest, ruff, and black; install that dev extra in CI; and run pytest, ruff, and black checks in CI. Add regression coverage in tests/test_public_packaging.py so future packaging or CI drift is caught.\n\nYou are in a temporary repository that mimics a real maintenance task. Inspect the files, make the smallest production-quality change, update tests when the task asks for a regression test, and run the visible tests. Hidden tests will be added after you finish, so preserve public behavior and handle edge cases.\n\nOnly these files may be changed: packaging_contract.py, pyproject.toml, .github/workflows/ci.yml, tests/test_public_packaging.py.\nThese files must be changed: packaging_contract.py, pyproject.toml, .github/workflows/ci.yml, tests/test_public_packaging.py.",
+  "max_turns": 20,
+  "allowlist": [
+    "packaging_contract.py",
+    "pyproject.toml",
+    ".github/workflows/ci.yml",
+    "tests/test_public_packaging.py"
+  ],
+  "dm": {
+    "max_steps": 20,
+    "tags": [
+      "maintenance",
+      "packaging",
+      "ci",
+      "regression",
+      "multi-file"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [
+      "packaging_contract.py",
+      "pyproject.toml",
+      ".github/workflows/ci.yml",
+      "tests/test_public_packaging.py"
+    ],
+    "required_changed_files": [
+      "packaging_contract.py",
+      "pyproject.toml",
+      ".github/workflows/ci.yml",
+      "tests/test_public_packaging.py"
+    ],
+    "hidden_paths": [
+      "tests/test_hidden_packaging_ci.py"
+    ]
+  }
+}

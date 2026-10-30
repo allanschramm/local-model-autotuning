@@ -1,0 +1,37 @@
+{
+  "id": "config_precedence",
+  "name": "Configuration precedence and type coercion",
+  "issue": "Task source: config_precedence.\n\nFix config_loader.load_config. Configuration precedence must be defaults < file_config < environment variables < CLI args. Coerce timeout to int and debug to bool for values from env or CLI.\n\nYou are in a temporary repository that mimics a real maintenance task. Inspect the files, make the smallest production-quality change, update tests when the task asks for a regression test, and run the visible tests. Hidden tests will be added after you finish, so preserve public behavior and handle edge cases.\n\nOnly these files may be changed: config_loader.py.",
+  "max_turns": 16,
+  "allowlist": [
+    "config_loader.py",
+    "tests/test_public_config_loader.py"
+  ],
+  "dm": {
+    "max_steps": 16,
+    "tags": [
+      "maintenance",
+      "config",
+      "regression"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [
+      "config_loader.py"
+    ],
+    "required_changed_files": [],
+    "hidden_paths": [
+      "tests/test_hidden_config_loader.py"
+    ]
+  }
+}

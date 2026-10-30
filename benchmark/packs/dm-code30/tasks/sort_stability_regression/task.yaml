@@ -1,0 +1,42 @@
+{
+  "id": "sort_stability_regression",
+  "name": "Stable ranking regression",
+  "issue": "Task source: sort_stability_regression.\n\nFix ranking.rank_items. Items are sorted by score descending, and ties must preserve the original input order (a stable sort). The returned list is new; the input must not be mutated. Items missing a 'score' key are treated as score 0. Add a regression test to tests/test_ranking.py that would fail if someone reintroduces an unstable tie-break.\n\nYou are in a temporary repository that mimics a real maintenance task. Inspect the files, make the smallest production-quality change, update tests when the task asks for a regression test, and run the visible tests. Hidden tests will be added after you finish, so preserve public behavior and handle edge cases.\n\nOnly these files may be changed: ranking.py, tests/test_ranking.py.\nThese files must be changed: ranking.py, tests/test_ranking.py.",
+  "max_turns": 16,
+  "allowlist": [
+    "ranking.py",
+    "tests/test_ranking.py"
+  ],
+  "dm": {
+    "max_steps": 16,
+    "tags": [
+      "maintenance",
+      "algorithm",
+      "regression",
+      "tests"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [
+      "ranking.py",
+      "tests/test_ranking.py"
+    ],
+    "required_changed_files": [
+      "ranking.py",
+      "tests/test_ranking.py"
+    ],
+    "hidden_paths": [
+      "tests/test_hidden_ranking.py"
+    ]
+  }
+}

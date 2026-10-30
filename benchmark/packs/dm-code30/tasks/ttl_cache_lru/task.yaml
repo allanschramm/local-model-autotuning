@@ -1,0 +1,35 @@
+{
+  "id": "ttl_cache_lru",
+  "name": "TTL cache with LRU eviction",
+  "issue": "Task source: ttl_cache_lru.\n\nComplete TTLCache in cache.py. get should return the default for missing or expired keys. Entries older than ttl_seconds expire. When max_size is exceeded, evict the least recently used live entry. A successful get should update recency.\n\nYou are in a temporary benchmark workspace. Inspect the files, modify the implementation, and run the visible tests. Hidden tests will be added after you finish, so handle edge cases from the task description rather than hard-coding the visible tests. Finish only when the implementation is ready.",
+  "max_turns": 18,
+  "allowlist": [
+    "cache.py",
+    "tests/test_public_cache.py"
+  ],
+  "dm": {
+    "max_steps": 18,
+    "tags": [
+      "stateful",
+      "algorithm",
+      "hidden-tests"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [],
+    "required_changed_files": [],
+    "hidden_paths": [
+      "tests/test_hidden_cache.py"
+    ]
+  }
+}

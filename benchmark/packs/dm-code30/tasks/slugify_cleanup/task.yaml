@@ -1,0 +1,35 @@
+{
+  "id": "slugify_cleanup",
+  "name": "Robust slugify cleanup",
+  "issue": "Task source: slugify_cleanup.\n\nFix text_utils.slugify. It should lowercase text, replace every run of non-alphanumeric characters with one hyphen, collapse repeated separators, and strip leading/trailing hyphens.\n\nYou are in a temporary benchmark workspace. Inspect the files, modify the implementation, and run the visible tests. Hidden tests will be added after you finish, so handle edge cases from the task description rather than hard-coding the visible tests. Finish only when the implementation is ready.",
+  "max_turns": 12,
+  "allowlist": [
+    "text_utils.py",
+    "tests/test_public_slugify.py"
+  ],
+  "dm": {
+    "max_steps": 12,
+    "tags": [
+      "bugfix",
+      "string",
+      "hidden-tests"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [],
+    "required_changed_files": [],
+    "hidden_paths": [
+      "tests/test_hidden_slugify.py"
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "id": "settings_env_precedence",
+  "name": "Settings precedence across two modules",
+  "issue": "Task source: settings_env_precedence.\n\ndefaults.py holds the built-in defaults and the ENV_PREFIX. settings.py must resolve settings as defaults < environment < overrides. Environment variables are read as ENV_PREFIX + the UPPERCASED key. Only keys present in defaults are recognised; unknown environment variables with the prefix are ignored. Values coming from the environment must be coerced to the TYPE OF THE DEFAULT (int, float, bool, str); for bool accept 1/true/yes/on case-insensitively as True and 0/false/no/off as False. An env value that cannot be coerced raises ValueError naming the key. Fix settings.py only.\n\nYou are in a temporary repository that mimics a real maintenance task. Inspect the files, make the smallest production-quality change, update tests when the task asks for a regression test, and run the visible tests. Hidden tests will be added after you finish, so preserve public behavior and handle edge cases.\n\nOnly these files may be changed: settings.py.\nThese files must be changed: settings.py.",
+  "max_turns": 18,
+  "allowlist": [
+    "defaults.py",
+    "settings.py",
+    "tests/test_public_settings.py"
+  ],
+  "dm": {
+    "max_steps": 18,
+    "tags": [
+      "maintenance",
+      "config",
+      "cross-file",
+      "code-understanding"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [
+      "settings.py"
+    ],
+    "required_changed_files": [
+      "settings.py"
+    ],
+    "hidden_paths": [
+      "tests/test_hidden_settings.py"
+    ]
+  }
+}

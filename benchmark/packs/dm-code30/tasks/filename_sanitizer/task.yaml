@@ -1,0 +1,38 @@
+{
+  "id": "filename_sanitizer",
+  "name": "Cross-platform filename sanitising",
+  "issue": "Task source: filename_sanitizer.\n\nFix filenames.sanitize. It makes an arbitrary string safe as a single file name: strip directory separators and the characters <>:\"|?* , collapse runs of the replacement underscore, and trim leading/trailing dots, spaces and underscores. Preserve non-ASCII letters such as CJK. Reserved Windows device names (CON, PRN, AUX, NUL, COM1-9, LPT1-9, case-insensitive, with or without extension) get an underscore prefix. If nothing usable remains, return 'untitled'. Cap the result at 100 characters.\n\nYou are in a temporary repository that mimics a real maintenance task. Inspect the files, make the smallest production-quality change, update tests when the task asks for a regression test, and run the visible tests. Hidden tests will be added after you finish, so preserve public behavior and handle edge cases.\n\nOnly these files may be changed: filenames.py.",
+  "max_turns": 18,
+  "allowlist": [
+    "filenames.py",
+    "tests/test_public_filenames.py"
+  ],
+  "dm": {
+    "max_steps": 18,
+    "tags": [
+      "maintenance",
+      "filesystem",
+      "encoding",
+      "edge-cases"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [
+      "filenames.py"
+    ],
+    "required_changed_files": [],
+    "hidden_paths": [
+      "tests/test_hidden_filenames.py"
+    ]
+  }
+}

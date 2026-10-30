@@ -1,0 +1,35 @@
+{
+  "id": "merge_intervals",
+  "name": "Interval merging with touching ranges",
+  "issue": "Task source: merge_intervals.\n\nFix intervals.merge. It takes a list of (start, end) tuples and returns a new sorted list where overlapping AND touching intervals are merged: (1, 3) and (3, 5) become (1, 5). The input may be unsorted and must not be mutated. An empty list returns an empty list. Raise ValueError if any interval has start > end.\n\nYou are in a temporary benchmark workspace. Inspect the files, modify the implementation, and run the visible tests. Hidden tests will be added after you finish, so handle edge cases from the task description rather than hard-coding the visible tests. Finish only when the implementation is ready.",
+  "max_turns": 14,
+  "allowlist": [
+    "intervals.py",
+    "tests/test_public_intervals.py"
+  ],
+  "dm": {
+    "max_steps": 14,
+    "tags": [
+      "algorithm",
+      "edge-cases",
+      "hidden-tests"
+    ],
+    "visible_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "hidden_test_command": [
+      "{python}",
+      "-m",
+      "pytest",
+      "-q"
+    ],
+    "allowed_changed_files": [],
+    "required_changed_files": [],
+    "hidden_paths": [
+      "tests/test_hidden_intervals.py"
+    ]
+  }
+}
