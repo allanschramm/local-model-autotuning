@@ -4,6 +4,15 @@ The bounded tuning entrypoint is `python -m autoresearch.tuning`. It imports no 
 
 ## Run a bounded Search
 
+After a fresh clone, install root `requirements.txt` in the repository venv and seed the local Baseline before importing this module, including `--help`:
+
+```powershell
+Copy-Item autoresearch/core/config.py.example autoresearch/core/config.py
+.\venv\Scripts\python.exe -m autoresearch.tuning --help
+```
+
+On POSIX use `cp` and `./venv/bin/python`. Keep an existing `config.py`; the seed command is for a fresh clone only. Configure its model and engine before executing a Search.
+
 Review the portable [example plan](tuning-plan.example.json) and select the intended harness's minimum context, reachable engine values, and finite Trial budget. Context candidates must be at least the greater of the plan's minimum and the existing Baseline context. Plans cannot change the model, tune sampler settings, or optimize hardware-safety budgets/measurement policy.
 
 ```powershell
