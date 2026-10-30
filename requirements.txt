@@ -1,11 +1,9 @@
-# Runtime dependencies for local-model-autoresearch
+# Local auto-tuning runtime and model provisioning tools.
 # Tested with Python 3.11+
 # Install: uv pip install --python ./venv/Scripts/python.exe -r requirements.txt
 #      or: ./venv/Scripts/python.exe -m pip install -r requirements.txt
 
-# Core autoloop + bench harness
-evalplus            # Coding benchmark (HumanEval+ / MBPP+)
-datasets            # BigCodeBench Hard via HF (benchmark_coding)
+# Runtime
 gguf                # GGUF metadata — MoE vs dense (model_arch); hard required
 
 # Model discovery + download
@@ -14,18 +12,11 @@ huggingface_hub[cli] # `hf` CLI used to download GGUF files
 
 # HTTP: owned code uses stdlib urllib (LlamaClient, SGLang health, serve-config)
 
-# Config + YAML (autoloop alias YAML, claw-eval task defs)
+# Local configuration and launcher YAML
 pyyaml
 
 # Operator scripts
 psutil              # scripts/check_hardware.py RAM probe (falls back to wmic/os if missing)
 
-# Claw-Eval mock services (claw-eval/mock_services/* need these)
-fastapi>=0.115
-uvicorn>=0.30
-pypdf>=4.0
-
-# Dev / tests (also needed for `pytest`)
-pytest
-pre-commit
-ruff
+# Optional legacy quality evaluation: requirements-legacy.txt
+# Development and test tools: requirements-dev.txt

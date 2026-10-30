@@ -8,10 +8,11 @@ Active benchmarks (val_score = 0.35*LCB + 0.25*HE_strict + 0.25*MBPP + 0.15*BigC
   - LiveCodeBench v6     : contamination-free competitive programming, sampled
   - BigCodeBench Hard    : 148 library-call tasks, sampled
 
-Loaders fetch data on first use and cache to data/ subdir. No new pip deps:
-  - HumanEval+/MBPP+  : evalplus (already required)
+Loaders fetch data on first use and cache to data/ subdir. Install
+requirements-legacy.txt before running these optional quality evaluations:
+  - HumanEval+/MBPP+  : evalplus
   - LiveCodeBench v6  : base64+zlib+pickle JSONL fetched via huggingface_hub
-  - BigCodeBench Hard : HF datasets cache (datasets + pyarrow already installed)
+  - BigCodeBench Hard : HF datasets cache (datasets + pyarrow)
 
 Coding test subprocesses always run with an isolated temp cwd so relative
 artifacts (notably BigCodeBench ``files.zip``) cannot leak into the repo root.

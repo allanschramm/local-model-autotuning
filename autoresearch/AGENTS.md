@@ -41,6 +41,7 @@ Repository developers.
 ## Work Guidance
 - Implement mock classes for system hardware calls (like GPU VRAM) to ensure code remains testable across environments.
 - Keep dependencies minimal and avoid adding new third-party libraries.
+- Bounded tuning uses root runtime requirements. Legacy quality runs require `requirements-legacy.txt`; importing tuning and using metadata/SQLite readers must remain possible without that optional group. Developer checks additionally use `requirements-dev.txt`.
 
 - Legacy benchmark public exports remain compatible and load evaluation runners lazily; catalog/config readers must not import model evaluation.
 - Read-only consumers use `core/trial_store.py` and canonical SQLite without importing `runners/run.py`.

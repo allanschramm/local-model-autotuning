@@ -15,6 +15,7 @@ Local model auto-tuning: configured ctx × TPS under fixed PPL and minimum-conte
 Repository developers.
 
 ## Local Contracts
+- Installation profiles: `requirements.txt` is tuning/runtime plus local model tools; legacy quality evaluation is opt-in via `requirements-legacy.txt`, and developer tooling via `requirements-dev.txt`. CI installs both optional profiles for compatibility and separately verifies a fresh runtime-only installation.
 - Original AILOCAL contributions use PolyForm Noncommercial 1.0.0; see LICENSE and NOTICE.md. Imported materials retain their own licenses. Describe this as source-available, not OSI-approved open source.
 - Tuning and legacy Trial Baseline only via gitignored `autoresearch/core/config.py` (seed from `config.py.example`). No legacy Trial CLI flag soup. `program.md` / harnesses fixed unless user asks.
 - **Upstream-first (mandatory):** Check upstream `llama.cpp/common/arg.cpp` `add_opt` (`~310` flags) + `docs/llamacpp-toolset.md` + `docs/llamacpp-flags-audit.md` before adding any `ENGINE_*/SAMPLER_*` flag or estimator — `90%` already exists upstream (`fit`/`yarn`/`dry`/`xtc`/`fit-target`/`warmup`/`cache-ram`/`kv-unified`/`repack` etc.), harness is passthrough mapper in `autoresearch/core/llama_runner.py` `_build_cmd`; keep only host/WDDM/thermal/Pareto gates (`common/fit.h:14` assumes unlimited host).
@@ -41,6 +42,7 @@ Repository developers.
 - E2E here = a harness run that ends in a `results.db` artifact (`benchmark_search.py --validation`, Trial claw-full/coding-10, `scripts/setup-check.sh`). The unit suite in `tests/` is a closed set of exceptions: silent store/rank corruption, security holes, platform branches the rig never executes, and fail-closed hardware gates (contract in `tests/AGENTS.md`).
 
 ## Verification
+- Clean installation: `.\venv\Scripts\python.exe scripts/test_tuning_install_e2e.py` creates an isolated venv, checks runtime-only dependencies/readiness and retains tuning/legacy SQLite evidence. It installs public Python packages without loading a model.
 - Main merge protection requires `validate`, `Analyze (python)` and the `CodeQL` security result. Keep workflow names and required contexts synchronized.
 - CI validates Ruff/pytest, isolated tuning and legacy consumer E2Es; it retains SQLite and JSON evidence on success or failure without model/API spend.
 - Legacy compatibility: `.\venv\Scripts\python.exe scripts/test_legacy_consumers_e2e.py` (synthetic catalog, real SQLite/HTTP/CLI consumers).
@@ -125,6 +127,7 @@ Default section order:
 
 ## Child DOX Index
 - [LICENSE](LICENSE) · [NOTICE.md](NOTICE.md) — original-contribution license and third-party scope.
+- [requirements.txt](requirements.txt) · [requirements-legacy.txt](requirements-legacy.txt) · [requirements-dev.txt](requirements-dev.txt) — runtime, optional legacy evaluation and development installation profiles.
 
 - [autoresearch/AGENTS.md](autoresearch/AGENTS.md) — package (config, runners, benchmarks)
 - [ui/AGENTS.md](ui/AGENTS.md) — operator dashboard

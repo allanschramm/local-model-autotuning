@@ -2,7 +2,7 @@
 # Does NOT install into llama.cpp / claw-eval / parent Nexus-System.
 #
 # Setup (once, from repo root):
-#   uv pip install --python ./venv/Scripts/python.exe -r requirements.txt
+#   uv pip install --python ./venv/Scripts/python.exe -r requirements-dev.txt -r requirements-legacy.txt
 #   .\venv\Scripts\pre-commit.exe install
 # Manual:
 #   .\venv\Scripts\pre-commit.exe run --all-files

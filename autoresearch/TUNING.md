@@ -13,6 +13,8 @@ Copy-Item autoresearch/core/config.py.example autoresearch/core/config.py
 
 On POSIX use `cp` and `./venv/bin/python`. Keep an existing `config.py`; the seed command is for a fresh clone only. Configure its model and engine before executing a Search.
 
+The default requirements contain tuning/runtime and local model tools only. Legacy quality evaluation is an optional `requirements-legacy.txt` installation; developer tools are in `requirements-dev.txt`. Neither optional group is required for this bounded Search or its simulated E2E.
+
 Review the portable [example plan](tuning-plan.example.json) and select the intended harness's minimum context, reachable engine values, and finite Trial budget. Context candidates must be at least the greater of the plan's minimum and the existing Baseline context. Plans cannot change the model, tune sampler settings, or optimize hardware-safety budgets/measurement policy.
 
 ```powershell

@@ -1,0 +1,9 @@
+# Existing quality evaluation entrypoints; independent Pi Benchmark stays deferred.
+-r requirements.txt
+
+evalplus            # HumanEval+ / MBPP+
+datasets            # BigCodeBench Hard
+fastapi>=0.115      # Claw mock services
+uvicorn>=0.30
+pypdf>=4.0
+pytest              # Frozen workspace/DM public and hidden verifiers

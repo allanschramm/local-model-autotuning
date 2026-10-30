@@ -12,7 +12,7 @@ Repository operators and developers.
 - `model_up.py` (global `model-up`) must work from any cwd: resolve `--model` and the Fingerprint `SPEC_DRAFT_MODEL` to absolute paths, and spawn `llama-server` with `cwd=REPO_ROOT`.
 - `models/aliases/model-up.cmd` (local Windows launcher, **never committed**) must invoke the **repo venv** python, falling back to bare `python` only when absent. A bare system `python` has no `gguf`, and `model_up.py` would then drop `--n-cpu-moe` on a MoE (`GGUFMetadataError` now makes that fail closed rather than spill).
 - `model_up.py` serves the Fingerprint file (issue #52, ADR 0014 phase 2): alias gives identity + local bind (`model`, `alias`, `host`, `port`, `llama_cpp_root`); engine flags and optional sampler defaults come from `fingerprints/<stem>.json` via the same subset/order as the trial runner (incl. SPEC auto-MTP + `--n-cpu-moe` auto). Missing/invalid file fails closed (exit 1, never alias-flag soup); stale alias `flags:` are ignored with a NOTE. Single-load gate unchanged. Engine flags pass through `load_mode_flag` (`NO_MMAP`/`MLOCK` -> `--load-mode`) and `build_command` runs `assert_flags_supported`, so an engine bump that dropped a flag fails before spawn instead of at startup.
-- `setup-check.sh` is the canonical readiness verification script (supports GPU acceleration and CPU-only builds). It must import-check every package listed in root `requirements.txt` (including `gguf`).
+- `setup-check.sh` is the canonical readiness verification script (GPU acceleration or CPU-only). It uses the repo `venv/` Python, imports every runtime package in root `requirements.txt` and fails when those packages are missing. Optional legacy/development packages are not readiness requirements.
 
 ## Work Guidance
 - Use `serve-config.py` as the preferred CLI helper to start/stop the llama-server daemon based on the mutable Baseline in `config.py`. It runs VRAM + host-memory preflight before spawn and exits 2 on reject. `build_args` maps `NO_MMAP`/`MLOCK` through `load_mode_flag` (`--load-mode`; `--no-mmap` is retired upstream) and both `serve` and `print-cmd` run `assert_flags_supported`, exiting 2 on flag drift.
@@ -29,6 +29,7 @@ Repository operators and developers.
 - `test_legacy_consumers_e2e.py` verifies isolated imports, CLI exports and read-only SQLite/HTTP consumers using synthetic catalog metadata; it retains SQLite and JSON evidence without external datasets or model loading.
 
 ## Verification
+- `test_tuning_install_e2e.py`: fresh venv installation from runtime requirements, optional-package absence, readiness with simulated external tools, missing-runtime rejection and existing tuning/legacy consumer E2Es. Retains package inventory, logs, SQLite and verification JSON; no model/GPU load.
 - `test_tuning_e2e.py`: copies only tuning/runtime sources and public data outside the checkout, rejects quality-benchmark imports, and verifies guarded native children, full-context HTTP measurement, fixed PPL reference, Pareto alternatives and SQLite/Fingerprint evidence. No GPU/model load. Retain the printed artifacts; `TUNING_E2E_DIR` must point to a fresh directory when supplied.
 - Test script changes locally by executing them.
 - `rank_results.py`: `.\venv\Scripts\python.exe -m pytest tests/test_rank_results.py`
@@ -40,6 +41,7 @@ Repository operators and developers.
 - Git pre-commit (Ruff/pytest) is repo-root owned — see root `AGENTS.md` Verification + `.pre-commit-config.yaml`.
 
 ## Child DOX Index
+- [test_tuning_install_e2e.py](test_tuning_install_e2e.py) — clean runtime installation and optional dependency isolation with SQLite evidence.
 - [test_legacy_consumers_e2e.py](test_legacy_consumers_e2e.py) ? isolated catalog, CLI, SQLite and dashboard compatibility evidence.
 - [test_tuning_e2e.py](test_tuning_e2e.py) — standalone finite tuning E2E with simulated model/hardware, real HTTP/native-process/SQLite evidence.
 - [bench_openvino.py](bench_openvino.py) — optional OpenVINO GenAI CPU/iGPU benchmark with separate prefill/decode TPS output.

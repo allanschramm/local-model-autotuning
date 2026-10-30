@@ -19,12 +19,15 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: requirements.txt
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+            requirements-legacy.txt
 
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements-dev.txt -r requirements-legacy.txt
 
       - name: Ruff + pytest
         run: python scripts/run_validate.py
@@ -52,3 +55,17 @@ jobs:
             ${{ runner.temp }}/legacy-consumers-e2e-*/*.log
             ${{ runner.temp }}/legacy-consumers-e2e-*/ranking.txt
             ${{ runner.temp }}/legacy-consumers-e2e-*/dashboard.json
+      - name: Clean tuning installation E2E without quality dependencies
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: python scripts/test_tuning_install_e2e.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tuning-install-evidence
+          path: |
+            ${{ runner.temp }}/tuning-install-e2e-*/verification.json
+            ${{ runner.temp }}/tuning-install-e2e-*/*.log
+            ${{ runner.temp }}/tuning-install-e2e-*/tuning/
+            ${{ runner.temp }}/tuning-install-e2e-*/legacy/*/results.db
+            ${{ runner.temp }}/tuning-install-e2e-*/legacy/*/verification.json

@@ -122,6 +122,14 @@ python3 -m venv venv
 
 Depois baixe o runtime `llama.cpp` (ver [seção Runtime (release)](#runtime-do-llamacpp-release-primeiro) abaixo).
 
+`requirements.txt` instala o auto-tuning e as ferramentas locais de modelos. Para usar os avaliadores legados de qualidade, instale também `requirements-legacy.txt`. Para desenvolvimento, instale `requirements-dev.txt`; a validação completa usa os dois arquivos opcionais:
+
+```powershell
+.\venv\Scripts\python.exe -m pip install -r requirements-dev.txt -r requirements-legacy.txt
+```
+
+Em Linux/macOS use `./venv/bin/python`. Os arquivos opcionais incluem automaticamente as dependências do tuning. O benchmark independente com Pi permanece adiado.
+
 
 ### Baseline local (`config.py`)
 

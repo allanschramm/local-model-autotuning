@@ -1,5 +1,5 @@
 #!/bin/bash
-# setup-check.sh — Verifica todos os pré-requisitos antes do autoloop rodar.
+# setup-check.sh — Verifica os pré-requisitos do auto-tuning local.
 # Uso: bash scripts/setup-check.sh
 # Exit 0 se tudo OK, não-zero se algum pré-requisito crítico falhou.
 
@@ -30,8 +30,15 @@ echo ""
 
 # 1. Python 3.11+
 echo "--- Python ---"
-if command -v python3 &>/dev/null; then
-    py_version=$(python3 --version 2>&1 | grep -oE '[0-9]+\.[0-9]+')
+PYTHON_BIN=""
+for candidate in "$REPO_ROOT/venv/bin/python" "$REPO_ROOT/venv/Scripts/python.exe"; do
+    if [[ -x "$candidate" ]]; then
+        PYTHON_BIN="$candidate"
+        break
+    fi
+done
+if [[ -n "$PYTHON_BIN" ]]; then
+    py_version=$("$PYTHON_BIN" --version 2>&1 | grep -oE '[0-9]+\.[0-9]+')
     py_major=$(echo "$py_version" | cut -d. -f1)
     py_minor=$(echo "$py_version" | cut -d. -f2)
     if [[ "$py_major" -ge 3 && "$py_minor" -ge 11 ]]; then
@@ -40,7 +47,8 @@ if command -v python3 &>/dev/null; then
         fail "Python $py_version (need >= 3.11)"
     fi
 else
-    fail "python3 not found"
+    fail "Project venv Python not found; create venv/ and install requirements.txt"
+    exit 1
 fi
 
 # 2. CUDA / NVIDIA / AMD driver check
@@ -157,10 +165,10 @@ fi
 echo ""
 echo "--- Python dependencies ---"
 if [[ -f "$REPO_ROOT/requirements.txt" ]]; then
-    if python3 -c "import yaml, huggingface_hub, gguf, evalplus, datasets, psutil, pytest, fastapi, uvicorn" 2>/dev/null; then
-        ok "Core Python deps installed"
+    if "$PYTHON_BIN" -c "import yaml, huggingface_hub, gguf, psutil" 2>/dev/null; then
+        ok "Core tuning dependencies installed"
     else
-        warn "Some Python deps missing (pip install -r requirements.txt)"
+        fail "Missing tuning dependencies (venv Python -m pip install -r requirements.txt)"
     fi
 else
     warn "requirements.txt not found"
@@ -211,6 +219,6 @@ else
     fi
     echo ""
     echo ""
-    echo "Fix the FAIL items above before running autoloop."
+    echo "Fix the FAIL items above before running tuning."
     exit 1
 fi
