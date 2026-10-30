@@ -28,6 +28,7 @@ Durable record of architecture decisions for the `local-model-autotuning` projec
 - Numbering must be strictly sequential without gaps.
 
 ## Child DOX Index
+- [`0019-tuning-only-release.md`](./0019-tuning-only-release.md) — local tuning release; independent Benchmark publication deferred (partially supersedes 0018).
 - [`0001-deepen-llama-server-runner.md`](./0001-deepen-llama-server-runner.md) — Deepen llama-server runner.
 - [`0002-consolidated-evaluation-harness.md`](./0002-consolidated-evaluation-harness.md) — Consolidated evaluation harness.
 - [`0003-in-process-benchmark-orchestration.md`](./0003-in-process-benchmark-orchestration.md) — In-process benchmark orchestration.

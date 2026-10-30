@@ -1,10 +1,12 @@
 # local-model-autoresearch
 
-## Separação em módulos
+## Auto-tuning local
 
 - **Auto tuning:** [`autoresearch/TUNING.md`](autoresearch/TUNING.md) documenta a Search finita de TPS × contexto sob limite fixo de PPL, independente dos benchmarks de qualidade.
 
-O tuning possui verificação E2E fora do checkout e evidência SQLite. Entrypoints legados permanecem por compatibilidade; o Benchmark com Pi segue o plano do [ADR 0018](docs/adr/0018-independent-pi-benchmark-and-context-tuning.md).
+O tuning possui verificação E2E fora do checkout e evidência SQLite. Entrypoints legados permanecem por compatibilidade. O benchmark independente com Pi fica adiado; veja o [escopo desta entrega](docs/adr/0019-tuning-only-release.md).
+
+Código próprio: [PolyForm Noncommercial 1.0.0](LICENSE), titular AILOCAL. Uso comercial exige autorização separada; componentes de terceiros mantêm suas próprias licenças. Veja [NOTICE.md](NOTICE.md).
 
 Otimizador autônomo (hill-climbing) de flags de runtime de LLMs locais via `llama.cpp`. Baseado em [karpathy/autoresearch](https://github.com/karpathy/autoresearch).
 
@@ -71,7 +73,7 @@ O agente vai:
 5. Semear e editar o Baseline (`cp autoresearch/core/config.py.example autoresearch/core/config.py`, depois definir `MODEL`)
 6. Caminho atual: revisar o plano e executar a Search finita de [TPS × contexto](autoresearch/TUNING.md); medir qualidade separadamente. O autoloop fica como compatibilidade operada pelo humano.
 
-**Resultado:** `results.db` com medições e alternativas Pareto, acompanhadas de Fingerprints e evidências. O caminho novo preserva `config.py`; a qualidade é medida separadamente com Pi.
+**Resultado:** `results.db` com medições e alternativas Pareto, acompanhadas de Fingerprints e evidências. O caminho novo preserva `config.py`; os protocolos legados de qualidade continuam disponíveis separadamente.
 
 ---
 
@@ -141,27 +143,14 @@ Output verde = pronto pro autoloop.
 
 ---
 
-## 🎓 Curso Prático & Utilitários para Alunos
+## Utilitários
 
-Este repositório inclui uma jornada publicada de 6 aulas em HTML (Módulo 0 + Semana 1). A Semana 2 permanece visível como currículo em construção:
+Os materiais do curso em `teach/` são locais e não acompanham o clone público. Os utilitários disponíveis incluem:
 
-* **Portal Interativo:** Abra [teach/index.html](teach/index.html) no navegador para acompanhar as 6 aulas, práticas e quizzes publicados.
-* **Diagnóstico de Hardware:** `.\venv\Scripts\python.exe scripts\check_hardware.py` (orienta modelo GGUF, GPU e contexto sem estimar TPS).
-* **Validação de Servidor e TPS:** `.\venv\Scripts\python.exe scripts\verify_setup.py --port 18080` (testa o servidor local e mede a velocidade real em tokens/s).
+- Diagnóstico de hardware: `.\venv\Scripts\python.exe scripts/check_hardware.py`.
+- Validação do servidor e TPS: `.\venv\Scripts\python.exe scripts/verify_setup.py --port 18080`.
 
-> **📺 AILOCAL Essentials for Devs (gravação + Q&A ao vivo)**
->
-> Este laboratório no GitHub é e continuará 100% gratuito — todas as lições, práticas e ferramentas ficam aqui.
->
-> Se você prefere uma experiência guiada, o **AILOCAL Essentials for Devs** oferece:
-> - Gravação completa (disponível imediatamente)
-> - Q&A ao vivo toda quarta 19h–20h30 Brasília
-> - Garantia 15+15 (reembolso + R$50 se preencher o formulário)
->
-> **Pré-venda em agosto:** 10% de desconto (cupom PREVENDA10 já aplicado no link).
->
-> - Detalhes: [ailocal.com.br/treinamentos/essentials](https://ailocal.com.br/treinamentos/essentials)
-> - Checkout: [Inscrição com desconto](https://pay.hotmart.com/J106746304H?checkoutMode=6&off=3u0t903b&offDiscount=PREVENDA10)
+O código próprio é disponibilizado para uso não comercial conforme a licença.
 
 ---
 

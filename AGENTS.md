@@ -9,12 +9,13 @@
 <!-- Scope: repo development agents. Research loop agents → read program.md -->
 
 ## Purpose
-Auto tuning and independent model Benchmark, separated in stages under [ADR 0018](docs/adr/0018-independent-pi-benchmark-and-context-tuning.md). Target tuning frontier = configured ctx × TPS under PPL and minimum-context constraints; legacy four-axis reports remain available. Domain language: [CONTEXT.md](CONTEXT.md).
+Local model auto-tuning: configured ctx × TPS under fixed PPL and minimum-context constraints. Legacy four-axis reports remain available. Independent Benchmark delivery is deferred under [ADR 0019](docs/adr/0019-tuning-only-release.md). Domain language: [CONTEXT.md](CONTEXT.md).
 
 ## Ownership
 Repository developers.
 
 ## Local Contracts
+- Original AILOCAL contributions use PolyForm Noncommercial 1.0.0; see LICENSE and NOTICE.md. Imported materials retain their own licenses. Describe this as source-available, not OSI-approved open source.
 - Tuning and legacy Trial Baseline only via gitignored `autoresearch/core/config.py` (seed from `config.py.example`). No legacy Trial CLI flag soup. `program.md` / harnesses fixed unless user asks.
 - **Upstream-first (mandatory):** Check upstream `llama.cpp/common/arg.cpp` `add_opt` (`~310` flags) + `docs/llamacpp-toolset.md` + `docs/llamacpp-flags-audit.md` before adding any `ENGINE_*/SAMPLER_*` flag or estimator — `90%` already exists upstream (`fit`/`yarn`/`dry`/`xtc`/`fit-target`/`warmup`/`cache-ram`/`kv-unified`/`repack` etc.), harness is passthrough mapper in `autoresearch/core/llama_runner.py` `_build_cmd`; keep only host/WDDM/thermal/Pareto gates (`common/fit.h:14` assumes unlimited host).
 - **Flag drift is a build-time failure, not a Trial failure:** upstream removes and renames flags across releases (`--mmap`/`--no-mmap`/`--mlock` -> `--load-mode` in #26934), so every command the harness emits is checked against the resolved binary's own `--help` by `assert_flags_supported` (`llama_runner.py`), which raises `FlagDriftError` naming the flag and the `engine@tag` build. Recorded as `INFRA_ERROR` (engine/config problem), never `CODE_ERROR` (our logic). On any engine bump, run a harness `--validation` and expect it to pass; if it raises, fix the mapping in `load_mode_flag` / the passthrough — never silence the guard, and never migrate Baseline/store keys for a flag rename.
@@ -40,6 +41,9 @@ Repository developers.
 - E2E here = a harness run that ends in a `results.db` artifact (`benchmark_search.py --validation`, Trial claw-full/coding-10, `scripts/setup-check.sh`). The unit suite in `tests/` is a closed set of exceptions: silent store/rank corruption, security holes, platform branches the rig never executes, and fail-closed hardware gates (contract in `tests/AGENTS.md`).
 
 ## Verification
+- Main merge protection requires `validate`, `Analyze (python)` and the `CodeQL` security result. Keep workflow names and required contexts synchronized.
+- CI validates Ruff/pytest, isolated tuning and legacy consumer E2Es; it retains SQLite and JSON evidence on success or failure without model/API spend.
+- Legacy compatibility: `.\venv\Scripts\python.exe scripts/test_legacy_consumers_e2e.py` (synthetic catalog, real SQLite/HTTP/CLI consumers).
 - `.\venv\Scripts\python.exe -m pytest` (or `scripts/run_validate.py` / pre-commit). Never system-global Python.
 - Independent Auto tuning: `.\venv\Scripts\python.exe scripts/test_tuning_e2e.py` copies only runtime/tuning sources outside the repo and retains SQLite/Fingerprint evidence; no model/GPU load.
 - Local Windows pytest does not execute POSIX branches (`fcntl`, Unix-only paths). After every push, wait for `.github/workflows/validate.yml` (`ubuntu-latest`) with `.\venv\Scripts\python.exe scripts\watch_validate.py` until it exits 0. A green local suite is not CI-complete.
@@ -120,6 +124,7 @@ Default section order:
 6. Report any docs intentionally left unchanged and why
 
 ## Child DOX Index
+- [LICENSE](LICENSE) · [NOTICE.md](NOTICE.md) — original-contribution license and third-party scope.
 
 - [autoresearch/AGENTS.md](autoresearch/AGENTS.md) — package (config, runners, benchmarks)
 - [ui/AGENTS.md](ui/AGENTS.md) — operator dashboard
