@@ -20,6 +20,7 @@ Repository developers. Parent: [root contract](../AGENTS.md).
 - `benchmark_tasks.score`/`score_json` store Claw grading in SQLite through additive migration. Historical and workspace rows retain null weighted scores; never rewrite legacy result tables.
 - `dm-code30` uses `pi-dm-v1`: original 15 coding + 15 maintenance fixtures, prompts, commands, tags and step limits. Pi reads/writes only existing setup files and runs public tests through the fixed `workspace_test` command, with no shell or credential inheritance. Keep plans in responses. Hidden files are staged only in the post-agent verification copy; snapshot the diff first and enforce allowed/required changed-file rules even if tests pass. Store scope/hidden-test details in SQLite `score_json`, leaving the weighted score null.
 - DM hidden execution adds a harness-created empty pytest configuration to the original command prefix. Generated `pyproject.toml` must not control hidden-test selection; keep the bypass regression in the E2E.
+- Reject missing DM contracts, inconsistent step budgets and empty hidden-file lists during task loading; never fall back to the generic workspace grader for an incomplete DM task.
 - Pi resources and session state are isolated from personal settings, skills, extensions, and repository instructions. Credentials come from environment, never result artifacts.
 - Write E2E checks before implementation; retain repeatable SQLite and trajectory evidence. Fixture verifiers are trusted code, not an OS sandbox for arbitrary datasets.
 

@@ -55,6 +55,9 @@ async function loadTasks(selected, pack) {
     if (task.id !== name || typeof task.issue !== 'string' || !task.issue.trim()
       || !Number.isSafeInteger(task.max_turns) || task.max_turns < 1
       || !Array.isArray(task.allowlist) || !task.allowlist.length) throw new Error(`Invalid task: ${name}`);
+    if (pack === 'dm-code30' && (!task.dm || task.dm.max_steps !== task.max_turns
+      || !Array.isArray(task.dm.hidden_paths) || !task.dm.hidden_paths.length
+      || !Array.isArray(task.dm.allowed_changed_files) || !Array.isArray(task.dm.required_changed_files))) throw new Error(`Invalid DM contract: ${name}`);
     const workspace = await realpath(join(directory, 'workspace'));
     for (const path of task.allowlist) {
       if (typeof path !== 'string' || isAbsolute(path) || path.includes('\\')

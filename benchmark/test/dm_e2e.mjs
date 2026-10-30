@@ -78,6 +78,16 @@ try {
   const ids = list.output.trim().split(/\r?\n/);
   assert.equal(ids.length, 30); assert.equal(ids[0], 'slugify_cleanup'); assert.equal(ids[15], 'config_precedence');
   const referenceIds = ['slugify_cleanup', 'config_precedence', 'cli_config_docs_contract', 'packaging_ci_contract'];
+  const manifestPath = join(pack, 'tasks/slugify_cleanup/task.yaml');
+  const originalManifest = await readFile(manifestPath, 'utf8');
+  for (const change of ['missing-contract', 'empty-hidden-list']) {
+    const broken = JSON.parse(originalManifest);
+    if (change === 'missing-contract') delete broken.dm; else broken.dm.hidden_paths = [];
+    try {
+      await writeFile(manifestPath, JSON.stringify(broken));
+      assert.equal((await run(['--pack', 'dm-code30', '--list'])).code, 2, 'Incomplete DM metadata must fail before scoring');
+    } finally { await writeFile(manifestPath, originalManifest); }
+  }
   for (const [model, selected, expected] of [
     ['pytest-filter', ['packaging_ci_contract'], 1],
     ['empty', [], 1], ['reference', referenceIds, 0],
