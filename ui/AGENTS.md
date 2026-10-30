@@ -11,7 +11,7 @@ Repository developers. Port and panels owned here — not by `autoresearch/` run
 - Start: `.\venv\Scripts\python.exe -m ui` (or `./venv/bin/python -m ui`).
 - Poll `/api/status` (~2.5s). Payload includes `baseline`, `trials` (last 50), `run_state`, `log_tail`.
 - Baseline from `autoresearch/core/config.py` via import+reload — never `.autoresearch_state.json`.
-- Trials via `autoresearch.runners.run.read_rows` + `classify.is_on_front` (`on_front` only). Never write TSV.
+- Legacy Trials via `autoresearch.core.trial_store.read_rows` + `classify.is_on_front` (`on_front` only). Reading the store must not import benchmark CLI execution. New `tuning_runs`/`tuning_trials` tables are a separate protocol, not dashboard legacy rows. Never write TSV.
 - Log path pinned: `autoresearch/runners/llama_server.log`. `Em execução` when mtime within ~10s; else `Idle`. Missing log → pt-BR empty, no crash.
 - **No external runtime deps; vanilla JS only** (`ui/requirements.txt`). Static assets allowed under `ui/static/` (CSS + bundled OFL fonts) and served by the stdlib `http.server` (ADR 0011). No CSS/JS frameworks, CDN, or build step.
 - **AILOCAL design language** (ADR 0011): dark neutral base, accent-only blue `#339dff`, Inter + JetBrains Mono, static precision-grid, restrained motion. Blue is a highlight, never a dominant surface.

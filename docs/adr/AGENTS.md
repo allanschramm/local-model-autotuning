@@ -28,6 +28,7 @@ Durable record of architecture decisions for the `local-model-autotuning` projec
 - Numbering must be strictly sequential without gaps.
 
 ## Child DOX Index
+- [`0019-tuning-only-release.md`](./0019-tuning-only-release.md) — local tuning release; independent Benchmark publication deferred (partially supersedes 0018).
 - [`0001-deepen-llama-server-runner.md`](./0001-deepen-llama-server-runner.md) — Deepen llama-server runner.
 - [`0002-consolidated-evaluation-harness.md`](./0002-consolidated-evaluation-harness.md) — Consolidated evaluation harness.
 - [`0003-in-process-benchmark-orchestration.md`](./0003-in-process-benchmark-orchestration.md) — In-process benchmark orchestration.
@@ -45,3 +46,4 @@ Durable record of architecture decisions for the `local-model-autotuning` projec
 - [`0015-rocm-first-binary-resolution-windows.md`](./0015-rocm-first-binary-resolution-windows.md) — ROCm-first binary resolution on Windows; Vulkan0 hardcode removal; `--no-reasoning-preserve` fix.
 - [`0016-measurement-hygiene-and-morris-screen.md`](./0016-measurement-hygiene-and-morris-screen.md) — Thermal settle, TPS median, crash journal, Morris engine-knob pin; Neighbor Search unchanged.
 - [`0017-rank-membership-quality-first.md`](./0017-rank-membership-quality-first.md) — Rank = leaderboard (every complete model once, quality-first, near-tie band); domination is a same-basename config label; cross-model `dominated` ceases (supersedes part of 0006/0009/0013).
+- [`0018-independent-pi-benchmark-and-context-tuning.md`](./0018-independent-pi-benchmark-and-context-tuning.md) — Accepted: standalone Pi Benchmark with local/cloud endpoints; staged TPS × context tuning under PPL and minimum-context constraints. Partially supersedes 0014 and the new Benchmark's local-only model restriction from 0004.

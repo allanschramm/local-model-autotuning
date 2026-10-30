@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from autoresearch.runners import run as run_mod
+from autoresearch.core import trial_store as run_mod
 
 
 def read_last_50_trials() -> list[dict[str, str]]:

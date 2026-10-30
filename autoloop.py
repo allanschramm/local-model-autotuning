@@ -46,15 +46,14 @@ from autoresearch.core.morris import (
     pins_from_effects,
     varying_space,
 )
-from autoresearch.core.search import SearchStrategy
-from autoresearch.core.state import SearchState
-from autoresearch.runners.evaluation import (
+from autoresearch.core.runtime_measurements import (
     BENCH_N_GEN,
-    ExperimentRunner,
     TrialOutcome,
     median_llama_bench_validation,
 )
-from autoresearch.runners.run import (
+from autoresearch.core.search import SearchStrategy
+from autoresearch.core.state import SearchState
+from autoresearch.core.trial_store import (
     MODELS_DIR,
     RESULTS_FILE,
     get_git_commit,
@@ -63,6 +62,7 @@ from autoresearch.runners.run import (
     tsv_fields_from_cfg,
     write_row,
 )
+from autoresearch.runners.evaluation import ExperimentRunner
 
 BASE_DIR = Path(__file__).resolve().parent
 

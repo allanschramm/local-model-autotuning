@@ -21,11 +21,15 @@ Repository operators and developers.
 - Use `verify_setup.py` to validate local API server health and benchmark real-time TPS. Its default port matches `serve-config.py` (18080).
 - Use `lcb_only.py` to re-measure LiveCodeBench (10 tasks) against current Baseline — gambiarra when coding HE/MBPP/BC already logged but LCB cache failed.
 - Use `recompute_status.py` to refresh Trial statuses after the fact (issue #5; ADR 0017). Write paths (`run.py`, `autoloop.py`) already recompute after every Trial; the script covers retroactive refreshes. Default scope is per-model — same-basename competition only, no model ever demotes another; `--scope bucket` is retained as an accepted argument form with the same competition. Operates on the store (canonical `results.db` first, legacy `results.tsv` fallback) and writes refreshed statuses to both. Idempotent, no GPU. `--relabel-watchdog` runs the one-shot issue #72 migration first (legacy NVML device-wide policy kills `MODEL_REJECTED`/`VRAM_LIMIT_EXCEEDED` → `WATCHDOG_KILL`; `run.relabel_watchdog_kills`, idempotent).
+- Legacy persistence helpers are owned by `autoresearch.core.trial_store`; recompute scripts and UI readers must use that owner rather than importing benchmark CLI execution. Old CLI names remain reexports for compatibility.
 - `rank_results.py` to print Day / Night / claw / coding / agentic-coding rankings from the results store — canonical `results.db` (SQLite) first, legacy `results.tsv` fallback. ADR 0017: the rank is a leaderboard of every complete model (quality-first, ±0.05 near-tie band; quality dominance enforced; Day tie-break TPS, Night tie-break ctx); each row = the model's single best Trial within a coding protocol; CLI output separates protocol sections. Unversioned historical rows are labeled budget-unknown, never merged with the 32k protocol. The `pareto_front` alias passes complete points through. Agents must use this CLI for model rankings — no ad-hoc temp filter scripts.
 - Use `model_info.py` to query GGUF ground truth read-only: arch (MoE/dense), block count, KV sizing, `--n-cpu-moe` resolution, and (with `--tensors`) the full tensor inventory. Agents must use this for model details / GGUF forensics — never parse the raw `.gguf` or dump tensors with ad-hoc scripts.
 - Use `rebuild_results_db.py` for store maintenance: default seeds the canonical `results.db` from the legacy TSV when missing/unseeded and parity-checks both (`trial_id` set + duplicate detection); `--force` rebuilds the DB from the TSV; `--rebuild-tsv` rewrites the legacy TSV from the canonical DB. Exit 0 on parity, 1 on drift. Both stores stay in sync automatically after every Trial write; this script covers manual repairs.
 
+- `test_legacy_consumers_e2e.py` verifies isolated imports, CLI exports and read-only SQLite/HTTP consumers using synthetic catalog metadata; it retains SQLite and JSON evidence without external datasets or model loading.
+
 ## Verification
+- `test_tuning_e2e.py`: copies only tuning/runtime sources and public data outside the checkout, rejects quality-benchmark imports, and verifies guarded native children, full-context HTTP measurement, fixed PPL reference, Pareto alternatives and SQLite/Fingerprint evidence. No GPU/model load. Retain the printed artifacts; `TUNING_E2E_DIR` must point to a fresh directory when supplied.
 - Test script changes locally by executing them.
 - `rank_results.py`: `.\venv\Scripts\python.exe -m pytest tests/test_rank_results.py`
 - `check_leaderboard_docs.py`: pytest `tests/test_leaderboard_doc_check.py` + run the script against a seeded store for doc/table parity.
@@ -36,6 +40,8 @@ Repository operators and developers.
 - Git pre-commit (Ruff/pytest) is repo-root owned — see root `AGENTS.md` Verification + `.pre-commit-config.yaml`.
 
 ## Child DOX Index
+- [test_legacy_consumers_e2e.py](test_legacy_consumers_e2e.py) ? isolated catalog, CLI, SQLite and dashboard compatibility evidence.
+- [test_tuning_e2e.py](test_tuning_e2e.py) — standalone finite tuning E2E with simulated model/hardware, real HTTP/native-process/SQLite evidence.
 - [bench_openvino.py](bench_openvino.py) — optional OpenVINO GenAI CPU/iGPU benchmark with separate prefill/decode TPS output.
 - [run_pytest_hook.py](run_pytest_hook.py) — pre-commit local entry for venv pytest.
 - [run_validate.py](run_validate.py) — shared ruff+pytest validate (CI + local agents).

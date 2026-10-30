@@ -9,24 +9,26 @@
 <!-- Scope: repo development agents. Research loop agents → read program.md -->
 
 ## Purpose
-Autonomous multi-objective Search over local LLM runtime flags; Pareto frontier = configured ctx × TPS × agentic × coding. Domain language: [CONTEXT.md](CONTEXT.md).
+Local model auto-tuning: configured ctx × TPS under fixed PPL and minimum-context constraints. Legacy four-axis reports remain available. Independent Benchmark delivery is deferred under [ADR 0019](docs/adr/0019-tuning-only-release.md). Domain language: [CONTEXT.md](CONTEXT.md).
 
 ## Ownership
 Repository developers.
 
 ## Local Contracts
-- Baseline only via gitignored `autoresearch/core/config.py` (seed from `config.py.example`). No Trial CLI flag soup. `program.md` / harnesses fixed unless user asks.
+- Original AILOCAL contributions use PolyForm Noncommercial 1.0.0; see LICENSE and NOTICE.md. Imported materials retain their own licenses. Describe this as source-available, not OSI-approved open source.
+- Tuning and legacy Trial Baseline only via gitignored `autoresearch/core/config.py` (seed from `config.py.example`). No legacy Trial CLI flag soup. `program.md` / harnesses fixed unless user asks.
 - **Upstream-first (mandatory):** Check upstream `llama.cpp/common/arg.cpp` `add_opt` (`~310` flags) + `docs/llamacpp-toolset.md` + `docs/llamacpp-flags-audit.md` before adding any `ENGINE_*/SAMPLER_*` flag or estimator — `90%` already exists upstream (`fit`/`yarn`/`dry`/`xtc`/`fit-target`/`warmup`/`cache-ram`/`kv-unified`/`repack` etc.), harness is passthrough mapper in `autoresearch/core/llama_runner.py` `_build_cmd`; keep only host/WDDM/thermal/Pareto gates (`common/fit.h:14` assumes unlimited host).
 - **Flag drift is a build-time failure, not a Trial failure:** upstream removes and renames flags across releases (`--mmap`/`--no-mmap`/`--mlock` -> `--load-mode` in #26934), so every command the harness emits is checked against the resolved binary's own `--help` by `assert_flags_supported` (`llama_runner.py`), which raises `FlagDriftError` naming the flag and the `engine@tag` build. Recorded as `INFRA_ERROR` (engine/config problem), never `CODE_ERROR` (our logic). On any engine bump, run a harness `--validation` and expect it to pass; if it raises, fix the mapping in `load_mode_flag` / the passthrough — never silence the guard, and never migrate Baseline/store keys for a flag rename.
 - Do not edit vendor trees: `llama.cpp/`, `VITRIOL/`, `llama.cpp-releases/`. Benchmarks (including `claw-eval/`) are kept updated with upstream.
 - Never commit private paths, emails, hostnames, GPU SKUs, aliases, or machine Baseline.
 - `models/` is a real store directory. NEVER recursive/forced delete (`Remove-Item -Recurse`, `rm -rf`, `rmdir /s`) on the `models/` root — it wipes the GGUF store and private notes. Per-file deletes in subdirs are fine.
 - No command timeouts: Never set execution timeouts on commands run by the agent unless explicitly told. Benchmarks and model tests run until completion. This does not prohibit bounded network timeouts inside product code when needed to prevent a stalled service or request from blocking indefinitely.
-- **No autonomous autoloop:** When the user asks for a trial, hill climb, bench, validate, or any tuning/eval action, do **NOT** launch `autoloop.py` or the `/autoresearch` autonomous loop. Use the explicit harness (`benchmark_search.py`, `python -m autoresearch.runners.run`, or the Trial skill's `--agentic-full` command). `autoloop.py` is operator-only — if the user wanted the background hill-climb loop, they would start it themselves.
+- **No autonomous autoloop:** When the user asks for a trial, hill climb, bench, validate, or any tuning/eval action, do **NOT** launch `autoloop.py` or the `/autoresearch` autonomous loop. Use bounded `python -m autoresearch.tuning --plan <plan.json>` for TPS × context, or the explicit legacy harness (`benchmark_search.py`, `python -m autoresearch.runners.run`, Trial skill) for its historical protocol. `autoloop.py` is operator-only.
 - **Results Store is Strictly SQLite (`results.db`):** `results.db` (SQLite) is the sole canonical store for all Trial, validation, and benchmark outcomes. `results.tsv` is deprecated and must not be queried, grepped, or relied upon by agents for metrics or history. Always query `results.db` directly using SQLite or `autoresearch.core.results_db`.
 - **Context is Inviolable (Never reduce context):** Configured context (`CTX_SIZE`) is a core axis of the Pareto frontier (`ctx × TPS × agentic × coding`). When encountering RAM pressure, VRAM spill, circuit breaker trips, OOM, or throughput bottlenecks, NEVER reduce or suggest reducing `CTX_SIZE` as a solution. Address resource pressure strictly through host memory hygiene (closing background desktop applications), KV cache quantization (`q4_0`), layer offloading (`N_CPU_MOE`), batch/ubatch tuning, or selecting lighter weight quantizations (`IQ4_XS`, `Q3_K_M`), keeping the target context intact.
 
 ## Work Guidance
+- Commit meaningful, verified changes as atomic Conventional Commits (`feat`, `fix`, `refactor`, `docs`, etc.). Keep unrelated work out of each commit; push only when explicitly requested.
 - **Runtime (do not rebuild)**: use the prebuilt CUDA 13.4 release `llama.cpp-releases/upstream/b11577` via `AUTORESEARCH_LLAMA_CPP_ROOT` (0.6.0-dev, build 11577). Text Trials for MiniCPM5-1B and MiniCPM-V-4.7-1B passed on 2026-10-12. b11577 includes upstream #30097, needed for qwen35/qwen35moe trunk-only GGUFs that declare `nextn_predict_layers` without MTP tensors; b11149 cannot load the MiniCPM-V-4.7-1B export. Keep older releases for comparison. The `llama.cpp/` source submodule is reference-only; do not rebuild its stale `build-cuda/` artifacts to fix runtime compatibility. Pin the release explicitly in harness sessions; verify the active environment path before each evaluation.
 - **Windows binary execution**: When invoking `llama-server.exe` or `llama-cli.exe` directly on Windows (outside Python runners), always set the working directory to `build-cuda\bin` where companion DLLs (`llama.dll`, `ggml.dll`, `cudart64_13.dll`) reside. Invoking without `cwd` causes Windows loader failure `0xc0000135` and conhost pipe error `0x800700e8` (`ERROR_NO_DATA`).
 - Method + Trial procedure: `CONTEXT.md`, `docs/adr/`, `docs/discovery/`, `autoresearch/AGENTS.md`, `program.md`.
@@ -39,7 +41,11 @@ Repository developers.
 - E2E here = a harness run that ends in a `results.db` artifact (`benchmark_search.py --validation`, Trial claw-full/coding-10, `scripts/setup-check.sh`). The unit suite in `tests/` is a closed set of exceptions: silent store/rank corruption, security holes, platform branches the rig never executes, and fail-closed hardware gates (contract in `tests/AGENTS.md`).
 
 ## Verification
+- Main merge protection requires `validate`, `Analyze (python)` and the `CodeQL` security result. Keep workflow names and required contexts synchronized.
+- CI validates Ruff/pytest, isolated tuning and legacy consumer E2Es; it retains SQLite and JSON evidence on success or failure without model/API spend.
+- Legacy compatibility: `.\venv\Scripts\python.exe scripts/test_legacy_consumers_e2e.py` (synthetic catalog, real SQLite/HTTP/CLI consumers).
 - `.\venv\Scripts\python.exe -m pytest` (or `scripts/run_validate.py` / pre-commit). Never system-global Python.
+- Independent Auto tuning: `.\venv\Scripts\python.exe scripts/test_tuning_e2e.py` copies only runtime/tuning sources outside the repo and retains SQLite/Fingerprint evidence; no model/GPU load.
 - Local Windows pytest does not execute POSIX branches (`fcntl`, Unix-only paths). After every push, wait for `.github/workflows/validate.yml` (`ubuntu-latest`) with `.\venv\Scripts\python.exe scripts\watch_validate.py` until it exits 0. A green local suite is not CI-complete.
 
 # DOX framework
@@ -118,6 +124,7 @@ Default section order:
 6. Report any docs intentionally left unchanged and why
 
 ## Child DOX Index
+- [LICENSE](LICENSE) · [NOTICE.md](NOTICE.md) — original-contribution license and third-party scope.
 
 - [autoresearch/AGENTS.md](autoresearch/AGENTS.md) — package (config, runners, benchmarks)
 - [ui/AGENTS.md](ui/AGENTS.md) — operator dashboard

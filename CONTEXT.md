@@ -1,13 +1,27 @@
 # AutoResearch
 
-Autonomous multi-objective Search that benchmarks local LLM runtime configurations and maintains a Pareto frontier of non-dominated Trials (context × throughput × agentic × coding) for a given hardware budget.
+Local model auto-tuning maintains a TPS × configured-context Pareto Set under a fixed PPL ceiling and minimum-context constraint. Historical four-axis Trials remain available as separate compatibility protocols. Independent quality Benchmark delivery is deferred ([ADR 0019](docs/adr/0019-tuning-only-release.md)).
 
 ## Language
+
+### Product Scopes
+
+**Auto tuning**:
+Local runtime optimization of TPS and configured context, subject to a PPL degradation limit and the minimum context required by the intended harness. Quality benchmark scores are measured separately, not optimized by this process.
+_Avoid_: quality benchmark, highest TPS regardless of context
+
+**Benchmark Harness**:
+Independent quality evaluation of a chosen model, whether locally served or accessed through a cloud provider, using identified tasks, execution protocols, and verifiers. It does not require prior Auto tuning or its mutable Baseline.
+_Avoid_: local-only benchmark, mandatory tuning stage
+
+**Official Harness**:
+Pi Agent is the planned reference agent for the deferred Benchmark Harness's agentic evaluations. Results describe the model together with the identified Pi version and execution protocol, not model quality independent of the harness.
+_Avoid_: model-only agentic score, unversioned agent runner
 
 ### Search Process
 
 **Search**:
-The overall optimization process. An indefinite sequence of Rounds that continues until manually stopped.
+The overall optimization process. Bounded tuning explores a finite plan and Trial budget; the legacy operator-controlled autoloop continues through Rounds until stopped.
 _Avoid_: loop, sweep, experiment
 
 **Round**:

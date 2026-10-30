@@ -12,8 +12,8 @@ import json
 
 import pytest
 
-from autoresearch.runners import run
-from autoresearch.runners.run import write_row
+from autoresearch.core import trial_store as run
+from autoresearch.core.trial_store import write_row
 
 
 def _read(tmp_tsv) -> list[dict]:
@@ -56,7 +56,7 @@ def test_write_row_preserves_engine_version_tag(tmp_path, monkeypatch):
     """Trial evidence carries engine@tag when the server comes from a fork release."""
     from pathlib import Path
 
-    from autoresearch.runners import run
+    from autoresearch.core import trial_store as run
 
     tsv = tmp_path / "results.tsv"
     fork = Path("llama.cpp-releases/turboquant/tqp-v0.3.0/build-cuda/bin/llama-server.exe")
@@ -144,7 +144,7 @@ def _read_db(tsv):
 
 def test_recompute_statuses_refreshes_mirror(tmp_path, monkeypatch):
     """Every recompute call (write or no-op) leaves the mirror in sync."""
-    from autoresearch.runners import run
+    from autoresearch.core import trial_store as run
 
     monkeypatch.setattr(run, "RESULTS_FILE", tmp_path / "results.tsv")
     tsv = tmp_path / "results.tsv"

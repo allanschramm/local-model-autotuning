@@ -28,7 +28,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from autoresearch.core import recompute
-from autoresearch.runners import run
+from autoresearch.core import trial_store as run
 
 
 def main() -> int:

@@ -3,10 +3,16 @@
 ## Purpose
 Core codebase containing search strategy optimization logic, llama.cpp server wrappers, API client integrations, and evaluation benchmark harnesses (Nexus, Claw, Coding, SWE-lite agentic coding).
 
+
+Independent bounded TPS × context Search is owned by [`tuning.py`](tuning.py), documented in [TUNING.md](TUNING.md). It must not import `autoresearch.benchmarks` or `autoresearch.runners`. `core/trial_store.py` owns legacy persistence independently of CLI dispatch; `core/runtime_measurements.py` owns shared outcomes and legacy runtime probes. Legacy paths reexport existing names during migration.
+
 ## Ownership
 Repository developers.
 
 ## Local Contracts
+- Harness child processes use `core.process_guard.spawn_kwargs` (or an explicit `CREATE_NO_WINDOW`) on Windows; coding verifiers use `MPLBACKEND=Agg` to keep generated plots headless.
+- New tuning uses `tuning-runtime-v1`: full-context monitored native generation, a fixed per-Search PPL reference, a minimum-context floor that preserves Baseline, finite budgets, and a two-axis Pareto Set. Verify allocation with `/props` and each completion's actual context via `/slots` and `id_slot`. Records live only in `tuning_runs`/`tuning_trials`; quality protocols and old rankings remain separate.
+- `_ModelProcess` in `core/llama_runner.py` owns model-child launch, RAM/VRAM monitoring and cleanup for both `LlamaServerRunner` and `NativeModelProcess`. Both expose `model_binary` for CPU/GPU monitoring selection; native PPL never depends on server-only attributes or bypasses these protections.
 - Do not modify internal evaluation logic or benchmarks under `autoresearch/benchmarks/` without authorization.
 - **Upstream-first (see `docs/llamacpp-toolset.md` + `docs/llamacpp-flags-audit.md` + root `AGENTS.md`):** Check `llama.cpp/common/arg.cpp` `add_opt` (`~310` flags) before adding any `ENGINE_*/SAMPLER_*` or gate — `90%` already exists upstream (`fit`/`fit-target`/`warmup`/`cache-ram`/`kv-unified`/`repack`/`swa-full`/`yarn`/`spec-ngram`/`dry`/`xtc`/`override-tensor`/`cpu-mask`/`poll`); harness is passthrough mapper — forward in `autoresearch/core/llama_runner.py` `_build_cmd` vs `arg.cpp`. Keep only host/WDDM/thermal/Pareto gates (`common/fit.h:14` assumes unlimited host, so `preflight_host_memory` + `SHARED 2048` kill are the keepers).
 - **Flag-drift guard (mandatory on every engine bump):** `load_mode_flag(no_mmap, mlock)` in `autoresearch/core/llama_runner.py` is the **single** translator for Baseline `NO_MMAP`/`MLOCK` → `--load-mode MODE` (upstream #26934 removed `--mmap`/`--no-mmap`/`--mlock`; gone from b11149 *and* pinned `v0.5.0 arg.cpp`). Bijection: `F/F→mmap`, `F/T→mmap+mlock`, `T/F→none`, `T/T→mlock`. Default emits `mmap` explicitly, never `auto` (device-dependent). Never re-inline the mapping — 5 emitters share it (`llama_runner._build_cmd`, `evaluation.run_llama_bench_validation`, `model_up.fingerprint_flags`, `serve-config.build_args`, `autoloop._compile_alias_flags`). `assert_flags_supported(cmd, binary)` probes `<binary> --help` (cached per path) and raises `FlagDriftError` naming the flag + `engine@tag` build, wired into server build, cli bench, `model_up` and `serve-config` (`serve` + `print-cmd`). Exemptions: `FORK_ONLY_FLAGS` (codacus `--moe-cache-*`) and an unprobeable binary (returns `None`, skips — never fails a Trial on a guess). Only **long** flags are validated. Help lines carry **multiple aliases in any order** (`-ngl,  --gpu-layers, --n-gpu-layers N`), **multi-char shorts** (`-ncmoe`, `-ctk`) and **dots in long flags** (`--fim-qwen-1.5b-default`): a naive one-flag-per-line or `[\w-]` parser yields false drift rejections, which is worse than no check. `LlamaServerRunner.__enter__` wraps `_start()` in `try/except BaseException` → `_cleanup_all()`, because `__exit__` never runs when the `with` body raises and the VRAM sampler would otherwise leak (also covers the RAM preflight reject). Baseline keys stay `NO_MMAP`/`MLOCK` — never migrate the store schema for a flag rename.
@@ -36,7 +42,11 @@ Repository developers.
 - Implement mock classes for system hardware calls (like GPU VRAM) to ensure code remains testable across environments.
 - Keep dependencies minimal and avoid adding new third-party libraries.
 
+- Legacy benchmark public exports remain compatible and load evaluation runners lazily; catalog/config readers must not import model evaluation.
+- Read-only consumers use `core/trial_store.py` and canonical SQLite without importing `runners/run.py`.
+
 ## Verification
+- `.\venv\Scripts\python.exe scripts/test_tuning_e2e.py` verifies source isolation, native child lifecycle, HTTP context/timing, fixed PPL ceiling and SQLite/Fingerprint evidence with simulated hardware/models. Retain the printed temp artifacts.
 - Run `pytest` on tests checking core runners (`test_llama_runner.py`, `test_llama_client.py`).
 - Run `pytest tests/test_state.py` for state verification. Search-strategy behavior is verified E2E, not by unit tests (root Testing rules).
 

@@ -38,6 +38,7 @@ from autoresearch.benchmarks import bench_config
 from autoresearch.benchmarks.benchmark_harness import BenchmarkResult
 from autoresearch.core.evaluation_protocol import CODING_MAX_TOKENS, CODING_PROTOCOL
 from autoresearch.core.llama_client import GenerationParams, LlamaClient
+from autoresearch.core.process_guard import spawn_kwargs
 
 ROOT_DIR = Path(__file__).resolve().parent
 DATA_DIR = ROOT_DIR.parent / "data" / "benchmark_cache"
@@ -99,13 +100,22 @@ def _run_subprocess(script: str, stdin_input: str | None = None) -> tuple[int, s
     try:
         with tempfile.TemporaryDirectory(prefix="coding_sandbox_") as tmp:
             result = subprocess.run(
-                [sys.executable, "-c", script],
-                input=stdin_input,
-                capture_output=True,
-                text=True,
-                timeout=30,
-                cwd=tmp,
-                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+                **spawn_kwargs(
+                    args=[sys.executable, "-c", script],
+                    input=stdin_input,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                    cwd=tmp,
+                    env={
+                        **os.environ,
+                        "PYTHONDONTWRITEBYTECODE": "1",
+                        # Headless: a solution can call plt.show()/WordCloud
+                        # (BigCodeBench Hard task 4) — Agg renders to a file
+                        # instead of popping a Figure window on the desktop rig.
+                        "MPLBACKEND": "Agg",
+                    },
+                )
             )
             return result.returncode, result.stdout, result.stderr
     except subprocess.TimeoutExpired:
