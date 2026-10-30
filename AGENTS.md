@@ -40,6 +40,7 @@ Repository developers.
 - E2E here = a harness run that ends in a `results.db` artifact (`benchmark_search.py --validation`, Trial claw-full/coding-10, `scripts/setup-check.sh`). The unit suite in `tests/` is a closed set of exceptions: silent store/rank corruption, security holes, platform branches the rig never executes, and fail-closed hardware gates (contract in `tests/AGENTS.md`).
 
 ## Verification
+- Main merge protection requires `validate`, all three `benchmark-e2e` matrix contexts, `Analyze (python)` and the `CodeQL` security result. Keep workflow job names and ruleset check contexts synchronized; a successful analysis execution alone does not establish a clean security result.
 - CI `validate.yml` runs legacy consumer compatibility plus isolated workspace, Claw and DM Pi E2Es. Each Pi suite has an independent matrix job; uploads retain SQLite, logs and trajectory evidence on failure as well as success, without model/API spend.
 - Legacy consumer compatibility: `.\venv\Scripts\python.exe scripts/test_legacy_consumers_e2e.py` retains isolated SQLite/HTTP/CLI evidence without model/GPU loading.
 - `.\venv\Scripts\python.exe -m pytest` (or `scripts/run_validate.py` / pre-commit). Never system-global Python.
