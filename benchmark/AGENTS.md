@@ -30,6 +30,7 @@ Repository developers. Parent: [root contract](../AGENTS.md).
 - Keep tasks and verifiers unchanged when moving the frozen pack. The legacy runner still consumes that pack for historical protocol compatibility.
 
 ## Verification
+- Root CI runs workspace, Claw and DM E2Es in independent matrix jobs with suite-specific Python dependencies and separate SQLite/log/trajectory artifact uploads. All use fixture endpoints without model loading or paid web/API calls.
 - `node --check main.mjs` checks syntax. `BENCHMARK_PYTHON=<venv-python> npm test` executes the standalone E2E and retains SQLite/trajectory evidence in the printed temp directory.
 - After changes to the LiveCodeBench importer, run the selected Python's `test/lcb_import_security.py` to check literal-only decoding and malformed-input rejection.
 - `BENCHMARK_PYTHON=<venv-python> node test/claw_e2e.mjs` verifies standalone Claw apps, grading, safety veto, fixture integrity, state isolation, disabled live web and SQLite evidence. Install `claw-requirements.txt` in that Python first.

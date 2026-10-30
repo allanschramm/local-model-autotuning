@@ -37,9 +37,34 @@ jobs:
         with:
           name: tuning-evidence
           path: ${{ runner.temp }}/tuning-e2e/
+      - name: Legacy consumer compatibility E2E without model load
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: python scripts/test_legacy_consumers_e2e.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: legacy-consumer-evidence
+          path: |
+            ${{ runner.temp }}/legacy-consumers-e2e-*/results.db
+            ${{ runner.temp }}/legacy-consumers-e2e-*/verification.json
+            ${{ runner.temp }}/legacy-consumers-e2e-*/imports.json
+            ${{ runner.temp }}/legacy-consumers-e2e-*/*.log
+            ${{ runner.temp }}/legacy-consumers-e2e-*/ranking.txt
+            ${{ runner.temp }}/legacy-consumers-e2e-*/dashboard.json
 
   benchmark-e2e:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: benchmark
+            script: e2e.mjs
+          - suite: claw
+            script: claw_e2e.mjs
+          - suite: dm
+            script: dm_e2e.mjs
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -54,16 +79,23 @@ jobs:
         run: |
           python -m pip install pytest
           npm ci --prefix benchmark --ignore-scripts --no-audit --no-fund
+      - name: Install Claw mock service dependencies
+        if: matrix.suite == 'claw'
+        run: python -m pip install -r benchmark/claw-requirements.txt
+      - name: Install BigCodeBench verifier dependencies
+        if: matrix.suite == 'benchmark'
+        run: python -m pip install -r benchmark/packs/bigcode-hard10/requirements.txt
       - name: Pi Benchmark E2E without model or API spend
         env:
           BENCHMARK_E2E_DIR: ${{ runner.temp }}/pi-benchmark-e2e
-        run: BENCHMARK_PYTHON="$(command -v python)" node benchmark/test/e2e.mjs
+          TMPDIR: ${{ runner.temp }}
+        run: BENCHMARK_PYTHON="$(command -v python)" node benchmark/test/${{ matrix.script }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: pi-benchmark-evidence
+          name: pi-${{ matrix.suite }}-evidence
           path: |
-            ${{ runner.temp }}/pi-benchmark-e2e/verification.json
-            ${{ runner.temp }}/pi-benchmark-e2e/results.db
-            ${{ runner.temp }}/pi-benchmark-e2e/*.log
-            ${{ runner.temp }}/pi-benchmark-e2e/benchmark-artifacts/
+            ${{ runner.temp }}/pi-${{ matrix.suite }}-e2e*/verification.json
+            ${{ runner.temp }}/pi-${{ matrix.suite }}-e2e*/results.db
+            ${{ runner.temp }}/pi-${{ matrix.suite }}-e2e*/*.log
+            ${{ runner.temp }}/pi-${{ matrix.suite }}-e2e*/benchmark-artifacts/
