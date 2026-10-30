@@ -1,9 +1,6 @@
-"""Bench Project — benchmark catalog, harnesses, scoring, and agentic eval.
+"""Legacy benchmark compatibility API; independent Pi evaluation lives in benchmark/."""
 
-All benchmark code lives here. New benchmarks can be added without touching
-autoresearch.core (the Running Project). Benchmarks consume the stable API
-exported by autoresearch.core (LlamaClient, GenerationParams, etc.).
-"""
+from importlib import import_module
 
 from autoresearch.benchmarks.agentic_benchmarks import (
     AGENTIC_BENCHMARKS,
@@ -14,21 +11,44 @@ from autoresearch.benchmarks.agentic_benchmarks import (
     get_full_tier_tasks,
     get_quick_tier_tasks,
 )
-from autoresearch.benchmarks.agentic_coding.runner import run_agentic_coding_eval
-from autoresearch.benchmarks.agentic_runner import run_agent_loop, run_agentic_eval, score_task
-from autoresearch.benchmarks.benchmark_coding import run_benchmark, run_coding_eval
 from autoresearch.benchmarks.benchmark_harness import BenchmarkResult
+
+_RUNNERS = {
+    "run_benchmark": "benchmark_coding",
+    "run_coding_eval": "benchmark_coding",
+    "run_agentic_eval": "agentic_runner",
+    "run_agent_loop": "agentic_runner",
+    "run_agentic_coding_eval": "agentic_coding.runner",
+    "score_task": "agentic_runner",
+}
+
+
+def __getattr__(name):
+    if name in _RUNNERS:
+        value = getattr(import_module(f"{__name__}.{_RUNNERS[name]}"), name)
+    elif name in {
+        "bench_config",
+        "agentic_runner",
+        "benchmark_coding",
+        "agentic_coding",
+        "agentic_benchmarks",
+        "benchmark_harness",
+    }:
+        value = import_module(f"{__name__}.{name}")
+    else:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    globals()[name] = value
+    return value
+
+
+def __dir__():
+    return sorted(set(globals()) | set(__all__))
+
 
 __all__ = [
     # Coding benchmarks
     "BenchmarkResult",
-    "run_benchmark",
-    "run_coding_eval",
-    # Agentic benchmarks
-    "run_agentic_eval",
-    "run_agent_loop",
-    "run_agentic_coding_eval",
-    "score_task",
+    *_RUNNERS,
     "discover_claw_tasks",
     "get_quick_tier_tasks",
     "get_full_tier_tasks",

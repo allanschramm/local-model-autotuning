@@ -7,6 +7,7 @@ Operator scripts for running setup health checks, monitoring GPU metrics, discov
 Repository operators and developers.
 
 ## Local Contracts
+- Legacy rankings accept a canonical SQLite store without requiring the deprecated TSV file. Rankings and dashboard readers must not import evaluation runners or merge independent Pi/tuning tables into historical Trial scores.
 - Scripts must be runnable from the repository root.
 - OpenVINO GenAI remains optional. `bench_openvino.py` imports it only while running and exits nonzero with an actionable install message when unavailable.
 - `model_up.py` (global `model-up`) must work from any cwd: resolve `--model` and the Fingerprint `SPEC_DRAFT_MODEL` to absolute paths, and spawn `llama-server` with `cwd=REPO_ROOT`.
@@ -27,6 +28,7 @@ Repository operators and developers.
 - Use `rebuild_results_db.py` for store maintenance: default seeds the canonical `results.db` from the legacy TSV when missing/unseeded and parity-checks both (`trial_id` set + duplicate detection); `--force` rebuilds the DB from the TSV; `--rebuild-tsv` rewrites the legacy TSV from the canonical DB. Exit 0 on parity, 1 on drift. Both stores stay in sync automatically after every Trial write; this script covers manual repairs.
 
 ## Verification
+- `test_legacy_consumers_e2e.py`: copies public sources/config into an isolated checkout, blocks evaluation imports for read-only consumers, exercises real ranking CLI/dashboard HTTP and compatibility exports/CLIs, and retains SQLite, import inventory and verification evidence. No model/GPU load or autonomous loop.
 - `test_tuning_e2e.py`: copies only tuning/runtime sources and public data outside the checkout, rejects quality-benchmark imports, and verifies guarded native children, full-context HTTP measurement, fixed PPL reference, Pareto alternatives and SQLite/Fingerprint evidence. No GPU/model load. Retain the printed artifacts; `TUNING_E2E_DIR` must point to a fresh directory when supplied.
 - Test script changes locally by executing them.
 - `rank_results.py`: `.\venv\Scripts\python.exe -m pytest tests/test_rank_results.py`
@@ -38,6 +40,7 @@ Repository operators and developers.
 - Git pre-commit (Ruff/pytest) is repo-root owned — see root `AGENTS.md` Verification + `.pre-commit-config.yaml`.
 
 ## Child DOX Index
+- [test_legacy_consumers_e2e.py](test_legacy_consumers_e2e.py) — isolated historical consumer compatibility, protocol isolation and SQLite/HTTP/CLI evidence.
 - [test_tuning_e2e.py](test_tuning_e2e.py) — standalone finite tuning E2E with simulated model/hardware, real HTTP/native-process/SQLite evidence.
 - [bench_openvino.py](bench_openvino.py) — optional OpenVINO GenAI CPU/iGPU benchmark with separate prefill/decode TPS output.
 - [run_pytest_hook.py](run_pytest_hook.py) — pre-commit local entry for venv pytest.

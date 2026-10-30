@@ -546,7 +546,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     path = args.tsv
-    if not path.is_file():
+    if not path.is_file() and not results_db.default_db_path(path).is_file():
         print(f"ERROR: missing {path}", file=sys.stderr)
         return 1
     rows = load_rows(path)

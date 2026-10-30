@@ -11,6 +11,7 @@ Independent bounded TPS × context Search is owned by [`tuning.py`](tuning.py), 
 Repository developers.
 
 ## Local Contracts
+- `benchmarks/__init__.py` preserves the legacy public exports and object identity, but loads evaluation runners only when requested. Catalog/config imports must not load quality execution. Keep the compatibility CLI until its operator workflow is explicitly retired.
 - Harness child processes use `core.process_guard.spawn_kwargs` (or an explicit `CREATE_NO_WINDOW`) on Windows; coding verifiers use `MPLBACKEND=Agg` to keep generated plots headless.
 - New tuning uses `tuning-runtime-v1`: full-context monitored native generation, a fixed per-Search PPL reference, a minimum-context floor that preserves Baseline, finite budgets, and a two-axis Pareto Set. Verify allocation with `/props` and each completion's actual context via `/slots` and `id_slot`. Records live only in `tuning_runs`/`tuning_trials`; quality protocols and old rankings remain separate.
 - `_ModelProcess` in `core/llama_runner.py` owns model-child launch, RAM/VRAM monitoring and cleanup for both `LlamaServerRunner` and `NativeModelProcess`. Both expose `model_binary` for CPU/GPU monitoring selection; native PPL never depends on server-only attributes or bypasses these protections.
@@ -44,6 +45,7 @@ Repository developers.
 - Keep dependencies minimal and avoid adding new third-party libraries.
 
 ## Verification
+- `.\venv\Scripts\python.exe scripts/test_legacy_consumers_e2e.py` verifies lazy exports, catalog/config imports, historical SQLite-only rankings/dashboard HTTP, protocol isolation and CLI compatibility in a copied checkout without model loading.
 - `.\venv\Scripts\python.exe scripts/test_tuning_e2e.py` verifies source isolation, native child lifecycle, HTTP context/timing, fixed PPL ceiling and SQLite/Fingerprint evidence with simulated hardware/models. Retain the printed temp artifacts.
 - Run `pytest` on tests checking core runners (`test_llama_runner.py`, `test_llama_client.py`).
 - Run `pytest tests/test_state.py` for state verification. Search-strategy behavior is verified E2E, not by unit tests (root Testing rules).

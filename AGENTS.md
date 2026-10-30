@@ -40,6 +40,7 @@ Repository developers.
 - E2E here = a harness run that ends in a `results.db` artifact (`benchmark_search.py --validation`, Trial claw-full/coding-10, `scripts/setup-check.sh`). The unit suite in `tests/` is a closed set of exceptions: silent store/rank corruption, security holes, platform branches the rig never executes, and fail-closed hardware gates (contract in `tests/AGENTS.md`).
 
 ## Verification
+- Legacy consumer compatibility: `.\venv\Scripts\python.exe scripts/test_legacy_consumers_e2e.py` retains isolated SQLite/HTTP/CLI evidence without model/GPU loading.
 - `.\venv\Scripts\python.exe -m pytest` (or `scripts/run_validate.py` / pre-commit). Never system-global Python.
 - Independent Pi Benchmark: `npm ci --prefix benchmark`, then `BENCHMARK_PYTHON=<venv-python> node benchmark/test/e2e.mjs` (set the environment variable using the current shell). It retains its SQLite/trajectory evidence in the printed temp directory.
 - Claw's Pi protocol additionally uses `node benchmark/test/claw_e2e.mjs` with the same Python environment and `benchmark/claw-requirements.txt` installed; see the Benchmark contract for service isolation and live-web restrictions.

@@ -44,11 +44,23 @@ The upstream apps now run in a fresh per-task Python process through FastAPI Tes
 
 BigCodeBench Hard freezes v0.1.4 IDs /13, /15, /17, /19, /34, /37, /82, /89, /92 and /93 in legacy order. The source instruct prompt and original TestCases text stay intact; the workspace starts with the source code prompt plus an unimplemented stub. Hidden pytest executes solution and tests in one module namespace, then explicitly runs the entire unittest suite. This preserves tests that refer to solution imports and global objects. Graphs use Agg; the legacy Windows normalization of shell `not found`/`not recognized` assertions remains scoped to suite execution. Missing libraries/fixture files are infrastructure failures. Direct dependency pins are a validated environment reference, not an official leaderboard environment or complete transitive lock. No automatic execution timeout or OS sandbox is added.
 
-`autoresearch/runners/evaluation.py`, CLI dispatch in `autoresearch/runners/run.py`, compatibility exports in `autoresearch/benchmarks/__init__.py`, `scripts/lcb_only.py`, existing tests, dashboard consumers and legacy rankings still depend on the old paths. They remain available during migration. The independent runner never imports them, and the tuning module never invokes Pi.
+The independent runner never imports legacy evaluation, and the tuning module never invokes Pi. Legacy consumers have different retirement requirements:
+
+| Consumers | Dependency | Retirement condition |
+| --- | --- | --- |
+| `runners/evaluation.py`, `runners/run.py`, `benchmark_search.py`, `scripts/lcb_only.py` | Historical execution and operator commands | Explicit workflow deprecation; never silently redirect old flags to Pi protocols |
+| Operator-only `autoloop.py` | Legacy benchmark configuration | Migrate its configuration ownership before removing that module; do not launch the loop as a compatibility check |
+| `benchmarks/__init__.py` | Public function/class exports | Preserve all 14 symbols and original object identities; runners load on access, catalog/config remain lightweight |
+| Dashboard, rankings, `core/trial_store.py`, recompute/classification | Historical SQLite rows and protocol identity | Keep historical schemas/readers; these do not require the legacy agent loops |
+| Legacy runner/protocol tests | Old execution and compatibility coverage | Retire alongside the corresponding workflow, preserving store/protocol integrity checks |
+
+Run `scripts/test_legacy_consumers_e2e.py` with the repository venv before retirement. It copies public sources/config outside the checkout, blocks evaluation imports for catalog/config and read-only consumers, checks exports plus actual operator CLI listing/help, and serves dashboard HTTP against a synthetic SQLite-only store. Its retained `results.db`, `ranking.txt`, `dashboard.json`, `imports.json` and `verification.json` show unchanged historical rows and exclusion of independent Pi/tuning tables. The AST inventory covers copied production sources, not dynamic imports or all tests; review those callers separately before deletion.
 
 Before retiring a legacy path: port all selected tasks and verifier behavior, publish its protocol identity, run a local endpoint end to end with SQLite/trajectory evidence, and check every caller plus the commands documented for operators. Historical result tables/protocols remain readable. A passing small pack alone does not authorize deleting all old evaluations.
 
 ## Open-source approaches considered
+
+- [PEP 562](https://github.com/python/peps/blob/main/peps/pep-0562.rst) supplies module attribute/inspection hooks; [scientific-python lazy-loader](https://github.com/scientific-python/lazy-loader/blob/main/src/lazy_loader/__init__.py) uses them for deferred exports. Reuse the existing repository's module-hook pattern with stdlib `importlib` for the six legacy functions, preserving their identity without another dependency.
 
 - [EvalPlus data loader](https://github.com/evalplus/evalplus/blob/master/evalplus/data/humaneval.py) distinguishes original `test`, `base_input`, expanded `plus_input`, and oracle solutions. Use the existing pinned snapshot; do not relabel its base tests as plus coverage.
 - [Harbor HumanEvalFix adapter](https://github.com/harbor-framework/harbor/tree/main/adapters/humanevalfix) demonstrates dataset-to-workspace adaptation with separate verification and oracle assets. Its repair dataset and container runtime differ from our existing generation tasks; adopting its whole execution stack is unnecessary for this slice.
