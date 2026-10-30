@@ -177,7 +177,7 @@ O código próprio é disponibilizado para uso não comercial conforme a licenç
 | `benchmark_search.py` | CLI runner | **Não** |
 | `autoresearch/benchmarks/*` | Lógica de avaliação | **Não** |
 | `program.md` | Protocolo do Search | **Não** |
-| `results.db` | Store canônico SQLite; tabelas de tuning, Pi e Trials legados separadas | Via harness |
+| `results.db` | Store canônico SQLite; tabelas de tuning e Trials legados separadas | Via harness |
 | `results.tsv` | Append-log legado, não usar como fonte de métricas | Escrita de compatibilidade |
 | `scripts/rank_results.py` | Ranking Day / Night dos protocolos legados a partir do SQLite | **Não** (só lê) |
 
