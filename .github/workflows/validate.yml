@@ -37,3 +37,18 @@ jobs:
         with:
           name: tuning-evidence
           path: ${{ runner.temp }}/tuning-e2e/
+      - name: Legacy consumer compatibility E2E without model load
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: python scripts/test_legacy_consumers_e2e.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: legacy-consumer-evidence
+          path: |
+            ${{ runner.temp }}/legacy-consumers-e2e-*/results.db
+            ${{ runner.temp }}/legacy-consumers-e2e-*/verification.json
+            ${{ runner.temp }}/legacy-consumers-e2e-*/imports.json
+            ${{ runner.temp }}/legacy-consumers-e2e-*/*.log
+            ${{ runner.temp }}/legacy-consumers-e2e-*/ranking.txt
+            ${{ runner.temp }}/legacy-consumers-e2e-*/dashboard.json

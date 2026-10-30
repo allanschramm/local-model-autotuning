@@ -26,6 +26,8 @@ Repository operators and developers.
 - Use `model_info.py` to query GGUF ground truth read-only: arch (MoE/dense), block count, KV sizing, `--n-cpu-moe` resolution, and (with `--tensors`) the full tensor inventory. Agents must use this for model details / GGUF forensics — never parse the raw `.gguf` or dump tensors with ad-hoc scripts.
 - Use `rebuild_results_db.py` for store maintenance: default seeds the canonical `results.db` from the legacy TSV when missing/unseeded and parity-checks both (`trial_id` set + duplicate detection); `--force` rebuilds the DB from the TSV; `--rebuild-tsv` rewrites the legacy TSV from the canonical DB. Exit 0 on parity, 1 on drift. Both stores stay in sync automatically after every Trial write; this script covers manual repairs.
 
+- `test_legacy_consumers_e2e.py` verifies isolated imports, CLI exports and read-only SQLite/HTTP consumers using synthetic catalog metadata; it retains SQLite and JSON evidence without external datasets or model loading.
+
 ## Verification
 - `test_tuning_e2e.py`: copies only tuning/runtime sources and public data outside the checkout, rejects quality-benchmark imports, and verifies guarded native children, full-context HTTP measurement, fixed PPL reference, Pareto alternatives and SQLite/Fingerprint evidence. No GPU/model load. Retain the printed artifacts; `TUNING_E2E_DIR` must point to a fresh directory when supplied.
 - Test script changes locally by executing them.
@@ -38,6 +40,7 @@ Repository operators and developers.
 - Git pre-commit (Ruff/pytest) is repo-root owned — see root `AGENTS.md` Verification + `.pre-commit-config.yaml`.
 
 ## Child DOX Index
+- [test_legacy_consumers_e2e.py](test_legacy_consumers_e2e.py) ? isolated catalog, CLI, SQLite and dashboard compatibility evidence.
 - [test_tuning_e2e.py](test_tuning_e2e.py) — standalone finite tuning E2E with simulated model/hardware, real HTTP/native-process/SQLite evidence.
 - [bench_openvino.py](bench_openvino.py) — optional OpenVINO GenAI CPU/iGPU benchmark with separate prefill/decode TPS output.
 - [run_pytest_hook.py](run_pytest_hook.py) — pre-commit local entry for venv pytest.

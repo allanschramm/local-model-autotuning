@@ -42,6 +42,9 @@ Repository developers.
 - Implement mock classes for system hardware calls (like GPU VRAM) to ensure code remains testable across environments.
 - Keep dependencies minimal and avoid adding new third-party libraries.
 
+- Legacy benchmark public exports remain compatible and load evaluation runners lazily; catalog/config readers must not import model evaluation.
+- Read-only consumers use `core/trial_store.py` and canonical SQLite without importing `runners/run.py`.
+
 ## Verification
 - `.\venv\Scripts\python.exe scripts/test_tuning_e2e.py` verifies source isolation, native child lifecycle, HTTP context/timing, fixed PPL ceiling and SQLite/Fingerprint evidence with simulated hardware/models. Retain the printed temp artifacts.
 - Run `pytest` on tests checking core runners (`test_llama_runner.py`, `test_llama_client.py`).
