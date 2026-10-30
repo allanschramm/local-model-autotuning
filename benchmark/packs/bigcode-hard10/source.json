@@ -1,0 +1,185 @@
+{
+  "pack": "bigcode-hard10",
+  "dataset": "bigcode/bigcodebench-hard",
+  "split": "v0.1.4",
+  "revision": "298d2cc7b96612e15e47313c3603ee124cee0c1f",
+  "source_subset_sha256": "7a44b29b7578abde447ccf0385b746413f6bd6abe1bde3db0d3ed96019f1f0d8",
+  "verification": "Original unittest TestCases in shared solution namespace; legacy Windows shell-message compatibility; headless plots",
+  "tasks": {
+    "bigcode-013": {
+      "source_id": "BigCodeBench/13",
+      "libs": [
+        "subprocess",
+        "ftplib",
+        "os"
+      ],
+      "dependencies": [],
+      "unittest_cases": 5,
+      "instruct_prompt_sha256": "cac7afe7562bd55d08c012db644cf02a166130b99cb3154858ff06922c19a597",
+      "code_prompt_sha256": "2f20d7a9899f558a885f3d9312c933d61fd6d71205b39729d8937b1324153e0f",
+      "test_sha256": "5ccbf36460661abcb7db98f7a79774f6df278994ce28b2e33f176d5e0ae4c01b",
+      "verifier_sha256": "757081b11a98e9e6a7a247547bb6be2a42a6e3cfc471e36bc8be45aca7e531df"
+    },
+    "bigcode-015": {
+      "source_id": "BigCodeBench/15",
+      "libs": [
+        "subprocess",
+        "csv",
+        "os"
+      ],
+      "dependencies": [],
+      "unittest_cases": 6,
+      "instruct_prompt_sha256": "956b8e694c61bb0d841cc63f78e9d85b96b4e3a719f7a34b9215df7c0c2c1944",
+      "code_prompt_sha256": "dfeef3f08246a944b2fc3f50ca7fbd6a47f43c1bea0823c09c0f33eab7643c1e",
+      "test_sha256": "a682808668a318fe5166b8b4b30de348acc4844b6c455a82ffa824cf67a83ec7",
+      "verifier_sha256": "757081b11a98e9e6a7a247547bb6be2a42a6e3cfc471e36bc8be45aca7e531df"
+    },
+    "bigcode-017": {
+      "source_id": "BigCodeBench/17",
+      "libs": [
+        "psutil",
+        "subprocess",
+        "time"
+      ],
+      "dependencies": [
+        "psutil"
+      ],
+      "unittest_cases": 3,
+      "instruct_prompt_sha256": "3993ba8b2a2ceede70d560e957786b1038bae6533c2e5b11de9f3e00ff204e89",
+      "code_prompt_sha256": "7f13e7d4ead65fd5c2a158f04f3fa932484ea98dddca19ca1a3f14da269e3f1c",
+      "test_sha256": "d6777a6e5aaad1a8c33dd831df2556be40f88c3262fab992c241c396efaa192b",
+      "verifier_sha256": "757081b11a98e9e6a7a247547bb6be2a42a6e3cfc471e36bc8be45aca7e531df"
+    },
+    "bigcode-019": {
+      "source_id": "BigCodeBench/19",
+      "libs": [
+        "glob",
+        "zipfile",
+        "os"
+      ],
+      "dependencies": [],
+      "unittest_cases": 6,
+      "instruct_prompt_sha256": "518afb93b69ed483622ea2d881ba50aa6a1d0d43dff97bc58d1587c9facb324a",
+      "code_prompt_sha256": "c9ee2b57ac9e01827c2fc11a1d1ff8934f09ba4228139531c80fccda16d64676",
+      "test_sha256": "9beb2baedb6faaa1907f5bf5fdef144b4ec897d8f2a65d02b1613b60d1e1c7bb",
+      "verifier_sha256": "757081b11a98e9e6a7a247547bb6be2a42a6e3cfc471e36bc8be45aca7e531df"
+    },
+    "bigcode-034": {
+      "source_id": "BigCodeBench/34",
+      "libs": [
+        "matplotlib",
+        "re",
+        "wordcloud"
+      ],
+      "dependencies": [
+        "matplotlib",
+        "wordcloud"
+      ],
+      "unittest_cases": 5,
+      "instruct_prompt_sha256": "4fce6027538b136d9399e5b99d067790beebb50f50fb24f918a625cdbd6be441",
+      "code_prompt_sha256": "a7317ef2ead17cdd54938344b1dd7c78a6e4e043ca595227480a4d0e658341a1",
+      "test_sha256": "aafd593cc9e5e8e24c85e54b8bd2cb5ce1ca1e84babb31faf6e2fa31880a8f6f",
+      "verifier_sha256": "757081b11a98e9e6a7a247547bb6be2a42a6e3cfc471e36bc8be45aca7e531df"
+    },
+    "bigcode-037": {
+      "source_id": "BigCodeBench/37",
+      "libs": [
+        "sklearn",
+        "matplotlib",
+        "seaborn"
+      ],
+      "dependencies": [
+        "pandas",
+        "sklearn",
+        "seaborn",
+        "matplotlib"
+      ],
+      "unittest_cases": 5,
+      "instruct_prompt_sha256": "00ace45ef89a79191bf2294b8d9c7b563f790ca22a56b6639d6141e8393abc9b",
+      "code_prompt_sha256": "25b2ab724d9d888630023886428f1276eaaf5b49f4597e42fd515a30fd7a89d7",
+      "test_sha256": "96710713c36331d11ff616659d9555999bbdc3448d4ccff340efa4dc0baa568c",
+      "verifier_sha256": "757081b11a98e9e6a7a247547bb6be2a42a6e3cfc471e36bc8be45aca7e531df"
+    },
+    "bigcode-082": {
+      "source_id": "BigCodeBench/82",
+      "libs": [
+        "flask_login",
+        "flask_wtf",
+        "wtforms",
+        "werkzeug",
+        "flask"
+      ],
+      "dependencies": [
+        "flask",
+        "flask_login",
+        "flask_wtf",
+        "wtforms",
+        "werkzeug"
+      ],
+      "unittest_cases": 6,
+      "instruct_prompt_sha256": "8b38fff96951192acf41b301795497167d195365472152f30160a0ff5e633138",
+      "code_prompt_sha256": "03eb06ee8316038e913cd0b1062d7cd0f12a3619d4adcd96530f57b9feba9b31",
+      "test_sha256": "ae26a044748b0be23f8d1d5d5f677dc5305b30c83bf8ee89efd73a02d341b05c",
+      "verifier_sha256": "757081b11a98e9e6a7a247547bb6be2a42a6e3cfc471e36bc8be45aca7e531df"
+    },
+    "bigcode-089": {
+      "source_id": "BigCodeBench/89",
+      "libs": [
+        "numpy",
+        "matplotlib",
+        "scipy",
+        "sklearn"
+      ],
+      "dependencies": [
+        "numpy",
+        "matplotlib",
+        "scipy",
+        "sklearn"
+      ],
+      "unittest_cases": 6,
+      "instruct_prompt_sha256": "1a845a55e3666571cd4991c352e234f1f136c8ae51a9e15c78d9beaf1bd88f7c",
+      "code_prompt_sha256": "b9453e9246c0c35af78dca6e778f950b9b94388bd697921453f0989d487af2d1",
+      "test_sha256": "f12f23f78b9356fd21889fe890f2e4378d7d11c1b57fcdceeb3814ccd891917d",
+      "verifier_sha256": "757081b11a98e9e6a7a247547bb6be2a42a6e3cfc471e36bc8be45aca7e531df"
+    },
+    "bigcode-092": {
+      "source_id": "BigCodeBench/92",
+      "libs": [
+        "pandas",
+        "matplotlib",
+        "sklearn"
+      ],
+      "dependencies": [
+        "pandas",
+        "matplotlib",
+        "sklearn",
+        "numpy"
+      ],
+      "unittest_cases": 7,
+      "instruct_prompt_sha256": "524ef9efb1ebfa481d7de078ac1c3d133474bcde1575eee8986ab944cfac3606",
+      "code_prompt_sha256": "8f36fca764f8f83b0ef43f29da25aac635f7a280d56f999cecce56ade29d1248",
+      "test_sha256": "679e0822da7db1e51e924c4d22267f350a255601d22e24b101377dd43534ddae",
+      "verifier_sha256": "757081b11a98e9e6a7a247547bb6be2a42a6e3cfc471e36bc8be45aca7e531df"
+    },
+    "bigcode-093": {
+      "source_id": "BigCodeBench/93",
+      "libs": [
+        "pandas",
+        "numpy",
+        "matplotlib",
+        "sklearn"
+      ],
+      "dependencies": [
+        "numpy",
+        "pandas",
+        "matplotlib",
+        "sklearn"
+      ],
+      "unittest_cases": 5,
+      "instruct_prompt_sha256": "707a2c94e23dab328858dd2c7ba59d217563908d66d06d7edd6027d1795ece8d",
+      "code_prompt_sha256": "596e3ce25d673fdd28ff99307c29b537a8d299a92fa643eb62250d458a51b818",
+      "test_sha256": "3d3a50bd6a4129120e297f6fe5190f63649038ecbf2a29d244362d076c315792",
+      "verifier_sha256": "757081b11a98e9e6a7a247547bb6be2a42a6e3cfc471e36bc8be45aca7e531df"
+    }
+  }
+}

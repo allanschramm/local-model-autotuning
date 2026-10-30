@@ -1,0 +1,1 @@
+["flask", "flask_login", "flask_wtf", "wtforms", "werkzeug"]

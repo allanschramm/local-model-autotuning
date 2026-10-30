@@ -19,6 +19,7 @@ const PACKS = new Map([
   ['humaneval-base10', join(ROOT, 'packs/humaneval-base10/tasks')],
   ['mbpp-base10', join(ROOT, 'packs/mbpp-base10/tasks')],
   ['lcb-v6-stdin10', join(ROOT, 'packs/lcb-v6-stdin10/tasks')],
+  ['bigcode-hard10', join(ROOT, 'packs/bigcode-hard10/tasks')],
 ]);
 const PROTOCOL = 'pi-workspace-v2';
 const PI_VERSION = '1.4.0';

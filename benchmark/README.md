@@ -84,6 +84,27 @@ hf download livecodebench/code_generation_lite test6.jsonl --repo-type dataset -
 
 Running the frozen pack needs neither the source JSONL nor Hugging Face dependencies. The standalone E2E rejects every unimplemented stdin task, checks a known solution to 9x9 Sum, rejects sample-only/whitespace/syntax failures, and classifies missing archives as infrastructure. It does not claim oracle validation of all ten algorithms.
 
+## BigCodeBench Hard pack
+
+```powershell
+.\venv\Scripts\python.exe -m pip install -r benchmark/packs/bigcode-hard10/requirements.txt
+node benchmark/main.mjs --pack bigcode-hard10 --list
+node benchmark/main.mjs --pack bigcode-hard10 --provider local --model <served-model-id> --base-url http://127.0.0.1:18080/v1 --context-window 65536 --python .\venv\Scripts\python.exe
+```
+
+The pack freezes the first ten legacy selections from BigCodeBench Hard v0.1.4: /13, /15, /17, /19, /34, /37, /82, /89, /92 and /93. It preserves the original instruct prompt and code header. Models write only `solution.py`. Original tests run after generation in a private verification copy, in the same module namespace as the solution, followed by explicit execution of `TestCases` through `unittest`. This retains references to imports/global objects and mocked FTP/process interactions. Plots use the headless Agg backend. The legacy Windows compatibility accepts `not recognized` where the original shell assertion expects `not found`, only during suite execution.
+
+`requirements.txt` pins the direct library versions used for validation, including scientific/plotting and Flask libraries. It is not a complete transitive environment lock or the official leaderboard image. Missing verifier dependencies or fixture files produce infrastructure errors (`passed=NULL`); invalid generated code and failed assertions remain model failures. Install dependencies in the Python passed to `--python`. No automatic execution timeout or OS sandbox is added. This ten-task Pi instruct slice is not the full 148-task Hard score, and legacy single-shot scores remain separate.
+
+Source revision, selected-row hash, original prompt/test hashes, dependency names and test counts are in `source.json`. `oracles.json` contains upstream solutions for E2E only, outside every model workspace. The Apache-2.0 license and attribution are included. Reproduce into a fresh directory with:
+
+```powershell
+hf download bigcode/bigcodebench-hard data/v0.1.4-00000-of-00001.parquet --repo-type dataset --revision 298d2cc7b96612e15e47313c3603ee124cee0c1f
+.\venv\Scripts\python.exe benchmark/import_bigcode.py --source <downloaded-parquet> --output <new-pack-directory>
+```
+
+Reproduction needs `datasets`; running frozen tasks does not. The standalone E2E rejects all ten stubs, accepts all ten upstream oracles and checks missing-library classification using the real Pi loop, hidden verification and SQLite.
+
 ## Protocol and evidence
 
 `pi-workspace-v2` uses Pi 1.4.0 with allowlisted `workspace_read` and `workspace_write` adapters over Pi tools, a fixed system prompt, temperature 0, thinking off, 4096 output tokens per turn, and each task's frozen turn limit. No shell, personal resources, compaction, or automatic recovery. This measures that constrained Pi configuration, not vanilla Pi or Terminal-Bench.

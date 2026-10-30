@@ -7,6 +7,8 @@
 // including imported entrypoints/helpers, without changing either existing pack.
 // LiveCodeBench must execute private stdin cases, reject sample-only solutions,
 // preserve strict whitespace comparison, and isolate each program's cwd.
+// BigCodeBench must run every original unittest against stubs/oracles, share
+// solution globals with tests, keep plots headless, and fail infra on missing deps.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -42,6 +44,7 @@ const server = createServer(async (req, res) => {
   assert(!raw.includes('def test_inclusive_max'), 'hidden test leaked');
   assert(!raw.includes('def test_original_mbpp_assertions'), 'MBPP hidden test leaked');
   assert(!raw.includes('private_cases.json.gz'), 'LCB hidden verifier leaked');
+  assert(!raw.includes('test_original_bigcode_suite'), 'BigCode hidden verifier leaked');
   assert(!raw.includes('PERSONAL_RESOURCE_SENTINEL'), 'personal Pi resource leaked');
   if (body.model === 'infra-error') {
     res.writeHead(401, { 'Content-Type': 'application/json' });
@@ -56,9 +59,9 @@ const server = createServer(async (req, res) => {
     if (body.model === 'lcb-whitespace') code = code.replace('print(answer)', "print(answer, end=' \\n')");
     if (body.model === 'lcb-syntax') code = 'def broken syntax!\n';
     tool = { name: 'workspace_write', arguments: JSON.stringify({ path: 'solution.py', content: code }) };
-  } else if (['human-oracle', 'mbpp-oracle'].includes(body.model) && !usedTools) {
-    const pack = body.model === 'human-oracle' ? 'humaneval-base10' : 'mbpp-base10';
-    const sourceId = raw.match(/(?:HumanEval|Mbpp)\/\d+/)?.[0];
+  } else if (['human-oracle', 'mbpp-oracle', 'bigcode-oracle'].includes(body.model) && !usedTools) {
+    const pack = body.model === 'human-oracle' ? 'humaneval-base10' : body.model === 'mbpp-oracle' ? 'mbpp-base10' : 'bigcode-hard10';
+    const sourceId = raw.match(/(?:HumanEval|Mbpp|BigCodeBench)\/\d+/)?.[0];
     const oracles = JSON.parse(await readFile(join(isolated, `packs/${pack}/oracles.json`), 'utf8'));
     assert(sourceId && oracles[sourceId], 'Expected a frozen source task');
     tool = { name: 'workspace_write', arguments: JSON.stringify({ path: 'solution.py', content: oracles[sourceId] }) };
@@ -127,6 +130,10 @@ try {
   const lcbIds = lcbList.output.trim().split(/\r?\n/);
   assert.deepEqual(lcbIds, ['abc387_b', 'abc387_f', 'abc387_a', 'abc387_c', 'abc388_d', 'abc388_b', 'abc388_g', 'abc388_c', 'abc388_a', 'abc388_f'].map((id, i) => `lcb-${String(i).padStart(3, '0')}-${id}`));
   assert.equal((await run(['--list', '--pack', '../tasks'])).code, 2);
+  const bigcodeList = await run(['--list', '--pack', 'bigcode-hard10']);
+  assert.equal(bigcodeList.code, 0, bigcodeList.output);
+  const bigcodeIds = bigcodeList.output.trim().split(/\r?\n/);
+  assert.deepEqual(bigcodeIds, [13, 15, 17, 19, 34, 37, 82, 89, 92, 93].map(id => `bigcode-${String(id).padStart(3, '0')}`));
   for (const model of ['pass', 'fail', 'infra-error', 'escape', 'hidden', 'loop', 'syntax', 'absolute-pass', 'absolute-escape', 'absolute-hidden']) {
     const result = await run([
       '--provider', 'fixture', '--model', model,
@@ -164,9 +171,24 @@ try {
     await writeFile(join(artifacts, `${model}.log`), result.output);
     assert.equal(result.code, model === 'lcb-reference' ? 0 : model === 'lcb-missing-cases' ? 2 : 1, result.output);
   }
+  for (const model of ['bigcode-empty', 'bigcode-oracle', 'bigcode-missing-dependency']) {
+    const requirements = join(isolated, 'packs/bigcode-hard10/tasks', bigcodeIds[0], 'hidden_tests/dependencies.json');
+    const saved = await readFile(requirements);
+    if (model === 'bigcode-missing-dependency') await writeFile(requirements, '["missing_benchmark_dependency_fixture"]');
+    let result;
+    try { result = await run([
+      '--provider', 'fixture', '--model', model, '--pack', 'bigcode-hard10',
+      '--base-url', `http://127.0.0.1:${server.address().port}/v1`,
+      '--context-window', '65536', '--api-key-env', 'BENCHMARK_TEST_KEY',
+      '--python', python, '--db', database,
+      ...(model === 'bigcode-missing-dependency' ? ['--task', bigcodeIds[0]] : []),
+    ]); } finally { await writeFile(requirements, saved); }
+    await writeFile(join(artifacts, `${model}.log`), result.output);
+    assert.equal(result.code, model === 'bigcode-oracle' ? 0 : model === 'bigcode-missing-dependency' ? 2 : 1, result.output);
+  }
   const db = new DatabaseSync(database);
   const allRows = db.prepare('SELECT * FROM benchmark_tasks ORDER BY rowid').all();
-  assert.equal(allRows.length, 65);
+  assert.equal(allRows.length, 86);
   const rows = allRows.slice(0, 10);
   assert.equal(rows[0].outcome, 'passed');
   assert.equal(rows[1].outcome, 'failed');
@@ -190,6 +212,12 @@ try {
   assert(allRows.slice(61, 64).every(r => r.outcome === 'failed'));
   assert.equal(allRows[64].outcome, 'infra_error', 'Missing private fixtures are not model failures');
   assert.equal(allRows[64].passed, null);
+  assert.deepEqual(allRows.slice(65, 75).map(r => r.task_id), bigcodeIds);
+  assert(allRows.slice(65, 75).every(r => r.outcome === 'failed'));
+  assert.deepEqual(allRows.slice(75, 85).map(r => r.task_id), bigcodeIds);
+  assert(allRows.slice(75, 85).every(r => r.outcome === 'passed'));
+  assert.equal(allRows[85].outcome, 'infra_error');
+  assert.equal(allRows[85].passed, null);
   for (const row of allRows) {
     const evidence = JSON.parse(await readFile(row.artifact, 'utf8'));
     assert.equal(evidence.task, row.task_id);
@@ -205,7 +233,8 @@ try {
   assert(runs.every(r => r.status === 'complete'));
   assert(runs.slice(10, 12).every(r => JSON.parse(r.config_json).pack === 'humaneval-base10'));
   assert(runs.slice(12, 14).every(r => JSON.parse(r.config_json).pack === 'mbpp-base10'));
-  assert(runs.slice(14).every(r => JSON.parse(r.config_json).pack === 'lcb-v6-stdin10'));
+  assert(runs.slice(14, 20).every(r => JSON.parse(r.config_json).pack === 'lcb-v6-stdin10'));
+  assert(runs.slice(20).every(r => JSON.parse(r.config_json).pack === 'bigcode-hard10'));
   assert(runs.slice(0, 10).every(r => JSON.parse(r.config_json).pack === 'workspace-smoke'));
   assert(requests.every(r => r.model && (r.max_tokens ?? r.max_completion_tokens) === 4096));
   assert(!requests.some(r => 'min_p' in r || 'chat_template_kwargs' in r));

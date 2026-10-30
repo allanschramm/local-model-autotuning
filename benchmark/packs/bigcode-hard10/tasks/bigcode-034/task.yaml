@@ -1,0 +1,9 @@
+{
+  "id": "bigcode-034",
+  "source_issue": "BigCodeBench/34",
+  "max_turns": 12,
+  "allowlist": [
+    "solution.py"
+  ],
+  "issue": "Task source: BigCodeBench/34. Implement the complete solution in solution.py.\n\nCreate a word cloud from text after removing URLs and plot it.\nThe function should raise the exception for: ValueError(\"No words available to generate a word cloud after removing URLs.\"): If there are no words available to generate a word cloud after removing URLs.\nThe function should output with:\n    WordCloud object: The generated word cloud.\nYou should write self-contained code starting with:\n```\nimport re\nfrom wordcloud import WordCloud\nimport matplotlib.pyplot as plt\ndef task_func(text):\n```"
+}
