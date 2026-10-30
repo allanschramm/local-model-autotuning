@@ -99,3 +99,4 @@ jobs:
             ${{ runner.temp }}/pi-${{ matrix.suite }}-e2e*/results.db
             ${{ runner.temp }}/pi-${{ matrix.suite }}-e2e*/*.log
             ${{ runner.temp }}/pi-${{ matrix.suite }}-e2e*/benchmark-artifacts/
+            ${{ runner.temp }}/pi-${{ matrix.suite }}-e2e*/web-security/

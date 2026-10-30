@@ -39,7 +39,6 @@
     "mock_services/web/server.py": "fdc2534d1addaa5379abeb11b6567ed06ae48a0f89f69fc140d711d2015a9187",
     "mock_services/web_real/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "mock_services/web_real/search_serp.py": "8e9a38ba473b9114867d121dec4b68ba8df2a2104bc732ec296f882d6f515b45",
-    "mock_services/web_real/server.py": "ff6558912f34e2bd57287724d00772906725badfe84764424ed8d846a313a20d",
     "tasks/T002_email_triage/fixtures/gmail/inbox.json": "5878a06f9ce217890fba6ec6ec4e807e8dc34395f09deebdeed673a2325a480c",
     "tasks/T002_email_triage/task.yaml": "685d5ea1bc1a0cd68ce861df3f36d372c74024cf1ca86d50aa8c3b3b2bb64164",
     "tasks/T004_calendar_scheduling/fixtures/calendar/events.json": "661323bd775a6cf51a589826b17f89151ee70a19677d0e85ed561af55358108a",
@@ -66,6 +65,9 @@
     "tasks/T050_regulatory_research/task.yaml": "b21480300b4d22852bee528f50617087934d9f9e54625cdca0b2399122d6e5c8",
     "tasks/T053_finance_us_steel_merger/task.yaml": "007036710ba9fdaba14ba3eacdb4b56feb6c2daf3cde0812075383bcc9da4794",
     "tasks/T054_finance_nflx_arppu_trend/task.yaml": "b1ea3196f7407a46c0d44e5a2bc454d8828029fb37da0920a541ef9701cd8ef9"
+  },
+  "adapter_sources": {
+    "mock_services/web_real/server.py": "ff6558912f34e2bd57287724d00772906725badfe84764424ed8d846a313a20d"
   },
   "legacy_score_sha256": "553636565324a78301cea372b2fab5c1554127158e1713499466b57e2f1db44a"
 }

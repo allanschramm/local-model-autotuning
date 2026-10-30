@@ -44,7 +44,11 @@ def main():
                     raise FileNotFoundError(f"Missing declared fixture: {value}")
                 os.environ[key] = str(path)
             sys.path.insert(0, str(root / "upstream/mock_services" / service["name"]))
-            module = importlib.import_module(f"mock_services.{service['name']}.server")
+            module = importlib.import_module(
+                "claw_web"
+                if service["name"] == "web_real"
+                else f"mock_services.{service['name']}.server"
+            )
             client = stack.enter_context(TestClient(module.app, raise_server_exceptions=False))
             clients[urlsplit(service["health_check"]).netloc] = client
             response = client.request(

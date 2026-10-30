@@ -72,10 +72,17 @@ const run = args => new Promise((done, reject) => {
   child.on('error', reject); child.on('close', code => done({ code, output }));
 });
 try {
+  const security = await new Promise((done, reject) => {
+    const child = spawn(python, [join(isolated, 'test/claw_web_security.py'), '--output', join(directory, 'web-security')], { windowsHide: true });
+    let output = ''; child.stdout.on('data', x => output += x); child.stderr.on('data', x => output += x);
+    child.on('error', reject); child.on('close', code => done({ code, output }));
+  });
+  await writeFile(join(directory, 'web-security.log'), security.output);
+  assert.equal(security.code, 0, security.output);
   const historical = new DatabaseSync(dbPath);
   historical.exec(`CREATE TABLE benchmark_runs (run_id TEXT PRIMARY KEY,protocol TEXT,pi_version TEXT,provider TEXT,model TEXT,config_json TEXT,started_at TEXT,finished_at TEXT,status TEXT);
     CREATE TABLE benchmark_tasks (run_id TEXT,task_id TEXT,outcome TEXT,passed INTEGER,elapsed_sec REAL,task_hash TEXT,artifact TEXT,PRIMARY KEY(run_id,task_id));
-    INSERT INTO benchmark_runs VALUES ('history','pi-workspace-v2','1.4.0','fixture','history','{}','before','before','complete');
+    INSERT INTO benchmark_runs VALUES ('history','pi-claw-v1','1.4.0','fixture','history','{}','before','before','complete');
     INSERT INTO benchmark_tasks VALUES ('history','historical-task','passed',1,1.5,'frozen','historical-artifact');`);
   historical.close();
   const quick = await run(['--pack', 'claw-quick5', '--list']);
@@ -104,6 +111,7 @@ try {
   } finally { await rename(`${fixture}.saved`, fixture); }
   const db = new DatabaseSync(dbPath);
   const history = db.prepare("SELECT * FROM benchmark_tasks WHERE run_id='history'").get();
+  assert.equal(db.prepare("SELECT protocol FROM benchmark_runs WHERE run_id='history'").get().protocol, 'pi-claw-v1');
   assert.equal(history.passed, 1); assert.equal(history.task_hash, 'frozen'); assert.equal(history.elapsed_sec, 1.5);
   assert.equal(history.score, null); assert.equal(history.score_json, null);
   const rows = db.prepare("SELECT * FROM benchmark_tasks WHERE run_id!='history' ORDER BY rowid").all();
@@ -116,7 +124,7 @@ try {
   assert.equal(rows[26].passed, 1); assert.equal(rows[27].passed, null);
   for (const row of rows) {
     const evidence = JSON.parse(await readFile(row.artifact, 'utf8'));
-    assert.equal(evidence.protocol, 'pi-claw-v1');
+    assert.equal(evidence.protocol, 'pi-claw-v2');
     assert(!JSON.stringify(evidence).includes('fixture-secret-never-inherit'));
     assert(evidence.services_closed, 'Service child must close before recording outcome');
     if (row.passed === 1) assert(evidence.tool_calls.every(c => c.status < 400 && !c.result.error), JSON.stringify(evidence.tool_calls));
@@ -124,7 +132,7 @@ try {
   const todoRuns = await Promise.all([rows[3], rows[14]].map(async row => JSON.parse(await readFile(row.artifact, 'utf8'))));
   assert.deepEqual(todoRuns[0].tool_calls.find(c => c.tool === 'todo_list_tasks').result, todoRuns[1].tool_calls.find(c => c.tool === 'todo_list_tasks').result, 'Task mutations must not survive into another run');
   db.close();
-  const summary = { status: 'passed', cases: rows.length, requests, database: dbPath, standalone: isolated };
+  const summary = { status: 'passed', cases: rows.length, requests, database: dbPath, standalone: isolated, security: 'web-security/verification.json' };
   await writeFile(join(directory, 'verification.json'), JSON.stringify(summary, null, 2));
   console.log(JSON.stringify(summary));
 } finally { await new Promise(done => server.close(done)); }

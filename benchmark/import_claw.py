@@ -55,6 +55,7 @@ def main():
 
     paths = git("ls-tree", "-r", "--name-only", REVISION).decode().splitlines()
     snapshots = {}
+    adapter_sources = {}
     services = {"_base.py"}
     for task_id in TASKS:
         raw = git("show", f"{REVISION}:tasks/{task_id}/task.yaml")
@@ -83,7 +84,11 @@ def main():
             and path.endswith(".py")
             and any(relative == s or relative.startswith(s) for s in services)
         ):
-            snapshots[path] = git("show", f"{REVISION}:{path}")
+            raw = git("show", f"{REVISION}:{path}")
+            if path == "mock_services/web_real/server.py":
+                adapter_sources[path] = hashlib.sha256(raw).hexdigest()
+            else:
+                snapshots[path] = raw
     snapshots["LICENSE"] = git("show", f"{REVISION}:LICENSE")
     args.output.mkdir(parents=True)
     hashes = {}
@@ -103,6 +108,7 @@ def main():
                 "quick": TASKS[:5],
                 "full": TASKS,
                 "upstream_files": hashes,
+                "adapter_sources": adapter_sources,
                 "legacy_score_sha256": SCORE_SHA256,
             },
             indent=2,
@@ -114,7 +120,8 @@ def main():
     (args.output / "NOTICE.md").write_text(
         "# Claw tier snapshot\n\nClaw-Eval (2026), MIT; see upstream/LICENSE.\n"
         "Source: https://github.com/claw-eval/claw-eval\n"
-        "Pinned checkout includes local upstream integration. Selected task/service bytes are unchanged.\n"
+        "Pinned checkout includes local upstream integration. Selected task/fixture bytes are unchanged.\n"
+        "The live-web server is maintained as ../../claw_web.py with SSRF protection, bounded extraction and generic errors; adapter_sources records its original hash.\n"
         "Adaptation: Pi tools, per-task ASGI process, legacy deterministic completion scorer and separate safety diagnostics/veto.\n"
         "This is a single-trial legacy-selected slice, not the official Pass^3 or full upstream grader.\n",
         encoding="utf-8",

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { parse } from 'yaml';
 
-export const CLAW_PROTOCOL = 'pi-claw-v1';
+export const CLAW_PROTOCOL = 'pi-claw-v2';
 export const CLAW_SYSTEM = 'You are an AI assistant with access to tools. Use the tools to complete the task. When you have gathered all needed information, provide a final answer without tool calls. Call tools one at a time, wait for results, then decide the next step.';
 
 export async function loadClawTasks(root, pack, selected) {
@@ -23,6 +23,7 @@ export async function loadClawTasks(root, pack, selected) {
   hash.update(await readFile(join(root, 'legacy_score.py')));
   hash.update(await readFile(join(root, '../../claw_bridge.py')));
   hash.update(await readFile(join(root, '../../claw.mjs')));
+  hash.update(await readFile(join(root, '../../claw_web.py')));
   const sharedHash = hash.digest('hex');
   const ids = pack === 'claw-quick5' ? provenance.quick : provenance.full;
   if (selected?.some(id => !ids.includes(id))) throw new Error('Unknown task ID in Claw tier');

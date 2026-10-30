@@ -4,3 +4,4 @@ httpx==0.28.1
 pydantic==2.14.1
 PyYAML==6.0.3
 requests==2.34.2
+urllib3==2.8.0
