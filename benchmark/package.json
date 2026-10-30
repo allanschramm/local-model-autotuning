@@ -2,12 +2,14 @@
   "name": "@ailocal/model-benchmark",
   "version": "0.1.0",
   "private": true,
+  "license": "PolyForm-Noncommercial-1.0.0",
   "type": "module",
   "engines": { "node": ">=24.0.0" },
   "scripts": {
     "start": "node main.mjs",
     "test": "node test/e2e.mjs"
   },
+  "overrides": { "undici": "8.12.2" },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "1.4.0",
     "yaml": "2.9.0"
