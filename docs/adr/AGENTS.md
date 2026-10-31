@@ -11,7 +11,7 @@ Repository developers; parent docs/AGENTS.md.
 - Accepted decisions are immutable. A later decision supersedes them; link maintenance does not change their meaning. Retired originals remain byte-preserved in the linked snapshot.
 
 ## Work Guidance
-- Current distribution ownership is ADR 0020. Older runtime records are historical context, not permission to revive retired interfaces.
+- Current distribution ownership is ADR 0020; ADR 0021 records the completed repository/documentation separation. Older runtime records are historical context, not permission to revive retired interfaces.
 
 ## Verification
 - Every live record has the required sections; relative file links resolve. Retired IDs resolve through the archive index.
@@ -26,4 +26,5 @@ Repository developers; parent docs/AGENTS.md.
 - [0018-independent-pi-benchmark-and-context-tuning](0018-independent-pi-benchmark-and-context-tuning.md)
 - [0019-tuning-only-release](0019-tuning-only-release.md)
 - [0020-tuning-only-distribution](0020-tuning-only-distribution.md)
+- [0021-independent-repositories-and-documentation](0021-independent-repositories-and-documentation.md)
 - [Retired quality records](../retired-quality.md) — immutable source links.

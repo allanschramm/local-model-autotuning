@@ -1,7 +1,7 @@
 # Auto-tuning documentation
 
 ## Purpose
-Runtime guides, model metadata/configuration, performance evidence and architecture. Quality evaluation records are archived; teaching is owned by the independent ailocal-teach project.
+Runtime guides, model metadata/configuration, performance evidence and architecture. The independent private ailocal-benchmark owns quality evaluation records and full mixed historical originals; teaching is owned by ailocal-teach. Runtime extracts retain their immutable public source links.
 
 ## Ownership
 Root AGENTS.md owns project-wide rules; each child contract below owns its materials and index.

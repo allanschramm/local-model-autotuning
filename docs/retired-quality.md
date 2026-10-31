@@ -1,6 +1,8 @@
 # Retired quality evaluation
 
-This distribution is auto-tuning only. Complete pre-cleanup source is preserved at [snapshot ea43a71](https://github.com/allanschramm/local-model-autotuning/tree/ea43a71f48571811ec1ba25df4ab71ed272d34f1); the independent Pi Benchmark remains on `staging/independent-tuning-benchmark` for later extraction. No new repository has been created.
+This distribution is auto-tuning only. The [independent Pi Benchmark](https://github.com/allanschramm/ailocal-benchmark) is now a private repository. Its [legacy document index](https://github.com/allanschramm/ailocal-benchmark/blob/main/docs/legacy/INDEX.md) owns the preserved quality history and complete mixed originals, including old model cards. Its manifest inventories both preserved source snapshots, records runtime-only documents retained here, and keeps teaching ownership external. See [ADR 0021](adr/0021-independent-repositories-and-documentation.md) for the completed split.
+
+The links below remain immutable public provenance at [snapshot ea43a71](https://github.com/allanschramm/local-model-autotuning/tree/ea43a71f48571811ec1ba25df4ab71ed272d34f1); they are not current evaluation commands. The former staging branch is historical recovery material, not an installation or documentation dependency. Historical agent contracts are inert text in the private archive, and original relative links have an explicit resolution map there.
 
 Historical SQLite tables, local models, Baseline and aliases are not removed or migrated. Original model cards retain their quality sections at the linked snapshot. Runtime-only views here do not claim new measurements or compatibility with old quality protocols.
 
