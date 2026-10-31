@@ -22,4 +22,10 @@ Focus areas for this repo:
 
 ## Supported Versions
 
-Only `main` receives security fixes.
+Security fixes land on `main`. Release tags are immutable snapshots; use the latest release containing the relevant fix.
+
+## Upstream conversion dependencies
+
+The llama.cpp source submodule is reference-only; tuning uses a compatible prebuilt runtime. Install this repository's root requirements.txt, not llama.cpp/requirements.txt. The tuning installation does not require Transformers or execute its remote custom-generation Python code.
+
+On 2026-10-31, Dependabot reported the upstream conversion manifest's Transformers dependency under [GHSA-x9r9-c232-4q39](https://github.com/advisories/GHSA-x9r9-c232-4q39): remote generation code can be cached before trust consent. This upstream alert remains open; passing this repository's CodeQL checks does not resolve it. The clean-install E2E asserts that Transformers is absent from the tuning environment. If separately using upstream conversion tools, review their dependencies and this advisory in an isolated environment; they are outside this release's validated workflow.

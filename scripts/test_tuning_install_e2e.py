@@ -1,6 +1,6 @@
 """Fresh tuning install -> readiness check -> existing HTTP/SQLite E2Es.
 
-Failure modes: default installation pulls evaluation/dev dependencies; readiness
+Failure modes: default installation pulls evaluation/dev/upstream conversion dependencies; readiness
 requires optional packages or uses global Python; tuning/dashboard metadata readers
 fail without evaluation dependencies. Uses simulated model processes, no GPU.
 """
@@ -65,7 +65,7 @@ def main():
             """
 import importlib.util
 import yaml, huggingface_hub, gguf, psutil
-for name in ('evalplus', 'datasets', 'fastapi', 'uvicorn', 'pypdf', 'pytest', 'ruff', 'pre_commit'):
+for name in ('transformers', 'evalplus', 'datasets', 'fastapi', 'uvicorn', 'pypdf', 'pytest', 'ruff', 'pre_commit'):
     assert importlib.util.find_spec(name) is None, f'Unexpected default dependency: {name}'
 """,
         ],
