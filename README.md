@@ -2,6 +2,8 @@
 
 Otimize o runtime de um modelo GGUF para **TPS × contexto configurado**, sob um teto fixo de PPL. A Search é finita, preserva o contexto mínimo e mantém alternativas Pareto.
 
+Consulte o [histórico de versões](CHANGELOG.md) para mudanças, migração e limites de validação.
+
 ## Instalação e execução
 
 Crie uma venv com Python 3.11+ e instale o runtime Python:

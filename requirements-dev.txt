@@ -1,4 +1,4 @@
-# Development tools; add requirements-legacy.txt for full legacy validation.
+# Development tools for the tuning-only distribution.
 -r requirements.txt
 
 pytest

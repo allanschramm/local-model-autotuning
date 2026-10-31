@@ -20,6 +20,7 @@ Repository developers and operators.
 - Do not revive retired quality CLI or TSV ranking paths.
 
 ## Verification
+- Clean-install E2E rejects Transformers and quality/development packages in the runtime-only environment; upstream conversion requirements are not tuning installation inputs.
 - run_validate.py: shared Ruff/pytest checks.
 - test_tuning_e2e.py: native lifetime, HTTP, fixed PPL/context/frontier and SQLite.
 - test_tuning_consumers_e2e.py: retired surfaces absent, dashboard and historical SQLite rows unchanged.
