@@ -126,7 +126,7 @@ TPS_FLOOR = 15.0
 
 Historical bench tg increased from 78.8 to 91.2 t/s across the recorded iterations (n=8); quality comparisons are archived.
 
-Evidence: `results.db` / `results.tsv` rows for `LFM2.5-2.6B-Q8_0.gguf`. Claw jump (2026-08-08) is the harness fix (`reasoning_content` / `max_tokens≥2048`), not a model change — see [thinking-models-claw-harness.md](../performance/thinking-models-claw-harness.md).
+Evidence: `results.db` / `results.tsv` rows for `LFM2.5-2.6B-Q8_0.gguf`. Claw jump (2026-08-08) is the harness fix (`reasoning_content` / `max_tokens≥2048`), not a model change — see [thinking-models-claw-harness.md](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/discovery/thinking-models-claw-harness.md).
 
 ---
 

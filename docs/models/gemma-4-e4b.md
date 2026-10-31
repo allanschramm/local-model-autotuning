@@ -75,7 +75,7 @@ Alias path: ctx **65k**, draft-mtp n=4, KV q4_0, cont-batching on.
 | 2026-07-24 | Pre harness fix; bench_tg 113.3; peak 5.8 GB |
 | 2026-08-08 remasure | Post `reasoning_content` / max_tokens fix; TPS 126.7; peak **5.1 GB** |
 
-Evidence: `results.tsv` remasure row; [thinking-models-claw-harness.md](../performance/thinking-models-claw-harness.md).
+Evidence: `results.tsv` remasure row; [thinking-models-claw-harness.md](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/discovery/thinking-models-claw-harness.md).
 
 ## 8. Sources/Verification (dated 2026-08-29)
 - HF model card: https://huggingface.co/unsloth/gemma-4-E4B-it-qat-GGUF (JSON API `api/models/unsloth/gemma-4-E4B-it-qat-GGUF`, raw README)
