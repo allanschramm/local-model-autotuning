@@ -1,7 +1,7 @@
 # Runtime discovery and technique guides
 
 ## Purpose
-Provisioning, hardware fit, inference engines, quantization, KV/offload and runtime-performance methodology. Quality harnesses, quality rankings and teaching are archived.
+Provisioning, hardware fit, inference engines, quantization, KV/offload and runtime-performance methodology. Quality harnesses and quality rankings are archived. Teaching belongs to the independent ailocal-teach project.
 
 ## Ownership
 Repository developers; parent docs/AGENTS.md.

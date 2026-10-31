@@ -12,7 +12,6 @@ extend-exclude = [
   "VITRIOL",
   "venv",
   ".venv",
-  "teach",
   ".claude",
   ".agents",
   ".pi",

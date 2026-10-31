@@ -15,6 +15,7 @@ Local model auto-tuning: configured ctx × TPS under fixed PPL and minimum-conte
 Repository developers.
 
 ## Local Contracts
+- Teaching is owned by the independent ailocal-teach project; no local course subtree belongs here.
 - Installation: requirements.txt contains runtime and local model tools; requirements-dev.txt adds developer checks. Quality evaluators and their installation profile are outside this distribution.
 - Original AILOCAL contributions use PolyForm Noncommercial 1.0.0; see LICENSE and NOTICE.md. Imported materials retain their own licenses. Describe this as source-available, not OSI-approved open source.
 - Tuning Baseline only via gitignored `autoresearch/core/config.py` (seed from `config.py.example`). No legacy Trial CLI flag soup. `program.md` / harnesses fixed unless user asks.
