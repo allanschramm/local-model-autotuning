@@ -126,6 +126,7 @@ Default section order:
 6. Report any docs intentionally left unchanged and why
 
 ## Child DOX Index
+- [CHANGELOG.md](CHANGELOG.md) — versioned release notes, migration and validation limits.
 - [.agents/skills/onboarding/SKILL.md](.agents/skills/onboarding/SKILL.md) — bounded tuning setup.
 - [LICENSE](LICENSE) · [NOTICE.md](NOTICE.md) — original-contribution license and third-party scope.
 - [requirements.txt](requirements.txt) · [requirements-dev.txt](requirements-dev.txt) — runtime and development installation profiles.

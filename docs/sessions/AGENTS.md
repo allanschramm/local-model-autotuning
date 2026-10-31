@@ -18,6 +18,7 @@ Repository developers; parent docs/AGENTS.md.
 - Preserve measurement versus estimate and configured context versus occupancy. File/source links resolve.
 
 ## Child DOX Index
+- [2026-10-31-tuning-only-release-smoke](2026-10-31-tuning-only-release-smoke.md) — real Windows/CUDA validation, bounded Search and release limitations.
 - [2026-06-19-alias-system](2026-06-19-alias-system.md)
 - [2026-06-19-whichllm-plan](2026-06-19-whichllm-plan.md)
 - [2026-07-06-windows-model-up](2026-07-06-windows-model-up.md)
