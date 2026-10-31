@@ -81,8 +81,8 @@ Runtime finding: REASONING_PRESERVE expanded prompts to 69052/104611 tokens and 
 
 
 **Harness fixes required for correct measurement (2026-08-19):**
-- `autoresearch/benchmarks/agentic_runner.py` Claw-loop turn timeout raised **30 s → 120 s** (reasoning-model `<think>` traces + max_tokens=2048 at ~40-55 t/s exceed 30 s; original 0.2667 was truncation artifact). Re-measured: 0.2667 → 0.8000.
-- Agentic `max_tokens` floor raised **2048 → 4096** in `autoresearch/runners/evaluation.py` + `agentic_runner.py`; Claw turn timeout **240 s → 420 s** (2026-08-19). 1.5-class CoT still exhausted 2048 mid-`<think>` — server log `n_decoded = 2048` exactly; turns now decode 3000–4100 tokens. Re-measured: 0.8000.
+- `autoresearch/benchmarks/agentic_runner.py` Claw-loop turn timeout raised **30 s → 120 s** (reasoning-model `<think>` traces + max_tokens=2048 at ~40-55 t/s exceed 30 s; the original request was truncated).
+- Agentic `max_tokens` floor raised **2048 → 4096** in `autoresearch/runners/evaluation.py` + `agentic_runner.py`; Claw turn timeout **240 s → 420 s** (2026-08-19). 1.5-class CoT still exhausted 2048 mid-`<think>` — server log `n_decoded = 2048` exactly; turns now decode 3000–4100 tokens.
 - `REASONING_PRESERVE=True` seeded in Baseline (2026-08-19): `GET /props` reports `chat_template_caps.supports_preserve_reasoning = true` for this GGUF; full-history think preservation for agentic continuity.
 - `autoresearch/core/llama_runner.py` `dedicated_vram_kill_ceil` now honors `AUTORESEARCH_PHYSICAL_VRAM_KEEPOUT_MB` (preflight and runtime monitor were inconsistent; at 65k this model's steady state ~7.7 GB exceeds the default 7676 MB ceiling).
 

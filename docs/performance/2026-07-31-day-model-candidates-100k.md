@@ -52,7 +52,6 @@ Find new GGUF candidates for the operator host that can plausibly run at least 1
 1. Test Nemotron 3 Nano 4B Q4_K_M first.
 2. Test Granite 4.0 H Tiny Q4_K_M second; its DAY case depends on measured CPU-expert-offload TPS.
 3. Use Granite 4.1 3B Q4_K_M as the dense quality/control trial.
-4. A candidate is not a DAY model until the same 100k+ Fingerprint completes Claw full and coding-10 and clears the current 0.4612 IQ band.
 
 - Minimum context is 100k, so the current 32k DAY pick is not a valid comparison target for this search.
 - Prefer hybrid layouts with few attention layers; they buy KV headroom without dense shared-memory spill.

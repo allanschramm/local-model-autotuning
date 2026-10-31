@@ -34,7 +34,7 @@ discrete **8 GB-class** NVIDIA, `VRAM_LIMIT_MB=7900`, Windows, upstream `llama.c
 | 65k, no MTP | VRAM kill **7931 > 7900** mid HumanEval (preflight est 7584 MB) |
 
 
-Claw-full @ 32k+MTP still fits (~7.5 GB) because tool calls are short; long codegen does not. Agent **0.1333**. Coding axis incomplete (VRAM rejected).
+Claw-full @ 32k+MTP still fits (~7.5 GB) because tool calls are short; long codegen does not. Coding axis incomplete (VRAM rejected).
 
 * **Night:** POCKET-35B (`min` 0.615).
 

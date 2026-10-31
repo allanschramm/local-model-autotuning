@@ -86,7 +86,7 @@ VRAM_LIMIT_MB = 7900
 
 ## Sources / Verification
 
-- HF card `Kwaipilot/KAT-Coder-V2.5-Dev` (https://huggingface.co/Kwaipilot/KAT-Coder-V2.5-Dev) — model card, benchmark table (SWE-bench Verified 69.40 / Multilingual 63.00 / Pro 45.96; Terminal-Bench 2.1 41.02; PinchBench 93.43; KAT-Code-Bench 46.21), eval config (temp 1.0 / top_p 0.95, 256k ctx, `--reasoning-parser qwen3`; `agent=claude_code@2.1.195`) — **extracted 2026-08-29** (API + README; image/table truncated at ~300 lines, full image referenced by URL `KAT-Coder-V2.5-Dev-Benchmarks.png`)
+- HF card `Kwaipilot/KAT-Coder-V2.5-Dev` (https://huggingface.co/Kwaipilot/KAT-Coder-V2.5-Dev) — model card, archived publisher evaluation details, eval config (temp 1.0 / top_p 0.95, 256k ctx, `--reasoning-parser qwen3`; `agent=claude_code@2.1.195`) — **extracted 2026-08-29** (API + README; image/table truncated at ~300 lines, full image referenced by URL `KAT-Coder-V2.5-Dev-Benchmarks.png`)
 - HF API `https://huggingface.co/api/models/Kwaipilot/KAT-Coder-V2.5-Dev` (tags: `qwen3_5_moe`, `agentic-coding`, `code`; license `apache-2.0`; base_model `Qwen3.6-35B-A3B`; downloads 49K) — **2026-08-29**
 - Bartowski GGUF repo https://huggingface.co/bartowski/Kwaipilot_KAT-Coder-V2.5-Dev-GGUF (quant `IQ4_XS`; file `Kwaipilot_KAT-Coder-V2.5-Dev-IQ4_XS.gguf`) — **2026-08-29**
 - Publisher thinking / reasoning claim: `qwen3` reasoning parser (`--reasoning-parser qwen3` in SGLang + vLLM serve commands), 256k context, default agent temp 1.0 / top_p 0.95; vision tower omitted (text-only release). Thinking mode is the publisher's default evaluation profile.
