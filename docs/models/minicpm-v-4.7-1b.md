@@ -20,9 +20,9 @@ Metadata alone does not prove embedded MTP: there are no MTP tensors in this fil
 Dense: N_CPU_MOE=None, N_GPU_LAYERS=99.
 
 ## Our Config Baseline
-2026-10-12 SQLite Trial: upstream b11577, context 65536, q4_0 KV, batch 512 / ubatch 128, threads 8, flash attention on, mmap, fallback sampler, speculation disabled. Claw-15 + coding-10: agentic 0.7333, coding 0.4050, generation TPS 275.2, bench_tg 248.8, status on_front.
+2026-10-12 SQLite Trial: upstream b11577, context 65536, q4_0 KV, batch 512 / ubatch 128, threads 8, flash attention on, mmap, fallback sampler, speculation disabled. Claw-15 + coding-10: ; generation TPS 275.2, bench_tg 248.8, status on_front.
 
-Clean quick validation passed 5/5. An earlier quick run lost its server and reported 2/5; that interrupted score is not a quality estimate. Throughput measurements during overlapping launches are not comparable to isolated Trials. These benchmarks evaluate text only.
+Throughput measurements during overlapping launches are not comparable to isolated Trials. These benchmarks evaluate text only.
 
 ## Sources / Verification
 - [Publisher GGUF card](https://huggingface.co/openbmb/MiniCPM-V-4.7-1B-gguf), hf retrieval 2026-10-12.

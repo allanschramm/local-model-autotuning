@@ -6,7 +6,7 @@ description: >
   speculative decoding, context optimization — on the operator rig, and land
   the findings in `docs/`. Scope is engine-side only: this
   skill does NOT search for or shortlist new models (that is discover-models /
-  the Trial skill). Use whenever the user asks to research inference, find
+  the validation skill). Use whenever the user asks to research inference, find
   flags/engines/techniques to raise TPS/ctx or cut VRAM, check whether "X is
   worth trying" on this rig, or verify a vendor claim against primary sources
   and documented measurements — including questions about dflash/dspark, MTP,
@@ -23,7 +23,7 @@ Investigate an inference-performance question against primary sources and
 land the finding in `docs/` — the only tree this skill touches. Desk
 research only: read the repo, learn what it already knows, fact-check and
 extend via web research, then document the durable finding. Model choice is
-out of scope (that is `docs/discovery/discover-models.md` and the `trial`
+out of scope (that is `docs/discovery/discover-models.md` and the `validation`
 skill); this skill feeds only the engine side of a chosen model.
 
 ## Scope
@@ -37,7 +37,7 @@ compression, compaction); hardware-specific tuning for the 8 GB-class rig
 **Out (do not drift):** new model search / candidate shortlists (`whichllm`,
 HF browsing for models → `discover-models.md`); harness-side IQ extraction
 (parked until a harness fork); training or fine-tuning; running Trials
-(`trial` skill); validation (`validation` skill); operator-only autoloop.
+(bounded tuning); validation (`validation` skill); autonomous background loops.
 
 **Touch only `docs/`.** A research pass edits `docs/discovery/`,
 `docs/sessions/`, and this skill — nothing else: no code, no config, no

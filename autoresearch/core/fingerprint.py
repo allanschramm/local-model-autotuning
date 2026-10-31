@@ -3,7 +3,7 @@
 Portable hill-climb -> launcher bus: GGUF **basename** + the ENGINE_DEFAULTS
 used for that climb, optional SAMPLER_DEFAULTS. Machine-local JSON under a
 gitignored ``fingerprints/`` directory. This is NOT the Pareto Fingerprint
-hash in :mod:`autoresearch.core.pareto` (a sha256 of engine + sampler).
+configuration identity used internally during Search.
 
 No GPU, no launcher/eval imports — pure stdlib so roundtrip works in tests.
 """

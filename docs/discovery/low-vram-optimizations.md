@@ -46,7 +46,7 @@ The Key-Value (KV) cache grows linearly with context size and batch size. At 65k
 
 For MoE models (like Qwen3.6-35B-A3B or Gemma-4 26B-A4B), you do not need to keep all weights in VRAM since only a fraction of experts are active for any given token.
 
-*   **Expert offload (this repo / upstream llama.cpp):** Keep attention + routing on the GPU; force routed experts to CPU RAM with `--n-cpu-moe <N>` (often `N = block_count`). Harness: `N_CPU_MOE=None` → auto full offload. Detail: [vitriol-technique.md](../models/vitriol-technique.md) Path A.
+*   **Expert offload (this repo / upstream llama.cpp):** Keep attention + routing on the GPU; force routed experts to CPU RAM with `--n-cpu-moe <N>` (often `N = block_count`). Harness: `N_CPU_MOE=None` → auto full offload. Detail: [vitriol-technique.md](vitriol-technique.md) Path A.
 *   **Trade-off:** 35B-class MoE fits in 8 GB VRAM; speculative decoding + heavy CPU experts can sync-stall — validate per model ([local-models-low-vram-configs.md](./local-models-low-vram-configs.md)).
 *   **`--cpu-moe` vs `--n-cpu-moe` — one ruler, two ends:** both select the same tensors (`LLM_FFN_EXPS_REGEX`, `common.h:1130`); `-cmoe` applies it to every block, `-ncmoe N` instantiates it per block for the first N only (`common.h:1142-1149`). So `-cmoe` ≡ `-ncmoe <block_count>`, and manual `-ot` regexes that send `*_exps` to CPU compile to the same thing (measured ≡ within noise, 2026-08-28). Partial offload (`N < block_count`) keeps the LAST blocks' experts on GPU: on a 24 GB-class card that bought ~+8 % decode for ~2× expert VRAM (125B-class community run, PR-branch arch); on 8 GB-class the keepout reverses it — full offload (`N = block_count`) measured best on this rig. Pick N from free VRAM after KV + cache, not by folklore.
 *   **Not our default:** Randozart/VITRIOL keeps experts in page-locked host RAM and runs MoE matmuls on the **GPU over PCIe DMA** (custom fork). Useful ideas (PCIe width, pin-vs-`n-cpu-moe`, MTP N sweeps) are absorbed in the technique note; Search stays on official `llama.cpp`.
@@ -67,7 +67,7 @@ For MoE models (like Qwen3.6-35B-A3B or Gemma-4 26B-A4B), you do not need to kee
 
 On Windows, when VRAM usage approaches 100%, the NVIDIA driver automatically redirects allocations to Shared System Memory (System RAM). This prevents Out-Of-Memory (OOM) crashes but degrades token throughput from ~40+ t/s to ~2 t/s.
 
-*   **Solution:** 
+*   **Solution:**
     - Set the number of GPU offloaded layers (`-ngl` / `--n-gpu-layers`) conservatively, leaving at least **500 MB to 1 GB of headroom** for the OS and context growth.
     - If using MoEs, allocate CPU experts (`--n-cpu-moe`) to keep physical VRAM usage around **7.0 GB** on an 8 GB card.
 

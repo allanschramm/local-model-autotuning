@@ -2,7 +2,7 @@
 
 **Status:** Accepted; delivery order and in-tree Benchmark publication superseded by [ADR 0019](0019-tuning-only-release.md). The stages below are the decision snapshot; current bounded tuning protocol and verification are documented in [TUNING.md](../../autoresearch/TUNING.md).
 **Date:** 2026-10-25
-**Supersedes in part:** [0014](0014-fingerprint-bus-product-split.md) for the Benchmark's dependency on a tuned Fingerprint and Pi's role as only an informal quality check; [0004](0004-agentic-first-search.md) for local-only model connections in the new Benchmark. Historical evaluation protocols remain unchanged.
+**Supersedes in part:** [0014](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/adr/0014-fingerprint-bus-product-split.md) for the Benchmark's dependency on a tuned Fingerprint and Pi's role as only an informal quality check; [0004](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/adr/0004-agentic-first-search.md) for local-only model connections in the new Benchmark. Historical evaluation protocols remain unchanged.
 
 ## Context & Problem Statement
 

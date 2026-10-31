@@ -16,9 +16,9 @@ Please do **not** open a public issue for suspected vulnerabilities.
 
 Focus areas for this repo:
 
-- Shell command injection or path traversal in `scripts/` and `autoresearch/` runners (they execute local model runtimes and benchmark harnesses)
+- Shell command injection or path traversal in `scripts/` and `autoresearch/` runners (they execute local model runtimes)
 - Credential handling in downloaded model configs, HF tokens, or `.env` files
-- The vendored WebUI under `local-model-autotuning/llama.cpp/tools/server/webui` — report upstream to llama.cpp instead unless the exposure comes from this repo's integration
+- The vendored WebUI under `llama.cpp/tools/server/webui` — report upstream to llama.cpp instead unless the exposure comes from this repo's integration
 
 ## Supported Versions
 

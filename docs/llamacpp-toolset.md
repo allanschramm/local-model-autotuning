@@ -359,31 +359,17 @@ curl -s http://127.0.0.1:8081/v1/chat/completions \
 kill %1
 ```
 
-## Validation gate (this repo)
+## Tuning validation (this repo)
 
-`run.py --validation` now runs **llama-cli** instead of `llama-bench`.
-- **Reason:** `llama-bench` does not support custom speculative decoding arguments (such as `--spec-draft-model` and `--spec-draft-n-max`). Transitioning to `llama-cli` allows the validation gate to run real speculative decoding configurations and measure correct, accelerated MTP throughput values.
-- **Workflow:** It runs a single-turn generation test with a 512-token generation limit.
-- **Process Cleanup:** It uses the `--single-turn` flag to ensure the process exits cleanly and unloads the model from VRAM immediately upon completion.
-- **Encoding:** Subprocesses are configured to decode output in UTF-8 to prevent CP1252 Windows encoding crashes when math notations are generated.
+Use the [bounded tuning protocol](../autoresearch/TUNING.md). It measures native perplexity and monitored generation with the configured context, a fixed PPL reference and a finite Trial budget. Its throughput is distinct from historical short CLI smoke tests.
+
+Set the private Baseline in `autoresearch/core/config.py`, adapt the example plan to retain its context, then run:
 
 ```bash
-# Quick validation (default: tg >= 20 t/s threshold over 512 tokens)
-python -m autoresearch.runners.run --validation --desc "test config"
-
-# Custom threshold
-python -m autoresearch.runners.run --validation --desc "test config" --bench-tts-threshold 25
+./venv/bin/python -m autoresearch.tuning --plan autoresearch/tuning-plan.example.json
 ```
 
-The validation gate runs automatically before every full evaluation. If the `llama-cli` test generation speed is below the threshold, the trial is skipped immediately.
-
-```bash
-# Full run with automatic bench pre-check
-python -m autoresearch.runners.run --desc "sweep batch 1024" --batch-size 1024
-# Output: [cli-bench] ... tg 113.4 t/s → passes → starts server → runs coding
-```
-
----
+On Windows use `./venv/Scripts/python.exe`. Legacy quality validation/Trial commands are preserved in [the archive](retired-quality.md).
 
 ## Path resolution (this repo)
 
@@ -449,4 +435,3 @@ alias lbench="$LLAMA_CPP/build-cuda/bin/llama-bench"
 | `--override-kv --override-tensor --lora --control-vector --grammar/--json-schema` | `override-kv tokenizer.add_bos=false` fix; `lora` without retrain. |
 
 **Prioritize:** Safety `no-warmup/fit-print` > Perf `turbo/repack/kv-unified/ngram/poll/swa` > Quality `dry/xtc/yarn`. (`load-mode` already wired.) Full `~310` list + per-flag file:line in `docs/llamacpp-flags-audit.md` + `docs/discovery/` guides (`cpu-inference-guide`, `mtp-baseline-guide`, `speculative-decoding-formats`).
-

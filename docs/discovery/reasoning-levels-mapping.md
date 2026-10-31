@@ -4,7 +4,7 @@ How to discover which reasoning knobs a GGUF actually supports, which llama.cpp
 levers map to them, and what the results store records. Verified against the
 pinned b10549 build and the local GGUF store on 2026-08-29.
 
-Companion docs: [thinking-models-claw-harness.md](./thinking-models-claw-harness.md)
+Companion docs: [thinking-models-claw-harness.md](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/discovery/thinking-models-claw-harness.md)
 (measurement policy) and
 [speculative-and-multi-gpu-tuning.md](./speculative-and-multi-gpu-tuning.md)
 (reasoning-effort controls across families).
@@ -100,7 +100,7 @@ Measurement policy (unchanged): capability evals run at default effort with
 `max_tokens >= 4096`; a bounded-thinking efficiency profile is a **separate
 Fingerprint** (`REASONING_BUDGET` N [+ message], modest `max_tokens`),
 documented in the model card. Never seed a budget to "fix" a low score —
-see the remasure checklist in [thinking-models-claw-harness.md](./thinking-models-claw-harness.md).
+see the remasure checklist in [thinking-models-claw-harness.md](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/discovery/thinking-models-claw-harness.md).
 
 ## 5. Alias-creation checklist
 

@@ -3,14 +3,15 @@ import urllib.request
 from dataclasses import dataclass, replace
 from typing import Any
 
-from autoresearch.core.evaluation_protocol import CODING_MAX_TOKENS, CODING_TIMEOUT_S
+LONG_GENERATION_TOKENS = 32768
+LONG_REQUEST_TIMEOUT_S = 3600.0
 
 
 @dataclass
 class GenerationParams:
     """Typed container for generation parameters.
 
-    Replaces the 5-file **kwargs passthrough chain with a single typed object.
+    Shared typed generation settings for local runtime clients.
     Each layer passes gen_params through instead of manually constructing,
     filtering, and forwarding kwargs dicts.
     """
@@ -156,8 +157,8 @@ class LlamaClient:
         req_timeout = kwargs.get("timeout")
         effective_timeout = req_timeout if req_timeout is not None else self.timeout
         timeout = max(float(effective_timeout if effective_timeout is not None else 420.0), 420.0)
-        if payload["max_tokens"] >= CODING_MAX_TOKENS:
-            timeout = max(timeout, CODING_TIMEOUT_S)
+        if payload["max_tokens"] >= LONG_GENERATION_TOKENS:
+            timeout = max(timeout, LONG_REQUEST_TIMEOUT_S)
 
         try:
             # Enforce 420s turn timeout floor to prevent premature cancellation of reasoning turns.

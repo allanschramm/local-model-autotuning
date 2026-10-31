@@ -1,6 +1,6 @@
 # 2026-09-22 — External Findings (HF + GH sweep)
 
-> Research note (not a technique doc): what we found outside the repo via `hf` + `gh` CLIs after the operator critique that "the benchmark is lame, it didn't reflect a real usage for a SWE." Pairs with [`mini-swe-agent-bridge.md`](./mini-swe-agent-bridge.md) and [`real-swe-benchmarks.md`](./real-swe-benchmarks.md).
+> Research note (not a technique doc): what we found outside the repo via `hf` + `gh` CLIs after the operator critique that "the benchmark is lame, it didn't reflect a real usage for a SWE." Pairs with [`mini-swe-agent-bridge.md`](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/discovery/mini-swe-agent-bridge.md) and [`real-swe-benchmarks.md`](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/discovery/real-swe-benchmarks.md).
 
 ## Context
 
@@ -64,7 +64,7 @@ gh api repos/augmentcode/augment-swebench-agent/readme
 | `qwen-cli` + 47 K LoC custom proxy (ablation) | 87.4 % headline / 85.4 % strict | **+19.6 / +17.6 pt** |
 | `claude-cli -p` + same proxy (main submission) | **90.0 %** headline / **88.0 %** strict | **+22.2 / +20.2 pt** |
 
-**22.2 pt of SWE-bench Verified uplift from the same model, by changing the harness.** That is roughly the size of the gap between SOTA open models (79.2 % Sonar) and the absolute floor (e.g. SWE-agent-LM-32B at 37.3 %). The operator's own architecture — `llama-server` + OpenAI-compatible surface + custom tooling — can capture a meaningful slice of that uplift on 8 GB VRAM with **mini-swe-agent** (see [harness doc](./mini-swe-agent-bridge.md)).
+**22.2 pt of SWE-bench Verified uplift from the same model, by changing the harness.** That is roughly the size of the gap between SOTA open models (79.2 % Sonar) and the absolute floor (e.g. SWE-agent-LM-32B at 37.3 %). The operator's own architecture — `llama-server` + OpenAI-compatible surface + custom tooling — can capture a meaningful slice of that uplift on 8 GB VRAM with **mini-swe-agent** (see [harness doc](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/discovery/mini-swe-agent-bridge.md)).
 
 ### 2. `Qwen3.8-Flash-Next` is the Qwen4-architecture preview
 
@@ -114,7 +114,7 @@ The 14 GB figure is misleading (it counts both `.part1` + `.part2`); the real si
 - Linear history (just appends to messages) → trivial trajectory inspection, trivial FT/RL data export
 - `subprocess.run` per action → trivial swap to docker / podman / singularity sandboxing
 
-Bridge setup is documented in [`mini-swe-agent-bridge.md`](./mini-swe-agent-bridge.md).
+Bridge setup is documented in [`mini-swe-agent-bridge.md`](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/discovery/mini-swe-agent-bridge.md).
 
 ### 6. The `plan-first` skill from `esagduyu/qwen-pi-plan-vs-haiku-benchmark`
 
@@ -136,7 +136,7 @@ Two benchmarks the operator's complaint about "the leaderboard doesn't reflect r
 - **[hwfengcs/DM-Code-Agent](https://github.com/hwfengcs/DM-Code-Agent)** — 152 stars, local-first Python code agent + **30-task hidden-test benchmark** + SWE-bench Verified harness. The hidden-test design is exactly the "real SWE" the operator wants — the model cannot game the test by reading it.
 - **[FreakyAdy/EvalGuard](https://github.com/FreakyAdy/EvalGuard)** — wraps SWE-bench / Terminal-Bench / OpenEnv **without modifying the harness**; adds sandbox-boundary audit, reward-hack AST detection, and contamination probes. Pairs with whichever benchmark wins.
 
-Setup recipe is documented in [`real-swe-benchmarks.md`](./real-swe-benchmarks.md).
+Setup recipe is documented in [`real-swe-benchmarks.md`](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/discovery/real-swe-benchmarks.md).
 
 ### 8. Other repos of record
 

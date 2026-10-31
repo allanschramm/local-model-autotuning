@@ -1,5 +1,7 @@
 # Ornith-1.5-35B-A3B — Model Card (Local)
 
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/ornith-1.5-35b.md). Historical performance retains its original protocol.
+
 **Source repo:** https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B-GGUF
 **License:** MIT
 **Local file:** `models/ornith-ai/Ornith-1.5-35B-A3B-GGUF/Ornith-1.5-35B-Q4_K_M.gguf` (21.7 GB)
@@ -12,13 +14,13 @@
 - **~35B total / ~3B activated** per card (MoE, 256 experts, 8 active + shared)
 - `kv_f16_mb @ 65536 ctx` = 2624 MB (q4_0 KV ≈ 0.7 GB at 65k)
 -
-**2026-08-25 artifact swap:** official `Q4_K_M` was re-uploaded (post-2026-08-23 fix) with a new MTP head — byte-diff vs the old file: all 4 `nextn` tensors changed, `output.weight`/`token_embd.weight` bit-identical (verified `GGUFReader`+sha256). Old file kept as `Ornith-1.5-35B-Q4_K_M.premtp-fix.gguf`. Measured vectors (agentic 0.8667 / coding 0.6300) refer to the **old** artifact; remeasurement pending. The 2026-08-22 MTP dead-end (acceptance 0.38, −25% decode on `n-cpu-moe`) was measured on the old **untrained** head — re-probed 2026-08-26 on the new trained head (see MTP section): acceptance 0.567 but decode still −9.7% — MTP remains a net loss on this MoE. Note: Q4_K_M tensors are packed quant bytes — kurtosis analysis on raw `GGUFReader` data is invalid (2026-08-25 lesson).
+**2026-08-25 artifact swap:** official `Q4_K_M` was re-uploaded (post-2026-08-23 fix) with a new MTP head — byte-diff vs the old file: all 4 `nextn` tensors changed, `output.weight`/`token_embd.weight` bit-identical (verified `GGUFReader`+sha256). Old file kept as `Ornith-1.5-35B-Q4_K_M.premtp-fix.gguf`. Measured vectors refer to the **old** artifact; remeasurement pending. The 2026-08-22 MTP dead-end (acceptance 0.38, −25% decode on `n-cpu-moe`) was measured on the old **untrained** head — re-probed 2026-08-26 on the new trained head (see MTP section): acceptance 0.567 but decode still −9.7% — MTP remains a net loss on this MoE. Note: Q4_K_M tensors are packed quant bytes — kurtosis analysis on raw `GGUFReader` data is invalid (2026-08-25 lesson).
 - **Layout (verified `gguf_dump.py --no-tensors --json` 2026-09-02):** `embedding_length` 2048; attention 16 heads / **2 kv heads**, `key_length` = `value_length` 256, rope dim 64 @ `freq_base` 1e7; GDN/SSM: conv 4, state 128, group 16, inner 4096, time-step rank 32; experts 256 × 8 active + shared (ffn 512, shared ffn 512); `context_length` 262144. KV total implies ~20 full-attn blocks (41.9 KB/token f16 = measured `kv_f16_mb` 2624 @ 65k); the rest are GDN (constant state, no KV growth).
 
 ## Hardware requirements
 | Quant | Size |
-|---|---|
-| **Q4_K_M (our pick)** | **21.7 GB file**; MoE expert offload → **peak 4.0 GB VRAM** |
+| --- | --- |
+| **Q4_K_M (our pick)** | **21.7 GB file; MoE expert offload → **peak 4.0 GB VRAM** |
 | Q5_K_M / Q6_K / Q8_0 | 25.3 / 29.2 / 37.8 GB — bigger file, marginal expert-quality gain |
 
 **Target:** 8 GB-class discrete NVIDIA + 32 GB-class RAM. Experts offloaded to CPU (`--n-cpu-moe 41` auto), active path on GPU (`-ngl 99`). Host-memory preflight est 21.7 GB fits. RAM is the binding resource (not VRAM).
@@ -55,7 +57,7 @@ Reasoning model: emits `<think>` blocks; card suggests qwen3-style reasoning/too
 ## VITRIOL / Split strategy (MoE expert offloading)
 - Auto `--n-cpu-moe 41` (GGUF block_count) — experts on CPU/RAM, attention + shared expert + routing on GPU.
 - 1.0-35B A/B: n-cpu-moe=block_count beat manual 32. Peak VRAM 4.0 GB @ 65k.
-- **2026-08-28 ubatch ladder** (b10549 upstream, ctx 131k, q4_0 KV, threads 6, 4142-tok prompt, warm rep2): pp 305.7 @ ub512 → 716.9 @ ub2048 → **1172.9 @ ub6144**; tg flat 32.4–33.6 (CPU-expert-stream bound — placement/ubatch do not move decode); peak VRAM 4318 → 4786 → 6306 MB (keepout 7676 OK, ~1.4 GB margin). Manual `-ot` regex ≡ `--n-cpu-moe 41` within noise at ub512 and ub6144 — upstream implements both as the same `LLM_FFN_EXPS_REGEX` override (`common.h:1130/1142`). ub 6144 on the cache profile: rejected — see next bullet. Session: [2026-08-28](../sessions/2026-08-28-ornith-35b-ubatch-ot-ab.md).
+- **2026-08-28 ubatch ladder** (b10549 upstream, ctx 131k, q4_0 KV, threads 6, 4142-tok prompt, warm rep2): pp 305.7 @ ub512 → 716.9 @ ub2048 → **1172.9 @ ub6144; tg flat 32.4–33.6 (CPU-expert-stream bound — placement/ubatch do not move decode); peak VRAM 4318 → 4786 → 6306 MB (keepout 7676 OK, ~1.4 GB margin). Manual `-ot` regex ≡ `--n-cpu-moe 41` within noise at ub512 and ub6144 — upstream implements both as the same `LLM_FFN_EXPS_REGEX` override (`common.h:1130/1142`). ub 6144 on the cache profile: rejected — see next bullet. Session: [2026-08-28](../performance/2026-08-28-ornith-35b-ubatch-ot-ab.md).
 - **2026-08-28 cache × ubatch (codacus fork) + alias degradation:** `models/traces/ornith-1.5-35b-merged.csv` had been wiped → the fork silently served WITHOUT cache (`cannot open profile ... expert cache disabled`, ~31 t/s); profile is a READ input (no auto-create) — regenerated via the discovery workflow (`llama-moe-trace` ×2 prompts, 49 360 rows). Cache 32 slots + ub 2048 = pp **534.9** / tg **35.1** @6862 MB (keepout-compliant; +26 MB vs ub512, decode gain kept); cache + ub 6144 rejects (7857 > 7676); plain upstream + ub 2048 = 716.9 pp / 33.6 tg @4786 MB. The 48-slot alias fingerprint @131k measured 7729 > 7676 under a fat desktop baseline — 32 slots fits with ~840 MB. Alias re-pointed 2026-08-28 (operator, decode-first): cache 32 slots + ubatch 2048; upstream ub2048 stays documented as the prefill-first alternative.
 
 ## Context ladder (2026-09-02, serving-path probes)
@@ -63,7 +65,7 @@ Reasoning model: emits `<think>` blocks; card suggests qwen3-style reasoning/too
 Operator ask: ≥200k window on the 8 GB box. Harness preflight cannot launch it: est @ 204800 q4_0 ≈ 8.4 GB (`gguf_kv_f16_mb` KV + `VRAM_MOE_NON_EXPERT_FRAC` 0.28 × file ≈ 5.8 GB) vs the hard clamp `resolve_vram_limit_mb` applies to any configured budget (physical − 512 keepout = 7676) — the 0.28 frac over-reads this MoE's real ~1.8 GB GPU-resident weights ~3×, so **every ctx > ~136k is preflight-rejected regardless of KV type**. Ladder ran via `model-up` alias probes per the `use-harness-not-raw-llama` carve-out (which names the moe-cache ladder explicitly). Device-wide nvidia-smi; q4_0 KV, ubatch 2048, threads 6, `--no-warmup`, single-shot prompts:
 
 | Config | idle+smoke | peak @ fill | pp | tg @ fill |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | codacus cache32 @ 204800 | 7555 | **7710 @ 4k fill — breaks keepout** | 925 | 28.2 @ 4k |
 | codacus cache24 @ 204800 | 7075 | 7335 @ 110k | 763 | 17.7 @ 110k |
 | plain b10549 @ 204800 | 5816 | 5509 @ 145k | 1045 | 18.0 @ 145k |
@@ -78,21 +80,18 @@ Operator ask: ≥200k window on the 8 GB box. Harness preflight cannot launch it
 - `KV q4_0`, batch 256/128, threads 6/8, `FLASH_ATTN on`, `NO_MMAP False` (mmap — 21.7 GB file pages), `CONT_BATCHING True`, NGL 99, `N_CPU_MOE=None` (auto → 41)
 - Sampler: TEMP 0.6 / TOP_P 0.95 / TOP_K 20 / MIN_P 0.0 / presence 0.0 / repeat 1.0
 
-## Trial results (2026-08-19 claw-full + coding-10 @ 65k; 2026-08-20 agentic rerun @ 4096 floor)
+## Historical runtime evidence (Trial results (2026-08-19 claw-full + coding-10 @ 65k; 2026-08-20 agentic rerun @ 4096 floor))
 | Metric | Value |
-|---|---|
+| --- | --- |
 | Status | **on_front** |
-| Agentic (claw-full) | **0.8667** (13/15; rerun @ max_tokens 4096, 2026-08-20) — was 0.7333 (11/15) under the 2048 cap |
-| Coding | **0.6300** (HE+ 1.0000 / MBPP+ 0.9000 / LCB 0.4000 / BC 0.1000) |
 | bench_tg | 27.8 t/s |
 | Combined TPS | 36.8 |
 | Peak VRAM | 3.6–4.0 GB |
 
-Best coding in the Ornith family (1.5-9B 0.6150 / 1.0-35B 0.580). Agentic 0.8667 now **above 1.0-35B's 0.7333 and 1.5-9B's 0.9333's tail** — the 4096 floor recovered the web_research cluster (T046/T048/T050 all PASS **1.00** with 9.8–11.7k-char reports; T044 1.00). Card's own ClawEval claims 72.5 — local 0.8667 exceeds it under the fixed floor.
 
 **Remaining agentic failures (2/15, 2026-08-20):**
 - **T053 (finance US-Steel): 0.00 — 65k ctx ceiling, now proven.** HTTP 400 captured verbatim: `request (124983 tokens) exceeds the available context size (65536 tokens)` (`exceed_context_size_error`, n_prompt_tokens 124983, n_ctx 65536). Accumulated history + `REASONING_PRESERVE` think re-renders ballooned the request past 65k; server log shows one `truncated = 1` (n_tokens 65535) before it. This is the documented next-limiter, now with direct evidence.
-- **T054 (finance NFLX ARPPU): 0.00 — content failure, not truncation.** 29 calls, report **len=7173** (well above rubric floors), but no yearly-value keywords; same retrieval-path failure as both 9B generations. Family-wide task weakness.
+Family-wide task weakness.
 - No max_tokens cap hits: **0 turns decoded to 4096** in the run log (the 5 `length_stops` flags were `</s>`-stop-string stops — see harness caveat).
 
 ## Overthinking (2026-08-25)

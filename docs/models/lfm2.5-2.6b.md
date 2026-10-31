@@ -1,12 +1,14 @@
 # LFM2.5-2.6B-Q8_0 — Model Card (Local)
 
-**Source repo:** https://huggingface.co/LiquidAI/LFM2.5-2.6B  
-**GGUF repo:** https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF  
-**License:** lfm1.0 (proprietary, `other`) — [HF LICENSE file](https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF/blob/main/LICENSE)  
-**GGUF path:** `models/LiquidAI/LFM2.5-2.6B-GGUF/LFM2.5-2.6B-Q8_0.gguf`  
-**Family:** Liquid LFM2.5  
-**Architecture type:** Dense hybrid (`lfm2`) — not MoE  
-**Quantization:** `Q8_0` (GGUF `general.file_type` = 7)  
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/lfm2.5-2.6b.md). Historical performance retains its original protocol.
+
+**Source repo:** https://huggingface.co/LiquidAI/LFM2.5-2.6B
+**GGUF repo:** https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF
+**License:** lfm1.0 (proprietary, `other`) — [HF LICENSE file](https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF/blob/main/LICENSE)
+**GGUF path:** `models/LiquidAI/LFM2.5-2.6B-GGUF/LFM2.5-2.6B-Q8_0.gguf`
+**Family:** Liquid LFM2.5
+**Architecture type:** Dense hybrid (`lfm2`) — not MoE
+**Quantization:** `Q8_0` (GGUF `general.file_type` = 7)
 
 ---
 
@@ -43,11 +45,11 @@ Publisher memory claims (llama.cpp GGUF):
 - Publisher CPU inference: 220 tok/s on Apple M5 Max; 113 tok/s on AMD Ryzen AI Max+ 395; 30 tok/s on phone
 - Publisher GPU inference: ~15K output tok/s at high concurrency on H100
 
-| ctx  | KV type | Fits 8 GB? | Peak VRAM |
-|------|---------|-----------|-----------|
-| 65k  | f16     | **Yes**    | **~6.0 GB** (measured) |
-| 65k  | q4_0    | **Yes**    | **TBD** |
-| 131k | f16     | **Yes**    | **TBD** |
+| ctx | KV type | Fits 8 GB? | Peak VRAM |
+| ------ | --------- | ----------- | ----------- |
+| 65k | f16 | **Yes** | **~6.0 GB** (measured) |
+| 65k | q4_0 | **Yes** | **TBD** |
+| 131k | f16 | **Yes** | **TBD** |
 
 > **Note:** `q4_0` KV cache not yet locally validated. F16 KV is the baseline; q4_0 KV is untested.
 
@@ -116,45 +118,38 @@ TPS_FLOOR = 15.0
 ### Measured (Objective Vector — Store best)
 
 | Metric | Value | Notes |
-|--------|-------|-------|
-| **Trial Status** | `on_front` | |
-| **Agentic (Claw full, n=8)** | **0.8667** (13/15) | Store best |
-| **Coding (coding-10, n=8)** | **0.5200** | Store best |
+| -------- | ------- | ------- |
+| **Trial Status** | `on_front` |  |
 | **Bench tg** | **91.2 t/s** | Store best @65536 |
-| **Combined TPS** | **TBD** | |
+| **Combined TPS** | **TBD** |  |
 | **Peak VRAM** | **~6.0 GB** | @65k, f16 KV |
 
-> Prior runs: pre-fix (2026-08-05) agentic 0.3333 / coding 0.4800; post-harness-fix (2026-08-08) agentic 0.8667 / coding 0.5050 / bench tg 78.8. The coding and TPS uplift to 0.5200 / 91.2 reflects further Trial iterations (n=8).
+Historical bench tg increased from 78.8 to 91.2 t/s across the recorded iterations (n=8); quality comparisons are archived.
 
-Evidence: `results.db` / `results.tsv` rows for `LFM2.5-2.6B-Q8_0.gguf`. Claw jump (2026-08-08) is the harness fix (`reasoning_content` / `max_tokens≥2048`), not a model change — see [thinking-models-claw-harness.md](../discovery/thinking-models-claw-harness.md).
+Evidence: `results.db` / `results.tsv` rows for `LFM2.5-2.6B-Q8_0.gguf`. Claw jump (2026-08-08) is the harness fix (`reasoning_content` / `max_tokens≥2048`), not a model change — see [thinking-models-claw-harness.md](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/discovery/thinking-models-claw-harness.md).
 
 ---
 
 ## Sources / Verification
 
 | Source | Key data extracted | Extraction date |
-|--------|-------------------|-----------------|
+| -------- | ------------------- | ----------------- |
 | [LiquidAI/LFM2.5-2.6B-GGUF — HF API](https://huggingface.co/api/models/LiquidAI/LFM2.5-2.6B-GGUF) | Quantization variants, file size, license lfm1.0, downloads (785K) | 2026-08-29 |
 | [LiquidAI/LFM2.5-2.6B — HF API](https://huggingface.co/api/models/LiquidAI/LFM2.5-2.6B) | BF16 params 2.697B, 16 languages, downloads (191K) | 2026-08-29 |
 | [LiquidAI/LFM2.5-2.6B — HF README](https://huggingface.co/LiquidAI/LFM2.5-2.6B/blob/main/README.md) | Context 131072, 30 layers (22 conv + 8 GQA), vocab 128K, 34T tokens; generation params temp 0.1/top_k 50/rep_penalty 1.1; benchmarks (IFBench 59.17, Claw-Eval avg 62.85, PinchBench 68.22, AIME25 51.87, LiveCodeBenchv6 59.41); CPU inference speeds; DSpark drafter | 2026-08-29 |
 | [LiquidAI/LFM2.5-2.6B-GGUF — HF README](https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF/blob/main/README.md) | llama-cli usage example, QAD Q4_0 note | 2026-08-29 |
 | Local GGUF `GGUFReader` (2026-08-29) | `lfm2.context_length=131072` (corrected from 128000); `lfm2.block_count=30`; `embedding_length=2048`; `head_count=32`; `head_count_kv=5`; `vocab_size=128000`; zero MTP/speculative/draft tensors | 2026-08-29 |
 | Local GGUF `tokenizer.chat_template` | No `enable_thinking`, `reasoning_effort`, `reasoning_budget`, or `thinking_budget` variables — reasoning flags have no effect | 2026-08-29 |
-| `results.db` / `results.tsv` | Store best agentic 0.8667 / coding 0.5200 / tg 91.2 t/s @65536 (n=8) | — |
+| `results.db` / `results.tsv` | Store best / tg 91.2 t/s @65536 (n=8) | — |
 
 Publisher benchmarks (LFM2.5 family, from base README — comparative table, extraction 2026-08-29):
 
 | Benchmark | LFM2.5-2.6B | gemma-4-E2B-it | gemma-4-E4B-it | Qwen3.5-4B | Qwen3.5-9B |
-|---|---:|---:|---:|---:|---:|
-| IFBench | 59.17 | 34.08 | 39.24 | 48.40 | 56.47 |
+| --- | ---: | ---: | ---: | ---: | ---: |
 | Multi-IF | 80.07 | 69.44 | 77.35 | 55.67 | 62.55 |
 | IFStruct | 85.49 | 64.85 | 76.65 | 36.25 | 78.50 |
-| BFCLv4 | 56.88 | 36.98 | 46.39 | 50.56 | 60.13 |
 | ToolSandbox | 77.83 | 52.40 | 65.00 | 75.55 | 76.44 |
-| Claw-Eval avg (EN) | 62.85 | 53.14 | 58.02 | 62.28 | 66.53 |
 | PinchBench | 68.22 | 44.24 | 55.09 | 71.26 | 71.45 |
-| BrowseComp+ (OpenClaw) | 26.89 | 8.31 | 15.90 | 24.46 | 27.23 |
-| AIME25 | 51.87 | 26.33 | 34.27 | 49.33 | 56.07 |
 | LiveCodeBenchv6 | 59.41 | 54.92 | 63.77 | 60.85 | 69.86 |
 
 ---
@@ -162,5 +157,4 @@ Publisher benchmarks (LFM2.5 family, from base README — comparative table, ext
 ## Open questions
 
 - **TBD:** `q4_0` KV cache — does mixed K/V q4_0 produce a speed cliff (as observed on Qwen3.8-4B GDN hybrid)? Needs a 2-minute ServerIntent fit probe before any KV fingerprinting Trial.
-- **TBD:** `Combined TPS` for store-best row (n=8). Currently only bench tg reported; combined should be recorded from `benchmark_search.py`.
 - **TBD:** Peak VRAM at 131k context with f16 KV — the context_length claim is 131072 but no local 131k VRAM measurement has been recorded.

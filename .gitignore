@@ -61,12 +61,10 @@ copilot-instructions.md
 .github/copilot-instructions.md
 
 # Agent harness configs + skills (machine-local; not shipped with clone)
-# Ignore .agents contents, but ship shared operator skills (trial, onboarding).
+# Ignore .agents contents, but ship runtime operator skills.
 .agents/*
 !.agents/skills/
 .agents/skills/*
-!.agents/skills/trial/
-!.agents/skills/trial/**
 !.agents/skills/onboarding/
 !.agents/skills/onboarding/**
 !.agents/skills/validation/
@@ -142,6 +140,3 @@ CLAUDE.local.md
 .pi-glla/owner.json
 .pi-glla/session-owner.json
 .omp
-
-# Course materials (paid content / local only)
-teach/

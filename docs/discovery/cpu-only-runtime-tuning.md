@@ -77,7 +77,7 @@ The repo's speed search already enforces a quality ceiling — see [`good-enough
 
 **PPL vs KL:** the repo gates on PPL; KL is the same information — `KL(new‖base) ≈ ln(PPL_new / PPL_base)`, so a 1% PPL ceiling ≈ 0.01 nat KL. This is the same drift check people use when quantizing a model.
 
-The loop is `autoloop.py --mode tps` — **operator-only** (agents do not launch it). The guard's practical consequence: it prevents quality loss, which also caps speed gains to the *free* knobs (threads / batch / KV). Anything faster (a lower model quant) is a PPL loss the guard rejects — so a PPL-guarded hill-climb converges at the bandwidth ceiling, not past it.
+Use [bounded tuning](../../autoresearch/TUNING.md) with a finite Trial budget. Its PPL constraint prevents accepting throughput gains that exceed the fixed degradation limit; preserve the configured context.
 
 ## 6. OpenVINO on CPU-only (negative result)
 

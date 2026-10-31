@@ -1,11 +1,9 @@
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from autoresearch.core.sglang_runner import run_sglang_bench_validation
-from autoresearch.runners.evaluation import ExperimentRunner
 
 
 class TestSGLangRunner(unittest.TestCase):
@@ -35,28 +33,6 @@ class TestSGLangRunner(unittest.TestCase):
         tps = run_sglang_bench_validation(Path("models/sglang/Qwen3.8-2B"), 1, 512, 512)
 
         self.assertAlmostEqual(tps, 57.55, places=2)
-
-    @patch(
-        "autoresearch.runners.evaluation.preflight_host_memory_for_intent",
-        return_value=(True, 7000.0, 12000.0, ""),
-    )
-    @patch("autoresearch.core.llama_runner.detect_free_vram_mb", return_value=20000.0)
-    @patch("autoresearch.core.runtime_measurements.run_sglang_bench_validation", return_value=10.0)
-    @patch("autoresearch.runners.evaluation.SGLangServerRunner")
-    @patch("autoresearch.runners.evaluation.run_coding")
-    def test_sglang_bench_below_threshold_fails_before_server(
-        self, mock_coding, mock_sglang, _mock_bench, _mock_vram, _mock_host
-    ):
-        with tempfile.TemporaryDirectory() as tmp:
-            models_dir = Path(tmp)
-            (models_dir / "sglang-model").mkdir()
-            res = ExperimentRunner(models_dir).run_trial(
-                {"model": "sglang-model", "include_coding": True, "bench_tts_threshold": 20.0},
-            )
-
-        self.assertIn("FAIL: sglang bench tg 10.0 < threshold 20.0", res.status)
-        mock_sglang.assert_not_called()
-        mock_coding.assert_not_called()
 
 
 if __name__ == "__main__":

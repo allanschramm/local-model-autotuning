@@ -1,5 +1,7 @@
 # LFM2.5-1.2B-Instruct — Model Card (Local)
 
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/lfm2.5-1.2b.md). Historical performance retains its original protocol.
+
 **Source repo**: [LiquidAI/LFM2.5-1.2B-Instruct](https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct)  ·  Base: [LFM2.5-1.2B-Base](https://huggingface.co/LiquidAI/LFM2.5-1.2B-Base)  ·  GGUF: [lmstudio-community/LFM2.5-1.2B-Instruct-GGUF](https://huggingface.co/lmstudio-community/LFM2.5-1.2B-Instruct-GGUF)  ·  Extracted 2026-08-29
 **License:** `other` (name: `lfm1.0`)  ·  HF `lastModified`: 2026-08-24
 **GGUF path:** `models/lmstudio-community/LFM2.5-1.2B-Instruct-GGUF/LFM2.5-1.2B-Instruct-Q8_0.gguf`  ·  **Family:** Liquid LFM2.5 (`lfm2`) — dense hybrid, **not MoE**  ·  **Quant:** `Q8_0`  ·  **Alias:** `lfm2.5-1.2b`
@@ -15,7 +17,7 @@ this alias. (Reasoning models in this family ship as a separate `LFM2.5-1.2B-Thi
 with its own template — not the Instruct GGUF we measured.)
 
 | Key | Value |
-|---|---|
+| --- | --- |
 | `general.architecture` | `lfm2` |
 | `general.name` | LiquidAI_LFM2.5 1.2B Instruct |
 | `general.size_label` | 1.2B |
@@ -30,16 +32,9 @@ Harness: dense → `N_CPU_MOE` must stay `None` (no expert offload).
 Tiny weights (~1.2B Q8). Context + KV dominate VRAM at ceiling.
 
 | ctx | KV | Fits? | Notes |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 128k | f16 | **No** | preflight est ~11.5 GB > 7900 |
 | 65k | f16 | **Yes** | peak **3.3 GB** (preferred) |
-
-## Publisher benchmarks (HF, 2026-08-29)
-
-| Model | GPQA | MMLU-Pro | IFEval | IFBench | Multi-IF | AIME25 | BFCLv3 |
-|---|---|---|---|---|---|---|---|
-| **LFM2.5-1.2B-Instruct** | 38.89 | 44.35 | 86.23 | 47.33 | 60.98 | 14.00 | 49.12 |
-| Qwen3-1.7B (instruct) | 34.85 | 42.91 | 73.68 | 21.33 | 56.48 | 9.33 | 46.30 |
 
 ## Recommended settings / config baseline
 
@@ -79,35 +74,32 @@ No embedded MTP. Speculative N/A from this GGUF.
 
 N/A (dense).
 
-## Measured (claw-quick, 2026-07-24)
+## Historical runtime evidence (Measured (claw-quick, 2026-07-24))
 
-| Setup | Score | TPS | peak VRAM |
-|---|---|---|---|
-| **65k f16 (alias)** | **0.80** | **180.6** | 3.3 GB |
-| 128k q4_0 | 0.60 | 178.6 | 3.4 GB |
-| 128k q8_0 | 0.60 | 177.6 | 3.7 GB |
-| 128k f16 | FAIL preflight | — | est 11.5 GB |
+| Setup | TPS | peak VRAM |
+| --- | --- | --- |
+| **65k f16 (alias)** | **180.6** | 3.3 GB |
+| 128k q4_0 | 178.6 | 3.4 GB |
+| 128k q8_0 | 177.6 | 3.7 GB |
+| 128k f16 | — | est 11.5 GB |
 
-Evidence: [session 2026-07-24](../sessions/2026-07-24-lfm2.5-1.2b-ctx-kv-matrix.md). Sibling MoE: [lfm2.5-8b-a1b.md](lfm2.5-8b-a1b.md).
+Evidence: [session 2026-07-24](../performance/2026-07-24-lfm2.5-1.2b-ctx-kv-matrix.md). Sibling MoE: [lfm2.5-8b-a1b.md](lfm2.5-8b-a1b.md).
 
-## Measured (claw-full, 2026-07-24)
+## Historical runtime evidence (Measured (claw-full, 2026-07-24))
 
-| Setup | Val Score | pass | TPS | peak VRAM |
-|:-------|----------:|-----:|----:|----------:|
-| **65k f16 (alias)** | **0.6000** | 9/15 | **166.4** | 3.7 GB |
+| Setup | TPS | peak VRAM |
+| :------- | ----: | ----------: |
+| **65k f16 (alias)** | **166.4** | 3.7 GB |
 
-Ties Ornith-9B/35B on Val Score; ~4× TPS. Evidence: [session top-TPS full](../sessions/2026-07-24-claw-full-top-tps.md). Leaderboard: [claw-eval-leaderboard.md](../discovery/claw-eval-leaderboard.md).
+Evidence: [session top-TPS full](../performance/2026-07-24-claw-full-top-tps.md). Leaderboard: [claw-eval-leaderboard.md](../performance/claw-eval-leaderboard.md).
 
-## Measured (coding-10, 2026-07-24)
+## Historical runtime evidence (Measured (coding-10, 2026-07-24))
 
 | Metric | Value |
-|---|---|
-| coding | **0.3500** (LCB patched†) |
-| LCB / HE / MBPP / BC | 0.10 / 0.50 / 0.70 / 0.10 |
+| --- | --- |
 | bench_tg | 167.6 t/s |
 | peak VRAM | 4.0 GB |
 
-† HE/MBPP/BC from Trial `9af96f3c-…`; LCB via `scripts/lcb_only.py`. Sessions: [coding-10](../sessions/2026-07-24-coding-10-claw-leaders.md), [lcb-patch](../sessions/2026-07-24-lcb-patch-gambiarra.md).
 
 ## Sources / Verification
 

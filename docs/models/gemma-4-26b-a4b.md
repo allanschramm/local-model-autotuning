@@ -1,5 +1,7 @@
 # Gemma-4-26B-A4B — Model Card (Local)
 
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/gemma-4-26b-a4b.md). Historical performance retains its original protocol.
+
 **Source repo:** https://huggingface.co/unsloth/gemma-4-26B-A4B-it-qat-GGUF
 **Unsloth docs:** https://unsloth.ai/docs/models/gemma-4
 **MTP guide:** https://unsloth.ai/docs/models/mtp
@@ -36,7 +38,7 @@
 
 ## Variant lineup (Gemma 4 family)
 | Variant | Type | Best fit |
-|---|---|---|
+| --- | --- | --- |
 | E2B | Dense + PLE (128K) | Phone / edge, ASR |
 | E4B | Dense + PLE (128K) | Laptop, fast multimodal |
 | 12B Unified | Dense (256K) | Laptop, multimodal |
@@ -45,7 +47,7 @@
 
 ## Hardware requirements (per Unsloth)
 | Variant | 4-bit | 8-bit | BF16/FP16 |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | E2B | 4 GB | 5–8 GB | 10 GB |
 | E4B | 5.5–6 GB | 9–12 GB | 16 GB |
 | 12B | 7–8 GB | 13–14 GB | 25 GB |
@@ -125,7 +127,7 @@ MTP: `--spec-type draft-mtp` (the accepted spelling — bare `mtp` is rejected; 
 ### Teste real (commit `2bd795b`)
 - Rodou `gemma-4-26B-A4B-it-UD-Q4_K_M.gguf` no nosso rig (8 GB VRAM) com VITRIOL (`--n-cpu-moe 15`)
 - **HumanEval pass@1 = 0.533 (16/30)**
-- **TPS ~13-18** (abaixo do floor de 20 — score zerado, descarte)
+
 - Resultado fica como evidência da viabilidade da técnica; tuning posterior precisa melhorar TPS
 
 ### 2026-07-19 Update (Unsloth QAT Dynamic 4-bit XL Quant)
@@ -135,10 +137,9 @@ MTP: `--spec-type draft-mtp` (the accepted spelling — bare `mtp` is rejected; 
 - Benchmarked: **17.00 TPS** (interactive llama-cli) with MTP active via `mtp-gemma-4-26B-A4B-it.gguf` vs **15.3 TPS** base speed (+11% speedup).
 - Note: `--n-cpu-moe 15` was retired because it exceeded 8 GB VRAM at 65k context, causing severe memory swapping.
 
-### Claw-Eval full + coding-10 (2026-07-25 / 2026-07-26)
-- Claw-full **0.1333** @ ctx **65536**, `n-cpu-moe 30`, draft-mtp n=2, TEMP 1.0, bench_tg **29.2**.
-- Coding-10 **0.5900** (LCB 0.40 / HE **1.00** / MBPP 0.80 / BC 0.00); Combined TPS **33.5**; bench_tg **27.8**; peak **5.2 GB** — same Fingerprint.
-- Objective Vector complete: strong coding, weak agentic → `min(ag,cod)=0.1333`. Prefer E4B / POCKET / Ornith-9B for real use.
+### Historical runtime evidence (Claw-Eval full + coding-10 (2026-07-25 / 2026-07-26))
+- @ ctx **65536**, `n-cpu-moe 30`, draft-mtp n=2, TEMP 1.0, bench_tg **29.2**.
+- Combined TPS **33.5; bench_tg **27.8; peak **5.2 GB** — same Fingerprint.
 
 ## Sources / Verification
 - HF model card (extracted 2026-08-29)

@@ -35,7 +35,7 @@ Measure whether `draft-dflash` raises TPS on `Qwen3.6-35B-A3B-UD-Q3_K_XL.gguf` u
 | `54e972a6-c0ec-4687-ba60-56a941125e3e` | `draft-dflash` + Q8 draft | 15 | **12.5** | 6.6 GB |
 | `c409f082-8061-41d9-96da-015a1edb0504` | `draft-dflash` + Q8 draft | 15 | **9.5** | — (rejected: `TPS_FLOOR`) |
 
-Prior Q4 @ 32k (`b10286`): DFlash 17.5 vs no-spec 27.2 vs MTP n=2 27.5 — [2026-08-07-qwen36-35b-dflash-tps.md](./2026-08-07-qwen36-35b-dflash-tps.md).
+Prior Q4 @ 32k (`b10286`): DFlash 17.5 vs no-spec 27.2 vs MTP n=2 27.5 — [2026-08-07-qwen36-35b-dflash-tps.md](../performance/2026-08-07-qwen36-35b-dflash-tps.md).
 
 **Verdict:** DFlash cannot raise TPS on this 8 GB-class host with this GGUF. It needs the 35B target fully on GPU. `--n-cpu-moe 40` makes DFlash slower. Embedded MTP can raise TPS. DFlash extracts eight target-layer hiddens every decode (`llama_set_embeddings_layer_inp`); that tax plus MoE CPU verify loses to no-spec.
 

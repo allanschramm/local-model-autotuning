@@ -1,45 +1,31 @@
-# `docs/` — Documentation Contract
-
-<!-- Scope: any agent editing files under /docs. -->
+# Auto-tuning documentation
 
 ## Purpose
-Durable documentation for this repo: model cards, technique notes, architecture decision records (ADRs), per-session logs, and user-facing guides. Docs here are **stable contracts** — not diary entries, not commit logs.
+Runtime guides, model metadata/configuration, performance evidence and architecture. Quality evaluation records are archived; teaching is owned by the independent ailocal-teach project.
 
 ## Ownership
-- Repo root owns repo-wide rules (`/AGENTS.md`).
-- This doc owns the contract for how `/docs/` is organized and what's allowed inside it.
-- Each durable boundary under `/docs/` (e.g. `models/`, `adr/`, `discovery/`, `sessions/`) owns its own `AGENTS.md` and its own index.
+Root AGENTS.md owns project-wide rules; each child contract below owns its materials and index.
 
 ## Local Contracts
-- **One `AGENTS.md` per durable boundary.** A folder becomes a boundary when it has its own purpose, rules, workflow, or quality standards.
-- **DOX hierarchy** is mandatory: walk root → leaf before editing; update nearest owning doc + affected parents after meaningful changes.
-- **No run logs, no commit logs, no diary entries** in `/docs/` proper. Run logs go to the results store (`results.db` SQLite canonical, `results.tsv` legacy fallback), git history, or `docs/sessions/` (only if capturing methodology for reproducibility).
-- **Stable contracts only.** If a doc will be stale in a week, it doesn't belong here.
-- **Markdown only** in this tree (except media assets and the architecture diagram `architecture.html`).
-- **Reference external sources by URL**, not by copy-paste. We're a local repo, not a doc mirror.
-- **User-facing guides** in `docs/discovery/` must be runnable by anyone with the documented steps. Avoid hardcoded private paths.
-- **No operator hardware fingerprint** in tracked docs: no GPU SKU, hostname, exact local MiB dumps, or personal paths. Use memory class / Baseline `VRAM_LIMIT_MB` / engine tag.
+- Follow the root-to-leaf DOX chain before edits and refresh affected ownership/indexes afterwards.
+- Stable guides are runnable; historical records and derived excerpts are explicitly labelled. Do not turn old numbers or estimates into current measurements.
+- Keep original units/protocols, source URLs and verification dates. No private paths, alias inventory, GPU SKU or operator identity.
+- Markdown only. Keep run evidence in canonical SQLite/artifacts; session documents capture reproducibility, not a second results store.
+- Missing links are fixed or redirected to the immutable archive. Preserve archived records instead of silently rewriting accepted decisions or completed sessions.
 
 ## Work Guidance
-- New model card? Read `docs/models/AGENTS.md` first; follow its schema; add to its index.
-- New architectural decision? Read `docs/adr/AGENTS.md` first; use the standard ADR format (numbered filename, status, date, context, decision, consequences).
-- New technique or pattern worth preserving? Create a new top-level folder under `/docs/` with its own `AGENTS.md` explaining purpose, scope, and schema.
-- New session log (single-day empirical capture)? Add to `docs/sessions/` with `YYYY-MM-DD-<topic>.md` naming.
-- New user-facing guide? Add to `docs/discovery/` with runnable commands and methodology rationale.
-- TBD / TODO / open questions: mark with `**TBD:**` inline, list them in a closing "Open questions" section. Resolve them when evidence arrives; never silently drop them.
+- Architecture decisions belong to adr; model runtime facts to models; reusable procedures to discovery; original runtime sessions to sessions; mixed-record performance projections to performance.
 
 ## Verification
-- Each model card must pass: filename matches index entry, "Sources / Verification" section has URLs + dates, GGUF metadata matches local file (`general.name`, `block_count`).
-- Each ADR must have: status, date, context, decision, consequences.
-- Each session log must capture: who ran what, on which hardware, with which config, measured numbers, decisions taken, errors encountered — without machine inventory, absolute user paths, alias registry, or operator PII (see `docs/sessions/AGENTS.md`).
-- Each user-facing guide must be: runnable, hardware-agnostic (or explicitly parameterized), and link to relevant session logs for evidence.
-- No dead links to internal files (run a sanity grep on `[...](...)` before commit).
+- Internal file links resolve. No quality-score tables or active retired-CLI instructions remain in runtime materials; excerpts retain source provenance.
 
 ## Child DOX Index
-- [docs/models/AGENTS.md](models/AGENTS.md) — model card schema + per-model index.
-- [docs/adr/AGENTS.md](adr/AGENTS.md) — architecture decision records contract + index (ADRs 0001–0019).
-- [docs/discovery/AGENTS.md](discovery/AGENTS.md) — user-facing guides (tooling, quantization, CPU inference, inference engines, speculative formats).
-- [docs/sessions/AGENTS.md](sessions/AGENTS.md) — single-day empirical session logs index (2026-06-19 onward).
-- [docs/architecture.html](architecture.html) — interactive architecture diagram (HTML exception under docs/).
-- [docs/llamacpp-toolset.md](llamacpp-toolset.md) — llama.cpp toolset reference: build, binaries, flags, bench/server/quantize/perplexity/imatrix commands; local arch forks.
-- [`docs/llamacpp-flags-audit.md`](llamacpp-flags-audit.md) — **upstream-first audit:** `~310` `llama.cpp/common/arg.cpp` flags vs `~27` harness-forwarded; Safety/Perf/Quality gaps (`fit/warmup/cache-ram/kv-unified/repack/yarn/spec-ngram/dry/xtc/...`) + mandatory pre-implementation checklist (`grep add_opt` before new `ENGINE_*`). `load-mode` is wired (`load_mode_flag`), and `assert_flags_supported` fails closed when a build drops a flag the harness emits.
+- [GGUF store layout](../models/README.md) — local asset layout and safety.
+- [models/AGENTS.md](models/AGENTS.md) — model runtime cards.
+- [discovery/AGENTS.md](discovery/AGENTS.md) — runtime guides.
+- [sessions/AGENTS.md](sessions/AGENTS.md) — original runtime session records.
+- [performance/AGENTS.md](performance/AGENTS.md) — derived runtime evidence.
+- [adr/AGENTS.md](adr/AGENTS.md) — decisions and archived IDs.
+- [retired-quality.md](retired-quality.md) — migration/provenance index.
+- [llamacpp-toolset.md](llamacpp-toolset.md) — engine tool reference.
+- [llamacpp-flags-audit.md](llamacpp-flags-audit.md) — upstream-first flag audit.

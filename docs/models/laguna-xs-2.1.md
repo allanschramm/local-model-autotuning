@@ -1,17 +1,19 @@
 # Laguna-XS-2.1 — Model Card (Local)
 
-**GGUF publisher path:** `models/bartowski/laguna-xs-2.1-gguf/Laguna-XS-2.1-Q3_K_XL.gguf` (~16.3 GB)  
-**License:** `openmdw-1.1` (`general.license`)  
-**Family:** Laguna XS  
-**Architecture type:** MoE (`laguna`) — `256x2.2B`, 8 experts active  
-**Quantization:** `Q3_K_XL` (`general.file_type=13`)  
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/laguna-xs-2.1.md). Historical performance retains its original protocol.
+
+**GGUF publisher path:** `models/bartowski/laguna-xs-2.1-gguf/Laguna-XS-2.1-Q3_K_XL.gguf` (~16.3 GB)
+**License:** `openmdw-1.1` (`general.license`)
+**Family:** Laguna XS
+**Architecture type:** MoE (`laguna`) — `256x2.2B`, 8 experts active
+**Quantization:** `Q3_K_XL` (`general.file_type=13`)
 
 ## Architecture (from GGUF metadata)
 
 Verified with `gguf.GGUFReader` on the local file (2026-07-24):
 
 | Key | Value |
-|---|---|
+| --- | --- |
 | `general.architecture` | `laguna` |
 | `general.name` | Laguna XS 2.1 |
 | `general.size_label` | `256x2.2B` |
@@ -32,7 +34,7 @@ Harness `is_moe_model` → **True** (expert_count > 1). Dense offload rules do n
 ## Hardware requirements (discrete 8 GB-class NVIDIA)
 
 | Quant | Size | Fit notes |
-|---|---|---|
+| --- | --- | --- |
 | Q3_K_XL | ~16.3 GB on disk | MoE VITRIOL: `n-cpu-moe 40` (= `block_count`). Peak VRAM **3.6 GB** @ ctx 65k / KV q4_0 |
 
 - Claimed ctx 262k; on 8 GB prefer **65k** + KV `q4_0` (validated agentic + TPS).
@@ -43,17 +45,17 @@ Harness `is_moe_model` → **True** (expert_count > 1). Dense offload rules do n
 GGUF embeds sampling defaults (`temp=1.0`, `top_p=1.0`, `min_p=0.0`). Local harness Baseline uses search defaults unless overridden.
 
 | Param | Value | Notes |
-|---|---|---|
+| --- | --- | --- |
 | CTX_SIZE | 65536 | Validated claw-full |
-| KV_CACHE_K/V | q4_0 | |
-| BATCH / UBATCH | 512 / 128 | |
-| THREADS / THREADS_BATCH | 8 / 8 | |
+| KV_CACHE_K/V | q4_0 |  |
+| BATCH / UBATCH | 512 / 128 |  |
+| THREADS / THREADS_BATCH | 8 / 8 |  |
 | FLASH_ATTN | on | Required |
-| CONT_BATCHING | True | |
-| NO_MMAP | True | |
+| CONT_BATCHING | True |  |
+| NO_MMAP | True |  |
 | N_CPU_MOE | **40** | = `block_count` |
 | TPS_FLOOR | 15.0 | MoE floor on the operator host |
-| JINJA | true | |
+| JINJA | true |  |
 
 ## MTP
 
@@ -71,7 +73,7 @@ Experts do not fit physical VRAM — full expert offload:
 --n-gpu-layers 99 --n-cpu-moe 40
 ```
 
-See [vitriol-technique.md](vitriol-technique.md). Explicit `40` matches auto-`None` resolve on this GGUF.
+See [vitriol-technique.md](../discovery/vitriol-technique.md). Explicit `40` matches auto-`None` resolve on this GGUF.
 
 ## Our config baseline (validated 2026-07-24)
 
@@ -94,17 +96,13 @@ TPS_FLOOR = 15.0
 
 ### Measured
 
-| Gate | Score / metric | Notes |
-|---|---|---|
-| claw-quick | **1.0000** (5/5) | Best smoke on the operator host |
-| claw-full | **0.6667** (10/15) KEEP | **Best Val Score** in `results.tsv` (sane 0–1) |
-| coding-10 | **0.1950** | LCB 0.20 / HE 0.20 / MBPP 0.30 / BC 0.00 (LCB patched†) |
-| bench_tg | **37.2** t/s | cli-bench gen=512 (claw-full row) |
-| peak VRAM | **3.6–4.5 GB** | Agentic ~3.6; coding ~4.5 |
+| Gate | Notes |
+| --- | --- |
+| bench_tg | cli-bench gen=512 (claw-full row) |
+| peak VRAM | Agentic ~3.6; coding ~4.5 |
 
-† Coding HE/MBPP/BC from Trial `d8851b80-…`; LCB re-measured 2026-07-24 (`scripts/lcb_only.py`) after symlink fix.
 
-Evidence: [claw-full](../sessions/2026-07-24-claw-full-smoke-high.md), [coding-10](../sessions/2026-07-24-coding-10-claw-leaders.md), [lcb-patch](../sessions/2026-07-24-lcb-patch-gambiarra.md), [claw leaderboard](../discovery/claw-eval-leaderboard.md), [coding leaderboard](../discovery/coding-leaderboard.md).
+Evidence: [claw-full](../performance/2026-07-24-claw-full-smoke-high.md), [coding-10](../performance/2026-07-24-coding-10-claw-leaders.md), [lcb-patch](../performance/2026-07-24-lcb-patch-gambiarra.md), [claw leaderboard](../performance/claw-eval-leaderboard.md), [coding leaderboard](../performance/coding-leaderboard.md).
 
 ## Sources / Verification
 

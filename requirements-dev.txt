@@ -1,0 +1,6 @@
+# Development tools; add requirements-legacy.txt for full legacy validation.
+-r requirements.txt
+
+pytest
+pre-commit
+ruff

@@ -1,5 +1,7 @@
 # MiniCPM5-2B
 
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/minicpm5-2b.md). Historical performance retains its original protocol.
+
 ## Header Block
 
 - **Source repo**: [`openbmb/MiniCPM5-2B-GGUF`](https://huggingface.co/openbmb/MiniCPM5-2B-GGUF)
@@ -28,7 +30,7 @@
 ## Hardware Requirements
 
 | Parameter | Value |
-|---|---|
+| --- | --- |
 | Model size | ~2.6B parameters |
 | Quantization size | 1.45 GiB (`Q4_K_M`) |
 | Physical VRAM required | $\ge 4.0\text{ GB}$ (comfortable at 131k context with `q4_0` KV cache) |
@@ -38,10 +40,10 @@
 
 ## Recommended Settings
 
-From the publisher's [GGUF model card](https://huggingface.co/openbmb/MiniCPM5-2B-GGUF), checked 2026-10-12. The historical Trial below used the fallback sampler; its scores do not validate these recommended settings.
+From the publisher's [GGUF model card](https://huggingface.co/openbmb/MiniCPM5-2B-GGUF), checked 2026-10-12.
 
 | Setting | Value | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `TEMP` | 1.0 | Publisher recommendation |
 | `TOP_P` | 0.95 | Recommended sampling |
 | `TOP_K` | 0 | Disable extra top-k filtering; publisher does not specify it |
@@ -69,7 +71,6 @@ From the publisher's [GGUF model card](https://huggingface.co/openbmb/MiniCPM5-2
 
 ## Our Config Baseline (Trial Validated — on_front)
 
-Measured on discrete 8 GB-class NVIDIA GPU via `benchmark_search.py --agentic-full` on 2026-09-09:
 
 - **Status**: **`on_front`** (Day #24 / Night #23 Pareto frontier)
 - **Engine**: `upstream@b10867` (CUDA 13.3)
@@ -80,12 +81,8 @@ Measured on discrete 8 GB-class NVIDIA GPU via `benchmark_search.py --agentic-fu
 - **Flash Attention**: `on`
 - **Measured Throughput (`bench_tg` 512)**: **`127.3 t/s`** (combined TPS: **`136.7 t/s`**)
 - **Peak VRAM**: **`5.3 GB`** (fits comfortably in physical VRAM at 131k context without shared spill)
-- **Agentic Score (Claw-15 full)**: **`0.7333`** (11/15 passed in 913s)
   - Passed: T002, T004, T006, T008, T010, T012, T014, T016, T018, T044, T050
   - Failed: T046, T048, T053, T054
-- **Coding Score (Coding-10)**: **`0.3700`**
-  - **HumanEval+**: `0.3000` (3/10)
-  - **MBPP+**: `0.7000` (7/10)
   - **LiveCodeBench**: `0.3000` (3/10)
   - **BigCode Hard**: `0.1000` (1/10)
 
@@ -95,17 +92,20 @@ Measured on discrete 8 GB-class NVIDIA GPU via `benchmark_search.py --agentic-fu
 
 ### Follow-up Trial: official sampler + DSpark
 
-2026-10-12, upstream b11577, context 131072, q4_0 KV, TEMP 1.0 / TOP_P 0.95 / TOP_K 0 / MIN_P 0, external DSpark draft with max 7: validation 5/5; full Trial outcome OK / status on_front, agentic 0.6667, coding 0.2550, generation TPS 142.6, bench_tg 126.3, peak VRAM 5.2 GB. Canonical description: `trial MiniCPM5-2B official sampler DSpark b11577 serial`.
+2026-10-12, upstream b11577, context 131072, q4_0 KV, TEMP 1.0 / TOP_P 0.95 / TOP_K 0 / MIN_P 0, external DSpark draft with max 7: validation 5/5; full Trial outcome OK / status on_front; , generation TPS 142.6, bench_tg 126.3, peak VRAM 5.2 GB. Canonical description: `trial MiniCPM5-2B official sampler DSpark b11577 serial`.
 
-This configuration scored lower than the historical Trial above. Engine, sampler, and speculative settings all changed; this comparison does not isolate DSpark's effect or demonstrate a speed improvement attributable to it. The DSpark companion used here belongs to MiniCPM5-2B, not MiniCPM-V-4.7-35B-A3B.
+Engine, sampler, and speculative settings all changed; this comparison does not isolate DSpark's effect or demonstrate a speed improvement attributable to it. The DSpark companion used here belongs to MiniCPM5-2B, not MiniCPM-V-4.7-35B-A3B.
 
 - **Primary HF Repo**: `https://huggingface.co/openbmb/MiniCPM5-2B-GGUF` (retrieved 2026-09-09)
 - **Base HF Repo**: `https://huggingface.co/openbmb/MiniCPM5-2B` (retrieved 2026-09-09)
 - **GGUF Inspection**: Verified via `gguf.GGUFReader` and `scripts/model_info.py` on local weights `models/openbmb/MiniCPM5-2B/MiniCPM5-2B-Q4_K_M.gguf` (2026-09-09)
-- **Trial Verification**: Verified in canonical `results.db` via `scripts/rank_results.py --mode pareto` (2026-09-09)
 
 ---
 
 ## Open questions
 
 *(None — fully verified and benchmarked)*
+
+## Historical runtime provenance
+
+The 2026-09-09 historical runtime baseline used discrete **8 GB**-class hardware; the original execution context is archived.

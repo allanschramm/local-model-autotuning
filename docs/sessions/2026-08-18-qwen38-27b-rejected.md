@@ -3,7 +3,7 @@
 ## Goal
 
 Execute the Qwen3.8-27B coding-loop queue from `models/TASK.md` (handoff of
-[2026-08-17-qwen38-27b-candidate.md](./2026-08-17-qwen38-27b-candidate.md)): download
+[2026-08-17-qwen38-27b-candidate.md](../performance/2026-08-17-qwen38-27b-candidate.md)): download
 `Qwen3.8-27B-Q1Q-XYZ-v2.gguf`, validate (MTP, KV, engine load), then run the 3-way
 shootout vs KAT-Coder / POCKET-35B for the Night (issue-loop) profile.
 

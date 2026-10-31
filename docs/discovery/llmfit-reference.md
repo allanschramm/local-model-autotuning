@@ -6,7 +6,7 @@ Rust-based hardware-aware LLM sizing and discovery CLI/TUI tool ([AlexsJones/llm
 
 Like whichllm, llmfit can over-estimate what fits when RAM and GPU share one pool. Run `scripts/check_hardware.py` first; use llmfit for **candidates**, then keep only models that fit the detected pool with OS headroom. llmfit is **not** final fit authority on `unified_memory`.
 
-**Repository:** [https://github.com/AlexsJones/llmfit](https://github.com/AlexsJones/llmfit)  
+**Repository:** [https://github.com/AlexsJones/llmfit](https://github.com/AlexsJones/llmfit)
 **Install Methods:**
 - **Cargo (Rust):** `cargo install llmfit`
 - **Windows (Scoop):** `scoop install llmfit`
@@ -76,7 +76,7 @@ llmfit plan "qwen 3.5 9b"
 # 3. Download target GGUF into models/ store using HF CLI:
 hf download Qwen/Qwen3.5-9B-Instruct-GGUF qwen3.5-9b-instruct-q4_k_m.gguf --local-dir models/Qwen/Qwen3.5-9B-Instruct-GGUF
 
-# 4. Set Baseline MODEL in autoresearch/core/config.py and execute autoloop
+# 4. Configure Baseline and run a finite plan (see autoresearch/TUNING.md)
 ```
 
 ---

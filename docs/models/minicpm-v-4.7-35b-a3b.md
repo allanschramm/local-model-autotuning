@@ -26,13 +26,13 @@ Conversion uses `--outtype bf16` and `--target-model-dir` containing the target 
 
 Candidate engine/sampler Baseline differs from the no-spec Trial only in SPEC_TYPE='draft-dspark', SPEC_DRAFT_N_MAX, and SPEC_DRAFT_MODEL pointing to this GGUF. Context remains 65536; sampler/KV/offload/batch/thread settings stay fixed.
 
-2026-10-13: max15 loaded but was rejected at the throughput gate (bench_tg 17.9 < TPS_FLOOR 20). Max7 passed full-context validation: 5/5, bench_tg 30.4, peak VRAM 5.0 GB. The server log confirms draft-dspark, n_extract=5, trained block_size=15 and effective n_max=7; the final quick task reported 108/210 draft tokens accepted, mean length 4.60. That task statistic is not a suite-wide acceptance rate. The 30.4 bench result is below the historical no-spec 32.7; no speed improvement is established.
+2026-10-13: max15 loaded but was rejected at the throughput gate (bench_tg 17.9 < TPS_FLOOR 20). Max7 passed full-context validation: 5/5, bench_tg 30.4, peak VRAM 5.0 GB. That task statistic is not a suite-wide acceptance rate. The 30.4 bench result is below the historical no-spec 32.7; no speed improvement is established.
 
-The max7 full Trial finished on 2026-10-13: generation TPS 36.4, bench_tg 27.2, peak VRAM 5.3 GB, coding 0.6350 (LCB 0.4 / HE+ 0.9 / MBPP+ 0.9 / BigCode 0.3). The server connection was forcibly closed during T006; T008 onward returned connection refused. The agentic artifact records 2/15 and 0.1333, but 13 tasks contain HTTP errors: **agentic is invalid as a quality measurement**. The store nevertheless labels this row OK/on_front; that mechanical status must not justify a launcher or quality claim. No OOM diagnostic was found, and peak VRAM alone does not identify the crash cause.
+The server connection was forcibly closed during T006; T008 onward returned connection refused. The agentic artifact records 2/15 and 0.1333, but 13 tasks contain HTTP errors: **agentic is invalid as a quality measurement**. The store nevertheless labels this row OK/on_front; that mechanical status must not justify a launcher or quality claim. No OOM diagnostic was found, and peak VRAM alone does not identify the crash cause.
 
 Evidence: canonical description `trial MiniCPM-V-4.7-35B-A3B exact DSpark BF16 max7 b11577 controlled`, artifact `autoresearch/runners/logs/agentic-20261013-004051-MiniCPM-V-4_7-35B-A3B-Q4_K_M.json`. Runtime server log ends without an explicit OOM report. The measured DSpark throughput is below the historical no-spec result (36.4 vs 37.5 generation TPS; 27.2 vs 32.7 bench_tg). The no-spec Baseline/fingerprint/launcher was restored; no speed improvement or complete quality vector was established for DSpark.
 
-This Trial used MPLBACKEND=Agg; the historical no-spec Trial did not pin it. The operator chose to keep the historical baseline rather than repeat it. Retain this grading-environment caveat for coding-score comparisons. Converter dependency versions were restored before the full Trial.
+This Trial used MPLBACKEND=Agg; the historical no-spec Trial did not pin it. The operator chose to keep the historical baseline rather than repeat it. Converter dependency versions were restored before the full Trial.
 
 ## MoE Split
 N_CPU_MOE=None resolves to 41 through the harness, with N_GPU_LAYERS=99. Experts stay on CPU; preserve configured context when tuning resources.
@@ -40,7 +40,7 @@ N_CPU_MOE=None resolves to 41 through the harness, with N_GPU_LAYERS=99. Experts
 ## Our Config Baseline
 2026-10-12: context 65536, q4_0 KV, batch 512 / ubatch 128, threads 8, flash attention on, mmap, fallback sampler, no speculation. SQLite validation passed 5/5 at 31.3 t/s, peak VRAM 3.4 GB. Validation is not a complete agentic/coding vector.
 
-Full Claw-15 + coding-10 Trial completed with outcome OK / status on_front: agentic 0.6000, coding 0.6300, generation TPS 37.5, bench_tg 32.7, peak VRAM 3.7 GB. Description: `trial MiniCPM-V-4.7-35B-A3B b11577 serial`. Speculation remained disabled. Image/video quality remains outside this text evaluation.
+Full Claw-15 + coding-10 Trial completed with outcome OK / status on_front: ; generation TPS 37.5, bench_tg 32.7, peak VRAM 3.7 GB. Description: `trial MiniCPM-V-4.7-35B-A3B b11577 serial`. Speculation remained disabled. Image/video quality remains outside this text evaluation.
 
 ## Sources / Verification
 - [Publisher GGUF card](https://huggingface.co/openbmb/MiniCPM-V-4.7-35B-A3B-gguf), hf retrieval 2026-10-12.

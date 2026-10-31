@@ -2,7 +2,7 @@
 """serve-config.py — Start llama-server using autoresearch/core/config.py.
 
 Reads MODEL + key llama-server flags from the mutable Baseline in config.py
-and starts the server detached (survives terminal close). After autoloop
+and starts the server detached (survives terminal close). After explicit Fingerprint application
 finishes, this is how a user (or an agent) gets the tuned model back up
 for live use.
 

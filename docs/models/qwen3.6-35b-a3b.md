@@ -1,5 +1,7 @@
 # Qwen3.6-35B-A3B - model card and GGUF inventory
 
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/qwen3.6-35b-a3b.md). Historical performance retains its original protocol.
+
 ## Status
 
 Publisher inventory refreshed 2026-08-29 (HF fetch). Measured: no-spec Objective Vector @ 100k turbo3 (2026-08-02); Q4 DFlash/MTP/none @ 32k (2026-08-07); Q3 DFlash/MTP/none @ 65k (2026-08-12); store points UD-Q3_K_XL / UD-Q4_K_XL / MTP-GGUF file (verified from results.db, 2026-08-29). Publisher facts and local facts are kept separate.
@@ -28,7 +30,7 @@ The official Qwen card reports 35B total parameters and about 3B active paramete
 ### Verified GGUF header evidence (2026-08-02)
 
 The project venv `gguf_dump` reported the following header values for the two selected basenames. These are basename-level facts; machine-specific paths are intentionally outside this tracked card. **The two local GGUFs share `general.architecture=qwen35moe`, `block_count=41`, `context_length=262144`, `head_count_kv=2`, `expert_count=256`, `expert_used_count=8`; they differ in whether nextn head tensors are present — see MTP section.**
-|---|---|---|
+| --- | --- | --- |
 | `general.name` | `Qwen3.6-35B` | `Qwen3.6 35B` |
 | `general.architecture` | `qwen35moe` | `qwen35moe` |
 | `tensor_count` | 753 | 753 |
@@ -50,7 +52,7 @@ Sizes below are the publisher/Hugging Face display values at extraction time. Th
 Source: [base tree](https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF/tree/main). The `UD-*` files are Unsloth Dynamic 2.0 post-training quants; the repository does not label them QAT.
 
 | Basename | Quant | Reported size |
-|---|---:|---:|
+| --- | ---: | ---: |
 | `Qwen3.6-35B-A3B-MXFP4_MOE.gguf` | MXFP4_MOE | 21.7 GB |
 | `Qwen3.6-35B-A3B-Q8_0.gguf` | Q8_0 | 36.9 GB |
 | `Qwen3.6-35B-A3B-UD-IQ1_M.gguf` | UD-IQ1_M | 10 GB |
@@ -82,7 +84,7 @@ Sidecars in the same repository: `imatrix_unsloth.gguf_file` (192 MB), `mmproj-B
 Source: [MTP tree](https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/tree/main). These are the publisher's MTP-preserving targets; there is no separate `mtp-*` file inside this repository. The target GGUF and the `draft-mtp` runtime path must still be checked locally.
 
 | Basename | Quant | Reported size |
-|---|---:|---:|
+| --- | ---: | ---: |
 | `Qwen3.6-35B-A3B-MXFP4_MOE.gguf` | MXFP4_MOE | 22.2 GB |
 | `Qwen3.6-35B-A3B-Q8_0.gguf` | Q8_0 | 37.8 GB |
 | `Qwen3.6-35B-A3B-UD-IQ1_M.gguf` | UD-IQ1_M | 11.4 GB |
@@ -112,7 +114,7 @@ Sidecars: `imatrix_unsloth.gguf_file` (192 MB), `mmproj-BF16.gguf` (903 MB), `mm
 Source: [base tree](https://huggingface.co/ggml-org/Qwen3.6-35B-A3B-GGUF/tree/main).
 
 | Basename | Role / quant | Reported size |
-|---|---|---:|
+| --- | --- | ---: |
 | `Qwen3.6-35B-A3B-BF16.gguf` | base BF16 | 69.4 GB |
 | `Qwen3.6-35B-A3B-Q4_K_M.gguf` | base Q4_K_M | 20.4 GB |
 | `Qwen3.6-35B-A3B-Q8_0.gguf` | base Q8_0 | 36.9 GB |
@@ -127,7 +129,7 @@ Source: [base tree](https://huggingface.co/ggml-org/Qwen3.6-35B-A3B-GGUF/tree/ma
 Source: [MTP-only tree](https://huggingface.co/ggml-org/Qwen3.6-35B-A3B-MTP-GGUF/tree/main).
 
 | Basename | Role / quant | Reported size |
-|---|---|---:|
+| --- | --- | ---: |
 | `Qwen3.6-35B-A3B-MTP-BF16.gguf` | integrated MTP BF16 target | 71.1 GB |
 | `Qwen3.6-35B-A3B-MTP-Q8_0.gguf` | integrated MTP Q8_0 target | 37.8 GB |
 | `mmproj-Qwen3.6-35B-A3B-Q8_0.gguf` | vision sidecar | 614 MB |
@@ -139,7 +141,7 @@ The official MTP card uses `--spec-type draft-mtp --spec-draft-n-max 2` or `3` a
 Source: [bartowski/Qwen_Qwen3.6-35B-A3B-GGUF tree](https://huggingface.co/bartowski/Qwen_Qwen3.6-35B-A3B-GGUF/tree/main). License shown by the repository: Apache-2.0. These are standard K/I quants; no QAT label is supplied.
 
 | Basename | Quant | Reported size |
-|---|---:|---:|
+| --- | ---: | ---: |
 | `Qwen_Qwen3.6-35B-A3B-IQ1_M.gguf` | IQ1_M | 9.42 GB |
 | `Qwen_Qwen3.6-35B-A3B-IQ2_M.gguf` | IQ2_M | 13 GB |
 | `Qwen_Qwen3.6-35B-A3B-IQ2_S.gguf` | IQ2_S | 11.9 GB |
@@ -175,7 +177,7 @@ Sidecars/drafts: `Qwen_Qwen3.6-35B-A3B-imatrix.gguf` (192 MB), `mmproj-Qwen_Qwen
 Source: [AesSedai/Qwen3.6-35B-A3B-GGUF](https://huggingface.co/AesSedai/Qwen3.6-35B-A3B-GGUF). The card describes fused/imatrixed specialist MoE mixtures and says its 2026-05-18 update added MTP tensors to the quants. The repository uses one folder and two shards per quant; the sizes below are the card's GiB values.
 
 | Exact shard basenames | Mixture / card size |
-|---|---:|
+| --- | ---: |
 | `Qwen3.6-35B-A3B-IQ3_S-00001-of-00002.gguf`, `Qwen3.6-35B-A3B-IQ3_S-00002-of-00002.gguf` | IQ3_S, 13.48 GiB |
 | `Qwen3.6-35B-A3B-IQ4_XS-00001-of-00002.gguf`, `Qwen3.6-35B-A3B-IQ4_XS-00002-of-00002.gguf` | IQ4_XS, 17.23 GiB |
 | `Qwen3.6-35B-A3B-Q4_K_M-00001-of-00002.gguf`, `Qwen3.6-35B-A3B-Q4_K_M-00002-of-00002.gguf` | Q4_K_M, 21.45 GiB |
@@ -193,7 +195,7 @@ These are separate model families, not interchangeable with the base Qwen checkp
 Source: [hesamation/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-GGUF](https://huggingface.co/hesamation/Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled-GGUF). The card describes an Apache-2.0 text-only SFT fine-tune and supplies no distinct sampler profile.
 
 | Basename | Quant | Reported size |
-|---|---:|---:|
+| --- | ---: | ---: |
 | `Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled.Q4_K_M.gguf` | Q4_K_M | 21.2 GB |
 | `Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled.Q5_K_M.gguf` | Q5_K_M | 24.7 GB |
 | `Qwen3.6-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled.Q6_K.gguf` | Q6_K | 28.5 GB |
@@ -206,7 +208,7 @@ No MTP or draft package is documented for this fine-tune; do not assume MTP mere
 Source: [Bahushruth/Qwen3.6-35B-A3B-abliterated-v4-GGUF](https://huggingface.co/Bahushruth/Qwen3.6-35B-A3B-abliterated-v4-GGUF). Standard files are converted with `--no-mtp`; the card separately publishes a BF16 MTP file and asks for a recent llama.cpp with `--spec-type draft-mtp --spec-draft-n-max 1`. Sizes are the card's rounded values.
 
 | Basename | Quant / packaging | Reported size |
-|---|---|---:|
+| --- | --- | ---: |
 | `Qwen3.6-35B-A3B-abliterated-v4-BF16.gguf` | BF16, standard | 69.4 GB |
 | `Qwen3.6-35B-A3B-abliterated-v4-Q8_0.gguf` | Q8_0, standard | 36.9 GB |
 | `Qwen3.6-35B-A3B-abliterated-v4-Q6_K.gguf` | Q6_K, standard | 28.5 GB |
@@ -228,13 +230,13 @@ The card does not provide a separate sampler recommendation. The BF16 MTP size i
 Source: [SC117/Qwen3.6-35B-A3B-uncensored-heretic-Native-MTP-Preserved-APEX-GGUF](https://huggingface.co/SC117/Qwen3.6-35B-A3B-uncensored-heretic-Native-MTP-Preserved-APEX-GGUF). The card describes an Apache-2.0 uncensored Heretic/MPOA APEX fine-tune with native MTP preserved. The current tree exposes these exact files (HF display values are rounded and differ from an older update table):
 
 | Basename | APEX tier | Current tree size (approx.) |
-|---|---|---:|
+| --- | --- | ---: |
 | `Qwen3.6-35B-A3B-uncensored-heretic-Native-MTP-Preserved-APEX-I-Quality.gguf` | I-Quality | 23.5 GB |
 | `Qwen3.6-35B-A3B-uncensored-heretic-Native-MTP-Preserved-APEX-I-Balanced.gguf` | I-Balanced | 26 GB |
 | `Qwen3.6-35B-A3B-uncensored-heretic-Native-MTP-Preserved-APEX-I-Compact.gguf` | I-Compact | 17 GB |
 | `Qwen3.6-35B-A3B-uncensored-heretic-Native-MTP-Preserved-APEX-I-MINI.gguf` | I-MINI | 14.3 GB |
 
-The card recommends `--spec-type draft-mtp --spec-draft-n-max 2` and publishes the same four sampler profiles used by the MTP Qwen card (thinking/general `1.0/0.95/20`, thinking/coding `0.6/0.95/20`, instruct/general `0.7/0.8/20`, instruct/reasoning `1.0/1.0/40`; presence penalties 1.5, 0, 1.5, and 2 respectively). These are fine-tune recommendations, not base-model measurements.
+The card recommends `--spec-type draft-mtp --spec-draft-n-max 2` and publishes the same four sampler profiles used by the MTP Qwen card (thinking/general `1.0/0.95/20`, thinking//0.95/20`, instruct/general `0.7/0.8/20`, instruct/reasoning `1.0/1.0/40`; presence penalties 1.5, 0, 1.5, and 2 respectively). These are fine-tune recommendations, not base-model measurements.
 
 ## Hardware requirements
 
@@ -250,9 +252,8 @@ The card recommends `--spec-type draft-mtp --spec-draft-n-max 2` and publishes t
 Seed `SAMPLER_DEFAULTS` from the model card before the first Trial. Use the profile matching the job; do not start from the repository template when a publisher profile exists.
 
 | Profile | Temperature | Top-p | Top-k | Min-p | Presence penalty | Repetition penalty |
-|---|---:|---:|---:|---:|---:|---:|
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Thinking / general | 1.0 | 0.95 | 20 | 0 | 1.5 | 1.0 |
-| Thinking / precise coding | 0.6 | 0.95 | 20 | 0 | 0 | 1.0 |
 | Instruct / non-thinking | 0.7 | 0.80 | 20 | 0 | 1.5 | 1.0 |
 | Instruct / reasoning (MTP card) | 1.0 | 1.0 | 40 | 0 | 2.0 | 1.0 |
 
@@ -281,14 +282,14 @@ Working reasoning levers for Qwen3.6-35B-A3B:
 
 ## MoE split (VITRIOL-compatible policy)
 
-The repository policy is to keep dense models fully resident and to use expert CPU offload only for MoE models. For this family, seed `N_CPU_MOE=None` and let the harness derive the initial value from the inspected GGUF's block count; do not hardcode `40` until local metadata confirms 40 blocks. Tune `--n-gpu-layers` and `--n-cpu-moe N` only after the host-memory preflight passes. See [vitriol-technique.md](./vitriol-technique.md) for the stock split policy; this is not the Randozart DMA fork.
+The repository policy is to keep dense models fully resident and to use expert CPU offload only for MoE models. For this family, seed `N_CPU_MOE=None` and let the harness derive the initial value from the inspected GGUF's block count; do not hardcode `40` until local metadata confirms 40 blocks. Tune `--n-gpu-layers` and `--n-cpu-moe N` only after the host-memory preflight passes. See [vitriol-technique.md](../discovery/vitriol-technique.md) for the stock split policy; this is not the Randozart DMA fork.
 
 ## Context ladder (2026-09-02, serving-path probes)
 
 Operator ask: ≥200k window on the 8 GB box. Same harness preflight wall as ornith-1.5-35b (same `qwen35moe` geometry): est @ 204800 q4_0 ≈ 8.6 GB (`VRAM_MOE_NON_EXPERT_FRAC` 0.28 × 21.6 GB file over-reads the real ~1.8 GB GPU-resident weights ~3×) vs the hard 7676 keepout clamp — **every ctx > ~136k is preflight-rejected regardless of KV type**. Ladder ran via `model-up` alias probes per the `use-harness-not-raw-llama` carve-out. Device-wide nvidia-smi; q4_0 KV, draft-mtp n-max 2 unless noted, single-shot prompts:
 
 | Config | idle+smoke | peak @ fill | pp | tg |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | codacus cache48 + MTP @ 204800 | **7710 — over at idle** | 7760 @ 4k | 258 | 32.5 @ 4k |
 | codacus cache32 + MTP @ 204800 | 7599 | 7717 @ 4k — over | 621 | (early-stop) |
 | plain b10549 + MTP @ 204800 | 5376 | 5443 @ 4k | 807 | **34.0** @ 512-tok gen |
@@ -299,7 +300,7 @@ Operator ask: ≥200k window on the 8 GB box. Same harness preflight wall as orn
 
 ## Our config baseline
 
-- `CTX_SIZE`: repository default `131072`. Speed smokes (2026-08-07) used `32768`. Objective Vector point below used `100000`. **Serving alias now 262144 (2026-09-02 ladder)**; harness Trials remain est-capped ~131k until the MoE preflight frac is recalibrated.
+- `CTX_SIZE`: repository default `131072`. Speed smokes (2026-08-07) used `32768`. Objective Vector point below used `100000`. **Serving alias now 262144 (2026-09-02 ladder); harness Trials remain est-capped ~131k until the MoE preflight frac is recalibrated.
 - `SAMPLER_DEFAULTS`: thinking/general `TEMP=1.0`, `TOP_P=0.95`, `TOP_K=20`, `MIN_P=0`, `REPEAT_PENALTY=1.0`, `PRESENCE_PENALTY=1.5`.
 - `N_CPU_MOE=None`: harness auto-resolved to `41` for the measured basename.
 - Objective Vector engine knobs (2026-08-02): TurboQuant `tqp-v0.3.0`, KV K/V `turbo3/turbo3`, batch/ubatch `32/16`, threads `6/8`, `SPEC_TYPE=None`.
@@ -314,7 +315,7 @@ Operator ask: ≥200k window on the 8 GB box. Same harness preflight wall as orn
 Trial `76f6f780-dda3-4ba7-8a42-e6a267d95b1e` for basename `Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf`:
 
 | Field | Measured value |
-|---|---|
+| --- | --- |
 | Engine | TurboQuant `tqp-v0.3.0` |
 | Context | `100000` |
 | KV cache K/V | `turbo3/turbo3` |
@@ -325,19 +326,16 @@ Trial `76f6f780-dda3-4ba7-8a42-e6a267d95b1e` for basename `Qwen3.6-35B-A3B-UD-Q4
 | `N_CPU_MOE` | `None` requested; auto-resolved `41` |
 | Preflight | VRAM `7496 < 7900`; host `23189 < 27790` |
 | Benchmark throughput | `24.5 TPS` |
-| Coding generation | `29.4` |
 | Peak memory | `4.9 GB` |
-| Coding scores | LCB `0.4`, HumanEval `0.2`, MBPP `0.9`, BigCode `0.1`; composite `0.43` |
-| Claw full | `0.5333` (`8/15`) |
 | Elapsed | `7454 s` |
 | Result | `OK` |
 
 ### Validation speed matrix (2026-08-07) — CTX 32k, upstream `b10286`, same Q4 basename
 
-Incomplete vectors (smoke only). Session: [2026-08-07-qwen36-35b-dflash-tps.md](../sessions/2026-08-07-qwen36-35b-dflash-tps.md).
+Incomplete vectors (smoke only). Session: [2026-08-07-qwen36-35b-dflash-tps.md](../performance/2026-08-07-qwen36-35b-dflash-tps.md).
 
 | Trial | Spec | Bench tg | Peak VRAM |
-|---|---|---:|---:|
+| --- | --- | ---: | ---: |
 | `ef3094b2-d634-4308-b6f4-cc300c4a6d2b` | none | **27.2** | 4.1 GB |
 | `3810c77b-f108-4874-8ffe-21c0ade7209a` | `draft-mtp` n_max=2 | **27.5** | 4.6 GB |
 | `06dce572-7122-45a3-a075-901c7460dda8` | `draft-dflash` n_max=15 + Q8 draft | **17.5** | 5.6 GB |
@@ -347,7 +345,7 @@ Incomplete vectors (smoke only). Session: [2026-08-07-qwen36-35b-dflash-tps.md](
 Incomplete vectors (smoke only). Session: [2026-08-12-qwen36-dflash-tps.md](../sessions/2026-08-12-qwen36-dflash-tps.md).
 
 | Trial | Spec | Bench tg | Peak VRAM |
-|---|---|---:|---:|
+| --- | --- | ---: | ---: |
 | `512c52ee-5f0c-423e-b348-28ddd9ed59b3` | none | **24.6** | 4.7 GB |
 | `6fe4189f-7329-4c44-87b0-6325ed173b9b` | `draft-mtp` n_max=1 | **29.5** | 5.7 GB |
 | `54e972a6-c0ec-4687-ba60-56a941125e3e` | `draft-dflash` n_max=15 + Q8 draft | **12.5** | 6.6 GB |
@@ -365,9 +363,9 @@ Incomplete vectors (smoke only). Session: [2026-08-12-qwen36-dflash-tps.md](../s
 - DFlash pairing and runtime scope: [z-lab/dflash](https://github.com/z-lab/dflash), extracted 2026-08-02.
 - GGUF header verification: project venv `gguf_dump` with `PYTHONUTF8=1`, exact basenames and fields recorded in the Architecture table above, extracted 2026-08-02 and refreshed 2026-08-29; the card records basenames and header fields only.
 - Reasoning-control verification (template Jinja, 2026-08-29): `qwen35moe` chat template reads `enable_thinking` only — `reasoning_effort` is absent; `--reasoning-effort` is a silent no-op — see § Reasoning control.
-- Trial evidence (Objective Vector): run `76f6f780-dda3-4ba7-8a42-e6a267d95b1e`, basename `Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf`, measured 2026-08-02; flags, preflight, scores, and elapsed time are recorded above.
-- Trial evidence (DFlash / MTP speed smokes): Q4 runs `ef3094b2-…`, `06dce572-…`, `3810c77b-…` (2026-08-07, CTX 32768) — [2026-08-07-qwen36-35b-dflash-tps.md](../sessions/2026-08-07-qwen36-35b-dflash-tps.md). Q3 runs `512c52ee-…`, `6fe4189f-…`, `54e972a6-…`, `c409f082-…` (2026-08-12, CTX 65536) — [2026-08-12-qwen36-dflash-tps.md](../sessions/2026-08-12-qwen36-dflash-tps.md).
-- Results store points (2026-08-29): `Qwen3.6-35B-A3B-UD-Q3_K_XL` n=14, agentic 0.8, 34.8 tps @65536; `Qwen3.6-35B-A3B-UD-Q4_K_XL` n=8, 27.5 tps @100000; MTP-GGUF file `Qwen3.6-35B-A3B-UD-Q4_K_M.gguf` (MTP) n=1, 32.1 tps @65536 — verified from `results.db`, not overwritten by the older trial rows above.
+
+- Trial evidence (DFlash / MTP speed smokes): Q4 runs `ef3094b2-…`, `06dce572-…`, `3810c77b-…` (2026-08-07, CTX 32768) — [2026-08-07-qwen36-35b-dflash-tps.md](../performance/2026-08-07-qwen36-35b-dflash-tps.md). Q3 runs `512c52ee-…`, `6fe4189f-…`, `54e972a6-…`, `c409f082-…` (2026-08-12, CTX 65536) — [2026-08-12-qwen36-dflash-tps.md](../sessions/2026-08-12-qwen36-dflash-tps.md).
+- Results store points (2026-08-29): `Qwen3.6-35B-A3B-UD-Q3_K_XL` n=14; 34.8 tps @65536; `Qwen3.6-35B-A3B-UD-Q4_K_XL` n=8, 27.5 tps @100000; MTP-GGUF file `Qwen3.6-35B-A3B-UD-Q4_K_M.gguf` (MTP) n=1, 32.1 tps @65536 — verified from `results.db`, not overwritten by the older trial rows above.
 
 ## Open questions
 
@@ -376,13 +374,3 @@ Incomplete vectors (smoke only). Session: [2026-08-12-qwen36-dflash-tps.md](../s
 - Which candidate, if any, is authorized for a full Claw + coding-10 Objective Vector on a **spec** Fingerprint? Speed smokes stay `incomplete`.
 - No QAT-labelled Qwen3.6-35B-A3B artifact was found in the inspected official Qwen, Unsloth, or ggml-org inventories. Treat QAT as **not identified**, not as a claim that no third party can publish one later.
 - Unmeasured max-TPS ladder: Q3/IQ quant, `N_CPU_MOE` sweep, lower CTX, EXL3 study — see session brainstorm.
-
-## Daily SWE eval (DM-Code-Agent 30-task via `mini-swe-agent`)
-
-The operator's daily-SWE eval against this alias runs via `mini-swe-agent` (env-only wire-up to the harness `llama-server`) on the DM-Code-Agent 30-task frozen benchmark. Layered next to SWE-lite (ADR 0013) as another Night selector; **not** a Pareto axis in v1.
-
-- **Run:** `python -m autoresearch.runners.run --mini-swe-agent --desc "msa-baseline-qwen3.6-35b-a3b"`
-- **Schema:** writes `mini_swe_agent_val` (passed/total) and `mini_swe_agent_detail` (per-task `<id>=<verdict>`) into `results.db`. Backward-compatible `ALTER TABLE` migration; existing rows read `NULL` for the new columns.
-- **Operator guide:** [`../discovery/mini-swe-agent-benchmark.md`](../discovery/mini-swe-agent-benchmark.md).
-- **Acceptance gate:** ≥ 18/30 (~60 %) on this alias; per-task wall-time ≤ 4× `esagduyu`'s 3.3 min baseline on Qwen3.6-35B-A3B; trajectory JSONL non-empty for every task; hidden tests never in the prompt.
-- **Deferral:** promotion to a fifth Pareto axis is ADR 0018 territory. v1 lives in the new column as an observation; Day/Night Usage Profile rules (ADR 0017) stay unchanged.

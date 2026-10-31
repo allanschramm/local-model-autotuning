@@ -65,7 +65,6 @@ class NoBenchmarks(importlib.abc.MetaPathFinder):
 
 
 sys.meta_path.insert(0, NoBenchmarks())
-from autoresearch.core import trial_store  # noqa: E402
 from autoresearch.core.llama_runner import NativeModelProcess, ServerIntent  # noqa: E402
 from autoresearch.tuning import TuningRunner, measure_perplexity, run_search  # noqa: E402
 
@@ -261,32 +260,15 @@ def main() -> None:
                     assert index == 1
                 else:
                     assert index == 0 and value == 10.05
-    with patch.object(trial_store, "_engine_version", return_value="e2e-runtime"):
-        trial_store.write_row(
-            artifact / "results.tsv",
-            "e2e",
-            0,
-            0,
-            0,
-            0,
-            0,
-            "incomplete",
-            "isolated storage E2E",
-            model="fixture.gguf",
-            ctx=65536,
-            tps=60,
-        )
     with sqlite3.connect(artifact / "results.db") as db:
-        assert db.execute("SELECT model FROM trials").fetchall() == [("fixture.gguf",)]
-    # Existing store callers no longer import a benchmark CLI.
-    assert callable(trial_store.write_row)
+        assert db.execute("SELECT count(*) FROM tuning_trials").fetchone()[0] > 0
     assert not any(
         name.startswith(("autoresearch.benchmarks", "autoresearch.runners")) for name in sys.modules
     )
     summary = {
         "status": "passed",
         "cases": [
-            "shared_sqlite_store",
+            "tuning_sqlite_store",
             "native_ppl_finite_estimate",
             "pareto",
             "fixed_ppl_reference",

@@ -1,5 +1,7 @@
 # Ling-3.0-tiny — Model Card
 
+Runtime scope: quality results remain in the [archived full card](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/models/ling-3.0-tiny.md). Historical performance retains its original protocol.
+
 **Source repo:** https://huggingface.co/bartowski/Ling-3.0-tiny-GGUF
 **Base model:** inclusionAI Ling-3.0-Tiny (MoE)
 **License:** MIT (per HF card)
@@ -35,11 +37,8 @@ Measured Objective Vector (complete, same Fingerprint):
 | :--- | ---: | :--- |
 | bench tg | 52.8 t/s | Day-eligible |
 | Combined TPS (coding gen) | 62.0 | coding row |
-| agentic (claw-full 15) | **0.8667** (13/15) | T053/T054 finance web_real fail only |
-| coding-10 | **0.3900** (HE 0.3 / MBPP 0.7 / LCB 0.4 / BC 0.0) | combined column |
-| min(agentic, coding) | 0.3900 | dominated by Qwen3.8-4B-Distill |
 
-Status `dominated` on coding, but kept as the **VRAM-efficient fallback**: same agentic score as the front winner at less than half its VRAM (2.5 vs 5.5 GB). Useful when co-running models or under tighter keepout. TSV `ed7b6627…` (validation) / `e2a298fb…` (full).
+Useful when co-running models or under tighter keepout. TSV `ed7b6627…` (validation) / `e2a298fb…` (full).
 
 ## Sources / Verification
 

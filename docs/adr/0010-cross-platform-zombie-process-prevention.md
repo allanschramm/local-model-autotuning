@@ -47,4 +47,4 @@ The solution must be cross-platform (Windows, Linux, macOS), contained strictly 
 
 ## References
 - [ADR 0001: Deepen Llama Server Runner](0001-deepen-llama-server-runner.md)
-- [ADR 0003: In-Process Benchmark Orchestration](0003-in-process-benchmark-orchestration.md)
+- [ADR 0003: In-Process Benchmark Orchestration](https://github.com/allanschramm/local-model-autotuning/blob/ea43a71f48571811ec1ba25df4ab71ed272d34f1/docs/adr/0003-in-process-benchmark-orchestration.md)

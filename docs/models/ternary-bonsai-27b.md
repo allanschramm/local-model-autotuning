@@ -7,10 +7,10 @@
 ## Measurements
 Validation on discrete 8 GB-class NVIDIA (PrismML `build-cuda`):
 
-| ctx | Preflight | bench_tg | Verdict |
-|---|---|---|---|
-| 65536 | est 8567 MB > 7900 | — | VRAM_PREFLIGHT fail |
-| 32768 | est 7850 MB OK | **10.6 t/s** | FAIL vs `TPS_FLOOR` 15 |
+| ctx | Preflight | bench_tg |
+| --- | --- | --- |
+| 65536 | est 8567 MB > 7900 | — |
+| 32768 | est 7850 MB OK | **10.6 t/s** |
 
 Same ~10.6 t/s reject already noted on [bonsai-27b.md](bonsai-27b.md) matrix (2026-07-21 @ 131k). Q1_0 target-only stays ~41 t/s on upstream CUDA — Ternary Q2_0 is not competitive for interactive use on the operator host.
 
