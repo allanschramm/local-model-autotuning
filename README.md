@@ -30,7 +30,7 @@ Tentativas e fronteira ficam em `results.db`; evidências e Fingerprints ficam e
 
 ## Escopo
 
-Este repositório entrega auto-tuning, proteções de recursos, provisionamento e documentação de performance. Claw/Coding/SWE/DM, rankings de qualidade e comandos antigos de Trial foram retirados. O benchmark com Pi permanece na branch `staging/independent-tuning-benchmark`, para extração posterior. O [índice de migração](docs/retired-quality.md) aponta para os originais arquivados; [extratos de performance](docs/performance/README.md) preservam os achados de runtime. O conteúdo de ensino já foi migrado para o projeto independente `ailocal-teach`; este repositório não mantém uma pasta local de curso.
+Este repositório entrega auto-tuning, proteções de recursos, provisionamento e documentação de performance. Claw/Coding/SWE/DM, rankings de qualidade e comandos antigos de Trial foram retirados. O [benchmark com Pi](https://github.com/allanschramm/ailocal-benchmark) já é um repositório privado independente, com os prompts, pacotes e histórico documental de qualidade. Os [resultados públicos](https://github.com/allanschramm/benchmarks) ficam separados do harness. O [índice de migração](docs/retired-quality.md) aponta para o arquivo legado e os originais imutáveis; [extratos de performance](docs/performance/README.md) preservam os achados de runtime. A divisão está registrada na [ADR 0021](docs/adr/0021-independent-repositories-and-documentation.md). O conteúdo de ensino pertence ao projeto independente `ailocal-teach`; este repositório não mantém uma pasta local de curso.
 
 A limpeza não migra ou apaga `results.db`, Baseline, modelos ou aliases. O dashboard lê somente tabelas de tuning e preserva as tabelas históricas.
 

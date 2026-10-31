@@ -9,7 +9,7 @@
 <!-- Scope: repo development agents. Research loop agents → read program.md -->
 
 ## Purpose
-Local model auto-tuning: configured ctx × TPS under fixed PPL and minimum-context constraints. Quality evaluation and historical reports are archived outside this distribution under [ADR 0020](docs/adr/0020-tuning-only-distribution.md). Domain language: [CONTEXT.md](CONTEXT.md).
+Local model auto-tuning: configured ctx × TPS under fixed PPL and minimum-context constraints. Quality evaluation and its document archive belong to the independent private [ailocal-benchmark](https://github.com/allanschramm/ailocal-benchmark), under [ADR 0020](docs/adr/0020-tuning-only-distribution.md) and [ADR 0021](docs/adr/0021-independent-repositories-and-documentation.md). Domain language: [CONTEXT.md](CONTEXT.md).
 
 ## Ownership
 Repository developers.
