@@ -763,6 +763,43 @@ class TestKvCalibration(unittest.TestCase):
         mb = self._kv_f16_mb(fields, 65536)
         self.assertAlmostEqual(mb, 65536 * b / (1024.0 * 1024.0), places=6)
 
+    def test_qwen35_periodic_attention_keeps_vram_preflight_conservative(self):
+        from autoresearch.core.llama_runner import preflight_vram
+
+        fields = {
+            "general.architecture": "qwen35",
+            "qwen35.block_count": 64,
+            "qwen35.embedding_length": 5120,
+            "qwen35.attention.head_count": 24,
+            "qwen35.attention.head_count_kv": 4,
+            "qwen35.attention.key_length": 256,
+            "qwen35.attention.value_length": 256,
+            "qwen35.full_attention_interval": 4,
+        }
+        fake_fields = {key: self._FakeField(value) for key, value in fields.items()}
+
+        class FakeReader:
+            def __init__(self, _path):
+                self.fields = fake_fields
+
+        # False rejects from charging recurrent layers, false admits from dropping
+        # f16 byte width, dense draft layers, or using an unverified layout.
+        with (
+            patch("gguf.GGUFReader", FakeReader),
+            patch.object(Path, "stat", return_value=MagicMock(st_size=5993834848)),
+            patch("autoresearch.core.llama_runner.resolve_vram_limit_mb", side_effect=float),
+        ):
+            self.assertTrue(preflight_vram(Path("m.gguf"), 100000, vram_limit_mb=7932)[0])
+            self.assertFalse(preflight_vram(Path("m.gguf"), 100000, vram_limit_mb=7700)[0])
+            fake_fields["qwen35.nextn_predict_layers"] = self._FakeField(2)
+            self.assertFalse(preflight_vram(Path("m.gguf"), 100000, vram_limit_mb=7800)[0])
+            del fake_fields["qwen35.nextn_predict_layers"]
+            fake_fields["qwen35.attention.recurrent_layers"] = self._FakeField([False] * 64)
+            self.assertFalse(preflight_vram(Path("m.gguf"), 100000, vram_limit_mb=7932)[0])
+            del fake_fields["qwen35.attention.recurrent_layers"]
+            fake_fields["qwen35.full_attention_interval"] = self._FakeField(0)
+            self.assertFalse(preflight_vram(Path("m.gguf"), 100000, vram_limit_mb=7932)[0])
+
     @unittest.skipUnless(
         Path("models/FINAL-Bench/pocket-26b-gguf/POCKET-26B-Q4_K_M.gguf").exists(),
         "POCKET-26B GGUF not downloaded",

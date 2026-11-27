@@ -91,6 +91,14 @@ def derive_alias(cfg: dict) -> str:
     return name or DEFAULT_ALIAS
 
 
+def _resolve_baseline_model(model: str) -> Path:
+    ref = Path(model)
+    repo_candidate = REPO_ROOT / ref
+    if not ref.is_absolute() and not (MODELS_DIR / ref).exists() and repo_candidate.exists():
+        return repo_candidate
+    return resolve_model_path(MODELS_DIR, ref)
+
+
 def build_args(cfg: dict) -> tuple[list[str], str, int, str]:
     """Build llama-server CLI args from config constants.
 
@@ -103,16 +111,7 @@ def build_args(cfg: dict) -> tuple[list[str], str, int, str]:
     if not model:
         print(f"ERROR: MODEL is not set in {CONFIG}", file=sys.stderr)
         sys.exit(2)
-    model_path = Path(str(model))
-    if not model_path.is_absolute():
-        models_candidate = REPO_ROOT / "models" / model_path
-        repo_candidate = REPO_ROOT / model_path
-        if models_candidate.exists():
-            model_path = models_candidate
-        elif repo_candidate.exists():
-            model_path = repo_candidate
-        else:
-            model_path = models_candidate
+    model_path = _resolve_baseline_model(str(model))
     args += ["--model", str(model_path)]
 
     alias = derive_alias(cfg)
@@ -304,7 +303,7 @@ def _preflight_or_exit(cfg: dict) -> None:
     model = cfg.get("MODEL")
     if not model:
         return
-    model_path = resolve_model_path(MODELS_DIR, str(model))
+    model_path = _resolve_baseline_model(str(model))
     ctx = int(cfg.get("CTX_SIZE", 131072))
     kv_k = cfg.get("KV_CACHE_K") or cfg.get("KV_CACHE", "q4_0")
     kv_v = cfg.get("KV_CACHE_V") or cfg.get("KV_CACHE", "q4_0")

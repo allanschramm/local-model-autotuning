@@ -8,11 +8,13 @@ Repository developers and operators.
 
 ## Local Contracts
 - Use the repo venv and core runtime resolution/safeguards.
+- `serve-config.py` uses the same Baseline model lookup for preflight and command construction. For relative references, direct matches under `models/` take precedence over repository-relative matches, followed by the shared nested lookup.
 - setup-check.sh imports all root runtime requirements through the project venv; missing mandatory packages fail. Tool probes do not replace model validation.
 - Prefer compatible prebuilt releases; engine compilation requires an explicit operator request.
 - `model_up.py` (global `model-up`) must work from any cwd: resolve `--model` and the Fingerprint `SPEC_DRAFT_MODEL` to absolute paths, and spawn `llama-server` with `cwd=REPO_ROOT`.
 - `models/aliases/model-up.cmd` (local Windows launcher, **never committed**) must invoke the **repo venv** python, falling back to bare `python` only when absent. A bare system `python` has no `gguf`, and `model_up.py` would then drop `--n-cpu-moe` on a MoE (`GGUFMetadataError` now makes that fail closed rather than spill).
 - `model_up.py` serves the Fingerprint file (issue #52, ADR 0014 phase 2): alias gives identity + local bind (`model`, `alias`, `host`, `port`, `llama_cpp_root`); engine flags and optional sampler defaults come from `fingerprints/<stem>.json` via the same subset/order as the trial runner (incl. SPEC auto-MTP + `--n-cpu-moe` auto). Missing/invalid file fails closed (exit 1, never alias-flag soup); stale alias `flags:` are ignored with a NOTE. Single-load gate unchanged. Engine flags pass through `load_mode_flag` (`NO_MMAP`/`MLOCK` -> `--load-mode`) and `build_command` runs `assert_flags_supported`, so an engine bump that dropped a flag fails before spawn instead of at startup.
+- For measured noncontiguous placement, store the native `--override-tensor` value in alias `tensor_overrides`. The launcher emits it before the Fingerprint's `--n-cpu-moe` rules because llama.cpp uses the first match. Keep the measured CPU expert count in the Fingerprint.
 - OpenVINO is optional. bench_openvino.py measures runtime throughput, not model quality.
 
 ## Work Guidance

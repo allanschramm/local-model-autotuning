@@ -59,6 +59,7 @@ class AliasConfig:
     # Optional repo-relative (or absolute) llama.cpp tree with build-cuda/bin.
     # Needed for arch forks (e.g. llama.cpp-nanbeige42) that upstream cannot load.
     llama_cpp_root: str | None = None
+    tensor_overrides: str | None = None
 
 
 @dataclass(frozen=True)
@@ -128,6 +129,7 @@ def load_alias_config(path: Path) -> AliasConfig:
     data: dict[str, object] = {}
     flags: list[str] = []
     in_flags = False
+    tensor_overrides: str | None = None
 
     for raw_line in path.read_text(encoding="utf-8").splitlines():
         line = raw_line.rstrip()
@@ -155,7 +157,11 @@ def load_alias_config(path: Path) -> AliasConfig:
         if key == "flags":
             in_flags = True
             continue
-        if key in {"alias", "model", "host", "description", "status", "llama_cpp_root"}:
+        if key == "tensor_overrides":
+            if value is not None and (not isinstance(value, str) or not value.strip()):
+                raise ValueError(f"{path}: tensor_overrides must be a non-empty string")
+            tensor_overrides = value
+        elif key in {"alias", "model", "host", "description", "status", "llama_cpp_root"}:
             data[key] = value
         elif key == "port":
             data[key] = int(value)
@@ -175,6 +181,7 @@ def load_alias_config(path: Path) -> AliasConfig:
         flags=tuple(flags),
         path=path,
         llama_cpp_root=str(llama_root) if llama_root else None,
+        tensor_overrides=tensor_overrides,
     )
 
 
@@ -363,7 +370,7 @@ def _load_fingerprint(cfg: AliasConfig) -> dict:
 
 
 def build_command(cfg: AliasConfig) -> tuple[list[str], Path]:
-    """Build the llama-server command: identity/bind from alias, engine from Fingerprint."""
+    """Build the command from alias placement and the model's engine Fingerprint."""
     binary = _resolve_alias_server(cfg)
     model_path = _resolve_model_path(cfg.model)
     if not model_path.exists():
@@ -381,6 +388,9 @@ def build_command(cfg: AliasConfig) -> tuple[list[str], Path]:
         "--port",
         str(cfg.port),
     ]
+    if cfg.tensor_overrides:
+        # llama.cpp applies the first matching rule, before the contiguous MoE offload.
+        cmd += ["--override-tensor", cfg.tensor_overrides]
     cmd += fingerprint_flags(data["engine"], model_path=model_path, server_binary=binary)
     sampler = data.get("sampler") or {}
     for key, flag in (

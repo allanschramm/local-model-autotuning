@@ -39,4 +39,5 @@ Architecture, configuration and historical performance only. Quality originals a
 - [qwythos-9b-claude-mythos-5-1m](qwythos-9b-claude-mythos-5-1m.md)
 - [spark-x2.5-4b](spark-x2.5-4b.md)
 - [ternary-bonsai-2-27b](ternary-bonsai-2-27b.md)
+- [ternary-bonsai-2.5-27b](ternary-bonsai-2.5-27b.md)
 - [ternary-bonsai-27b](ternary-bonsai-27b.md)

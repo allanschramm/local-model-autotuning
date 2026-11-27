@@ -9,6 +9,7 @@ Repository developers.
 ## Local Contracts
 - tuning.py owns finite Search, fixed-reference PPL admission and frontier checkpoints. core/search.py owns keys and adjacent Neighbors, not scores.
 - core/llama_runner.py shares lifetime, RAM/VRAM monitoring and cleanup between native PPL and monitored generation. Preserve every preflight/watchdog guard.
+- For Qwen3.5 dense and MoE GGUFs with an explicit periodic attention interval, `core/model_arch.py` charges context-scaled KV on full-attention and dense MTP layers. Explicit recurrent masks and unrecognized layouts retain the legacy estimate.
 - core/fingerprint.py owns portable files and explicit application; Search leaves Baseline and launcher selection untouched.
 - SQLite tuning_runs/tuning_trials are canonical. Unrelated historical tables are preserved, never migrated or rescored.
 - Imports work without quality or development packages.
