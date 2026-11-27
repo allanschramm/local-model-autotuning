@@ -18,6 +18,7 @@ Repository developers; parent docs/AGENTS.md.
 - Preserve measurement versus estimate and configured context versus occupancy. File/source links resolve.
 
 ## Child DOX Index
+- [2026-11-24-long-context-serving](2026-11-24-long-context-serving.md) — actual slot and prompt occupancy at 100K, client and launcher checks.
 - [2026-11-23-inkling-expert-placement](2026-11-23-inkling-expert-placement.md) — looped MoE runtime and expert placement Trials.
 - [2026-11-22-sensenova-loop-cuda](2026-11-22-sensenova-loop-cuda.md) — dense placement and matched CUDA runtime Trials.
 - [2026-11-10-windows-memory-fit](2026-11-10-windows-memory-fit.md) — TwIL batch Search and Nemotron host-memory gates.
