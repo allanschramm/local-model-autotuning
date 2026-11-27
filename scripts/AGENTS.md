@@ -8,6 +8,7 @@ Repository developers and operators.
 
 ## Local Contracts
 - Use the repo venv and core runtime resolution/safeguards.
+- `serve-config.py` uses the same Baseline model lookup for preflight and command construction. For relative references, direct matches under `models/` take precedence over repository-relative matches, followed by the shared nested lookup.
 - setup-check.sh imports all root runtime requirements through the project venv; missing mandatory packages fail. Tool probes do not replace model validation.
 - Prefer compatible prebuilt releases; engine compilation requires an explicit operator request.
 - `model_up.py` (global `model-up`) must work from any cwd: resolve `--model` and the Fingerprint `SPEC_DRAFT_MODEL` to absolute paths, and spawn `llama-server` with `cwd=REPO_ROOT`.
