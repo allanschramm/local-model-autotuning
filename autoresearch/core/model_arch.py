@@ -265,7 +265,7 @@ def gguf_kv_bytes_per_token_f16(path: Path) -> float | None:
     for n_kv in meta["per_layer_kv"]:
         if n_kv > 0:
             total_heads += n_kv
-    return float(total_heads) * (k_len + v_len)
+    return float(total_heads) * (k_len + v_len) * meta["bytes_per_cell"]
 
 
 def gguf_kv_f16_mb(path: Path, ctx_size: int) -> float | None:
@@ -310,11 +310,8 @@ def gguf_kv_f16_mb(path: Path, ctx_size: int) -> float | None:
         else:
             tok = ctx
             kl, vl = int(k_len), int(v_len)
-        # Element-cells (k+v dims × heads × tokens). Unit matches legacy
-        # gguf_kv_bytes_per_token_f16 (name says bytes; value is dim-cells —
-        # calibrated to measured llama.cpp peaks without an extra ×2).
         total_cells += float(n_kv) * float(kl + vl) * float(tok)
-    return total_cells / (1024.0 * 1024.0)
+    return total_cells * meta["bytes_per_cell"] / (1024.0 * 1024.0)
 
 
 def _gguf_kv_meta(path: Path) -> dict[str, Any] | None:
@@ -376,6 +373,28 @@ def _gguf_kv_meta(path: Path) -> dict[str, Any] | None:
                 # Pad short arrays with 0 (unknown trailing layers)
                 per_layer = parsed + [0] * (n_layer - len(parsed))
 
+        # Use llama.cpp's periodic attention layout only when the GGUF declares
+        # it and has no explicit recurrent-layer override.
+        bytes_per_cell = 1  # Preserve the legacy calibration for other layouts.
+        if (
+            arch in ("qwen35", "qwen35moe")
+            and f"{arch}.attention.recurrent_layers" not in reader.fields
+        ):
+            interval = _num(f"{arch}.full_attention_interval")
+            nextn_key = f"{arch}.nextn_predict_layers"
+            nextn = _num(nextn_key) if nextn_key in reader.fields else 0
+            if (
+                interval is not None
+                and 1 < interval <= n_layer
+                and nextn is not None
+                and 0 <= nextn < n_layer
+            ):
+                per_layer = [
+                    heads if i >= n_layer - nextn or (i + 1) % interval == 0 else 0
+                    for i, heads in enumerate(per_layer)
+                ]
+                bytes_per_cell = 2  # Actual f16 storage on the attention layers.
+
         head_dim = n_embd / n_head
         k_len = _num(f"{arch}.attention.key_length")
         v_len = _num(f"{arch}.attention.value_length")
@@ -392,6 +411,7 @@ def _gguf_kv_meta(path: Path) -> dict[str, Any] | None:
 
         return {
             "per_layer_kv": per_layer,
+            "bytes_per_cell": bytes_per_cell,
             "k_len": k_len,
             "v_len": v_len,
             "k_len_swa": k_swa,
